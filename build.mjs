@@ -11,7 +11,7 @@ for (const name of ['stats.svg', 'overlays.svg', 'board.svg']) {
   const svg = await read('guide/' + name);
   illustratedHtml = illustratedHtml.replaceAll('src="./guide/' + name + '"', 'src="data:image/svg+xml;base64,' + Buffer.from(svg, 'utf8').toString('base64') + '"');
 }
-const standalone = illustratedHtml.replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${css}\n</style>`).replace('<script type="module" src="/app.js"></script>', () => `<script id="bot-worker-source" type="application/json">${workerSource}</script>\n<script type="module">\n${script}\n</script>`).replace('href="/" aria-label="Знамёна — главная"', 'href="#" aria-label="Знамёна — главная"');
+const standalone = illustratedHtml.replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${css}\n</style>`).replace('<script type="module" src="/app.js"></script>', () => `<script id="bot-worker-source" type="application/json">${workerSource}</script>\n<script type="module">\n${script}\n</script>`).replace('href="/" aria-label="Game Of Trows — главная"', 'href="#" aria-label="Game Of Trows — главная"');
 await fs.mkdir(root + 'docs', { recursive: true });
 await Promise.all([
   fs.writeFile(root + 'Lamps.html', standalone),

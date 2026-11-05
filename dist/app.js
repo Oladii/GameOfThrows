@@ -204,7 +204,7 @@ function paintAuras() {
   if (showAll) {
     legend.innerHTML = [0, 1].map(team => `<span><i class="aura-swatch ${team ? 'south' : 'north'}-attack"></i> ${TEAM_NAMES[team]} · атака</span><span><i class="aura-swatch ${team ? 'south' : 'north'}-defense"></i> ${TEAM_NAMES[team]} · защита</span>`).join('') + '<span>Пересечения — цветными полосами</span>';
   } else if (source) {
-    legend.innerHTML = `<span><i class="aura-swatch ${source.team ? 'south' : 'north'}-${source.type === 'attackLamp' ? 'attack' : 'defense'}"></i> ${TEAM_NAMES[source.team]} · ${LABELS[source.type]} · аура ${config.stats[source.type].aura} кл.${isPreview ? ' · предпросмотр' : ''}</span>`;
+    legend.innerHTML = `<span><i class="aura-swatch ${source.team ? 'south' : 'north'}-${source.type === 'attackLamp' ? 'attack' : 'defense'}"></i> ${TEAM_NAMES[source.team]} · ${LABELS[source.type]} · аура ${config.stats[source.type].aura} ${plural(config.stats[source.type].aura, ['клетка', 'клетки', 'клеток'])}${isPreview ? ' · предпросмотр' : ''}</span>`;
   } else legend.innerHTML = '';
 }
 function lastMoveTrace() {
@@ -271,15 +271,15 @@ function unitReferenceMarkup() {
   const rows = TYPES.map(type => {
     const stats = config.stats[type], fields = ['move', 'damage', 'range', 'fortitude'];
     let aura = '';
-    if (type === 'attackLamp') aura = `Аура ${stats.aura} кл.: урон +${stats.damageBonus}, дальность +${stats.rangeBonus}.`;
-    if (type === 'defenseLamp') aura = `Аура ${stats.aura} кл.: стойкость +${stats.defenseBonus}.`;
+    if (type === 'attackLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон +${stats.damageBonus}, дальность +${stats.rangeBonus}.`;
+    if (type === 'defenseLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: стойкость +${stats.defenseBonus}.`;
     if (type === 'shield') {
       const p = config.shieldPromotion;
-      aura = `После края: урон +${p.damageBonus}, дальность +${p.rangeBonus} (до ${p.maxRange}), стойкость +${p.defenseBonus}. Аура ${p.aura} кл.: союзникам урон +${p.damageBonus}, дальность +${p.rangeBonus}, стойкость +${p.defenseBonus}. Броненосцам дальность не даёт.`;
+      aura = `После края: урон +${p.damageBonus}, дальность +${p.rangeBonus} (до ${p.maxRange}), стойкость +${p.defenseBonus}. Аура ${p.aura} ${plural(p.aura, ['клетка', 'клетки', 'клеток'])}: союзникам урон +${p.damageBonus}, дальность +${p.rangeBonus}, стойкость +${p.defenseBonus}. Броненосцам дальность не даёт.`;
     }
     return `<tr data-reference-type="${type}"><th scope="row"><span class="reference-unit">${icon(type)}<span>${LABELS[type]}</span></span></th>${fields.map(field => `<td data-stat="${field}">${stats[field]}</td>`).join('')}</tr>${aura ? `<tr class="reference-aura" data-reference-aura="${type}"><td colspan="5">${aura}</td></tr>` : ''}`;
   }).join('');
-  return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th><th scope="col" title="Максимальный ход">Ход</th><th scope="col">Урон</th><th scope="col" title="Дальность атаки">Дал.</th><th scope="col" title="Стойкость">Стойк.</th></tr></thead><tbody>' + rows + '</tbody></table><p class="reference-note">Параметры до усилений. Радиусы аур — в клетках.</p>';
+  return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th><th scope="col" title="Максимальный ход">Ход</th><th scope="col">Урон</th><th scope="col" title="Дальность атаки">Дал.</th><th scope="col" title="Стойкость">Стойк.</th></tr></thead><tbody>' + rows + '</tbody></table><p class="reference-note">Параметры до усилений.</p>';
 }
 function render(deaths = []) {
   const state = visibleState(), displayLog = movement ? movement.before.log : reviewingTurn && lastTurn ? lastTurn.before.log : log;
@@ -330,7 +330,7 @@ function render(deaths = []) {
   $('#result-banner').hidden = state.winner === null || gamePhase !== 'playing' || Boolean(movement) || Boolean(currentDeaths.length);
   $('#result-banner').textContent = state.winner === 'draw' ? 'Ничья · все фигуры уничтожены' : state.winner !== null ? `Победа команды «${TEAM_NAMES[state.winner]}»` : '';
   let hint = editor ? 'Выберите фигуру в палитре и нажмите на пустую клетку. Для удаления выберите ластик.' : selected && p?.team === state.turn ? 'Подсвечены пустые клетки, до которых можно пройти. Наведите на клетку для прогноза.' : 'Выберите свою фигуру, затем подсвеченную клетку.';
-  if (!editor && selected && p?.team === state.turn && p.type === 'shield') hint = shieldCanRetreat(p, config) ? `Край достигнут: ход во все стороны, постоянные +${config.shieldPromotion.damageBonus} к урону и +${config.shieldPromotion.defenseBonus} к стойкости, дальность до ${config.shieldPromotion.maxRange}; аура атаки и защиты — ${config.shieldPromotion.aura} кл.` : 'Броненосец ходит вперёд и вбок. Достигнув противоположного края поля, навсегда получает ход назад.';
+  if (!editor && selected && p?.team === state.turn && p.type === 'shield') hint = shieldCanRetreat(p, config) ? `Край достигнут: ход во все стороны, постоянные +${config.shieldPromotion.damageBonus} к урону и +${config.shieldPromotion.defenseBonus} к стойкости, дальность до ${config.shieldPromotion.maxRange}; аура атаки и защиты — ${config.shieldPromotion.aura} ${plural(config.shieldPromotion.aura, ['клетка', 'клетки', 'клеток'])}.` : 'Броненосец ходит вперёд и вбок. Достигнув противоположного края поля, навсегда получает ход назад.';
   if (!editor && state.winner === null && !state.pieces.filter(p => p.team === state.turn).some(p => reachable(p, state, config).length)) hint = 'У команды нет доступных ходов. Исследуйте позицию в редакторе или разрешите пропуск в настройках.';
   if (!editor && isBotTurn()) hint = 'Сейчас ход бота. Можно рассматривать атаки и ауры или открыть настройки.';
   else if (!editor && !selected && lastAction) hint = `${lastMoveText} Выберите свою фигуру.`;
@@ -479,7 +479,7 @@ $('#settings-form').addEventListener('submit', event => {
 function renderAbout() {
   $('#about-directions').textContent = config.geometry === 'hex' ? 'На шестиугольном поле атаки и ауры идут по шести прямым линиям через стороны клеток. Через углы они не идут. Дальность — сколько клеток проходит такая линия от фигуры.' : `На квадратном поле атаки и ауры идут по ${config.experiments.squareDiagonals ? 'восьми направлениям, включая диагонали' : 'четырём направлениям через грани'}. Длина луча — число клеток от источника.`;
   const promotion = config.shieldPromotion;
-  $('#about-promotion').textContent = `Достигший противоположного края броненосец получает постоянные +${promotion.damageBonus} к урону, +${promotion.defenseBonus} к стойкости и +${promotion.rangeBonus} к дальности (предел ${promotion.maxRange}). Он даёт другим союзникам в радиусе ${promotion.aura} кл. по лучам поддержку знаменосца и командира: по +${promotion.damageBonus} к урону, +${promotion.rangeBonus} к дальности и +${promotion.defenseBonus} к стойкости. Его собственная аура его не усиливает.`;
+  $('#about-promotion').textContent = `Достигший противоположного края броненосец получает постоянные +${promotion.damageBonus} к урону, +${promotion.defenseBonus} к стойкости и +${promotion.rangeBonus} к дальности (предел ${promotion.maxRange}). Он даёт другим союзникам в радиусе ${promotion.aura} ${plural(promotion.aura, ['клетки', 'клеток', 'клеток'])} по лучам поддержку знаменосца и командира: по +${promotion.damageBonus} к урону, +${promotion.rangeBonus} к дальности и +${promotion.defenseBonus} к стойкости. Его собственная аура его не усиливает.`;
   $('#about-stats').innerHTML = '<thead><tr><th>Фигура</th><th>Ход</th><th>Урон</th><th>Дальность</th><th>Стойкость</th><th>Аура</th></tr></thead><tbody>' + TYPES.map(type => { const stats = config.stats[type]; return `<tr><td>${LABELS[type]}</td><td>${stats.move}</td><td>${stats.damage || '—'}</td><td>${stats.range || '—'}</td><td>${stats.fortitude}</td><td>${stats.aura || '—'}</td></tr>`; }).join('') + '</tbody>';
   const experiments = config.experiments;
   $('#about-blocking').textContent = [experiments.lampShieldBlocking ? 'Вражеский броненосец перекрывает все атаки, проходящие через его клетку, и закрывает фигуры за собой.' : 'Вражеский броненосец перекрывает атаки лукарей и других броненосцев, проходящие через его клетку. Атаки знаменосца проходят через броненосцев.', experiments.allyShotsPass ? 'Свои фигуры не мешают союзным атакам.' : 'Свои фигуры перекрывают союзные атаки, проходящие через их клетки.'].join(' ');

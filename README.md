@@ -1,4 +1,4 @@
-# Game of Throws — Знамёна
+# Game Of Trows
 
 **[Играть в браузере](https://oladii.github.io/GameOfThrows/)** — откройте ссылку и начинайте партию. Устанавливать ничего не нужно.
 
