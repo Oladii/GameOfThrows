@@ -7,6 +7,8 @@ import { createGame, validateConfig, validateState } from '../dist/engine.js';
 const archiveCopy = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 class ArchiveTestStorage {
   games = new Map();
+  playerId = null;
+  async getOrCreatePlayerId(createId) { return this.playerId ||= createId(); }
   async get(id) { return archiveCopy(this.games.get(id)); }
   async put(value) { this.games.set(value.id, archiveCopy(value)); }
   async list() { return archiveCopy([...this.games.values()]); }
@@ -83,7 +85,7 @@ const archiveWaitFor = async predicate => {
 
 test('disabled recorder never touches storage, session, network, or the game save key', async () => {
   const fail = () => assert.fail('disabled recorder performed I/O');
-  const recorder = new GameRecorder({ enabled: false, storage: new Proxy({}, { get: fail }), sessionStorage: new Proxy({}, { get: fail }), fetch: fail });
+  const recorder = new GameRecorder({ enabled: false, storage: new Proxy({}, { get: fail }), playerStorage: new Proxy({}, { get: fail }), sessionStorage: new Proxy({}, { get: fail }), fetch: fail });
   assert.equal(await recorder.start(archiveFixture()), false);
   assert.equal(await recorder.resume(archiveFixture()), false);
   assert.equal(await recorder.record('move', archiveFixture(1)), false);
@@ -500,4 +502,117 @@ test('temporary per-game rate limits do not block other games and remain retryab
     assert.equal((await harness.storage.get(limitedId)).lastFailure, undefined);
     recorder.close();
   }
+});
+
+test('one anonymous browser ID is reused across games, reloads and simultaneous independent tabs', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const first = new GameRecorder(harness.options);
+  const second = new GameRecorder({ ...harness.options, sessionStorage: new ArchiveTestSession() });
+  const input = archiveFixture(), before = JSON.stringify(input);
+  // An imported field cannot replace this browser's generated identity.
+  input.playerId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  await Promise.all([first.start(input), second.start(archiveFixture())]);
+  const firstId = first.status.gameId;
+  assert.notEqual(firstId, second.status.gameId);
+  const playerId = (await harness.storage.get(firstId)).create.playerId;
+  assert.match(playerId, /^[0-9a-f-]{36}$/);
+  assert.notEqual(playerId, input.playerId);
+  assert.notEqual(playerId, firstId);
+  assert.equal((await harness.storage.get(second.status.gameId)).create.playerId, playerId);
+  await first.start(archiveFixture());
+  assert.equal((await harness.storage.get(first.status.gameId)).create.playerId, playerId);
+  first.close();
+  const reloaded = new GameRecorder(harness.options);
+  await reloaded.resume(archiveFixture()); await reloaded.start(archiveFixture());
+  assert.equal((await harness.storage.get(reloaded.status.gameId)).create.playerId, playerId);
+  await Promise.all([reloaded.flush(), second.flush()]);
+  for (const game of server.games.values()) assert.equal(game.create.playerId, playerId);
+  delete input.playerId;
+  assert.equal(JSON.stringify(input), before);
+  assert.equal(JSON.stringify(reloaded.status).includes(playerId), false);
+  assert.equal(JSON.stringify([...harness.sessionStorage.values]).includes(playerId), false);
+  second.close(); reloaded.close();
+});
+
+test('a different browser store receives a different anonymous ID', async () => {
+  const firstHarness = archiveHarness();
+  const secondHarness = archiveHarness({ uuid: firstHarness.options.uuid });
+  const first = new GameRecorder(firstHarness.options), second = new GameRecorder(secondHarness.options);
+  await Promise.all([first.start(archiveFixture()), second.start(archiveFixture())]);
+  const firstPlayer = (await firstHarness.storage.get(first.status.gameId)).create.playerId;
+  const secondPlayer = (await secondHarness.storage.get(second.status.gameId)).create.playerId;
+  assert.notEqual(firstPlayer, secondPlayer);
+  first.close(); second.close();
+});
+
+test('legacy queued and acknowledged creates keep their exact body and gain no inferred player ID', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  let recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture()); const legacyId = recorder.status.gameId;
+  const legacy = await harness.storage.get(legacyId);
+  delete legacy.create.playerId;
+  await harness.storage.put(legacy);
+  const oldBody = archiveCopy(legacy.create);
+  server.loseCreateAck = true;
+  await recorder.flush();
+  assert.equal(recorder.status.state, 'error');
+  recorder.close();
+  recorder = new GameRecorder(harness.options);
+  await recorder.resume(archiveFixture(1)); await recorder.flush();
+  const creates = server.requests.filter(request => request.url.endsWith('/api/games'));
+  assert.equal(creates.length, 2);
+  assert.deepEqual(creates.map(request => request.body), [oldBody, oldBody]);
+  assert.equal(Object.hasOwn(server.games.get(legacyId).create, 'playerId'), false);
+  assert.equal(Object.hasOwn((await harness.storage.get(legacyId)).create, 'playerId'), false);
+  await recorder.start(archiveFixture()); await recorder.flush();
+  assert.equal((await harness.storage.get(recorder.status.gameId)).create.playerId, harness.storage.playerId);
+  assert.equal(Object.hasOwn(server.games.get(legacyId).create, 'playerId'), false);
+  recorder.close();
+});
+
+test('unavailable or invalid identity storage cannot silently create temporary IDs or report a save', async () => {
+  const server = archiveServer(); let available = false, createCalls = 0;
+  const playerStorage = { getOrCreatePlayerId(createId) { createCalls++; if (!available) throw new Error('unavailable'); return createId(); } };
+  const harness = archiveHarness({ fetch: server.fetch, playerStorage });
+  const recorder = new GameRecorder(harness.options);
+  assert.equal(await recorder.start(archiveFixture()), false);
+  assert.equal(recorder.status.state, 'error'); assert.equal(recorder.status.message, 'storage');
+  await recorder.flush();
+  assert.equal(recorder.status.state, 'error');
+  assert.equal((await harness.storage.list()).length, 0);
+  assert.equal(server.requests.length, 0);
+  assert.equal(createCalls, 1);
+  available = true;
+  assert.equal(await recorder.start(archiveFixture()), true);
+  await recorder.start(archiveFixture()); await recorder.flush();
+  assert.equal(createCalls, 2); // The successful identity stays fixed in this recorder.
+  const ids = new Set([...server.games.values()].map(game => game.create.playerId));
+  assert.equal(ids.size, 1); assert.equal(recorder.status.state, 'saved');
+  recorder.close();
+
+  const invalidHarness = archiveHarness({ playerStorage: { getOrCreatePlayerId: () => 'not-a-uuid' } });
+  const invalid = new GameRecorder(invalidHarness.options);
+  assert.equal(await invalid.start(archiveFixture()), false);
+  assert.equal(invalid.status.message, 'storage');
+  assert.equal((await invalidHarness.storage.list()).length, 0);
+  invalid.close();
+});
+
+test('identity storage is never accessed by a drainer or a resumed legacy game', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const first = new GameRecorder(harness.options);
+  await first.start(archiveFixture()); const legacyId = first.status.gameId;
+  const legacy = await harness.storage.get(legacyId); delete legacy.create.playerId;
+  await harness.storage.put(legacy); first.close();
+  const fail = () => assert.fail('resuming a legacy game touched identity storage');
+  const resumed = new GameRecorder({ ...harness.options, playerStorage: { getOrCreatePlayerId: fail } });
+  await resumed.resume(archiveFixture(1));
+  assert.equal(resumed.status.gameId, legacyId);
+  assert.equal(Object.hasOwn((await harness.storage.get(legacyId)).create, 'playerId'), false);
+  const drainer = new GameRecorder({ ...harness.options, sessionStorage: new ArchiveTestSession(), playerStorage: { getOrCreatePlayerId: fail } });
+  await drainer.flush();
+  assert.equal(server.games.get(legacyId).create.playerId, undefined);
+  assert.equal(drainer.status.pending, 0);
+  drainer.close();
+  resumed.close();
 });

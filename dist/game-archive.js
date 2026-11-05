@@ -1,6 +1,8 @@
 // This queue is intentionally separate from the game's own saved position.
 // Credentials remain in IndexedDB and never enter a game export or a status.
 const ArchiveSessionKey = 'game-of-throws-archive-tab-v1';
+const ArchivePlayerIdKey = 'player-id';
+const ArchiveIsUUID = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 const ArchiveEventTypes = new Set(['move', 'pass', 'config', 'undo', 'restore', 'finish', 'abandon']);
 const ArchivePayloadFields = ['config', 'state', 'action', 'deaths', 'actor', 'reason', 'outcome'];
 const ArchiveSnapshot = value => JSON.parse(JSON.stringify(value));
@@ -43,7 +45,7 @@ const ArchiveSanitize = value => {
 };
 
 class ArchiveIndexedDBStorage {
-  constructor(indexedDB) { this.indexedDB = indexedDB; this.opened = null; }
+  constructor(indexedDB) { this.indexedDB = indexedDB; this.opened = null; this.identityOpened = null; }
   open() {
     if (!this.opened) this.opened = new Promise((resolve, reject) => {
       if (!this.indexedDB) { reject(new Error('storage_unavailable')); return; }
@@ -72,6 +74,38 @@ class ArchiveIndexedDBStorage {
   get(id) { return this.transaction('readonly', store => store.get(id)); }
   put(value) { return this.transaction('readwrite', store => store.put(value)); }
   list() { return this.transaction('readonly', store => store.getAll()); }
+  openIdentity() {
+    // Keep the queue database at v1 so an older open game can still drain it.
+    if (!this.identityOpened) this.identityOpened = new Promise((resolve, reject) => {
+      if (!this.indexedDB) { reject(new Error('storage_unavailable')); return; }
+      const request = this.indexedDB.open('game-of-throws-archive-identity-v1', 1);
+      request.onupgradeneeded = () => { request.result.createObjectStore('metadata', { keyPath: 'id' }); };
+      request.onerror = request.onblocked = () => reject(new Error('storage_unavailable'));
+      request.onsuccess = () => {
+        request.result.onversionchange = () => { request.result.close(); this.identityOpened = null; };
+        resolve(request.result);
+      };
+    }).catch(error => { this.identityOpened = null; throw error; });
+    return this.identityOpened;
+  }
+  async getOrCreatePlayerId(createId) {
+    const database = await this.openIdentity();
+    return new Promise((resolve, reject) => {
+      // A read/write transaction serializes simultaneous first visits in tabs.
+      const transaction = database.transaction('metadata', 'readwrite'), store = transaction.objectStore('metadata');
+      let playerId;
+      const request = store.get(ArchivePlayerIdKey);
+      request.onsuccess = () => {
+        try {
+          playerId = request.result ? request.result.value : createId();
+          if (!ArchiveIsUUID(playerId)) throw new Error('invalid_player_id');
+          if (!request.result) store.put({ id: ArchivePlayerIdKey, value: playerId });
+        } catch { transaction.abort(); }
+      };
+      transaction.oncomplete = () => resolve(playerId);
+      transaction.onabort = transaction.onerror = () => reject(new Error('storage_unavailable'));
+    });
+  }
   async update(id, change) {
     const database = await this.open();
     return new Promise((resolve, reject) => {
@@ -95,6 +129,9 @@ export class GameRecorder {
   #endpoint;
   #app;
   #storage;
+  #playerStorage;
+  #playerId = null;
+  #identityError = false;
   #session;
   #fetch;
   #clock;
@@ -130,6 +167,7 @@ export class GameRecorder {
     this.#status = { state: this.#enabled ? 'pending' : 'disabled', pending: 0, failed: 0, gameId: null, gameStatus: null, message: '' };
     if (!this.#enabled) return;
     this.#storage = options.storage || new ArchiveIndexedDBStorage(options.indexedDB || globalThis.indexedDB);
+    this.#playerStorage = options.playerStorage || this.#storage;
     try { this.#session = options.sessionStorage || globalThis.sessionStorage; } catch { this.#session = null; }
     this.#operations = this.#initialize(options).catch(() => { this.#setError('storage'); });
     this.#onlineTarget = options.onlineTarget || (typeof window !== 'undefined' ? window : null);
@@ -200,20 +238,27 @@ export class GameRecorder {
     const active = games.find(game => game.id === this.#activeId);
     const pending = games.reduce((count, game) => count + game.events.length + (game.created ? 0 : 1), 0);
     const failed = games.filter(game => game.blocked);
-    const failure = this.#lastError || failed[0]?.blocked.message || games.find(game => game.lastFailure && (!game.created || game.events.length))?.lastFailure.message || '';
+    const failure = this.#lastError || (this.#identityError ? 'storage' : '') || failed[0]?.blocked.message || games.find(game => game.lastFailure && (!game.created || game.events.length))?.lastFailure.message || '';
     this.#status = {
       state: failure ? 'error' : syncing ? 'syncing' : pending ? 'pending' : 'saved',
       pending, failed: failed.length, gameId: active?.id || null, gameStatus: active?.gameStatus || null, message: failure
     };
     this.#emit();
   }
-  #newRecord(input, reason) {
+  async #newRecord(input, reason) {
+    if (!this.#playerId) {
+      try {
+        const playerId = await this.#playerStorage.getOrCreatePlayerId(this.#uuid);
+        if (!ArchiveIsUUID(playerId)) throw new Error('storage_unavailable');
+        this.#playerId = playerId; this.#identityError = false;
+      } catch (error) { this.#identityError = true; throw error; }
+    }
     const bytes = this.#randomBytes();
     const writeKey = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
     if (!/^[a-f0-9]{64}$/.test(writeKey)) throw new Error('random_unavailable');
     const id = this.#uuid();
     const create = {
-      schemaVersion: 1, id, startedAt: this.#now(), app: this.#app,
+      schemaVersion: 1, id, playerId: this.#playerId, startedAt: this.#now(), app: this.#app,
       game: { mode: input.mode, humanTeam: input.humanTeam, firstMove: input.firstMove },
       initial: { config: input.config, state: input.state }, startReason: reason, source: input.source || 'player'
     };
@@ -259,7 +304,7 @@ export class GameRecorder {
         const abandoned = await this.#update(active.id, game => this.#append(game, 'abandon', { reason: 'new-game' }) ? game : null);
         if (!abandoned) return false;
       }
-      const game = this.#newRecord(snapshot, resume ? 'resume' : 'new');
+      const game = await this.#newRecord(snapshot, resume ? 'resume' : 'new');
       await this.#storage.put(game);
       this.#activeId = game.id; this.#saveSession();
       this.#lastError = null; await this.#refreshStatus(); return true;

@@ -1,7 +1,11 @@
 {
   "name": "lamps-tactics-prototype",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node server.mjs", "build": "node build.mjs", "test": "node --test tests/*.test.js" }
+  "scripts": {
+    "start": "node server.mjs",
+    "build": "node build.mjs",
+    "test": "node --test tests/*.test.js"
+  }
 }
