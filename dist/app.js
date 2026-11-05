@@ -19,11 +19,23 @@ const attackBadge = info => `<g class="attack-indicator" data-attack="${info.dam
 const rangeBadge = info => `<g class="range-indicator" data-range="${info.range}"><title>Дальность атаки: ${info.range}</title><circle class="range-badge" cx="6.5" cy="-20" r="7.5"/><text class="range-text" x="6.5" y="-19.6" style="font-size:${String(info.range).length > 2 ? 6 : 9}px">${info.range}</text></g>`;
 const fortBadge = value => `<g class="fort-indicator"><title>Стойкость: ${value}</title><circle class="fort-badge" cx="17" cy="17" r="7.5"/><text class="fort-text" x="17" y="17.4">${value}</text></g>`;
 const AURA_COLORS = ['#a9cf91', '#c6a5df', '#b66a80', '#edd46c'];
-// One bit per team/type; alternate translucent hatch lines in overlaps.
+// Opposite hatch directions distinguish attack and defense; team colors alternate.
 const auraPatterns = Array.from({ length: 15 }, (_, i) => {
+  const mask = i + 1;
+  const strokes = AURA_COLORS.map((color, bit) => {
+    if (!(mask & (1 << bit))) return '';
+    const offset = bit < 2 ? 0 : 6;
+    const path = bit % 2 === 0
+      ? [0, 1, 2].map(k => `M${offset + k * 12 - 12} 12L${offset + k * 12} 0`).join(' ')
+      : [-1, 0, 1].map(k => `M${offset + k * 12} 0L${offset + k * 12 + 12} 12`).join(' ');
+    return `<path d="${path}" fill="none" stroke="${color}" stroke-width="3" stroke-opacity="0.4"/>`;
+  }).join('');
+  return `<pattern id="aura-${mask}" width="12" height="12" patternUnits="userSpaceOnUse">${strokes}</pattern>`;
+}).join('');
+const auraFills = Array.from({ length: 15 }, (_, i) => {
   const mask = i + 1, colors = AURA_COLORS.filter((_, bit) => mask & (1 << bit));
-  const lines = colors.map((color, index) => `<line x1="${index * 8 + 4}" y1="0" x2="${index * 8 + 4}" y2="8" stroke="${color}" stroke-width="3" stroke-opacity="0.2"/>`).join('');
-  return `<pattern id="aura-${mask}" width="${colors.length * 8}" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">${lines}</pattern>`;
+  const stops = colors.map((color, index) => `<stop offset="${index * 100 / colors.length}%" stop-color="${color}"/><stop offset="${(index + 1) * 100 / colors.length}%" stop-color="${color}"/>`).join('');
+  return `<linearGradient id="aura-fill-${mask}" x1="0%" y1="0%" x2="100%" y2="100%">${stops}</linearGradient>`;
 }).join('');
 const skullShape = () => '<path class="skull-head" d="M8 1.5c-3.4 0-5.5 2.4-5.5 5.3 0 2 1.2 3.4 2.5 3.9V14h6v-3.3c1.3-.5 2.5-1.9 2.5-3.9C13.5 3.9 11.4 1.5 8 1.5Z"/><circle class="skull-eye" cx="5.5" cy="6.8" r="1.4"/><circle class="skull-eye" cx="10.5" cy="6.8" r="1.4"/><path class="skull-nose" d="m8 8.6-1.2 1.8h2.4Z"/><path class="skull-teeth" d="M7 11.5V14m2-2.5V14"/>';
 const fatalMark = () => `<g class="fatal-mark" transform="translate(-25,9)" aria-hidden="true"><circle class="skull-badge" cx="8" cy="8" r="8.5"/>${skullShape()}</g>`;
@@ -32,7 +44,7 @@ let firstMove = 'south';
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
 const botRunner = new BotRunner();
-let selected = null, editor = false, tool = 'shield', editorTeam = 0, hover = null, inspection = null, toastTimer;
+let selected = null, editor = false, tool = 'shield', editorTeam = 0, hover = null, inspection = null, toastTimer, fieldView = null;
 let report = analyze(state, config), available = [], ready = false;
 const STORAGE = 'lamps-prototype-v1';
 const PRESET_REVISION = 1;
@@ -151,11 +163,11 @@ function boardMarkup() {
   $('#board').setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
   const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p])), destinations = new Set(available.map(c => key(c.q, c.r)));
   const selectedPiece = state.pieces.find(p => p.id === selected);
-  const showAttacks = $('#show-attacks').checked, showTeamDamage = showAttacks && !selectedPiece;
+  const showAttacks = fieldView === 'attacks', showTeamDamage = showAttacks;
   const attackSources = showAttacks ? state.pieces.map(piece => ({ piece, stats: report.get(piece.id) })).filter(source => source.stats.damage > 0) : [];
   $('#attack-legend').hidden = !showAttacks;
   $('#attack-legend').innerHTML = `<span class="attack-team north">${TEAM_NAMES[0]}</span><span class="attack-team south">${TEAM_NAMES[1]}</span><span>${!attackSources.length ? 'Нет атакующих фигур' : showTeamDamage ? 'Суммарный урон каждой команды' : 'Зоны обеих команд · снимите выбор для чисел урона'}</span>`;
-  $('#board').innerHTML = `<defs>${auraPatterns}<linearGradient id="attack-overlap" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="50%" stop-color="#d6e6ef"/><stop offset="50%" stop-color="#f3d6c2"/></linearGradient><marker id="damage-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#b98227"/></marker></defs>` + board.map(c => {
+  $('#board').innerHTML = `<defs>${auraPatterns}${auraFills}<linearGradient id="attack-overlap" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="50%" stop-color="#d6e6ef"/><stop offset="50%" stop-color="#f3d6c2"/></linearGradient><marker id="damage-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#b98227"/></marker></defs>` + board.map(c => {
     const k = key(c.q, c.r), p = occupied.get(k), { x, y } = point(c);
     const classes = ['cell']; if ((c.q + c.r) % 2) classes.push('alt');
     if (destinations.has(k) && !editor && selectedPiece?.team === state.turn) classes.push('reachable');
@@ -178,14 +190,14 @@ function boardMarkup() {
       const info = report.get(p.id);
       token = `<g class="piece ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[p.type]}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${fortBadge(info.fortitude)}${incomingBadge(info)}${attackBadge(info)}${rangeBadge(info)}${fatalMark()}</g>`;
     }
-    return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="0" role="button" aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/><polygon class="aura-overlay" points="${polygon(c)}" aria-hidden="true"/>${!p && destinations.has(k) && !editor ? `<circle class="move-dot" cx="${x}" cy="${y}" r="3"/>` : ''}${$('#show-coordinates').checked ? `<text class="coordinate" x="${x}" y="${y + (p && damageLabel ? -32 : 29)}">${k}</text>` : ''}${damageLabel}${token}</g>`;
+    return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="0" role="button" aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/><polygon class="aura-overlay" points="${polygon(c)}" aria-hidden="true"/>${!p && destinations.has(k) && !editor ? `<circle class="move-dot" cx="${x}" cy="${y}" r="3"/>` : ''}${fieldView === 'coordinates' ? `<text class="coordinate" x="${x}" y="${y + (p && damageLabel ? -32 : 29)}">${k}</text>` : ''}${damageLabel}${token}</g>`;
   }).join('') + '<g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" aria-hidden="true">${currentDeaths.map(piece => {
     const { x, y } = point(piece);
     return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygon({ q: 0, r: 0 })}"/><circle class="death-pulse" r="22"/><g class="death-ghost ${piece.team === 0 ? 'north' : 'south'}"><g class="death-token"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[piece.type]}</g></g><g class="death-skull"><g class="fatal-mark" transform="translate(-16,-17) scale(2)">${skullShape()}</g></g></g></g>`;
   }).join('')}</g>` + lastMoveTrace() + movingTokenMarkup();
 }
 function paintAuras() {
-  const state = visibleState(), showAll = $('#show-auras').checked;
+  const state = visibleState(), showAll = fieldView === 'auras';
   const selectedPiece = state.pieces.find(p => p.id === selected);
   const support = selectedPiece && ['attackLamp', 'defenseLamp'].includes(selectedPiece.type);
   const isPreview = !showAll && support && inspection?.isPreview && inspection.piece?.id === selected;
@@ -197,13 +209,14 @@ function paintAuras() {
     let mask = 0;
     for (const lamp of sources) if (auraReaches(lamp, { q, r }, position, config)) mask |= (lamp.type === 'shield' ? 3 : lamp.type === 'defenseLamp' ? 2 : 1) << (lamp.team * 2);
     element.classList.toggle('has-aura', Boolean(mask));
-    if (mask) element.style.setProperty('--aura-fill', `url(#aura-${mask})`);
+    if (mask) element.style.setProperty('--aura-fill', `url(#aura-${showAll ? 'fill-' : ''}${mask})`);
     else element.style.removeProperty('--aura-fill');
   });
   const legend = $('#aura-legend');
+  legend.classList.toggle('solid-auras', showAll);
   legend.hidden = !showAll && !source;
   if (showAll) {
-    legend.innerHTML = [0, 1].map(team => `<span><i class="aura-swatch ${team ? 'south' : 'north'}-attack"></i> ${TEAM_NAMES[team]} · атака</span><span><i class="aura-swatch ${team ? 'south' : 'north'}-defense"></i> ${TEAM_NAMES[team]} · защита</span>`).join('') + '<span>Пересечения — цветными штрихами</span>';
+    legend.innerHTML = [0, 1].map(team => `<span><i class="aura-swatch ${team ? 'south' : 'north'}-attack"></i> ${TEAM_NAMES[team]} · атака</span><span><i class="aura-swatch ${team ? 'south' : 'north'}-defense"></i> ${TEAM_NAMES[team]} · защита</span>`).join('') + '<span>Пересечения — цветными полосами</span>';
   } else if (source) {
     legend.innerHTML = `<span><i class="aura-swatch ${source.team ? 'south' : 'north'}-${source.type === 'attackLamp' ? 'attack' : 'defense'}"></i> ${TEAM_NAMES[source.team]} · ${LABELS[source.type]} · аура ${config.stats[source.type].aura} ${plural(config.stats[source.type].aura, ['клетка', 'клетки', 'клеток'])}${isPreview ? ' · предпросмотр' : ''}</span>`;
   } else legend.innerHTML = '';
@@ -288,6 +301,7 @@ function unitReferenceMarkup(promotionOpen = false) {
 }
 function render(deaths = []) {
   const state = visibleState(), displayLog = movement ? movement.before.log : reviewingTurn && lastTurn ? lastTurn.before.log : log;
+  for (const view of ['attacks', 'auras', 'coordinates']) $('#show-' + view).setAttribute('aria-pressed', String(fieldView === view));
   clearTimeout(deathEffectTimer);
   currentDeaths = Array.isArray(deaths) && !matchMedia('(prefers-reduced-motion: reduce)').matches ? deaths : [];
   $('#first-move').value = firstMove;
@@ -340,6 +354,7 @@ function render(deaths = []) {
   if (!editor && isBotTurn()) hint = 'Сейчас ход бота. Можно рассматривать атаки и ауры или открыть настройки.';
   else if (!editor && !selected && lastAction) hint = `${lastMoveText} Выберите свою фигуру.`;
   if (gamePhase === 'setup') hint = editor ? 'Выберите фигуру и пустую клетку для перестановки. Палитра добавляет фигуры. «Готово» завершает настройку позиции.' : 'Настройте партию и нажмите «Начать». До этого фигуры и бот не ходят.';
+  if (fieldView) hint = `${{ attacks: 'Показаны атаки обеих команд', auras: 'Показаны ауры всех фигур', coordinates: 'Показаны координаты всех клеток' }[fieldView]}. Нажмите кнопку ещё раз или выберите фигуру, чтобы выйти.`;
   if (reviewingTurn) hint = `Просмотр перед последним ходом. ${lastMoveText} Нажмите →, чтобы вернуться к партии.`;
   if (currentDeaths.length) hint = 'Расчёт боя: погибшие фигуры удаляются одновременно.';
   if (movement) hint = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(lastAction.from)} → ${positionText(lastAction.to)}. Движение…`;
@@ -359,18 +374,19 @@ function onCell(q, r) {
   const occupant = state.pieces.find(p => p.q === q && p.r === r);
   if (editor) {
     if (tool === 'erase') { if (occupant) { checkpoint(); state.pieces = state.pieces.filter(p => p !== occupant); selected = null; state.winner = null; render(); } return; }
-    if (occupant) { selected = occupant.id; render(); return; }
+    if (occupant) { fieldView = null; selected = occupant.id; render(); return; }
     const moving = state.pieces.find(p => p.id === selected);
     if (moving) { checkpoint(); moving.q = q; moving.r = r; state.winner = null; selected = null; render(); return; }
     checkpoint(); const id = 'e' + crypto.randomUUID(); state.pieces.push({ id, type: tool, team: editorTeam, q, r, group: null }); state.winner = null; selected = id; render(); return;
   }
-  if (occupant) { selected = occupant.id; render(); return; }
+  if (occupant) { fieldView = null; selected = occupant.id; render(); return; }
   if (!selected || !available.some(c => c.q === q && c.r === r)) return;
   try { const result = move(state, config, selected, { q, r }), before = currentSnapshot(), action = { id: selected, from: result.action.from, to: result.action.to }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; state = result.state; log.push({ text: `${TEAM_NAMES[result.action.team]} · ${LABELS[result.action.type]}: ${positionText(result.action.from)} → ${q}, ${r}`, detail: deathDetail(result.deaths) }); selected = null; presentMove(before, action, result.deaths); } catch (error) { toast(error.message); }
 }
 $('#board').addEventListener('click', event => { const c = event.target.closest('[data-cell]'); if (c) onCell(...c.dataset.cell.split(',').map(Number)); });
 $('#board').addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { const c = event.target.closest('[data-cell]'); if (c) { event.preventDefault(); onCell(...c.dataset.cell.split(',').map(Number)); } } });
 function hoverCell(event) {
+  if (fieldView) return;
   const c = event.target.closest('[data-cell]'), k = c?.dataset.cell;
   if (!k || k === hover) return; hover = k;
   const [q, r] = k.split(',').map(Number);
@@ -382,7 +398,7 @@ $('#board').addEventListener('pointermove', hoverCell);
 $('#board').addEventListener('focusin', hoverCell);
 $('#board').addEventListener('pointerleave', clearHover);
 $('#board').addEventListener('focusout', event => { if (!$('#board').contains(event.relatedTarget)) clearHover(); });
-for (const id of ['show-attacks', 'show-auras', 'show-coordinates']) $('#' + id).addEventListener('change', render);
+for (const view of ['attacks', 'auras', 'coordinates']) $('#show-' + view).addEventListener('click', () => { fieldView = fieldView === view ? null : view; selected = null; render(); });
 $('#undo').addEventListener('click', () => {
   if (!history.length || reviewingTurn || (gamePhase === 'setup' && !editor)) return;
   let previous = history.pop();
@@ -512,7 +528,7 @@ $('#import-file').addEventListener('change', async event => {
   } catch (error) { toast(error.message); }
   event.target.value = '';
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const deaths = movement.deaths; cancelMovement(); render(deaths); } });
 ready = true; render();

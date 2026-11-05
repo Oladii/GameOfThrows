@@ -1,27 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="650" viewBox="0 0 960 650" role="img" aria-labelledby="title desc">
-<title id="title">Что показывают галочки «Атаки», «Ауры» и «Координаты»</title>
+<title id="title">Что показывают кнопки «Атаки», «Ауры» и «Координаты»</title>
 <desc id="desc">Три схемы подсказок игрового поля. Атаки показывают зоны и отдельный суммарный урон каждой команды. Ауры идут по шести лучам; пример с дальностью две клетки. Координаты подписывают адрес каждой клетки.</desc>
 <defs>
  <linearGradient id="attackOverlap" x1="0" y1="0" x2="1" y2="1"><stop offset="50%" stop-color="#d6e6ef"/><stop offset="50%" stop-color="#f3d6c2"/></linearGradient>
- <pattern id="auraNorthFlag" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M2 0 V7" fill="none" stroke="#a9cf91" stroke-width="2.8" stroke-opacity=".2"/></pattern>
- <pattern id="auraNorthCommander" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M2 0 V7" fill="none" stroke="#c6a5df" stroke-width="2.8" stroke-opacity=".2"/></pattern>
- <pattern id="auraSouthFlag" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M2 0 V7" fill="none" stroke="#b66a80" stroke-width="2.8" stroke-opacity=".2"/></pattern>
- <pattern id="auraSouthCommander" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M2 0 V7" fill="none" stroke="#edd46c" stroke-width="2.8" stroke-opacity=".2"/></pattern>
- <pattern id="auraOverlap" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M2 0 V12" fill="none" stroke="#a9cf91" stroke-width="2.8" stroke-opacity=".2"/><path d="M8 0 V12" fill="none" stroke="#c6a5df" stroke-width="2.8" stroke-opacity=".2"/></pattern>
+ <pattern id="auraNorthFlag" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M2 0 V7" fill="none" stroke="#a9cf91" stroke-width="2.8" stroke-opacity=".4"/></pattern>
+ <pattern id="auraNorthCommander" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)"><path d="M2 0 V7" fill="none" stroke="#c6a5df" stroke-width="2.8" stroke-opacity=".4"/></pattern>
+ <pattern id="auraSouthFlag" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M2 0 V7" fill="none" stroke="#b66a80" stroke-width="2.8" stroke-opacity=".4"/></pattern>
+ <pattern id="auraSouthCommander" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)"><path d="M2 0 V7" fill="none" stroke="#edd46c" stroke-width="2.8" stroke-opacity=".4"/></pattern>
+ <pattern id="auraFilledOverlap" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="10" height="10" fill="#a9cf91"/><rect width="5" height="10" fill="#c6a5df"/></pattern>
 </defs>
 <g font-family="Arial, sans-serif">
 <rect width="960" height="650" fill="#f5f3ed"/>
-<text x="32" y="42" font-size="28" fill="#28352f" font-weight="700" >Три слоя подсказок</text>
-<text x="32" y="69" font-size="17" fill="#7d8278" font-weight="400" >Включайте нужные галочки под полем. Примеры показаны на гексах.</text>
+<text x="32" y="42" font-size="28" fill="#28352f" font-weight="700" >Три режима подсказок</text>
+<text x="32" y="69" font-size="17" fill="#7d8278" font-weight="400" >Кнопка снимает выбор фигуры и включает один режим для всего поля.</text>
 <rect x="32" y="92" width="896" height="164" rx="16" fill="#fffefb" stroke="#e4e3d9"/>
 <path d="M301 114 V234" stroke="#e4e3d9"/>
 <rect x="32" y="272" width="896" height="164" rx="16" fill="#fffefb" stroke="#e4e3d9"/>
 <path d="M301 294 V414" stroke="#e4e3d9"/>
 <rect x="32" y="452" width="896" height="164" rx="16" fill="#fffefb" stroke="#e4e3d9"/>
 <path d="M301 474 V594" stroke="#e4e3d9"/>
-<rect x="54" y="104" width="22" height="22" rx="5" fill="#3e607c"/>
-<path d="M59 115 l4 4 8-10" fill="none" stroke="#fffefb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="87" y="122" font-size="22" fill="#28352f" font-weight="700" >Атаки</text>
+<rect x="54" y="100" width="212" height="28" rx="8" fill="#e4eadb" stroke="#9da996" stroke-width="1.2"/>
+<text x="160" y="121" font-size="20" fill="#28352f" font-weight="700" text-anchor="middle">Атаки</text>
 <polygon points="179.31,144.40 179.31,167.60 159.22,179.20 139.12,167.60 139.12,144.40 159.22,132.80" fill="#d6e6ef" stroke="#e4e3d9" stroke-width="1.4" />
 <polygon points="220.88,144.40 220.88,167.60 200.78,179.20 180.69,167.60 180.69,144.40 200.78,132.80" fill="#f3d6c2" stroke="#e4e3d9" stroke-width="1.4" />
 <polygon points="158.52,180.40 158.52,203.60 138.43,215.20 118.34,203.60 118.34,180.40 138.43,168.80" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.4" />
@@ -40,61 +39,48 @@
 <text x="332" y="132" font-size="20" fill="#28352f" font-weight="700" >Зоны поражения обеих команд.</text>
 <text x="332" y="161" font-size="18" fill="#28352f" font-weight="400" >Синий — Север, оранжевый — Юг.</text>
 <text x="332" y="187" font-size="18" fill="#28352f" font-weight="400" >В кружках — суммарный урон каждой команды.</text>
-<text x="332" y="221" font-size="18" fill="#28352f" font-weight="400" >Числа урона видны, когда фигура не выбрана.</text>
-<rect x="54" y="284" width="22" height="22" rx="5" fill="#3e607c"/>
-<path d="M59 295 l4 4 8-10" fill="none" stroke="#fffefb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="87" y="302" font-size="22" fill="#28352f" font-weight="700" >Ауры</text>
-<polygon points="167.49,321.23 167.49,334.77 155.75,341.55 144.02,334.77 144.02,321.23 155.75,314.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="167.49,321.23 167.49,334.77 155.75,341.55 144.02,334.77 144.02,321.23 155.75,314.45" fill="url(#auraNorthFlag)" />
+<text x="332" y="221" font-size="18" fill="#28352f" font-weight="400" >Два кружка — клетку атакуют обе команды.</text>
+<rect x="54" y="280" width="212" height="28" rx="8" fill="#e4eadb" stroke="#9da996" stroke-width="1.2"/>
+<text x="160" y="301" font-size="20" fill="#28352f" font-weight="700" text-anchor="middle">Ауры</text>
+<polygon points="167.49,321.23 167.49,334.77 155.75,341.55 144.02,334.77 144.02,321.23 155.75,314.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
 <polygon points="191.73,321.23 191.73,334.77 180.00,341.55 168.27,334.77 168.27,321.23 180.00,314.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="215.98,321.23 215.98,334.77 204.25,341.55 192.51,334.77 192.51,321.23 204.25,314.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="215.98,321.23 215.98,334.77 204.25,341.55 192.51,334.77 192.51,321.23 204.25,314.45" fill="url(#auraNorthFlag)" />
+<polygon points="215.98,321.23 215.98,334.77 204.25,341.55 192.51,334.77 192.51,321.23 204.25,314.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
 <polygon points="155.36,342.23 155.36,355.77 143.63,362.55 131.89,355.77 131.89,342.23 143.63,335.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="179.61,342.23 179.61,355.77 167.88,362.55 156.14,355.77 156.14,342.23 167.88,335.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="179.61,342.23 179.61,355.77 167.88,362.55 156.14,355.77 156.14,342.23 167.88,335.45" fill="url(#auraNorthFlag)" />
-<polygon points="203.86,342.23 203.86,355.77 192.12,362.55 180.39,355.77 180.39,342.23 192.12,335.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="203.86,342.23 203.86,355.77 192.12,362.55 180.39,355.77 180.39,342.23 192.12,335.45" fill="url(#auraNorthFlag)" />
+<polygon points="179.61,342.23 179.61,355.77 167.88,362.55 156.14,355.77 156.14,342.23 167.88,335.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
+<polygon points="203.86,342.23 203.86,355.77 192.12,362.55 180.39,355.77 180.39,342.23 192.12,335.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
 <polygon points="228.11,342.23 228.11,355.77 216.37,362.55 204.64,355.77 204.64,342.23 216.37,335.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="143.24,363.23 143.24,376.77 131.50,383.55 119.77,376.77 119.77,363.23 131.50,356.45" fill="#dce7c1" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="143.24,363.23 143.24,376.77 131.50,383.55 119.77,376.77 119.77,363.23 131.50,356.45" fill="url(#auraNorthFlag)" />
-<polygon points="167.49,363.23 167.49,376.77 155.75,383.55 144.02,376.77 144.02,363.23 155.75,356.45" fill="#dce7c1" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="167.49,363.23 167.49,376.77 155.75,383.55 144.02,376.77 144.02,363.23 155.75,356.45" fill="url(#auraNorthFlag)" />
+<polygon points="143.24,363.23 143.24,376.77 131.50,383.55 119.77,376.77 119.77,363.23 131.50,356.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
+<polygon points="167.49,363.23 167.49,376.77 155.75,383.55 144.02,376.77 144.02,363.23 155.75,356.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
 <polygon points="191.73,363.23 191.73,376.77 180.00,383.55 168.27,376.77 168.27,363.23 180.00,356.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="215.98,363.23 215.98,376.77 204.25,383.55 192.51,376.77 192.51,363.23 204.25,356.45" fill="#dce7c1" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="215.98,363.23 215.98,376.77 204.25,383.55 192.51,376.77 192.51,363.23 204.25,356.45" fill="url(#auraNorthFlag)" />
-<polygon points="240.23,363.23 240.23,376.77 228.50,383.55 216.76,376.77 216.76,363.23 228.50,356.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="240.23,363.23 240.23,376.77 228.50,383.55 216.76,376.77 216.76,363.23 228.50,356.45" fill="url(#auraNorthFlag)" />
+<polygon points="215.98,363.23 215.98,376.77 204.25,383.55 192.51,376.77 192.51,363.23 204.25,356.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
+<polygon points="240.23,363.23 240.23,376.77 228.50,383.55 216.76,376.77 216.76,363.23 228.50,356.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
 <polygon points="155.36,384.23 155.36,397.77 143.63,404.55 131.89,397.77 131.89,384.23 143.63,377.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="179.61,384.23 179.61,397.77 167.88,404.55 156.14,397.77 156.14,384.23 167.88,377.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="179.61,384.23 179.61,397.77 167.88,404.55 156.14,397.77 156.14,384.23 167.88,377.45" fill="url(#auraNorthFlag)" />
-<polygon points="203.86,384.23 203.86,397.77 192.12,404.55 180.39,397.77 180.39,384.23 192.12,377.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="203.86,384.23 203.86,397.77 192.12,404.55 180.39,397.77 180.39,384.23 192.12,377.45" fill="url(#auraNorthFlag)" />
+<polygon points="179.61,384.23 179.61,397.77 167.88,404.55 156.14,397.77 156.14,384.23 167.88,377.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
+<polygon points="203.86,384.23 203.86,397.77 192.12,404.55 180.39,397.77 180.39,384.23 192.12,377.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
 <polygon points="228.11,384.23 228.11,397.77 216.37,404.55 204.64,397.77 204.64,384.23 216.37,377.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="167.49,405.23 167.49,418.77 155.75,425.55 144.02,418.77 144.02,405.23 155.75,398.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="167.49,405.23 167.49,418.77 155.75,425.55 144.02,418.77 144.02,405.23 155.75,398.45" fill="url(#auraNorthFlag)" />
+<polygon points="167.49,405.23 167.49,418.77 155.75,425.55 144.02,418.77 144.02,405.23 155.75,398.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
 <polygon points="191.73,405.23 191.73,418.77 180.00,425.55 168.27,418.77 168.27,405.23 180.00,398.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="215.98,405.23 215.98,418.77 204.25,425.55 192.51,418.77 192.51,405.23 204.25,398.45" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.15" />
-<polygon points="215.98,405.23 215.98,418.77 204.25,425.55 192.51,418.77 192.51,405.23 204.25,398.45" fill="url(#auraNorthFlag)" />
+<polygon points="215.98,405.23 215.98,418.77 204.25,425.55 192.51,418.77 192.51,405.23 204.25,398.45" fill="#a9cf91" stroke="#e4e3d9" stroke-width="1.15" />
 <circle cx="180" cy="370" r="11" fill="#3e607c"/>
 <path d="M177 377 V363 M177 363 H185 L182 366 185 369 H177" fill="#fffefb" stroke="#fffefb" stroke-width="1.8" stroke-linejoin="round"/>
-<text x="332" y="310" font-size="20" fill="#28352f" font-weight="700" >Поддержка союзников идёт по 6 лучам.</text>
-<text x="332" y="337" font-size="18" fill="#28352f" font-weight="400" >На схеме — дальность 2 клетки.</text>
+<text x="332" y="310" font-size="20" fill="#28352f" font-weight="700" >Общий режим: яркая заливка по 6 лучам.</text>
+<text x="332" y="337" font-size="16.5" fill="#28352f" font-weight="400" >Дальность — 2 клетки. Наложения аур — полосами.</text>
+<polygon points="898.26,327.50 898.26,340.50 887.00,347.00 875.74,340.50 875.74,327.50 887.00,321.00" fill="url(#auraFilledOverlap)" stroke="#e4e3d9" stroke-width="1" />
 <text x="332" y="365" font-size="16" fill="#28352f" font-weight="700" >Север</text>
-<rect x="405" y="352" width="16" height="16" rx="3" fill="url(#auraNorthFlag)" stroke="#e4e3d9"/>
+<rect x="405" y="352" width="16" height="16" rx="3" fill="#a9cf91"/>
 <text x="429" y="365" font-size="16" fill="#28352f" font-weight="400" >Знаменосец</text>
-<rect x="595" y="352" width="16" height="16" rx="3" fill="url(#auraNorthCommander)" stroke="#e4e3d9"/>
+<rect x="595" y="352" width="16" height="16" rx="3" fill="#c6a5df"/>
 <text x="619" y="365" font-size="16" fill="#28352f" font-weight="400" >Командир</text>
 <text x="332" y="390" font-size="16" fill="#28352f" font-weight="700" >Юг</text>
-<rect x="405" y="377" width="16" height="16" rx="3" fill="url(#auraSouthFlag)" stroke="#e4e3d9"/>
+<rect x="405" y="377" width="16" height="16" rx="3" fill="#b66a80"/>
 <text x="429" y="390" font-size="16" fill="#28352f" font-weight="400" >Знаменосец</text>
-<rect x="595" y="377" width="16" height="16" rx="3" fill="url(#auraSouthCommander)" stroke="#e4e3d9"/>
+<rect x="595" y="377" width="16" height="16" rx="3" fill="#edd46c"/>
 <text x="619" y="390" font-size="16" fill="#28352f" font-weight="400" >Командир</text>
-<text x="332" y="419" font-size="16.5" fill="#28352f" font-weight="400" >Штриховка видна и на доступных клетках.</text>
-<polygon points="898.26,406.50 898.26,419.50 887.00,426.00 875.74,419.50 875.74,406.50 887.00,400.00" fill="#fffefb" stroke="#e4e3d9" stroke-width="1" />
-<polygon points="898.26,406.50 898.26,419.50 887.00,426.00 875.74,419.50 875.74,406.50 887.00,400.00" fill="url(#auraOverlap)" />
-<rect x="54" y="464" width="22" height="22" rx="5" fill="#3e607c"/>
-<path d="M59 475 l4 4 8-10" fill="none" stroke="#fffefb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="87" y="482" font-size="22" fill="#28352f" font-weight="700" >Координаты</text>
+<text x="332" y="419" font-size="16.5" fill="#28352f" font-weight="400" >Выберите Знаменосца или Командира — появится штриховка.</text>
+<polygon points="898.26,406.50 898.26,419.50 887.00,426.00 875.74,419.50 875.74,406.50 887.00,400.00" fill="#dce7c1" stroke="#e4e3d9" stroke-width="1" />
+<polygon points="898.26,406.50 898.26,419.50 887.00,426.00 875.74,419.50 875.74,406.50 887.00,400.00" fill="url(#auraNorthFlag)" />
+<rect x="54" y="460" width="212" height="28" rx="8" fill="#e4eadb" stroke="#9da996" stroke-width="1.2"/>
+<text x="160" y="481" font-size="20" fill="#28352f" font-weight="700" text-anchor="middle">Координаты</text>
 <polygon points="179.39,507.35 179.39,528.65 160.95,539.30 142.50,528.65 142.50,507.35 160.95,496.70" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.4" />
 <text x="160.95" y="518.50" font-size="11.5" fill="#28352f" font-weight="400" text-anchor="middle" dominant-baseline="middle">0,-1</text>
 <polygon points="217.50,507.35 217.50,528.65 199.05,539.30 180.61,528.65 180.61,507.35 199.05,496.70" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.4" />
@@ -113,5 +99,5 @@
 <text x="332" y="521" font-size="18" fill="#28352f" font-weight="400" >По нему удобно описывать ходы и ошибки.</text>
 <text x="332" y="550" font-size="18" fill="#28352f" font-weight="400" >Например: «Лукарь: 0,0 → 1,0».</text>
 <text x="332" y="584" font-size="17" fill="#7d8278" font-weight="400" >Один адрес всегда обозначает одну клетку.</text>
-<text x="32" y="639" font-size="13.5" fill="#7d8278" font-weight="400" >Схемы условные: цвета и смысл совпадают с игрой.</text>
+<text x="32" y="639" font-size="13.5" fill="#7d8278" font-weight="400" >Повторное нажатие выключает режим. Выбор фигуры завершает общий просмотр.</text>
 </g></svg>
