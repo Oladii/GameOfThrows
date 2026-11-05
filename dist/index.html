@@ -17,10 +17,9 @@
     <section class="page-heading"><div><p class="eyebrow">ПРОВЕРЯЕМ МЕХАНИКУ</p><h1>Сила — в построении.</h1><p class="intro">Два броненосца и два лукаря образуют группу. Знаменосец усиливает её атаки, а командир помогает держать удар.</p></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настроить эксперимент" aria-label="Настроить эксперимент"><span aria-hidden="true">⚙</span></button></div></section>
     <div class="workspace">
       <aside class="left-panel">
-        <div class="section-label">ЭКСПЕРИМЕНТ <span>01</span></div>
-        <h2>Боевая группа</h2>
-        <div class="formation" aria-label="Два броненосца впереди и два лукаря позади"><div class="formation-front"><span data-icon="shield"></span><span data-icon="shield"></span></div><div class="formation-back"><span data-icon="archer"></span><span data-icon="archer"></span></div><span class="formation-line"></span><span class="formation-caption">2 броненосца + 2 лукаря</span></div>
-        <p class="muted small">Броненосцы прикрывают лукарей. Знаменосец и командир усиливают союзников в своих аурах.</p>
+        <div class="section-label">ФИГУРЫ И АУРЫ</div>
+        <h2>Базовые параметры</h2>
+        <div id="unit-reference" class="unit-reference" aria-label="Базовые характеристики фигур и их аур"></div>
         <div class="config-summary" id="config-summary" hidden></div>
         <div id="start-settings" class="start-settings">
         <div class="section-label">НАСТРОЙКИ СТАРТА</div>
@@ -95,7 +94,11 @@
     <p>Ауры не увеличивают радиусы друг друга. Броненосцы не получают дополнительную дальность от союзных аур.</p><p id="about-auras"></p><p id="about-promotion"></p>
     <h3>Подсказки</h3>
     <p>Сверху у фигуры — урон и дальность. Снизу — входящий урон и стойкость. Череп означает гибель при следующем расчёте. Наведение на фигуру показывает, кто её атакует; на доступную клетку — что произойдёт после перемещения.</p>
-    <p>«Атаки» показывает опасные клетки обеих сторон, «Ауры» — поддержку. Кнопки ← и → рядом с «Отменить» показывают последний ход без его отмены.</p>
+    <p>«Атаки» показывает опасные клетки обеих сторон, «Ауры» — все области поддержки. Выбранный Командир или Знаменосец показывает свою ауру и без этой галочки. Кнопки ← и → рядом с «Отменить» показывают последний ход без его отмены.</p>
+    <h3>Обозначения в картинках</h3>
+    <figure class="rules-figure"><img id="guide-stats" src="./guide/stats.svg" alt="Кружки: урон и дальность сверху, входящий урон и стойкость снизу. Череп заменяет входящий урон."/><figcaption>Кружки у фигуры и предупреждение о гибели.</figcaption></figure>
+    <figure class="rules-figure"><img id="guide-overlays" src="./guide/overlays.svg" alt="Атаки обеих сторон, цвета аур и координаты клеток."/><figcaption>Что показывают чекбоксы под полем.</figcaption></figure>
+    <figure class="rules-figure"><img id="guide-board" src="./guide/board.svg" alt="Доступный ход, прогноз перемещения, атакующие и череп гибели."/><figcaption>Как читать подсветку и прогноз на поле.</figcaption></figure>
     <h3>Как начать</h3>
     <ol><li>Выберите режим, свою сторону и первого игрока.</li><li>Оставьте «Дефолт» или выберите «Кастом» → «Настроить позицию» → «Готово».</li><li>Нажмите «Начать». Для следующей партии нажмите «Новая игра».</li></ol>
   </div></dialog>

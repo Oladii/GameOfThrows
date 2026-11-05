@@ -154,8 +154,6 @@ function boardMarkup() {
   const attackSources = showAttacks ? state.pieces.map(piece => ({ piece, stats: report.get(piece.id) })).filter(source => source.stats.damage > 0) : [];
   $('#attack-legend').hidden = !showAttacks;
   $('#attack-legend').innerHTML = `<span class="attack-team north">${TEAM_NAMES[0]}</span><span class="attack-team south">${TEAM_NAMES[1]}</span><span>${!attackSources.length ? 'Нет атакующих фигур' : showTeamDamage ? 'Суммарный урон каждой команды' : 'Зоны обеих команд · снимите выбор для чисел урона'}</span>`;
-  const auraSources = $('#show-auras').checked ? state.pieces.filter(p => ['attackLamp', 'defenseLamp'].includes(p.type) || shieldCanRetreat(p, config)) : [];
-  $('#aura-legend').hidden = !$('#show-auras').checked;
   $('#board').innerHTML = `<defs>${auraGradients}<linearGradient id="attack-overlap" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="50%" stop-color="#d6e6ef"/><stop offset="50%" stop-color="#f3d6c2"/></linearGradient><marker id="damage-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#b98227"/></marker></defs>` + board.map(c => {
     const k = key(c.q, c.r), p = occupied.get(k), { x, y } = point(c);
     const classes = ['cell']; if ((c.q + c.r) % 2) classes.push('alt');
@@ -167,9 +165,6 @@ function boardMarkup() {
     if (cellDamage[0]) classes.push('attack-north');
     if (cellDamage[1]) classes.push('attack-south');
     if (cellDamage.every(Boolean)) classes.push('attack-both');
-    let auraMask = 0;
-    for (const lamp of auraSources) if (auraReaches(lamp, c, state, config)) auraMask |= (lamp.type === 'shield' ? 3 : lamp.type === 'defenseLamp' ? 2 : 1) << (lamp.team * 2);
-    if (auraMask) classes.push('has-aura');
     const details = p ? `${TEAM_NAMES[p.team]}, ${LABELS[p.type]}` : 'пусто';
     let token = '';
     const damageY = p ? 28 : 0;
@@ -182,11 +177,35 @@ function boardMarkup() {
       const info = report.get(p.id);
       token = `<g class="piece ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[p.type]}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${fortBadge(info.fortitude)}${incomingBadge(info)}${attackBadge(info)}${rangeBadge(info)}${fatalMark()}</g>`;
     }
-    return `<g class="${classes.join(' ')}"${auraMask ? ` style="--aura-fill:url(#aura-${auraMask})"` : ''} data-cell="${k}" tabindex="0" role="button" aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/>${!p && destinations.has(k) && !editor ? `<circle class="move-dot" cx="${x}" cy="${y}" r="3"/>` : ''}${$('#show-coordinates').checked ? `<text class="coordinate" x="${x}" y="${y + (p && damageLabel ? -32 : 29)}">${k}</text>` : ''}${damageLabel}${token}</g>`;
+    return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="0" role="button" aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/>${!p && destinations.has(k) && !editor ? `<circle class="move-dot" cx="${x}" cy="${y}" r="3"/>` : ''}${$('#show-coordinates').checked ? `<text class="coordinate" x="${x}" y="${y + (p && damageLabel ? -32 : 29)}">${k}</text>` : ''}${damageLabel}${token}</g>`;
   }).join('') + '<g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" aria-hidden="true">${currentDeaths.map(piece => {
     const { x, y } = point(piece);
     return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygon({ q: 0, r: 0 })}"/><circle class="death-pulse" r="22"/><g class="death-ghost ${piece.team === 0 ? 'north' : 'south'}"><g class="death-token"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[piece.type]}</g></g><g class="death-skull"><g class="fatal-mark" transform="translate(-16,-17) scale(2)">${skullShape()}</g></g></g></g>`;
   }).join('')}</g>` + lastMoveTrace() + movingTokenMarkup();
+}
+function paintAuras() {
+  const state = visibleState(), showAll = $('#show-auras').checked;
+  const selectedPiece = state.pieces.find(p => p.id === selected);
+  const support = selectedPiece && ['attackLamp', 'defenseLamp'].includes(selectedPiece.type);
+  const isPreview = !showAll && support && inspection?.isPreview && inspection.piece?.id === selected;
+  const position = isPreview ? inspection.position : state;
+  const source = support ? position.pieces.find(p => p.id === selected) : null;
+  const sources = showAll ? state.pieces.filter(p => ['attackLamp', 'defenseLamp'].includes(p.type) || shieldCanRetreat(p, config)) : source ? [source] : [];
+  document.querySelectorAll('#board [data-cell]').forEach(element => {
+    const [q, r] = element.dataset.cell.split(',').map(Number);
+    let mask = 0;
+    for (const lamp of sources) if (auraReaches(lamp, { q, r }, position, config)) mask |= (lamp.type === 'shield' ? 3 : lamp.type === 'defenseLamp' ? 2 : 1) << (lamp.team * 2);
+    element.classList.toggle('has-aura', Boolean(mask));
+    if (mask) element.style.setProperty('--aura-fill', `url(#aura-${mask})`);
+    else element.style.removeProperty('--aura-fill');
+  });
+  const legend = $('#aura-legend');
+  legend.hidden = !showAll && !source;
+  if (showAll) {
+    legend.innerHTML = [0, 1].map(team => `<span><i class="aura-swatch ${team ? 'south' : 'north'}-attack"></i> ${TEAM_NAMES[team]} · атака</span><span><i class="aura-swatch ${team ? 'south' : 'north'}-defense"></i> ${TEAM_NAMES[team]} · защита</span>`).join('') + '<span>Пересечения — цветными полосами</span>';
+  } else if (source) {
+    legend.innerHTML = `<span><i class="aura-swatch ${source.team ? 'south' : 'north'}-${source.type === 'attackLamp' ? 'attack' : 'defense'}"></i> ${TEAM_NAMES[source.team]} · ${LABELS[source.type]} · аура ${config.stats[source.type].aura} кл.${isPreview ? ' · предпросмотр' : ''}</span>`;
+  } else legend.innerHTML = '';
 }
 function lastMoveTrace() {
   if (gamePhase !== 'playing' || !reviewingTurn || !lastTurn || lastTurn.action.pass) return '';
@@ -248,6 +267,20 @@ function highlightSources() {
   const ghost = context.isPreview ? `<g class="preview-ghost ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})"><circle r="19"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[target.type]}</g>${fortBadge(targetInfo.fortitude)}${incomingBadge(targetInfo)}${attackBadge(targetInfo)}${rangeBadge(targetInfo)}${fatalMark()}</g>` : '';
   layer.innerHTML = lines + ghost;
 }
+function unitReferenceMarkup() {
+  const rows = TYPES.map(type => {
+    const stats = config.stats[type], fields = ['move', 'damage', 'range', 'fortitude'];
+    let aura = '';
+    if (type === 'attackLamp') aura = `Аура ${stats.aura} кл.: урон +${stats.damageBonus}, дальность +${stats.rangeBonus}.`;
+    if (type === 'defenseLamp') aura = `Аура ${stats.aura} кл.: стойкость +${stats.defenseBonus}.`;
+    if (type === 'shield') {
+      const p = config.shieldPromotion;
+      aura = `После края: урон +${p.damageBonus}, дальность +${p.rangeBonus} (до ${p.maxRange}), стойкость +${p.defenseBonus}. Аура ${p.aura} кл.: союзникам урон +${p.damageBonus}, дальность +${p.rangeBonus}, стойкость +${p.defenseBonus}. Броненосцам дальность не даёт.`;
+    }
+    return `<tr data-reference-type="${type}"><th scope="row"><span class="reference-unit">${icon(type)}<span>${LABELS[type]}</span></span></th>${fields.map(field => `<td data-stat="${field}">${stats[field]}</td>`).join('')}</tr>${aura ? `<tr class="reference-aura" data-reference-aura="${type}"><td colspan="5">${aura}</td></tr>` : ''}`;
+  }).join('');
+  return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th><th scope="col" title="Максимальный ход">Ход</th><th scope="col">Урон</th><th scope="col" title="Дальность атаки">Дал.</th><th scope="col" title="Стойкость">Стойк.</th></tr></thead><tbody>' + rows + '</tbody></table><p class="reference-note">Параметры до усилений. Радиусы аур — в клетках.</p>';
+}
 function render(deaths = []) {
   const state = visibleState(), displayLog = movement ? movement.before.log : reviewingTurn && lastTurn ? lastTurn.before.log : log;
   clearTimeout(deathEffectTimer);
@@ -264,12 +297,21 @@ function render(deaths = []) {
   hover = null; inspection = null; report = analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
-  boardMarkup(); highlightSources();
+  boardMarkup(); paintAuras(); highlightSources();
   $('#board').setAttribute('aria-busy', String(Boolean(movement)));
   const cellCount = cells(config).length;
   $('#board-name').textContent = `${config.geometry === 'hex' ? 'Гексы' : 'Квадраты'} · ${cellCount} ${plural(cellCount, ['клетка', 'клетки', 'клеток'])}`;
   $('#move-counter').textContent = gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${state.ply + 1}${movement ? ' · движение' : ''}`;
-  $('#scoreboard').innerHTML = [0, 1].map(team => { const n = state.pieces.filter(p => p.team === team).length; const active = gamePhase === 'playing' && state.turn === team && state.winner === null && !editor && !currentDeaths.length; return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div><span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${playMode === 'bot' ? `<span class="team-role">${team === humanTeam ? 'Вы' : 'Бот'}</span>` : ''}</span><div class="turn-tag">${gamePhase === 'setup' ? 'РАССТАНОВКА' : currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : 'ВАШ ХОД' : ' '}</div></div><span class="team-count">${n} ${plural(n, ['фигура', 'фигуры', 'фигур'])}</span></div>`; }).join('');
+  $('#scoreboard').innerHTML = [0, 1].map(team => {
+    const pieces = state.pieces.filter(p => p.team === team), n = pieces.length;
+    const active = gamePhase === 'playing' && state.turn === team && state.winner === null && !editor && !currentDeaths.length;
+    const roster = TYPES.map(type => {
+      const count = pieces.filter(p => p.type === type).length, label = `${LABELS[type]}: ${count}`;
+      return `<li class="team-unit ${count ? '' : 'empty'}" data-unit-type="${type}" title="${label}" aria-label="${label}">${icon(type)}<span aria-hidden="true">${count}</span></li>`;
+    }).join('');
+    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div><span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${playMode === 'bot' ? `<span class="team-role">${team === humanTeam ? 'Вы' : 'Бот'}</span>` : ''}</span><div class="turn-tag">${gamePhase === 'setup' ? 'РАССТАНОВКА' : currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : 'ВАШ ХОД' : ' '}</div></div><span class="team-count">${n} ${plural(n, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
+  }).join('');
+  $('#unit-reference').innerHTML = unitReferenceMarkup();
   $('#config-summary').innerHTML = `<div class="summary-row"><span>Групп на игрока</span><strong>${config.army.groups}</strong></div><div class="summary-row"><span>Состав группы</span><strong>${config.army.shields} ${plural(config.army.shields, ['броненосец', 'броненосца', 'броненосцев'])} + ${config.army.archers} ${plural(config.army.archers, ['лукарь', 'лукаря', 'лукарей'])}</strong></div><div class="summary-row"><span>Знаменосцы / командиры</span><strong>${config.army.attackLamps} / ${config.army.defenseLamps}</strong></div><div class="summary-row"><span>Стрельба</span><strong>${config.geometry === 'hex' ? '6 лучей через грани' : config.experiments.squareDiagonals ? '8 направлений' : '4 направления'}</strong></div>`;
   $('#editor-controls').hidden = !editor;
   $('#pass-turn').hidden = !config.experiments.allowPass || gamePhase !== 'playing';
@@ -328,9 +370,9 @@ function hoverCell(event) {
   if (!k || k === hover) return; hover = k;
   const [q, r] = k.split(',').map(Number);
   inspection = inspectCell(visibleState(), config, { q, r }, editor || gamePhase !== 'playing' || reviewingTurn || isBotTurn() ? null : selected, report);
-  highlightSources();
+  paintAuras(); highlightSources();
 }
-function clearHover() { hover = null; inspection = null; highlightSources(); }
+function clearHover() { hover = null; inspection = null; paintAuras(); highlightSources(); }
 $('#board').addEventListener('pointermove', hoverCell);
 $('#board').addEventListener('focusin', hoverCell);
 $('#board').addEventListener('pointerleave', clearHover);
