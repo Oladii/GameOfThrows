@@ -4,6 +4,7 @@ import { BotRunner } from './bot-client.js';
 import { classifyPosition, prepareStartPosition } from './start-position.js';
 import { createMovementPlan, sampleMovement, MovementAnimator } from './move-animation.js';
 const $ = selector => document.querySelector(selector);
+$('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
 const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const plural = (n, forms) => n % 100 >= 11 && n % 100 <= 14 ? forms[2] : n % 10 === 1 ? forms[0] : n % 10 >= 2 && n % 10 <= 4 ? forms[1] : forms[2];
 const ICON_PATHS = {
@@ -18,11 +19,11 @@ const attackBadge = info => `<g class="attack-indicator" data-attack="${info.dam
 const rangeBadge = info => `<g class="range-indicator" data-range="${info.range}"><title>Дальность атаки: ${info.range}</title><circle class="range-badge" cx="6.5" cy="-20" r="7.5"/><text class="range-text" x="6.5" y="-19.6" style="font-size:${String(info.range).length > 2 ? 6 : 9}px">${info.range}</text></g>`;
 const fortBadge = value => `<g class="fort-indicator"><title>Стойкость: ${value}</title><circle class="fort-badge" cx="17" cy="17" r="7.5"/><text class="fort-text" x="17" y="17.4">${value}</text></g>`;
 const AURA_COLORS = ['#a9cf91', '#c6a5df', '#b66a80', '#edd46c'];
-// One bit per team/type; sharp bands preserve every aura in an overlap.
-const auraGradients = Array.from({ length: 15 }, (_, i) => {
+// One bit per team/type; alternate translucent hatch lines in overlaps.
+const auraPatterns = Array.from({ length: 15 }, (_, i) => {
   const mask = i + 1, colors = AURA_COLORS.filter((_, bit) => mask & (1 << bit));
-  const stops = colors.map((color, index) => `<stop offset="${index * 100 / colors.length}%" stop-color="${color}"/><stop offset="${(index + 1) * 100 / colors.length}%" stop-color="${color}"/>`).join('');
-  return `<linearGradient id="aura-${mask}" x1="0%" y1="0%" x2="100%" y2="100%">${stops}</linearGradient>`;
+  const lines = colors.map((color, index) => `<line x1="${index * 8 + 4}" y1="0" x2="${index * 8 + 4}" y2="8" stroke="${color}" stroke-width="3" stroke-opacity="0.2"/>`).join('');
+  return `<pattern id="aura-${mask}" width="${colors.length * 8}" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">${lines}</pattern>`;
 }).join('');
 const skullShape = () => '<path class="skull-head" d="M8 1.5c-3.4 0-5.5 2.4-5.5 5.3 0 2 1.2 3.4 2.5 3.9V14h6v-3.3c1.3-.5 2.5-1.9 2.5-3.9C13.5 3.9 11.4 1.5 8 1.5Z"/><circle class="skull-eye" cx="5.5" cy="6.8" r="1.4"/><circle class="skull-eye" cx="10.5" cy="6.8" r="1.4"/><path class="skull-nose" d="m8 8.6-1.2 1.8h2.4Z"/><path class="skull-teeth" d="M7 11.5V14m2-2.5V14"/>';
 const fatalMark = () => `<g class="fatal-mark" transform="translate(-25,9)" aria-hidden="true"><circle class="skull-badge" cx="8" cy="8" r="8.5"/>${skullShape()}</g>`;
@@ -154,7 +155,7 @@ function boardMarkup() {
   const attackSources = showAttacks ? state.pieces.map(piece => ({ piece, stats: report.get(piece.id) })).filter(source => source.stats.damage > 0) : [];
   $('#attack-legend').hidden = !showAttacks;
   $('#attack-legend').innerHTML = `<span class="attack-team north">${TEAM_NAMES[0]}</span><span class="attack-team south">${TEAM_NAMES[1]}</span><span>${!attackSources.length ? 'Нет атакующих фигур' : showTeamDamage ? 'Суммарный урон каждой команды' : 'Зоны обеих команд · снимите выбор для чисел урона'}</span>`;
-  $('#board').innerHTML = `<defs>${auraGradients}<linearGradient id="attack-overlap" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="50%" stop-color="#d6e6ef"/><stop offset="50%" stop-color="#f3d6c2"/></linearGradient><marker id="damage-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#b98227"/></marker></defs>` + board.map(c => {
+  $('#board').innerHTML = `<defs>${auraPatterns}<linearGradient id="attack-overlap" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="50%" stop-color="#d6e6ef"/><stop offset="50%" stop-color="#f3d6c2"/></linearGradient><marker id="damage-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#b98227"/></marker></defs>` + board.map(c => {
     const k = key(c.q, c.r), p = occupied.get(k), { x, y } = point(c);
     const classes = ['cell']; if ((c.q + c.r) % 2) classes.push('alt');
     if (destinations.has(k) && !editor && selectedPiece?.team === state.turn) classes.push('reachable');
@@ -177,7 +178,7 @@ function boardMarkup() {
       const info = report.get(p.id);
       token = `<g class="piece ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[p.type]}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${fortBadge(info.fortitude)}${incomingBadge(info)}${attackBadge(info)}${rangeBadge(info)}${fatalMark()}</g>`;
     }
-    return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="0" role="button" aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/>${!p && destinations.has(k) && !editor ? `<circle class="move-dot" cx="${x}" cy="${y}" r="3"/>` : ''}${$('#show-coordinates').checked ? `<text class="coordinate" x="${x}" y="${y + (p && damageLabel ? -32 : 29)}">${k}</text>` : ''}${damageLabel}${token}</g>`;
+    return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="0" role="button" aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/><polygon class="aura-overlay" points="${polygon(c)}" aria-hidden="true"/>${!p && destinations.has(k) && !editor ? `<circle class="move-dot" cx="${x}" cy="${y}" r="3"/>` : ''}${$('#show-coordinates').checked ? `<text class="coordinate" x="${x}" y="${y + (p && damageLabel ? -32 : 29)}">${k}</text>` : ''}${damageLabel}${token}</g>`;
   }).join('') + '<g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" aria-hidden="true">${currentDeaths.map(piece => {
     const { x, y } = point(piece);
     return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygon({ q: 0, r: 0 })}"/><circle class="death-pulse" r="22"/><g class="death-ghost ${piece.team === 0 ? 'north' : 'south'}"><g class="death-token"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[piece.type]}</g></g><g class="death-skull"><g class="fatal-mark" transform="translate(-16,-17) scale(2)">${skullShape()}</g></g></g></g>`;
@@ -202,7 +203,7 @@ function paintAuras() {
   const legend = $('#aura-legend');
   legend.hidden = !showAll && !source;
   if (showAll) {
-    legend.innerHTML = [0, 1].map(team => `<span><i class="aura-swatch ${team ? 'south' : 'north'}-attack"></i> ${TEAM_NAMES[team]} · атака</span><span><i class="aura-swatch ${team ? 'south' : 'north'}-defense"></i> ${TEAM_NAMES[team]} · защита</span>`).join('') + '<span>Пересечения — цветными полосами</span>';
+    legend.innerHTML = [0, 1].map(team => `<span><i class="aura-swatch ${team ? 'south' : 'north'}-attack"></i> ${TEAM_NAMES[team]} · атака</span><span><i class="aura-swatch ${team ? 'south' : 'north'}-defense"></i> ${TEAM_NAMES[team]} · защита</span>`).join('') + '<span>Пересечения — цветными штрихами</span>';
   } else if (source) {
     legend.innerHTML = `<span><i class="aura-swatch ${source.team ? 'south' : 'north'}-${source.type === 'attackLamp' ? 'attack' : 'defense'}"></i> ${TEAM_NAMES[source.team]} · ${LABELS[source.type]} · аура ${config.stats[source.type].aura} ${plural(config.stats[source.type].aura, ['клетка', 'клетки', 'клеток'])}${isPreview ? ' · предпросмотр' : ''}</span>`;
   } else legend.innerHTML = '';
@@ -272,7 +273,7 @@ function shieldPromotionDescription() {
   return `Урон: ${stats.damage + p.damageBonus}, дальность: ${Math.min(stats.range + p.rangeBonus, p.maxRange)}, стойкость: ${stats.fortitude + p.defenseBonus}. Получает ауру в ${p.aura} ${plural(p.aura, ['клетку', 'клетки', 'клеток'])}, добавляя союзникам +${p.damageBonus} к урону, +${p.rangeBonus} к дальности, +${p.defenseBonus} к стойкости.`;
 }
 function shieldDescriptionMarkup(open = false) {
-  return `<p class="shield-description">Ходит вперёд и вбок. Ауры других фигур не увеличивают дальность атаки броненосцев.</p><details class="shield-promotion" data-shield-promotion${open ? ' open' : ''}><summary>После достижения противоположного края усиливается</summary><p>${shieldPromotionDescription()}</p></details>`;
+  return `<p class="shield-description">Ходит вперёд и вбок. Ауры других фигур не увеличивают дальность атаки броненосцев.</p><details class="shield-promotion" data-shield-promotion${open ? ' open' : ''}><summary>Усиление</summary><p>После достижения противоположного края усиливается: ${shieldPromotionDescription()}</p></details>`;
 }
 function unitReferenceMarkup(promotionOpen = false) {
   const rows = TYPES.map(type => {
@@ -297,7 +298,7 @@ function render(deaths = []) {
   $('#cancel-new-game').hidden = !previousGame;
   $('#position-kind').value = positionKind;
   $('#configure-position').disabled = positionKind !== 'custom';
-  $('#mode-caption').textContent = playMode === 'bot' ? 'Локально · против бота' : 'Локально · 2 игрока';
+  $('#mode-caption').textContent = playMode === 'bot' ? 'Против бота' : '2 игрока на одном экране';
   hover = null; inspection = null; report = analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
