@@ -49,6 +49,7 @@
 @media(max-width:700px){.team-card .team-title{gap:4px}.team-card .team-role{font-size:8px}.team-roster{gap:4px}.team-unit{gap:3px}.team-unit svg{width:13px;height:13px}}
 
 .unit-reference{border:1px solid #e1e4d8;background:linear-gradient(180deg,#edf0e5,#f1f1e9);border-radius:12px;padding:9px 8px;margin:14px 0 18px}.unit-reference-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:10px}.unit-reference-table th:first-child{width:48%;text-align:left}.unit-reference-table thead th{padding:4px 0 7px;color:var(--muted);font-size:8px;font-weight:550}.unit-reference-table tbody th,.unit-reference-table tbody td{padding:7px 0 5px;text-align:center;border-top:1px solid #dfe3d5}.unit-reference-table tbody th{font-weight:600}.reference-unit{display:flex;align-items:center;gap:3px;white-space:nowrap}.reference-unit svg{width:13px;height:17px;flex-shrink:0;color:var(--blue)}.unit-reference-table .reference-aura td{text-align:left;font-size:9px;line-height:1.5;font-weight:400;color:#63715e;padding:2px 1px 7px;border-top:0}.reference-note{font-size:9px;line-height:1.5;color:var(--muted);margin:8px 0 1px;border-top:1px solid #dfe3d5;padding-top:7px}@media(max-width:700px){.left-panel>#unit-reference{grid-column:1/-1;margin-top:0}.unit-reference-table{font-size:11px}.unit-reference-table thead th{font-size:10px}.reference-unit svg{width:16px}.unit-reference-table .reference-aura td{font-size:10px}}
+.shield-description{margin:0 0 7px}.shield-promotion>summary{display:flex;align-items:baseline;gap:7px;cursor:pointer;list-style:none;font-weight:600}.shield-promotion>summary::-webkit-details-marker{display:none}.shield-promotion>summary::after{content:"";width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);align-self:center;flex-shrink:0;margin-left:auto;margin-right:2px}.shield-promotion[open]>summary::after{transform:rotate(225deg)}.shield-promotion>p{margin:7px 0 0}
 
 </style>
 </head>
@@ -135,7 +136,7 @@
     <p>Урон не накапливается. После следующего хода всё считается заново. Исчезновение фигуры само по себе не вызывает ещё один расчёт.</p>
     <h3>Как работает поддержка</h3>
     <p>Область поддержки называется аурой. Она усиливает только союзников. Своей аурой фигура себя не усиливает, а от других получает бонусы. Бонусы складываются.</p>
-    <p>Ауры не увеличивают радиусы друг друга. Броненосцы не получают дополнительную дальность от союзных аур.</p><p id="about-auras"></p><p id="about-promotion"></p>
+    <p>Ауры не увеличивают радиусы друг друга. Броненосцы не получают дополнительную дальность от союзных аур.</p><p id="about-auras"></p><div id="about-promotion"></div>
     <h3>Подсказки</h3>
     <p>Сверху у фигуры — урон и дальность. Снизу — входящий урон и стойкость. Череп означает гибель при следующем расчёте. Наведение на фигуру показывает, кто её атакует; на доступную клетку — что произойдёт после перемещения.</p>
     <p>«Атаки» показывает опасные клетки обеих сторон, «Ауры» — все области поддержки. Выбранный Командир или Знаменосец показывает свою ауру и без этой галочки. Кнопки ← и → рядом с «Отменить» показывают последний ход без его отмены.</p>
@@ -835,15 +836,18 @@ function highlightSources() {
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion;
-  return `После достижения противоположного края усиливается: урон — ${stats.damage + p.damageBonus}, дальность — ${Math.min(stats.range + p.rangeBonus, p.maxRange)}, стойкость — ${stats.fortitude + p.defenseBonus}. Получает ауру в ${p.aura} ${plural(p.aura, ['клетку', 'клетки', 'клеток'])}: союзникам +${p.damageBonus} к урону, +${p.rangeBonus} к дальности, +${p.defenseBonus} к стойкости. Ауры других фигур не увеличивают дальность атаки броненосцев.`;
+  return `Урон: ${stats.damage + p.damageBonus}, дальность: ${Math.min(stats.range + p.rangeBonus, p.maxRange)}, стойкость: ${stats.fortitude + p.defenseBonus}. Получает ауру в ${p.aura} ${plural(p.aura, ['клетку', 'клетки', 'клеток'])}, добавляя союзникам +${p.damageBonus} к урону, +${p.rangeBonus} к дальности, +${p.defenseBonus} к стойкости.`;
 }
-function unitReferenceMarkup() {
+function shieldDescriptionMarkup(open = false) {
+  return `<p class="shield-description">Ходит вперёд и вбок. Ауры других фигур не увеличивают дальность атаки броненосцев.</p><details class="shield-promotion" data-shield-promotion${open ? ' open' : ''}><summary>После достижения противоположного края усиливается</summary><p>${shieldPromotionDescription()}</p></details>`;
+}
+function unitReferenceMarkup(promotionOpen = false) {
   const rows = TYPES.map(type => {
     const stats = config.stats[type], fields = ['move', 'damage', 'range', 'fortitude'];
     let aura = '';
     if (type === 'attackLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон +${stats.damageBonus}, дальность +${stats.rangeBonus}.`;
     if (type === 'defenseLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: стойкость +${stats.defenseBonus}.`;
-    if (type === 'shield') aura = shieldPromotionDescription();
+    if (type === 'shield') aura = shieldDescriptionMarkup(promotionOpen);
     return `<tr data-reference-type="${type}"><th scope="row"><span class="reference-unit">${icon(type)}<span>${LABELS[type]}</span></span></th>${fields.map(field => `<td data-stat="${field}">${stats[field]}</td>`).join('')}</tr>${aura ? `<tr class="reference-aura" data-reference-aura="${type}"><td colspan="5">${aura}</td></tr>` : ''}`;
   }).join('');
   return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th><th scope="col" title="Максимальный шаг">Шаг</th><th scope="col">Урон</th><th scope="col" title="Дальность атаки">Дал.</th><th scope="col" title="Стойкость">Стойк.</th></tr></thead><tbody>' + rows + '</tbody></table><p class="reference-note">Параметры до усилений.</p>';
@@ -878,7 +882,7 @@ function render(deaths = []) {
     }).join('');
     return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div><span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${playMode === 'bot' ? `<span class="team-role">${team === humanTeam ? 'Вы' : 'Бот'}</span>` : ''}</span><div class="turn-tag">${gamePhase === 'setup' ? 'РАССТАНОВКА' : currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : 'ВАШ ХОД' : ' '}</div></div><span class="team-count">${n} ${plural(n, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
   }).join('');
-  $('#unit-reference').innerHTML = unitReferenceMarkup();
+  $('#unit-reference').innerHTML = unitReferenceMarkup(Boolean($('#unit-reference [data-shield-promotion]')?.open));
   $('#config-summary').innerHTML = `<div class="summary-row"><span>Групп на игрока</span><strong>${config.army.groups}</strong></div><div class="summary-row"><span>Состав группы</span><strong>${config.army.shields} ${plural(config.army.shields, ['броненосец', 'броненосца', 'броненосцев'])} + ${config.army.archers} ${plural(config.army.archers, ['лукарь', 'лукаря', 'лукарей'])}</strong></div><div class="summary-row"><span>Знаменосцы / командиры</span><strong>${config.army.attackLamps} / ${config.army.defenseLamps}</strong></div><div class="summary-row"><span>Стрельба</span><strong>${config.geometry === 'hex' ? '6 лучей через грани' : config.experiments.squareDiagonals ? '8 направлений' : '4 направления'}</strong></div>`;
   $('#editor-controls').hidden = !editor;
   $('#pass-turn').hidden = !config.experiments.allowPass || gamePhase !== 'playing';
@@ -1045,7 +1049,7 @@ $('#settings-form').addEventListener('submit', event => {
 });
 function renderAbout() {
   $('#about-directions').textContent = config.geometry === 'hex' ? 'На шестиугольном поле атаки и ауры идут по шести прямым линиям через стороны клеток. Через углы они не идут. Дальность — сколько клеток проходит такая линия от фигуры.' : `На квадратном поле атаки и ауры идут по ${config.experiments.squareDiagonals ? 'восьми направлениям, включая диагонали' : 'четырём направлениям через грани'}. Длина луча — число клеток от источника.`;
-  $('#about-promotion').textContent = shieldPromotionDescription();
+  $('#about-promotion').innerHTML = shieldDescriptionMarkup();
   $('#about-stats').innerHTML = '<thead><tr><th>Фигура</th><th>Шаг</th><th>Урон</th><th>Дальность</th><th>Стойкость</th><th>Аура</th></tr></thead><tbody>' + TYPES.map(type => { const stats = config.stats[type]; return `<tr><td>${LABELS[type]}</td><td>${stats.move}</td><td>${stats.damage || '—'}</td><td>${stats.range || '—'}</td><td>${stats.fortitude}</td><td>${stats.aura || '—'}</td></tr>`; }).join('') + '</tbody>';
   const experiments = config.experiments;
   $('#about-blocking').textContent = [experiments.lampShieldBlocking ? 'Вражеский броненосец перекрывает все атаки, проходящие через его клетку, и закрывает фигуры за собой.' : 'Вражеский броненосец перекрывает атаки лукарей и других броненосцев, проходящие через его клетку. Атаки знаменосца проходят через броненосцев.', experiments.allyShotsPass ? 'Свои фигуры не мешают союзным атакам.' : 'Свои фигуры перекрывают союзные атаки, проходящие через их клетки.'].join(' ');

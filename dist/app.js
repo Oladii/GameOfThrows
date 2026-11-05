@@ -269,15 +269,18 @@ function highlightSources() {
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion;
-  return `После достижения противоположного края усиливается: урон — ${stats.damage + p.damageBonus}, дальность — ${Math.min(stats.range + p.rangeBonus, p.maxRange)}, стойкость — ${stats.fortitude + p.defenseBonus}. Получает ауру в ${p.aura} ${plural(p.aura, ['клетку', 'клетки', 'клеток'])}: союзникам +${p.damageBonus} к урону, +${p.rangeBonus} к дальности, +${p.defenseBonus} к стойкости. Ауры других фигур не увеличивают дальность атаки броненосцев.`;
+  return `Урон: ${stats.damage + p.damageBonus}, дальность: ${Math.min(stats.range + p.rangeBonus, p.maxRange)}, стойкость: ${stats.fortitude + p.defenseBonus}. Получает ауру в ${p.aura} ${plural(p.aura, ['клетку', 'клетки', 'клеток'])}, добавляя союзникам +${p.damageBonus} к урону, +${p.rangeBonus} к дальности, +${p.defenseBonus} к стойкости.`;
 }
-function unitReferenceMarkup() {
+function shieldDescriptionMarkup(open = false) {
+  return `<p class="shield-description">Ходит вперёд и вбок. Ауры других фигур не увеличивают дальность атаки броненосцев.</p><details class="shield-promotion" data-shield-promotion${open ? ' open' : ''}><summary>После достижения противоположного края усиливается</summary><p>${shieldPromotionDescription()}</p></details>`;
+}
+function unitReferenceMarkup(promotionOpen = false) {
   const rows = TYPES.map(type => {
     const stats = config.stats[type], fields = ['move', 'damage', 'range', 'fortitude'];
     let aura = '';
     if (type === 'attackLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон +${stats.damageBonus}, дальность +${stats.rangeBonus}.`;
     if (type === 'defenseLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: стойкость +${stats.defenseBonus}.`;
-    if (type === 'shield') aura = shieldPromotionDescription();
+    if (type === 'shield') aura = shieldDescriptionMarkup(promotionOpen);
     return `<tr data-reference-type="${type}"><th scope="row"><span class="reference-unit">${icon(type)}<span>${LABELS[type]}</span></span></th>${fields.map(field => `<td data-stat="${field}">${stats[field]}</td>`).join('')}</tr>${aura ? `<tr class="reference-aura" data-reference-aura="${type}"><td colspan="5">${aura}</td></tr>` : ''}`;
   }).join('');
   return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th><th scope="col" title="Максимальный шаг">Шаг</th><th scope="col">Урон</th><th scope="col" title="Дальность атаки">Дал.</th><th scope="col" title="Стойкость">Стойк.</th></tr></thead><tbody>' + rows + '</tbody></table><p class="reference-note">Параметры до усилений.</p>';
@@ -312,7 +315,7 @@ function render(deaths = []) {
     }).join('');
     return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div><span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${playMode === 'bot' ? `<span class="team-role">${team === humanTeam ? 'Вы' : 'Бот'}</span>` : ''}</span><div class="turn-tag">${gamePhase === 'setup' ? 'РАССТАНОВКА' : currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : 'ВАШ ХОД' : ' '}</div></div><span class="team-count">${n} ${plural(n, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
   }).join('');
-  $('#unit-reference').innerHTML = unitReferenceMarkup();
+  $('#unit-reference').innerHTML = unitReferenceMarkup(Boolean($('#unit-reference [data-shield-promotion]')?.open));
   $('#config-summary').innerHTML = `<div class="summary-row"><span>Групп на игрока</span><strong>${config.army.groups}</strong></div><div class="summary-row"><span>Состав группы</span><strong>${config.army.shields} ${plural(config.army.shields, ['броненосец', 'броненосца', 'броненосцев'])} + ${config.army.archers} ${plural(config.army.archers, ['лукарь', 'лукаря', 'лукарей'])}</strong></div><div class="summary-row"><span>Знаменосцы / командиры</span><strong>${config.army.attackLamps} / ${config.army.defenseLamps}</strong></div><div class="summary-row"><span>Стрельба</span><strong>${config.geometry === 'hex' ? '6 лучей через грани' : config.experiments.squareDiagonals ? '8 направлений' : '4 направления'}</strong></div>`;
   $('#editor-controls').hidden = !editor;
   $('#pass-turn').hidden = !config.experiments.allowPass || gamePhase !== 'playing';
@@ -479,7 +482,7 @@ $('#settings-form').addEventListener('submit', event => {
 });
 function renderAbout() {
   $('#about-directions').textContent = config.geometry === 'hex' ? 'На шестиугольном поле атаки и ауры идут по шести прямым линиям через стороны клеток. Через углы они не идут. Дальность — сколько клеток проходит такая линия от фигуры.' : `На квадратном поле атаки и ауры идут по ${config.experiments.squareDiagonals ? 'восьми направлениям, включая диагонали' : 'четырём направлениям через грани'}. Длина луча — число клеток от источника.`;
-  $('#about-promotion').textContent = shieldPromotionDescription();
+  $('#about-promotion').innerHTML = shieldDescriptionMarkup();
   $('#about-stats').innerHTML = '<thead><tr><th>Фигура</th><th>Шаг</th><th>Урон</th><th>Дальность</th><th>Стойкость</th><th>Аура</th></tr></thead><tbody>' + TYPES.map(type => { const stats = config.stats[type]; return `<tr><td>${LABELS[type]}</td><td>${stats.move}</td><td>${stats.damage || '—'}</td><td>${stats.range || '—'}</td><td>${stats.fortitude}</td><td>${stats.aura || '—'}</td></tr>`; }).join('') + '</tbody>';
   const experiments = config.experiments;
   $('#about-blocking').textContent = [experiments.lampShieldBlocking ? 'Вражеский броненосец перекрывает все атаки, проходящие через его клетку, и закрывает фигуры за собой.' : 'Вражеский броненосец перекрывает атаки лукарей и других броненосцев, проходящие через его клетку. Атаки знаменосца проходят через броненосцев.', experiments.allyShotsPass ? 'Свои фигуры не мешают союзным атакам.' : 'Свои фигуры перекрывают союзные атаки, проходящие через их клетки.'].join(' ');
