@@ -1,0 +1,503 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { GameRecorder } from '../dist/game-archive.js';
+import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { createGame, validateConfig, validateState } from '../dist/engine.js';
+
+const archiveCopy = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+class ArchiveTestStorage {
+  games = new Map();
+  async get(id) { return archiveCopy(this.games.get(id)); }
+  async put(value) { this.games.set(value.id, archiveCopy(value)); }
+  async list() { return archiveCopy([...this.games.values()]); }
+  async update(id, change) {
+    const result = change(archiveCopy(this.games.get(id)));
+    if (result) this.games.set(id, archiveCopy(result));
+    return archiveCopy(result);
+  }
+}
+class ArchiveTestSession {
+  values = new Map();
+  getItem(id) { return this.values.get(id) ?? null; }
+  setItem(id, value) { this.values.set(id, String(value)); }
+}
+const archiveFixture = (ply = 0, winner = null) => ({
+  config: { ...archiveCopy(DEFAULT_CONFIG), size: 5 },
+  state: { pieces: [{ id: 'shield-1', type: 'shield', team: 0, q: 1, r: 0 }], turn: ply % 2, ply, winner },
+  mode: 'bot', humanTeam: 1, firstMove: 'south'
+});
+function archiveHarness(overrides = {}) {
+  let serial = 0;
+  const storage = overrides.storage || new ArchiveTestStorage();
+  const sessionStorage = overrides.sessionStorage || new ArchiveTestSession();
+  return {
+    storage, sessionStorage,
+    options: {
+      enabled: true, endpoint: 'https://archive.example.test/', app: { version: '0.1.2', build: 'test-build', channel: 'site' },
+      storage, sessionStorage, autoFlush: false, BroadcastChannel: false,
+      uuid: () => `11111111-1111-4111-8111-${String(++serial).padStart(12, '0')}`,
+      randomBytes: () => new Uint8Array(32).fill(23), clock: () => '2026-11-05T08:00:00.000Z', ...overrides
+    }
+  };
+}
+function archiveServer() {
+  const games = new Map(), requests = [];
+  const server = { games, requests, offline: false, loseCreateAck: false, loseEventAck: false, onRequest: null };
+  server.fetch = async (url, request) => {
+    const body = JSON.parse(request.body), authorization = request.headers.Authorization;
+    requests.push({ url, body: archiveCopy(body), authorization });
+    if (server.offline) throw new Error('offline');
+    await server.onRequest?.(url, body);
+    const response = (status, value) => ({ ok: status >= 200 && status < 300, status, json: async () => value });
+    if (url.endsWith('/api/games')) {
+      let game = games.get(body.id);
+      if (game && game.authorization !== authorization) return response(401, { code: 'unauthorized' });
+      if (!game) { game = { authorization, create: archiveCopy(body), events: [], lastSeq: 0 }; games.set(body.id, game); }
+      if (server.loseCreateAck) { server.loseCreateAck = false; throw new Error('lost create response'); }
+      return response(201, { id: body.id, lastSeq: game.lastSeq, status: 'active' });
+    }
+    const id = url.match(/\/api\/games\/([^/]+)\/events$/)?.[1], game = games.get(id);
+    if (!game || game.authorization !== authorization) return response(401, { code: 'unauthorized' });
+    assert.ok(body.events.length <= 32);
+    assert.ok(Buffer.byteLength(request.body) <= 256 * 1024);
+    for (const event of body.events) {
+      assert.ok(Buffer.byteLength(JSON.stringify(event)) <= 64 * 1024);
+      if (event.seq <= game.lastSeq) assert.deepEqual(event, game.events[event.seq - 1]);
+      else {
+        if (event.seq !== game.lastSeq + 1) return response(409, { code: 'sequence_gap' });
+        game.events.push(archiveCopy(event)); game.lastSeq = event.seq;
+      }
+    }
+    if (server.loseEventAck) { server.loseEventAck = false; throw new Error('lost events response'); }
+    return response(200, { id, lastSeq: game.lastSeq, acceptedThrough: game.lastSeq, status: 'active' });
+  };
+  return server;
+}
+const archiveWaitFor = async predicate => {
+  for (let i = 0; i < 100; i++) {
+    if (predicate()) return;
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+  assert.fail('archive condition did not settle');
+};
+
+test('disabled recorder never touches storage, session, network, or the game save key', async () => {
+  const fail = () => assert.fail('disabled recorder performed I/O');
+  const recorder = new GameRecorder({ enabled: false, storage: new Proxy({}, { get: fail }), sessionStorage: new Proxy({}, { get: fail }), fetch: fail });
+  assert.equal(await recorder.start(archiveFixture()), false);
+  assert.equal(await recorder.resume(archiveFixture()), false);
+  assert.equal(await recorder.record('move', archiveFixture(1)), false);
+  assert.equal((await recorder.flush()).state, 'disabled');
+  recorder.close();
+});
+
+test('snapshots are captured before asynchronous work and status never exposes the write key', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const recorder = new GameRecorder(harness.options), initial = archiveFixture();
+  const start = recorder.start(initial);
+  initial.config.size = 999; initial.state.pieces[0].q = 999;
+  await start;
+  const next = archiveFixture(1);
+  next.action = { id: 'shield-1', from: { q: 1, r: 0 }, to: { q: 2, r: 0 } };
+  next.username = 'must not appear';
+  const record = recorder.record('move', next);
+  next.action.to.q = 999; next.state.ply = 999;
+  await record;
+  await recorder.flush();
+  const game = [...server.games.values()][0];
+  assert.equal(game.create.initial.config.size, 5);
+  assert.equal(game.create.initial.state.pieces[0].q, 1);
+  assert.equal(game.events[0].payload.state.ply, 1);
+  assert.equal(game.events[0].payload.action.to.q, 2);
+  assert.equal(game.events[0].payload.username, undefined);
+  assert.match(game.authorization, /^Bearer [0-9a-f]{64}$/);
+  assert.equal(JSON.stringify(recorder.status).includes(game.authorization.slice(7)), false);
+  assert.equal(JSON.stringify(server.requests.map(request => request.body)).includes('writeKey'), false);
+  assert.equal([...harness.sessionStorage.values.keys()].includes('lamps-prototype-v1'), false);
+  assert.deepEqual([...harness.sessionStorage.values.keys()], ['game-of-throws-archive-tab-v1']);
+  assert.equal(recorder.status.state, 'saved');
+  recorder.close();
+});
+
+test('offline queue survives reload, keeps its game identity, and sends the complete sequence', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  server.offline = true;
+  const first = new GameRecorder(harness.options);
+  await first.start(archiveFixture());
+  await first.record('move', archiveFixture(1));
+  await first.record('pass', archiveFixture(2));
+  const id = first.status.gameId;
+  await first.flush();
+  assert.equal(first.status.state, 'error');
+  assert.equal(first.status.pending, 3);
+  first.close();
+  const reloaded = new GameRecorder(harness.options);
+  await reloaded.resume(archiveFixture(2));
+  assert.equal(reloaded.status.gameId, id);
+  assert.equal((await harness.storage.list()).length, 1);
+  server.offline = false;
+  await reloaded.flush();
+  assert.deepEqual(server.games.get(id).events.map(event => [event.seq, event.type]), [[1, 'move'], [2, 'pass']]);
+  assert.equal(reloaded.status.pending, 0);
+  assert.equal(reloaded.status.gameStatus, 'active');
+  reloaded.close();
+});
+
+test('lost create acknowledgement retries idempotently with the original credentials', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture());
+  await recorder.record('move', archiveFixture(1));
+  server.loseCreateAck = true;
+  await recorder.flush();
+  assert.equal(recorder.status.pending, 2);
+  await recorder.flush();
+  assert.equal(server.games.size, 1);
+  const creates = server.requests.filter(request => request.url.endsWith('/api/games'));
+  assert.equal(creates.length, 2);
+  assert.deepEqual(creates[0], creates[1]);
+  assert.equal([...server.games.values()][0].events.length, 1);
+  assert.equal(recorder.status.pending, 0);
+  recorder.close();
+});
+
+test('lost event acknowledgement retains and safely resends an identical event', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture());
+  await recorder.record('move', archiveFixture(1));
+  server.loseEventAck = true;
+  await recorder.flush();
+  assert.equal(recorder.status.pending, 1);
+  await recorder.flush();
+  const requests = server.requests.filter(request => request.url.endsWith('/events'));
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[0].body, requests[1].body);
+  assert.equal([...server.games.values()][0].events.length, 1);
+  assert.equal(recorder.status.state, 'saved');
+  recorder.close();
+});
+
+test('a move persisted during an in-flight request is not removed by its older ACK', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture()); await recorder.flush();
+  await recorder.record('move', archiveFixture(1));
+  let release, entered = false;
+  server.onRequest = async url => {
+    if (url.endsWith('/events') && !entered) { entered = true; await new Promise(resolve => { release = resolve; }); }
+  };
+  const sending = recorder.flush();
+  await archiveWaitFor(() => entered);
+  await recorder.record('pass', archiveFixture(2));
+  release(); await sending;
+  assert.deepEqual([...server.games.values()][0].events.map(event => event.seq), [1, 2]);
+  assert.equal(recorder.status.pending, 0);
+  recorder.close();
+});
+
+test('draining another tab queue uses atomic updates and preserves concurrently added events', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const owner = new GameRecorder(harness.options);
+  await owner.start(archiveFixture()); await owner.flush();
+  await owner.record('move', archiveFixture(1));
+  const drainer = new GameRecorder({ ...harness.options, sessionStorage: new ArchiveTestSession() });
+  let release, entered = false;
+  server.onRequest = async url => {
+    if (url.endsWith('/events') && !entered) { entered = true; await new Promise(resolve => { release = resolve; }); }
+  };
+  const draining = drainer.flush();
+  await archiveWaitFor(() => entered);
+  await owner.record('pass', archiveFixture(2));
+  release(); await draining;
+  assert.deepEqual([...server.games.values()][0].events.map(event => event.seq), [1, 2]);
+  assert.equal((await harness.storage.list())[0].nextSeq, 3);
+  owner.close(); drainer.close();
+});
+
+test('event batches obey count and encoded byte limits without sequence gaps', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture());
+  for (let ply = 1; ply <= 70; ply++) await recorder.record('move', archiveFixture(ply));
+  await recorder.flush();
+  assert.deepEqual(server.requests.filter(request => request.url.endsWith('/events')).map(request => request.body.events.length), [32, 32, 6]);
+  const large = archiveFixture(71);
+  large.state.pieces = Array.from({ length: 350 }, (_, index) => ({ id: `shield-${String(index).padStart(4, '0')}-${'a'.repeat(35)}`, type: 'shield', team: index % 2, q: index, r: 0 }));
+  for (let ply = 71; ply <= 81; ply++) { large.state.ply = ply; await recorder.record('config', large); }
+  await recorder.flush();
+  assert.equal([...server.games.values()][0].events.length, 81);
+  assert.equal(recorder.status.pending, 0);
+  recorder.close();
+});
+
+test('oversized events stay visible as an error without consuming a sequence number', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture());
+  const large = archiveFixture(1);
+  large.state.pieces = Array.from({ length: 900 }, (_, index) => ({ id: `shield-${String(index).padStart(4, '0')}-${'a'.repeat(35)}`, type: 'shield', team: index % 2, q: index, r: 0 }));
+  assert.equal(await recorder.record('move', large), false);
+  assert.equal(recorder.status.message, 'event_too_large');
+  assert.equal((await harness.storage.list())[0].nextSeq, 1);
+  await recorder.record('move', archiveFixture(1)); await recorder.flush();
+  assert.equal([...server.games.values()][0].events[0].seq, 1);
+  recorder.close();
+});
+
+test('independent sessions sharing durable storage keep separate game IDs and sequences', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const first = new GameRecorder(harness.options);
+  const second = new GameRecorder({ ...harness.options, sessionStorage: new ArchiveTestSession() });
+  await Promise.all([first.start(archiveFixture()), second.start(archiveFixture())]);
+  assert.notEqual(first.status.gameId, second.status.gameId);
+  await Promise.all([first.record('move', archiveFixture(1)), second.record('pass', archiveFixture(1))]);
+  await Promise.all([first.flush(), second.flush()]);
+  assert.equal(server.games.size, 2);
+  for (const game of server.games.values()) assert.deepEqual(game.events.map(event => event.seq), [1]);
+  first.close(); second.close();
+});
+
+test('a duplicated live tab forks a copied session identity while a reload resumes it', async () => {
+  class TestChannel {
+    static channels = new Set();
+    constructor() { TestChannel.channels.add(this); }
+    postMessage(data) { for (const channel of TestChannel.channels) if (channel !== this) queueMicrotask(() => channel.onmessage?.({ data })); }
+    close() { TestChannel.channels.delete(this); }
+  }
+  const harness = archiveHarness({ BroadcastChannel: TestChannel, tabProbeMs: 5 });
+  const original = new GameRecorder(harness.options);
+  await original.start(archiveFixture());
+  const originalId = original.status.gameId;
+  const copiedSession = new ArchiveTestSession(); copiedSession.values = new Map(harness.sessionStorage.values);
+  const duplicate = new GameRecorder({ ...harness.options, sessionStorage: copiedSession });
+  await duplicate.resume(archiveFixture());
+  assert.notEqual(duplicate.status.gameId, originalId);
+  assert.equal((await harness.storage.get(originalId)).gameStatus, 'active');
+  original.close();
+  const reloaded = new GameRecorder(harness.options);
+  await reloaded.resume(archiveFixture());
+  assert.equal(reloaded.status.gameId, originalId);
+  assert.equal((await harness.storage.list()).length, 2);
+  duplicate.close(); reloaded.close();
+});
+
+test('finish survives reload, undo reopens the same game, and a new game abandons it', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  let recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture());
+  await recorder.record('finish', { ...archiveFixture(1, 1), outcome: 1 });
+  const id = recorder.status.gameId;
+  assert.equal(recorder.status.gameStatus, 'finished');
+  await recorder.flush(); recorder.close();
+  recorder = new GameRecorder(harness.options);
+  await recorder.resume(archiveFixture(1, 1));
+  assert.equal(recorder.status.gameStatus, 'finished');
+  assert.equal(recorder.status.pending, 0);
+  await recorder.record('undo', archiveFixture());
+  assert.equal(recorder.status.gameId, id);
+  assert.equal(recorder.status.gameStatus, 'active');
+  await recorder.start(archiveFixture());
+  assert.notEqual(recorder.status.gameId, id);
+  await recorder.flush();
+  assert.deepEqual(server.games.get(id).events.map(event => event.type), ['finish', 'undo', 'abandon']);
+  assert.deepEqual(server.games.get(id).events[0].payload.outcome, { winner: 1 });
+  assert.equal((await harness.storage.get(id)).gameStatus, 'abandoned');
+  recorder.close();
+});
+
+test('resuming an already won game starts finished, retains bot settings, and is not abandoned later', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const recorder = new GameRecorder(harness.options);
+  await recorder.resume({ ...archiveFixture(12, 0), botDepth: 4 });
+  const id = recorder.status.gameId;
+  assert.equal(recorder.status.gameStatus, 'finished');
+  await recorder.start(archiveFixture());
+  await recorder.flush();
+  assert.equal(server.games.get(id).create.startReason, 'resume');
+  assert.equal(server.games.get(id).create.game.botDepth, 4);
+  assert.equal(server.games.get(id).events.length, 0);
+  assert.equal((await harness.storage.get(id)).gameStatus, 'finished');
+  recorder.close();
+});
+
+test('resume reconciles a position saved before its archive write with a full restore snapshot', async () => {
+  const harness = archiveHarness();
+  const first = new GameRecorder(harness.options);
+  await first.start(archiveFixture()); first.close();
+  const second = new GameRecorder(harness.options);
+  await second.resume(archiveFixture(1));
+  const [game] = await harness.storage.list();
+  assert.deepEqual(game.events.map(event => [event.seq, event.type, event.payload.state.ply]), [[1, 'restore', 1]]);
+  assert.deepEqual(game.events[0].payload.config, archiveFixture().config);
+  second.close();
+});
+
+test('automatic retry drains offline work without blocking gameplay or requiring another move', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch, autoFlush: true, retryBaseMs: 5 });
+  server.offline = true;
+  const recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture());
+  await recorder.record('move', archiveFixture(1));
+  await archiveWaitFor(() => recorder.status.state === 'error');
+  server.offline = false;
+  await archiveWaitFor(() => recorder.status.state === 'saved' && recorder.status.pending === 0);
+  assert.deepEqual([...server.games.values()][0].events.map(event => event.seq), [1]);
+  recorder.close();
+});
+
+test('invalid acknowledgements and rejected writes preserve the durable queue', async () => {
+  const harness = archiveHarness({ fetch: async () => ({ ok: true, status: 200, json: async () => ({ lastSeq: 999 }) }) });
+  const recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture()); await recorder.record('pass', archiveFixture(1));
+  await recorder.flush();
+  assert.equal(recorder.status.message, 'sequence_conflict');
+  assert.equal(recorder.status.pending, 2);
+  assert.equal(recorder.status.failed, 1);
+  assert.equal((await harness.storage.list())[0].events.length, 1);
+  recorder.close();
+  const deniedHarness = archiveHarness({ fetch: async () => ({ ok: false, status: 401 }) });
+  const denied = new GameRecorder(deniedHarness.options);
+  await denied.start(archiveFixture()); await denied.record('pass', archiveFixture(1)); await denied.flush();
+  assert.equal(denied.status.message, 'request_rejected');
+  assert.equal(denied.status.pending, 2);
+  assert.equal(denied.status.failed, 1);
+  denied.close();
+});
+
+test('archive projects imported version 1 fields at every schema level without changing the game or export', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const originalConfig = archiveCopy(DEFAULT_CONFIG);
+  originalConfig.annotation = 'private import annotation';
+  originalConfig.army.annotation = 'army annotation';
+  originalConfig.stats.annotation = { custom: 12 };
+  originalConfig.stats.shield.annotation = 'piece stat annotation';
+  originalConfig.experiments.annotation = 'switch annotation';
+  originalConfig.shieldPromotion.annotation = 'promotion annotation';
+  const config = validateConfig(originalConfig);
+  const originalState = createGame(config);
+  originalState.annotation = 'state annotation';
+  originalState.pieces[0].annotation = 'piece annotation';
+  const state = validateState(originalState, config);
+  assert.equal(config.annotation, 'private import annotation');
+  assert.equal(state.pieces[0].annotation, 'piece annotation');
+  const before = JSON.stringify({ config, state });
+  const recorder = new GameRecorder(harness.options);
+  await recorder.start({ ...archiveFixture(), config, state });
+  const death = { ...state.pieces[0], incoming: 8, fortitude: 3, annotation: 'death annotation' };
+  const payload = { config, state, deaths: [death] }, eventBefore = JSON.stringify(payload);
+  for (const type of ['move', 'pass', 'config', 'undo', 'restore']) await recorder.record(type, payload);
+  await recorder.flush();
+  const [game] = server.games.values();
+  assert.deepEqual(game.create.initial.config, DEFAULT_CONFIG);
+  const expectedState = archiveCopy(state); delete expectedState.annotation; delete expectedState.pieces[0].annotation;
+  assert.deepEqual(game.create.initial.state, expectedState);
+  const expectedDeath = { ...expectedState.pieces[0], incoming: 8, fortitude: 3 };
+  for (const event of game.events) {
+    assert.deepEqual(event.payload.config, DEFAULT_CONFIG);
+    assert.deepEqual(event.payload.state, expectedState);
+    assert.deepEqual(event.payload.deaths, [expectedDeath]);
+  }
+  assert.equal(JSON.stringify({ config, state }), before);
+  assert.equal(JSON.stringify(payload), eventBefore);
+  assert.equal(JSON.stringify(server.requests.map(request => request.body)).includes('annotation'), false);
+  recorder.close();
+});
+
+test('archive keeps optional fields absent and preserves every present game value', async () => {
+  const harness = archiveHarness(), recorder = new GameRecorder(harness.options);
+  const initial = archiveFixture();
+  delete initial.config.auraDefenseCap; delete initial.config.shieldPromotion;
+  delete initial.state.pieces[0].group; delete initial.state.pieces[0].reachedFarEdge;
+  const before = JSON.stringify(initial);
+  await recorder.start(initial);
+  const [game] = await harness.storage.list();
+  assert.deepEqual(game.create.initial.config, initial.config);
+  assert.deepEqual(game.create.initial.state, initial.state);
+  assert.equal(Object.hasOwn(game.create.initial.config, 'shieldPromotion'), false);
+  assert.equal(Object.hasOwn(game.create.initial.state.pieces[0], 'reachedFarEdge'), false);
+  assert.equal(JSON.stringify(initial), before);
+  recorder.close();
+});
+
+test('permanent create failures stay durable and never block later games, including after reload', async () => {
+  for (const status of [400, 401, 403, 413]) {
+    const server = archiveServer(); let rejectedId, rejectedRequests = 0;
+    const harness = archiveHarness({ fetch: async (url, request) => {
+      const body = JSON.parse(request.body);
+      if (url.endsWith('/api/games') && body.id === rejectedId) { rejectedRequests++; return { ok: false, status }; }
+      return server.fetch(url, request);
+    } });
+    let recorder = new GameRecorder(harness.options);
+    await recorder.start(archiveFixture()); rejectedId = recorder.status.gameId;
+    await recorder.record('move', archiveFixture(1));
+    await recorder.start(archiveFixture()); const secondId = recorder.status.gameId;
+    await recorder.record('pass', archiveFixture(1)); await recorder.flush();
+    assert.equal(rejectedRequests, 1);
+    assert.equal(server.games.get(secondId).events[0].type, 'pass');
+    assert.equal(recorder.status.failed, 1);
+    assert.equal(recorder.status.state, 'error');
+    assert.equal(recorder.status.message, 'request_rejected');
+    const rejected = await harness.storage.get(rejectedId);
+    assert.equal(rejected.blocked.httpStatus, status);
+    assert.deepEqual(rejected.events.map(event => event.type), ['move', 'abandon']);
+    assert.equal(recorder.status.pending, 3);
+    assert.equal(rejected.create.initial.state.ply, 0);
+    assert.match(rejected.writeKey, /^[a-f0-9]{64}$/);
+    recorder.close();
+    recorder = new GameRecorder(harness.options);
+    await recorder.resume(archiveFixture(1)); await recorder.flush();
+    assert.equal(rejectedRequests, 1);
+    assert.equal(recorder.status.failed, 1);
+    assert.equal(recorder.status.state, 'error');
+    assert.equal((await harness.storage.list()).length, 2);
+    recorder.close();
+  }
+});
+
+test('a permanent per-game event quota failure keeps its events and allows the next game to save', async () => {
+  const server = archiveServer(); let limitedId;
+  const harness = archiveHarness({ fetch: async (url, request) => {
+    if (url.endsWith(`/api/games/${limitedId}/events`)) return { ok: false, status: 413 };
+    return server.fetch(url, request);
+  } });
+  const recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture()); limitedId = recorder.status.gameId;
+  await recorder.record('move', archiveFixture(1)); await recorder.start(archiveFixture());
+  const secondId = recorder.status.gameId;
+  await recorder.record('pass', archiveFixture(1)); await recorder.flush();
+  const limited = await harness.storage.get(limitedId);
+  assert.equal(limited.created, true);
+  assert.equal(limited.blocked.httpStatus, 413);
+  assert.deepEqual(limited.events.map(event => event.seq), [1, 2]);
+  assert.equal(server.games.get(secondId).events.length, 1);
+  assert.equal(recorder.status.failed, 1);
+  assert.equal(recorder.status.pending, 2);
+  recorder.close();
+});
+
+test('temporary per-game rate limits do not block other games and remain retryable', async () => {
+  for (const status of [429, 503]) {
+    const server = archiveServer(); let limitedId, limited = true;
+    const harness = archiveHarness({ fetch: async (url, request) => {
+      if (limited && url.endsWith(`/api/games/${limitedId}/events`)) return { ok: false, status };
+      return server.fetch(url, request);
+    } });
+    const recorder = new GameRecorder(harness.options);
+    await recorder.start(archiveFixture()); limitedId = recorder.status.gameId;
+    await recorder.record('move', archiveFixture(1)); await recorder.start(archiveFixture());
+    const secondId = recorder.status.gameId;
+    await recorder.record('pass', archiveFixture(1)); await recorder.flush();
+    assert.equal(server.games.get(secondId).events.length, 1);
+    assert.equal((await harness.storage.get(limitedId)).blocked, undefined);
+    assert.equal((await harness.storage.get(limitedId)).lastFailure.httpStatus, status);
+    assert.equal(recorder.status.failed, 0);
+    assert.equal(recorder.status.state, 'error');
+    limited = false; await recorder.flush();
+    assert.deepEqual(server.games.get(limitedId).events.map(event => event.seq), [1, 2]);
+    assert.equal(recorder.status.pending, 0);
+    assert.equal(recorder.status.state, 'saved');
+    assert.equal((await harness.storage.get(limitedId)).lastFailure, undefined);
+    recorder.close();
+  }
+});

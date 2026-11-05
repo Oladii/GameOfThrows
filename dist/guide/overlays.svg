@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="650" viewBox="0 0 960 650" role="img" aria-labelledby="title desc">
-<title id="title">Что показывают кнопки «Атаки», «Ауры» и «Координаты»</title>
-<desc id="desc">Три схемы подсказок игрового поля. Атаки показывают зоны и отдельный суммарный урон каждой команды. Ауры идут по шести лучам; пример с дальностью две клетки. Координаты подписывают адрес каждой клетки.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="470" viewBox="0 0 960 470" role="img" aria-labelledby="title desc">
+<title id="title">Что показывают кнопки «Атаки» и «Ауры»</title>
+<desc id="desc">Две схемы подсказок игрового поля. Атаки показывают зоны и отдельный суммарный урон каждой команды. Ауры идут по шести лучам; пример с дальностью две клетки.</desc>
 <defs>
  <linearGradient id="attackOverlap" x1="0" y1="0" x2="1" y2="1"><stop offset="50%" stop-color="#d6e6ef"/><stop offset="50%" stop-color="#f3d6c2"/></linearGradient>
  <pattern id="auraNorthFlag" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M2 0 V7" fill="none" stroke="#a9cf91" stroke-width="2.8" stroke-opacity=".4"/></pattern>
@@ -10,15 +10,13 @@
  <pattern id="auraFilledOverlap" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="10" height="10" fill="#a9cf91"/><rect width="5" height="10" fill="#c6a5df"/></pattern>
 </defs>
 <g font-family="Arial, sans-serif">
-<rect width="960" height="650" fill="#f5f3ed"/>
-<text x="32" y="42" font-size="28" fill="#28352f" font-weight="700" >Три режима подсказок</text>
+<rect width="960" height="470" fill="#f5f3ed"/>
+<text x="32" y="42" font-size="28" fill="#28352f" font-weight="700" >Два режима подсказок</text>
 <text x="32" y="69" font-size="17" fill="#7d8278" font-weight="400" >Кнопка снимает выбор фигуры и включает один режим для всего поля.</text>
 <rect x="32" y="92" width="896" height="164" rx="16" fill="#fffefb" stroke="#e4e3d9"/>
 <path d="M301 114 V234" stroke="#e4e3d9"/>
 <rect x="32" y="272" width="896" height="164" rx="16" fill="#fffefb" stroke="#e4e3d9"/>
 <path d="M301 294 V414" stroke="#e4e3d9"/>
-<rect x="32" y="452" width="896" height="164" rx="16" fill="#fffefb" stroke="#e4e3d9"/>
-<path d="M301 474 V594" stroke="#e4e3d9"/>
 <rect x="54" y="100" width="212" height="28" rx="8" fill="#e4eadb" stroke="#9da996" stroke-width="1.2"/>
 <text x="160" y="121" font-size="20" fill="#28352f" font-weight="700" text-anchor="middle">Атаки</text>
 <polygon points="179.31,144.40 179.31,167.60 159.22,179.20 139.12,167.60 139.12,144.40 159.22,132.80" fill="#d6e6ef" stroke="#e4e3d9" stroke-width="1.4" />
@@ -79,25 +77,5 @@
 <text x="332" y="419" font-size="16.5" fill="#28352f" font-weight="400" >Выберите Знаменосца или Командира — появится штриховка.</text>
 <polygon points="898.26,406.50 898.26,419.50 887.00,426.00 875.74,419.50 875.74,406.50 887.00,400.00" fill="#dce7c1" stroke="#e4e3d9" stroke-width="1" />
 <polygon points="898.26,406.50 898.26,419.50 887.00,426.00 875.74,419.50 875.74,406.50 887.00,400.00" fill="url(#auraNorthFlag)" />
-<rect x="54" y="460" width="212" height="28" rx="8" fill="#e4eadb" stroke="#9da996" stroke-width="1.2"/>
-<text x="160" y="481" font-size="20" fill="#28352f" font-weight="700" text-anchor="middle">Координаты</text>
-<polygon points="179.39,507.35 179.39,528.65 160.95,539.30 142.50,528.65 142.50,507.35 160.95,496.70" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.4" />
-<text x="160.95" y="518.50" font-size="11.5" fill="#28352f" font-weight="400" text-anchor="middle" dominant-baseline="middle">0,-1</text>
-<polygon points="217.50,507.35 217.50,528.65 199.05,539.30 180.61,528.65 180.61,507.35 199.05,496.70" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.4" />
-<text x="199.05" y="518.50" font-size="11.5" fill="#28352f" font-weight="400" text-anchor="middle" dominant-baseline="middle">1,-1</text>
-<polygon points="160.34,540.35 160.34,561.65 141.89,572.30 123.45,561.65 123.45,540.35 141.89,529.70" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.4" />
-<text x="141.89" y="551.50" font-size="11.5" fill="#28352f" font-weight="400" text-anchor="middle" dominant-baseline="middle">-1,0</text>
-<polygon points="198.45,540.35 198.45,561.65 180.00,572.30 161.55,561.65 161.55,540.35 180.00,529.70" fill="#e6eddf" stroke="#e4e3d9" stroke-width="1.4" />
-<text x="180.00" y="551.50" font-size="11.5" fill="#28352f" font-weight="700" text-anchor="middle" dominant-baseline="middle">0,0</text>
-<polygon points="236.55,540.35 236.55,561.65 218.11,572.30 199.66,561.65 199.66,540.35 218.11,529.70" fill="#e6eddf" stroke="#e4e3d9" stroke-width="1.4" />
-<text x="218.11" y="551.50" font-size="11.5" fill="#28352f" font-weight="700" text-anchor="middle" dominant-baseline="middle">1,0</text>
-<polygon points="179.39,573.35 179.39,594.65 160.95,605.30 142.50,594.65 142.50,573.35 160.95,562.70" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.4" />
-<text x="160.95" y="584.50" font-size="11.5" fill="#28352f" font-weight="400" text-anchor="middle" dominant-baseline="middle">-1,1</text>
-<polygon points="217.50,573.35 217.50,594.65 199.05,605.30 180.61,594.65 180.61,573.35 199.05,562.70" fill="#fffefb" stroke="#e4e3d9" stroke-width="1.4" />
-<text x="199.05" y="584.50" font-size="11.5" fill="#28352f" font-weight="400" text-anchor="middle" dominant-baseline="middle">0,1</text>
-<text x="332" y="492" font-size="20" fill="#28352f" font-weight="700" >Добавляет адрес к каждой клетке.</text>
-<text x="332" y="521" font-size="18" fill="#28352f" font-weight="400" >По нему удобно описывать ходы и ошибки.</text>
-<text x="332" y="550" font-size="18" fill="#28352f" font-weight="400" >Например: «Лукарь: 0,0 → 1,0».</text>
-<text x="332" y="584" font-size="17" fill="#7d8278" font-weight="400" >Один адрес всегда обозначает одну клетку.</text>
-<text x="32" y="639" font-size="13.5" fill="#7d8278" font-weight="400" >Повторное нажатие выключает режим. Выбор фигуры завершает общий просмотр.</text>
+<text x="32" y="459" font-size="13.5" fill="#7d8278" font-weight="400" >Повторное нажатие выключает режим. Выбор фигуры завершает общий просмотр.</text>
 </g></svg>

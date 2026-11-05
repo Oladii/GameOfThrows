@@ -38,7 +38,7 @@ export function validateConfig(input) {
     }
   }
   const unsupported = {
-    shield: ['aura', 'damageBonus', 'rangeBonus', 'defenseBonus'],
+    shield: ['damageBonus', 'rangeBonus'],
     archer: ['aura', 'damageBonus', 'rangeBonus', 'defenseBonus'],
     attackLamp: ['defenseBonus'],
     defenseLamp: ['damage', 'range', 'damageBonus', 'rangeBonus']
@@ -115,7 +115,7 @@ export function effective(piece, state, config) {
   let damageBonus = veteran ? promotion.damageBonus : 0, rangeBonus = veteran ? promotion.rangeBonus : 0, defenseBonus = veteran ? promotion.defenseBonus : 0;
   for (const source of state.pieces) {
     const veteranSource = shieldCanRetreat(source, config);
-    if (source.id === piece.id || source.team !== piece.team || !veteranSource && !['attackLamp', 'defenseLamp'].includes(source.type)) continue;
+    if (source.id === piece.id || source.team !== piece.team || !veteranSource && !['shield', 'attackLamp', 'defenseLamp'].includes(source.type)) continue;
     const aura = veteranSource ? promotion : config.stats[source.type];
     if (!auraReaches(source, piece, state, config)) continue;
     sources.push(source.id);
@@ -123,17 +123,18 @@ export function effective(piece, state, config) {
       damageBonus += aura.damageBonus;
       if (piece.type !== 'shield') rangeBonus += aura.rangeBonus;
     }
-    if (source.type === 'defenseLamp' || veteranSource) defenseBonus += aura.defenseBonus;
+    if (['shield', 'defenseLamp'].includes(source.type) || veteranSource) defenseBonus += aura.defenseBonus;
   }
   if ((config.auraDefenseCap ?? -1) >= 0) {
     const personal = veteran ? promotion.defenseBonus : 0;
     defenseBonus = personal + Math.min(config.auraDefenseCap, defenseBonus - personal);
   }
-  const range = piece.type === 'defenseLamp' ? 0 : piece.type === 'shield' ? Math.min(stats.range + rangeBonus, promotion.maxRange ?? DEFAULT_CONFIG.shieldPromotion.maxRange) : stats.range + rangeBonus;
-  return { damage: piece.type === 'defenseLamp' ? 0 : stats.damage + damageBonus, range, fortitude: stats.fortitude + defenseBonus, aura: veteran ? promotion.aura : stats.aura, move: stats.move, damageBonus, rangeBonus: Math.max(0, range - stats.range), defenseBonus, sources };
+  const support = ['attackLamp', 'defenseLamp'].includes(piece.type) && stats.range === 0;
+  const range = support ? Math.min(rangeBonus, 1) : piece.type === 'shield' ? Math.min(stats.range + rangeBonus, promotion.maxRange ?? DEFAULT_CONFIG.shieldPromotion.maxRange) : stats.range + rangeBonus;
+  return { damage: stats.damage + damageBonus, range, fortitude: stats.fortitude + defenseBonus, aura: veteran ? promotion.aura : stats.aura, move: stats.move, damageBonus, rangeBonus: Math.max(0, range - stats.range), defenseBonus, sources };
 }
 export function attacks(attacker, target, state, config, stats = effective(attacker, state, config)) {
-  if (attacker.id === target.id || attacker.team === target.team || stats.damage <= 0 || attacker.type === 'defenseLamp') return false;
+  if (attacker.id === target.id || attacker.team === target.team || stats.damage <= 0) return false;
   if (distance(attacker, target, config) > stats.range) return false;
   if (!isRay(attacker, target, config)) return false;
   return !blocked(attacker, target, state, config);

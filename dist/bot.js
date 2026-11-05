@@ -39,7 +39,7 @@ function damageBound(state, config, team) {
   const own = state.pieces.filter(p => p.team === team);
   const flags = own.filter(p => p.type === 'attackLamp').length;
   const shields = own.filter(p => p.type === 'shield').length;
-  return own.reduce((sum, p) => p.type === 'defenseLamp' ? sum : sum + config.stats[p.type].damage
+  return own.reduce((sum, p) => sum + config.stats[p.type].damage
     + flags * config.stats.attackLamp.damageBonus
     - (p.type === 'attackLamp' ? config.stats.attackLamp.damageBonus : 0)
     + shields * config.shieldPromotion.damageBonus, 0);
@@ -59,11 +59,11 @@ function evaluate(state, report, config, team, repeated) {
     scores[piece.team] += 100 * PIECE_VALUES[piece.type];
     if (info.dead) scores[piece.team] -= 30 * PIECE_VALUES[piece.type];
     const usefulDefense = Math.min(info.defenseBonus, Math.max(0, enemyBound - config.stats[piece.type].fortitude));
-    scores[piece.team] += (piece.type === 'defenseLamp' ? 0 : info.damageBonus) * 3 + usefulDefense * 3
+    scores[piece.team] += (info.damage > 0 && info.range > 0 ? info.damageBonus : 0) * 3 + usefulDefense * 3
       + (piece.type === 'archer' ? info.rangeBonus * 2 : 0);
     if (shieldCanRetreat(piece, config)) scores[piece.team] += 15;
     scores[1 - piece.team] += Math.min(info.incoming / Math.max(1, info.fortitude + 1), 1) * 4;
-    if (piece.type !== 'defenseLamp' && enemies.length) {
+    if (info.damage > 0 && info.range > 0 && enemies.length) {
       const chase = Math.min(...enemies.map(target => distance(piece, target, config)
         / (target.type === 'shield' || target.type === 'attackLamp' || target.type === 'defenseLamp' ? 1 : 1.4)));
       const comfort = piece.type === 'archer' ? 2 : 1, finishing = enemies.length <= 2 ? 3 : 1;

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f5f3ed">
+  <meta name="game-archive-endpoint" content="https://game-of-trows-archive.designsystembarkalov.chatgpt.site">
   <title>Game Of Trows</title>
   <meta name="description" content="Тактическая игра «Game Of Trows»: два броненосца и два лукаря при поддержке знаменосца и командира.">
   <link rel="stylesheet" href="/styles.css">
@@ -11,7 +12,7 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.2</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-05T18:14:45.800Z">Сборка 05.11.2026, 21:14:45 МСК</span></span></div>
+    <div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.3</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-05T21:38:59.170Z">Сборка 06.11.2026, 00:38:59 МСК</span></span></div>
   </header>
   <main>
     <section class="page-heading"><div><p class="eyebrow">ПРОВЕРЯЕМ МЕХАНИКУ</p><h1>Сила — в построении.</h1><p class="intro">Два броненосца и два лукаря образуют группу. Знаменосец усиливает её атаки, а командир помогает держать удар.</p></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настроить эксперимент" aria-label="Настроить эксперимент"><span aria-hidden="true">⚙</span></button></div></section>
@@ -36,6 +37,7 @@
         <select id="position-kind"><option value="default">Дефолт</option><option value="custom">Кастом</option></select>
         <button id="configure-position" class="button outline full" disabled>Настроить позицию</button>
         <button id="start-game" class="button primary full">Начать <span aria-hidden="true">↗</span></button>
+        <button id="onboarding-open" class="onboarding-entry">Первый раз? Познакомиться с игрой</button>
         <button id="cancel-new-game" class="button subtle full" hidden>Вернуться к партии</button>
         </div>
         <button id="new-game" class="button primary full" hidden>Новая игра <span aria-hidden="true">↗</span></button>
@@ -56,11 +58,12 @@
         <div class="arena-top"><div><span class="section-label">ПОЛЕ</span><h2 id="board-name">Гексы · 61 клетка</h2></div><span id="move-counter" class="move-counter">Ход 1</span></div>
         <div class="scoreboard" id="scoreboard"></div>
         <div class="board-wrap"><svg id="board" role="group" aria-label="Поле игры" xmlns="http://www.w3.org/2000/svg"></svg><div id="result-banner" class="result-banner" hidden></div></div>
-        <div class="board-footer"><div class="overlays" role="group" aria-label="Подсветка поля"><button id="show-attacks" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать атаки обеих команд">Атаки</button><button id="show-auras" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать ауры обеих команд">Ауры</button><button id="show-coordinates" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать координаты клеток">Координаты</button></div><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие">↶ Отменить</button><button id="review-previous" class="button subtle history-arrow" title="Показать позицию перед последним ходом" aria-label="Показать последний ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Вернуться к текущей позиции" aria-label="Вернуться к текущей позиции" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
+        <div class="board-footer"><div class="overlays" role="group" aria-label="Подсветка поля"><button id="show-attacks" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать атаки обеих команд">Атаки</button><button id="show-auras" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать ауры обеих команд">Ауры</button></div><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие">↶ Отменить</button><button id="review-previous" class="button subtle history-arrow" title="Показать позицию перед последним ходом" aria-label="Показать последний ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Вернуться к текущей позиции" aria-label="Вернуться к текущей позиции" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
         <div id="bot-controls" class="bot-controls" hidden><div class="bot-review-actions"><button id="resume-bot" class="button subtle" hidden>Ход бота</button></div><p id="bot-status" class="muted tiny" role="status"></p></div>
         <div id="attack-legend" class="attack-legend" hidden></div>
         <div id="aura-legend" class="aura-legend" hidden><span><i class="aura-swatch north-attack"></i> Север · атака</span><span><i class="aura-swatch north-defense"></i> Север · защита</span><span><i class="aura-swatch south-attack"></i> Юг · атака</span><span><i class="aura-swatch south-defense"></i> Юг · защита</span><span>Пересечения — цветными штрихами</span></div>
         <div class="board-hint" id="board-hint" aria-live="polite">Выберите свою фигуру, затем подсвеченную клетку.</div>
+        <p class="archive-status" id="archive-status" role="status"></p>
       </section>
       <aside class="right-panel"><div class="log-heading"><h2>Журнал</h2><span id="log-count">0 ходов</span></div><div id="move-log" class="move-log" aria-live="polite"></div></aside>
     </div>
@@ -69,11 +72,19 @@
   <dialog id="settings-dialog"><form id="settings-form">
     <div class="dialog-header"><div><p class="eyebrow">ПАРАМЕТРЫ ЭКСПЕРИМЕНТА</p><h2>Настройка партии</h2></div><button type="button" class="icon-button close-dialog" aria-label="Закрыть настройки">×</button></div>
     <div class="settings-layout"><section><h3>Поле</h3><div class="input-grid"><label>Геометрия<select name="geometry"><option value="hex">Шестигранники</option><option value="square">Квадраты</option></select></label><label><span id="size-label">Радиус поля</span><input type="number" name="size" min="3" max="6" required></label></div><h3>Группы и поддержка</h3><div class="input-grid" id="army-inputs"></div><p class="muted small">Число групп, знаменосцев и командиров задаётся на каждого игрока. Состав используется при новой расстановке; в редакторе фигуры можно ставить отдельно.</p><label class="field-label">Предел суммарной защиты от аур<select name="auraDefenseCap"><option value="-1">Без ограничения</option><option value="0">+0</option><option value="1">+1</option><option value="2">+2</option><option value="3">+3</option><option value="4">+4</option><option value="5">+5</option><option value="6">+6</option><option value="7">+7</option><option value="8">+8</option><option value="9">+9</option><option value="10">+10</option><option value="11">+11</option><option value="12">+12</option><option value="13">+13</option><option value="14">+14</option><option value="15">+15</option><option value="16">+16</option><option value="17">+17</option><option value="18">+18</option><option value="19">+19</option><option value="20">+20</option></select></label><p class="muted small">Личный бонус стойкости броненосца после края сохраняется.</p><h3>Броненосец после края</h3><div class="input-grid" id="promotion-inputs"></div><p class="muted small">Урон, дальность и стойкость усиливаются постоянно. Аура даёт все три бонуса союзникам и складывается с другими аурами. Дальность броненосца после края — 2; союзные ауры её не увеличивают.</p></section>
-    <section><h3>Характеристики фигур</h3><p class="muted small">Базовые числа до усиления. Союзные ауры не увеличивают дальность броненосцев. Командир не получает способность наносить урон.</p><div class="table-scroll"><table class="stats-table" id="stats-table"></table></div></section></div>
+    <section><h3>Характеристики фигур</h3><p class="muted small">Базовые числа до усиления. Союзные ауры не увеличивают дальность броненосцев. Знаменосец и командир имеют базовые урон и дальность 0; союзная аура может дать им атаку на 1 клетку.</p><div class="table-scroll"><table class="stats-table" id="stats-table"></table></div></section></div>
     <details class="experiment-details"><summary>Экспериментальные правила</summary><p class="muted small">Эти детали выбраны для первого прототипа и пока не считаются окончательными правилами.</p><div id="experiment-inputs" class="check-list"></div><p class="muted small">Все фигуры атакуют по прямым лучам сетки через грани клеток. Взаимное полное уничтожение считается ничьей.</p></details>
     <p id="settings-error" class="form-error" aria-live="polite"></p><div class="dialog-footer"><button type="button" id="reset-defaults" class="button subtle">Исходные значения</button><button type="submit" class="button primary">Сохранить настройки</button></div>
   </form></dialog>
-  <dialog id="rules-dialog"><div class="dialog-header"><div><p class="eyebrow">ОБ ИГРЕ</p><h2>Game Of Trows</h2></div><button class="icon-button close-dialog" aria-label="Закрыть об игре">×</button></div><div class="rules-content">
+  <dialog id="rules-dialog" aria-labelledby="about-title"><div class="dialog-header"><div><p class="eyebrow">ОБ ИГРЕ</p><h2 id="about-title">Сила — в построении</h2></div><button class="icon-button close-dialog" aria-label="Закрыть об игре">×</button></div>
+    <div class="about-switch" role="group" aria-label="Способ знакомства с игрой"><button id="about-guide-tab" class="button" aria-pressed="true" aria-controls="onboarding">Первые шаги</button><button id="about-reference-tab" class="button" aria-pressed="false" aria-controls="rules-reference">Все правила</button></div>
+    <section id="onboarding" aria-label="Знакомство с игрой">
+      <nav id="onboarding-progress" class="onboarding-progress" aria-label="Шаги знакомства"></nav>
+      <div id="onboarding-body" class="onboarding-body" tabindex="-1" role="region" aria-labelledby="onboarding-title"></div>
+      <div class="onboarding-footer"><button id="onboarding-back" class="button outline">Назад</button><span id="onboarding-count" class="muted small"></span><button id="onboarding-next" class="button primary">Далее →</button></div>
+    </section>
+    <div id="rules-reference" class="rules-content" hidden>
+    <p class="reference-intro">Справочник по текущим настройкам партии. К короткому знакомству можно вернуться через «Первые шаги».</p>
     <h3>Цель игры</h3>
     <p>Уничтожьте все фигуры противника, включая Знаменосца и Командира. Если обе стороны одновременно теряют все фигуры — ничья.</p>
     <p>Сила армии — в построении: Броненосцы прикрывают Лукарей, а Знаменосец и Командир помогают союзникам атаковать и выживать.</p>
@@ -81,7 +92,7 @@
     <ol><li>За один ход передвиньте одну свою фигуру. Затем ходит противник.</li><li>Можно пройти от одной клетки до максимума, указанного у фигуры. По дороге можно поворачивать.</li><li>Через союзные фигуры можно проходить, но закончить ход нужно на пустой клетке.</li><li>Через фигуры противника проходить нельзя. На занятой противником клетке останавливаться тоже нельзя.</li></ol>
     <p id="about-pass"></p>
     <h3>Фигуры</h3>
-    <ul><li><strong>Броненосец</strong> прикрывает союзников и сражается вблизи. До дальнего края он ходит вперёд и вбок.</li><li><strong>Лукарь</strong> атакует на расстоянии.</li><li><strong>Знаменосец</strong> сам атакует и усиливает урон и дальность союзников.</li><li><strong>Командир</strong> не атакует. Он повышает стойкость союзников.</li></ul>
+    <ul><li><strong>Броненосец</strong> прикрывает соседних союзников защитной аурой и сражается вблизи. До дальнего края он ходит вперёд и вбок.</li><li><strong>Лукарь</strong> атакует на расстоянии.</li><li><strong>Знаменосец</strong> не имеет базовой атаки. Его аура даёт союзникам +2 к урону и усиливает дальность. Под союзной аурой может атаковать на 1 клетку.</li><li><strong>Командир</strong> не имеет базовой атаки. Он повышает стойкость союзников; под усиливающей аурой может атаковать на 1 клетку.</li></ul>
     <details><summary>Характеристики фигур</summary><p>Значения до усилений:</p><div class="table-scroll"><table id="about-stats" class="about-stats"></table></div></details>
     <h3>Как наносится урон</h3>
     <p>После каждого хода фигуры обеих сторон атакуют автоматически. Каждая бьёт сразу всех врагов, которых достаёт. Отдельно выбирать цель или нажимать «стрелять» не нужно.</p>
@@ -94,13 +105,14 @@
     <p>Ауры не увеличивают радиусы друг друга. Броненосцы не получают дополнительную дальность от союзных аур.</p><p id="about-auras"></p><div id="about-promotion"></div>
     <h3>Подсказки</h3>
     <p>Сверху у фигуры — урон и дальность. Снизу — входящий урон и стойкость. Череп означает гибель при следующем расчёте. Наведение на фигуру показывает, кто её атакует; на доступную клетку — что произойдёт после перемещения.</p>
-    <p>Кнопки «Атаки», «Ауры» и «Координаты» включают общий просмотр поля. Одновременно работает один режим. Нажатие кнопки снимает выбор фигуры; повторное нажатие активной кнопки выключает режим. Выбор фигуры завершает общий просмотр.</p>
-    <p>«Атаки» показывает опасные клетки обеих сторон, «Ауры» — все области поддержки яркой цветной заливкой, «Координаты» — адреса клеток. При выборе Знаменосца или Командира его аура показана штриховкой с непрозрачностью 40%. У этих фигур противоположные наклоны штриховки. Кнопки ← и → рядом с «Отменить» показывают последний ход без его отмены.</p>
+    <p>Кнопки «Атаки» и «Ауры» включают общий просмотр поля. Одновременно работает один режим. Нажатие кнопки снимает выбор фигуры; повторное нажатие активной кнопки выключает режим. Выбор фигуры завершает общий просмотр.</p>
+    <p>«Атаки» показывает опасные клетки обеих сторон, «Ауры» — все области поддержки яркой цветной заливкой. При выборе Броненосца, Знаменосца или Командира его аура показана штриховкой с непрозрачностью 40%. У Знаменосца и Командира противоположные наклоны штриховки. Кнопки ← и → рядом с «Отменить» показывают последний ход без его отмены.</p>
     <h3>Обозначения в картинках</h3>
     <figure class="rules-figure"><img id="guide-stats" src="./guide/stats.svg" alt="Кружки: урон и дальность сверху, входящий урон и стойкость снизу. Череп заменяет входящий урон."/><figcaption>Кружки у фигуры и предупреждение о гибели.</figcaption></figure>
-    <figure class="rules-figure"><img id="guide-overlays" src="./guide/overlays.svg" alt="Атаки обеих сторон, цвета аур и координаты клеток."/><figcaption>Кнопки под полем: общий просмотр атак, аур или координат.</figcaption></figure>
+    <figure class="rules-figure"><img id="guide-overlays" src="./guide/overlays.svg" alt="Атаки обеих сторон и цвета аур."/><figcaption>Кнопки под полем: общий просмотр атак или аур.</figcaption></figure>
     <figure class="rules-figure"><img id="guide-board" src="./guide/board.svg" alt="Доступный ход, прогноз перемещения, атакующие и череп гибели."/><figcaption>Как читать подсветку и прогноз на поле.</figcaption></figure>
     <h3>Как начать</h3>
+    <p>Партии на сайте автоматически записываются для анализа баланса: сохраняются версия игры, настройки, позиции, ходы и результат. Имена игроков в запись не входят. При обрыве связи запись ждёт отправки в браузере.</p>
     <ol><li>Выберите режим, свою сторону и первого игрока.</li><li>Оставьте «Дефолт» или выберите «Кастом» → «Настроить позицию» → «Готово».</li><li>Нажмите «Начать». Для следующей партии нажмите «Новая игра».</li></ol>
   </div></dialog>
   <div id="toast" role="status" class="toast" hidden></div>
