@@ -43,6 +43,9 @@
 .heading-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}.settings-gear{width:39px;height:39px;min-height:39px;flex:0 0 39px;padding:0;line-height:1}.settings-gear svg{display:block;width:20px;height:20px;flex-shrink:0}.start-settings{margin-top:18px}.start-settings>.section-label{margin-bottom:8px}.start-settings .field-label{margin-top:13px}.about-stats{width:100%;border-collapse:collapse;font-size:12px}.about-stats th,.about-stats td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center}.about-stats th:first-child,.about-stats td:first-child{text-align:left}.about-stats th{font-size:10px;color:var(--muted);font-weight:550}.rules-content h3{font-size:16px}.rules-content ul{padding-left:22px}
 @media(max-width:700px){.heading-actions{margin-top:17px}.page-heading .heading-actions .button{margin-top:0}.left-panel>#start-setup{grid-column:1/-1}.left-panel>#new-game{grid-column:1/-1}.left-panel .config-summary{grid-column:1/-1}.start-settings .button.full{margin-top:8px}}
 .piece.moving-origin,.lesson-piece.moving-origin{visibility:hidden}.moving-token{pointer-events:none}.moving-token.north .piece-circle{fill:var(--blue)}.moving-token.south .piece-circle{fill:var(--rust)}.moving-token .piece-circle{stroke:#fffdf7;stroke-width:3;filter:drop-shadow(0 2px 1px #1b332215)}.last-move-trace{pointer-events:none}.last-move-trace circle,.last-move-trace polyline{fill:none;stroke:#9b7325;stroke-width:1.6;stroke-dasharray:4 3;opacity:.55}.last-move-trace .move-arrival{stroke-dasharray:none}.last-move-trace polyline{stroke-linecap:round;stroke-linejoin:round}
+.piece.veteran:not(.fatal)>.piece-circle,.moving-token.veteran>.piece-circle,.preview-ghost.veteran:not(.fatal)>circle,.lesson-piece.veteran:not(.lesson-fatal)>circle,.lesson-preview-piece.veteran>circle{stroke:#c7a56b;stroke-width:3.5}
+.veteran .piece-icon,.veteran .lesson-piece-icon{stroke-width:1.8}
+.unit-icon.veteran{border:2px solid #c7a56b}
 
 .rules-figure{margin:18px 0 24px}.rules-figure img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line)}.rules-figure figcaption{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5}
 
@@ -310,7 +313,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.6</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-06T18:03:13.952Z">Сборка 06.11.2026, 21:03:13 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.6</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-06T18:34:14.099Z">Сборка 06.11.2026, 21:34:14 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <main>
     <div class="workspace">
@@ -1431,18 +1434,31 @@ class GameRecorder {
 
 
 const AURA_COLORS = ['#a9cf91', '#c6a5df', '#b66a80', '#edd46c'];
+const VETERAN_SHIELD_ICON = '<path d="M12 2 20 5v8l-8 9-8-9V5Z"/><path d="m4 7 8-3 8 3M12 4v16M6 10l4 2m4 0 4-2M8 16h8M9 18h6"/><path d="M4 8 1 6v6l3 3m16-7 3-2v6l-3 3"/>';
+
+function unitAppearance(piece, config, icons) {
+  const veteran = config ? shieldCanRetreat(piece, config) : piece.type === 'shield' && piece.reachedFarEdge === true;
+  return { veteran, icon: veteran ? VETERAN_SHIELD_ICON : icons[piece.type] };
+}
+
+// Both weapon glyphs point up and right before rotation, at -45 degrees.
+function attackMarkerRotation(from, to) {
+  return Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI + 45;
+}
 
 const skullShape = () => '<path class="skull-head" d="M8 1.5c-3.4 0-5.5 2.4-5.5 5.3 0 2 1.2 3.4 2.5 3.9V14h6v-3.3c1.3-.5 2.5-1.9 2.5-3.9C13.5 3.9 11.4 1.5 8 1.5Z"/><circle class="skull-eye" cx="5.5" cy="6.8" r="1.4"/><circle class="skull-eye" cx="10.5" cy="6.8" r="1.4"/><path class="skull-nose" d="m8 8.6-1.2 1.8h2.4Z"/><path class="skull-teeth" d="M7 11.5V14m2-2.5V14"/>';
 
-function renderDeathEffects(deaths, point, polygonPoints, icons) {
+function renderDeathEffects(deaths, point, polygonPoints, icons, config = null) {
   return deaths.map(piece => {
     const { x, y } = point(piece);
-    return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygonPoints}"/><circle class="death-pulse" r="22"/><g class="death-ghost ${piece.team === 0 ? 'north' : 'south'}"><g class="death-token"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${icons[piece.type]}</g></g><g class="death-skull"><g class="fatal-mark" transform="translate(-16,-17) scale(2)">${skullShape()}</g></g></g></g>`;
+    const appearance = unitAppearance(piece, config, icons);
+    return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygonPoints}"/><circle class="death-pulse" r="22"/><g class="death-ghost${appearance.veteran ? ' veteran' : ''} ${piece.team === 0 ? 'north' : 'south'}"><g class="death-token"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g></g><g class="death-skull"><g class="fatal-mark" transform="translate(-16,-17) scale(2)">${skullShape()}</g></g></g></g>`;
   }).join('');
 }
 
-function renderMovingToken(piece, frame, icons, id = 'moving-token') {
-  return `<g id="${id}" class="moving-token ${piece.team ? 'south' : 'north'}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${icons[piece.type]}</g>${piece.group ? `<text class="group-text" x="0" y="16">${piece.group === 1 ? 'I' : piece.group === 2 ? 'II' : piece.group}</text>` : ''}</g>`;
+function renderMovingToken(piece, frame, icons, id = 'moving-token', config = null) {
+  const appearance = unitAppearance(piece, config, icons);
+  return `<g id="${id}" class="moving-token${appearance.veteran ? ' veteran' : ''} ${piece.team ? 'south' : 'north'}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g>${piece.group ? `<text class="group-text" x="0" y="16">${piece.group === 1 ? 'I' : piece.group === 2 ? 'II' : piece.group}</text>` : ''}</g>`;
 }
 
 // Both the board and onboarding use the same selected-aura palette and hatch.
@@ -1628,20 +1644,20 @@ function renderMoveLesson(lesson, icons, renderBadges = () => '', animation = nu
   const projected = lesson.previewPosition;
   const routeLine = visiblePath.length > 1 ? `<polyline class="lesson-path" points="${visiblePath.map(c => { const p = lessonPoint(c); return `${p.x},${p.y}`; }).join(' ')}"/>` : '';
   const pieces = position.pieces.map(piece => {
-    const p = lessonPoint(piece), info = displayReport.get(piece.id), fatal = info.dead;
+    const p = lessonPoint(piece), info = displayReport.get(piece.id), fatal = info.dead, appearance = unitAppearance(piece, config, icons);
     const selected = piece === selectedUnit, unitControl = !busy && piece.id === lesson.moverId;
-    return `<g class="lesson-piece${phase === 'movement' && piece.id === lesson.moverId ? ' moving-origin' : ''} ${piece.team ? 'lesson-enemy' : 'lesson-friendly'}${fatal ? ' lesson-fatal' : ''}${selected ? ' lesson-unit-selected' : ''}${unitControl ? ' lesson-unit-control' : ''}${lesson.isPreview && piece.id === lesson.moverId ? ' lesson-preview-origin' : ''}" data-lesson-piece="${piece.id}"${selected ? ` data-lesson-selected-unit="${piece.id}"` : ''}${unitControl ? ` data-lesson-unit="${piece.id}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${selected ? 'Выбран: ' + LABELS[piece.type] + '. Нажми, чтобы снять выбор' : 'Выбрать: ' + LABELS[piece.type]}"` : ''} transform="translate(${p.x},${p.y})">${selected ? '<g class="lesson-selection-ring"><circle r="24"/></g>' : ''}<title>${piece.team ? 'Враг' : 'Союзник'}: ${LABELS[piece.type]}${fatal ? ', погибнет при расчёте' : ''}</title><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${icons[piece.type]}</g><g class="lesson-unit-badges">${renderBadges(info)}</g></g>`;
+    return `<g class="lesson-piece${appearance.veteran ? ' veteran' : ''}${phase === 'movement' && piece.id === lesson.moverId ? ' moving-origin' : ''} ${piece.team ? 'lesson-enemy' : 'lesson-friendly'}${fatal ? ' lesson-fatal' : ''}${selected ? ' lesson-unit-selected' : ''}${unitControl ? ' lesson-unit-control' : ''}${lesson.isPreview && piece.id === lesson.moverId ? ' lesson-preview-origin' : ''}" data-lesson-piece="${piece.id}"${selected ? ` data-lesson-selected-unit="${piece.id}"` : ''}${unitControl ? ` data-lesson-unit="${piece.id}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${selected ? 'Выбран: ' + LABELS[piece.type] + '. Нажми, чтобы снять выбор' : 'Выбрать: ' + LABELS[piece.type]}"` : ''} transform="translate(${p.x},${p.y})">${selected ? '<g class="lesson-selection-ring"><circle r="24"/></g>' : ''}<title>${piece.team ? 'Враг' : 'Союзник'}: ${LABELS[piece.type]}${fatal ? ', погибнет при расчёте' : ''}</title><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${appearance.icon}</g><g class="lesson-unit-badges">${renderBadges(info)}</g></g>`;
   }).join('');
   const projectedMover = projected.pieces.find(piece => piece.id === lesson.moverId), projectedPoint = projectedMover && lessonPoint(projectedMover);
-  const ghost = lesson.isPreview ? `<g class="lesson-preview-piece" transform="translate(${projectedPoint.x},${projectedPoint.y})"><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${icons[projectedMover.type]}</g><g class="lesson-unit-badges">${renderBadges(lesson.report.get(projectedMover.id))}</g></g>` : '';
+  const ghost = lesson.isPreview ? `<g class="lesson-preview-piece${unitAppearance(projectedMover, config, icons).veteran ? ' veteran' : ''}" transform="translate(${projectedPoint.x},${projectedPoint.y})"><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${unitAppearance(projectedMover, config, icons).icon}</g><g class="lesson-unit-badges">${renderBadges(lesson.report.get(projectedMover.id))}</g></g>` : '';
   const numbers = visiblePath.slice(1).map((cell, i) => {
     const p = lessonPoint(cell), occupied = projected.pieces.some(piece => piece.q === cell.q && piece.r === cell.r);
     return `<g class="lesson-path-number" transform="translate(${p.x + (occupied ? 19 : 0)},${p.y + (occupied ? -20 : 0)})"><circle r="11"/><text y=".35em">${i + 1}</text></g>`;
   }).join('');
 
   const movingPiece = phase === 'movement' ? lesson.before.pieces.find(piece => piece.id === lesson.moverId) : null;
-  const effects = phase === 'deaths' ? `<g class="death-effects" aria-hidden="true">${renderDeathEffects(lesson.deaths, lessonPoint, lessonPolygonPoints({ x: 0, y: 0 }), icons)}</g>` : '';
-  const movingToken = movingPiece ? renderMovingToken(movingPiece, animation.frame || { ...lessonPoint(movingPiece), progress: 0 }, icons, `lesson-moving-token-${sceneKey}`) : '';
+  const effects = phase === 'deaths' ? `<g class="death-effects" aria-hidden="true">${renderDeathEffects(lesson.deaths, lessonPoint, lessonPolygonPoints({ x: 0, y: 0 }), icons, config)}</g>` : '';
+  const movingToken = movingPiece ? renderMovingToken(movingPiece, animation.frame || { ...lessonPoint(movingPiece), progress: 0 }, icons, `lesson-moving-token-${sceneKey}`, config) : '';
   const feedback = phase === 'movement' ? 'Фигура движется по выбранному маршруту.' : phase === 'deaths' ? 'Расчёт боя: погибшие фигуры удаляются одновременно.' : lesson.feedback;
   const stateLabel = phase === 'movement' ? 'ДВИЖЕНИЕ' : phase === 'deaths' ? 'РАСЧЁТ БОЯ' : lesson.completed ? 'ПОСЛЕ РАСЧЁТА БОЯ' : lesson.isPreview ? 'ПРОГНОЗ · НАЖМИ НА КЛЕТКУ' : lesson.selected ? index === 4 ? 'АУРА ВЫДЕЛЕННОЙ ФИГУРЫ' : 'НАВЕДИ НА КЛЕТКУ' : index === 2 ? 'ЩИТ НА ПУТИ' : 'ВЫБЕРИ ФИГУРУ';
   const controls = (index === 2 && !lesson.completed ? '<button class="button primary" data-lesson-action="remove-shield">Убрать щитовика</button>' : '') +
@@ -1707,7 +1723,7 @@ const ICON_PATHS = {
   attackLamp: '<ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v8c0 1.7 3.6 3 8 3s8-1.3 8-3v-8M4 11l4 8 4-6 4 6 4-8M7 2l8 5M17 2l-3 3"/>',
   defenseLamp: '<path d="M4 22V3m0 2c5-4 10 4 16 0v11c-6 4-11-4-16 0"/><path d="m9 8 3-1 3 1v3c0 2-1.5 3-3 4-1.5-1-3-2-3-4Z"/>'
 };
-const icon = type => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[type]}</svg>`;
+const icon = (type, piece = null) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${piece ? unitAppearance(piece, config, ICON_PATHS).icon : ICON_PATHS[type]}</svg>`;
 const attackBadge = info => `<g class="attack-indicator" data-attack="${info.damage}"><title>Урон атаки: ${info.damage}</title><circle class="attack-badge" cx="-13" cy="13" r="8.5"/><text class="attack-text" x="-13" y="13.4" style="font-size:${String(info.damage).length > 2 ? 7 : 10}px">${info.damage}</text></g>`;
 const survivalBadge = info => {
   const status = durabilityDisplay(info);
@@ -1879,7 +1895,7 @@ function boardMarkup() {
     if (cellDamage[0]) classes.push('attack-north');
     if (cellDamage[1]) classes.push('attack-south');
     if (cellDamage.every(Boolean)) classes.push('attack-both');
-    const details = p ? `${TEAM_NAMES[p.team]}, ${LABELS[p.type]}` : 'пусто';
+    const details = p ? `${TEAM_NAMES[p.team]}, ${LABELS[p.type]}${shieldCanRetreat(p, config) ? '-ветеран' : ''}` : 'пусто';
     let token = '';
     const damageY = p ? 28 : 0;
     const damageLabel = showTeamDamage ? cellDamage.map((damage, team) => {
@@ -1889,10 +1905,11 @@ function boardMarkup() {
     }).join('') : '';
     if (p) {
       const info = report.get(p.id);
-      token = `<g class="piece ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[p.type]}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info)}</g>`;
+      const appearance = unitAppearance(p, config, ICON_PATHS);
+      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info)}</g>`;
     }
     return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/><polygon class="aura-overlay" points="${polygon(c)}" aria-hidden="true"/>${damageLabel}${token}</g>`;
-  }).join('') + '<g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS)}</g>` + lastMoveTrace() + movingTokenMarkup();
+  }).join('') + '<g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config)}</g>` + lastMoveTrace() + movingTokenMarkup();
   if (restoreFocus) $('#board [tabindex="0"]')?.focus({ preventScroll: true });
 }
 function paintAuras() {
@@ -1929,7 +1946,7 @@ function lastMoveTrace() {
 function movingTokenMarkup() {
   if (!movement) return '';
   const p = movement.piece, frame = moveAnimator.active ? moveAnimator.frame : sampleMovement(movement.plan, 0);
-  return renderMovingToken(p, frame, ICON_PATHS);
+  return renderMovingToken(p, frame, ICON_PATHS, 'moving-token', config);
 }
 function inspectionContext() {
   const position = visibleState();
@@ -1965,7 +1982,7 @@ function highlightSources() {
     return `<g class="attack-ray" data-source="${source.id}"><line x1="${start.x + dx * shorten}" y1="${start.y + dy * shorten}" x2="${end.x - dx * shorten}" y2="${end.y - dy * shorten}" marker-end="url(#damage-arrow)"><title>${escape(LABELS[source.type])}: ${attack.damage} урона</title></line><g class="attack-ray-label"><circle cx="${label.x}" cy="${label.y}" r="9"/><text x="${label.x}" y="${label.y + .4}">${attack.damage}</text></g></g>`;
   }).join('');
   const targetInfo = context.report.get(target.id);
-  const ghost = context.isPreview ? `<g class="preview-ghost ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})"><circle r="19"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[target.type]}</g>${unitBadges(targetInfo)}</g>` : '';
+  const ghost = context.isPreview ? `<g class="preview-ghost${unitAppearance(target, config, ICON_PATHS).veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})"><circle r="19"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${unitAppearance(target, config, ICON_PATHS).icon}</g>${unitBadges(targetInfo)}</g>` : '';
   layer.innerHTML = lines + ghost;
 }
 function paintAttackReach(context) {
@@ -1980,7 +1997,7 @@ function paintAttackReach(context) {
     const { x, y } = point(cell), kind = piece.type === 'archer' ? 'arrow' : 'sword';
     const target = position.pieces.find(p => p.q === cell.q && p.r === cell.r);
     const lethal = target && isLethalDamage(attackPower.damage, effective(target, position, config).fortitude);
-    const marker = lethal ? `<g class="reach-skull" transform="translate(-8,-8)">${skullShape()}</g>` : `<g transform="translate(-10.2,-10.2) scale(.85)" class="reach-icon">${REACH_ICONS[kind]}</g>`;
+    const marker = lethal ? `<g class="reach-skull" transform="translate(-8,-8)">${skullShape()}</g>` : `<g class="reach-icon" transform="rotate(${attackMarkerRotation(point(piece), { x, y })})"><g transform="translate(-10.2,-10.2) scale(.85)">${REACH_ICONS[kind]}</g></g>`;
     return `<g class="attack-reach ${piece.team ? 'south' : 'north'} ${target ? 'occupied' : ''}" data-reach-cell="${key(cell.q, cell.r)}" data-attack-kind="${lethal ? 'skull' : kind}" transform="translate(${x},${y})"><title>${lethal ? 'Смертельная атака' : 'Достигает атака'}: ${LABELS[piece.type]}</title>${target ? `<polygon class="attack-target-overlay" points="${polygon({q:0,r:0})}"/>` : ''}${marker}</g>`;
   }).join('');
 }
@@ -2008,7 +2025,7 @@ function renderInspector(context) {
   const sourceDetails = sources.map(({source, bonuses}) => `<li><strong>${LABELS[source.type]}</strong><span>${Object.entries(bonuses).filter(([,value]) => value > 0).map(([field,value]) => `+${value} ${bonusLabels[field]}`).join(', ')}</span></li>`).join('');
   const aura = shieldCanRetreat(piece, config) ? config.shieldPromotion : base;
   const bonuses = [[aura.damageBonus, 'урон'], [aura.rangeBonus, 'дальность'], [aura.defenseBonus, 'стойкость']].filter(([value]) => value > 0).map(([value, name]) => `${name} +${value}`).join(', ');
-  panel.innerHTML = `${context.isPreview && context.piece?.id === selected ? '<p class="preview-label">Параметры после предполагаемого перемещения</p>' : ''}<div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}">${icon(piece.type)}</span><div><h2>${LABELS[piece.type]}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p><div class="stat-grid">${stats}</div><p class="stat-explanation">Крупно — итог, в скобках — полный расчёт с усилениями союзников. Бонус за край входит в расчёт и подписан отдельно.</p>${info.aura > 0 ? `<p class="unit-aura"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><br>${bonuses}.</p>` : ''}<div class="sources"><strong>Усиления от союзников</strong>${sources.length ? `<ul class="allied-bonus-list">${sourceDetails}</ul>` : '<p>Сейчас нет усилений от союзников.</p>'}</div>`;
+  panel.innerHTML = `${context.isPreview && context.piece?.id === selected ? '<p class="preview-label">Параметры после предполагаемого перемещения</p>' : ''}<div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) ? ' veteran' : ''}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p><div class="stat-grid">${stats}</div><p class="stat-explanation">Крупно — итог, в скобках — полный расчёт с усилениями союзников. Бонус за край входит в расчёт и подписан отдельно.</p>${info.aura > 0 ? `<p class="unit-aura"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><br>${bonuses}.</p>` : ''}<div class="sources"><strong>Усиления от союзников</strong>${sources.length ? `<ul class="allied-bonus-list">${sourceDetails}</ul>` : '<p>Сейчас нет усилений от союзников.</p>'}</div>`;
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion;

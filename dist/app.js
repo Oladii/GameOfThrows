@@ -5,7 +5,7 @@ import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty 
 import { classifyPosition, prepareStartPosition } from './start-position.js';
 import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION } from './move-animation.js';
 import { GameRecorder } from './game-archive.js';
-import { durabilityDisplay, attackCellsFor, unitStatParts, alliedBonusDetails, AURA_COLORS, auraPatternDefinitions, skullShape, renderDeathEffects, renderMovingToken } from './board-presentation.js';
+import { durabilityDisplay, attackCellsFor, unitStatParts, alliedBonusDetails, AURA_COLORS, auraPatternDefinitions, skullShape, renderDeathEffects, renderMovingToken, unitAppearance, attackMarkerRotation } from './board-presentation.js';
 import { createMoveLesson, renderMoveLesson, renderMoveExamples, lessonPoint } from './onboarding-examples.js';
 const $ = selector => document.querySelector(selector);
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
@@ -37,7 +37,7 @@ const ICON_PATHS = {
   attackLamp: '<ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v8c0 1.7 3.6 3 8 3s8-1.3 8-3v-8M4 11l4 8 4-6 4 6 4-8M7 2l8 5M17 2l-3 3"/>',
   defenseLamp: '<path d="M4 22V3m0 2c5-4 10 4 16 0v11c-6 4-11-4-16 0"/><path d="m9 8 3-1 3 1v3c0 2-1.5 3-3 4-1.5-1-3-2-3-4Z"/>'
 };
-const icon = type => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[type]}</svg>`;
+const icon = (type, piece = null) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${piece ? unitAppearance(piece, config, ICON_PATHS).icon : ICON_PATHS[type]}</svg>`;
 const attackBadge = info => `<g class="attack-indicator" data-attack="${info.damage}"><title>Урон атаки: ${info.damage}</title><circle class="attack-badge" cx="-13" cy="13" r="8.5"/><text class="attack-text" x="-13" y="13.4" style="font-size:${String(info.damage).length > 2 ? 7 : 10}px">${info.damage}</text></g>`;
 const survivalBadge = info => {
   const status = durabilityDisplay(info);
@@ -209,7 +209,7 @@ function boardMarkup() {
     if (cellDamage[0]) classes.push('attack-north');
     if (cellDamage[1]) classes.push('attack-south');
     if (cellDamage.every(Boolean)) classes.push('attack-both');
-    const details = p ? `${TEAM_NAMES[p.team]}, ${LABELS[p.type]}` : 'пусто';
+    const details = p ? `${TEAM_NAMES[p.team]}, ${LABELS[p.type]}${shieldCanRetreat(p, config) ? '-ветеран' : ''}` : 'пусто';
     let token = '';
     const damageY = p ? 28 : 0;
     const damageLabel = showTeamDamage ? cellDamage.map((damage, team) => {
@@ -219,10 +219,11 @@ function boardMarkup() {
     }).join('') : '';
     if (p) {
       const info = report.get(p.id);
-      token = `<g class="piece ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[p.type]}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info)}</g>`;
+      const appearance = unitAppearance(p, config, ICON_PATHS);
+      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info)}</g>`;
     }
     return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/><polygon class="aura-overlay" points="${polygon(c)}" aria-hidden="true"/>${damageLabel}${token}</g>`;
-  }).join('') + '<g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS)}</g>` + lastMoveTrace() + movingTokenMarkup();
+  }).join('') + '<g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config)}</g>` + lastMoveTrace() + movingTokenMarkup();
   if (restoreFocus) $('#board [tabindex="0"]')?.focus({ preventScroll: true });
 }
 function paintAuras() {
@@ -259,7 +260,7 @@ function lastMoveTrace() {
 function movingTokenMarkup() {
   if (!movement) return '';
   const p = movement.piece, frame = moveAnimator.active ? moveAnimator.frame : sampleMovement(movement.plan, 0);
-  return renderMovingToken(p, frame, ICON_PATHS);
+  return renderMovingToken(p, frame, ICON_PATHS, 'moving-token', config);
 }
 function inspectionContext() {
   const position = visibleState();
@@ -295,7 +296,7 @@ function highlightSources() {
     return `<g class="attack-ray" data-source="${source.id}"><line x1="${start.x + dx * shorten}" y1="${start.y + dy * shorten}" x2="${end.x - dx * shorten}" y2="${end.y - dy * shorten}" marker-end="url(#damage-arrow)"><title>${escape(LABELS[source.type])}: ${attack.damage} урона</title></line><g class="attack-ray-label"><circle cx="${label.x}" cy="${label.y}" r="9"/><text x="${label.x}" y="${label.y + .4}">${attack.damage}</text></g></g>`;
   }).join('');
   const targetInfo = context.report.get(target.id);
-  const ghost = context.isPreview ? `<g class="preview-ghost ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})"><circle r="19"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[target.type]}</g>${unitBadges(targetInfo)}</g>` : '';
+  const ghost = context.isPreview ? `<g class="preview-ghost${unitAppearance(target, config, ICON_PATHS).veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})"><circle r="19"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${unitAppearance(target, config, ICON_PATHS).icon}</g>${unitBadges(targetInfo)}</g>` : '';
   layer.innerHTML = lines + ghost;
 }
 function paintAttackReach(context) {
@@ -310,7 +311,7 @@ function paintAttackReach(context) {
     const { x, y } = point(cell), kind = piece.type === 'archer' ? 'arrow' : 'sword';
     const target = position.pieces.find(p => p.q === cell.q && p.r === cell.r);
     const lethal = target && isLethalDamage(attackPower.damage, effective(target, position, config).fortitude);
-    const marker = lethal ? `<g class="reach-skull" transform="translate(-8,-8)">${skullShape()}</g>` : `<g transform="translate(-10.2,-10.2) scale(.85)" class="reach-icon">${REACH_ICONS[kind]}</g>`;
+    const marker = lethal ? `<g class="reach-skull" transform="translate(-8,-8)">${skullShape()}</g>` : `<g class="reach-icon" transform="rotate(${attackMarkerRotation(point(piece), { x, y })})"><g transform="translate(-10.2,-10.2) scale(.85)">${REACH_ICONS[kind]}</g></g>`;
     return `<g class="attack-reach ${piece.team ? 'south' : 'north'} ${target ? 'occupied' : ''}" data-reach-cell="${key(cell.q, cell.r)}" data-attack-kind="${lethal ? 'skull' : kind}" transform="translate(${x},${y})"><title>${lethal ? 'Смертельная атака' : 'Достигает атака'}: ${LABELS[piece.type]}</title>${target ? `<polygon class="attack-target-overlay" points="${polygon({q:0,r:0})}"/>` : ''}${marker}</g>`;
   }).join('');
 }
@@ -338,7 +339,7 @@ function renderInspector(context) {
   const sourceDetails = sources.map(({source, bonuses}) => `<li><strong>${LABELS[source.type]}</strong><span>${Object.entries(bonuses).filter(([,value]) => value > 0).map(([field,value]) => `+${value} ${bonusLabels[field]}`).join(', ')}</span></li>`).join('');
   const aura = shieldCanRetreat(piece, config) ? config.shieldPromotion : base;
   const bonuses = [[aura.damageBonus, 'урон'], [aura.rangeBonus, 'дальность'], [aura.defenseBonus, 'стойкость']].filter(([value]) => value > 0).map(([value, name]) => `${name} +${value}`).join(', ');
-  panel.innerHTML = `${context.isPreview && context.piece?.id === selected ? '<p class="preview-label">Параметры после предполагаемого перемещения</p>' : ''}<div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}">${icon(piece.type)}</span><div><h2>${LABELS[piece.type]}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p><div class="stat-grid">${stats}</div><p class="stat-explanation">Крупно — итог, в скобках — полный расчёт с усилениями союзников. Бонус за край входит в расчёт и подписан отдельно.</p>${info.aura > 0 ? `<p class="unit-aura"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><br>${bonuses}.</p>` : ''}<div class="sources"><strong>Усиления от союзников</strong>${sources.length ? `<ul class="allied-bonus-list">${sourceDetails}</ul>` : '<p>Сейчас нет усилений от союзников.</p>'}</div>`;
+  panel.innerHTML = `${context.isPreview && context.piece?.id === selected ? '<p class="preview-label">Параметры после предполагаемого перемещения</p>' : ''}<div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) ? ' veteran' : ''}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p><div class="stat-grid">${stats}</div><p class="stat-explanation">Крупно — итог, в скобках — полный расчёт с усилениями союзников. Бонус за край входит в расчёт и подписан отдельно.</p>${info.aura > 0 ? `<p class="unit-aura"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><br>${bonuses}.</p>` : ''}<div class="sources"><strong>Усиления от союзников</strong>${sources.length ? `<ul class="allied-bonus-list">${sourceDetails}</ul>` : '<p>Сейчас нет усилений от союзников.</p>'}</div>`;
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion;
