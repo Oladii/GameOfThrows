@@ -57,8 +57,8 @@ export class MovementAnimator {
 export class CombatAnimator {
   constructor(onPhase, onFrame, clock = {}) {
     this.onPhase = onPhase;
-    this.setTimer = clock.setTimer || setTimeout;
-    this.clearTimer = clock.clearTimer || clearTimeout;
+    this.setTimer = clock.setTimer || ((callback, delay) => setTimeout(callback, delay));
+    this.clearTimer = clock.clearTimer || (handle => clearTimeout(handle));
     this.timer = null; this.serial = 0; this.phase = 'idle';
     this.movement = new MovementAnimator(onFrame, () => this.showDeaths(), clock);
   }

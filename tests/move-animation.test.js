@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
 import { createMovementPlan, sampleMovement, MovementAnimator } from '../dist/move-animation.js';
 
 test('motion follows each route segment, eases at endpoints and clamps to its destination', () => {
@@ -33,4 +35,18 @@ test('cancelled frames cannot finish or overwrite a replacement move', () => {
   time = 2000; current(); current();
   assert.equal(finishes, 1); assert.equal(animator.active, false);
   assert.equal(frames.at(-1).x, 30); assert.equal(frames.at(-1).y, 40);
+});
+
+test('combat presentation calls browser timer APIs without binding them to the animator', () => {
+  let scheduled, cleared = false; const phases = [];
+  const checkReceiver = receiver => assert.ok(!receiver || typeof receiver.onPhase !== 'function', 'browser timers reject a CombatAnimator receiver');
+  const context = vm.createContext({
+    setTimeout: function(callback, delay) { checkReceiver(this); assert.equal(delay, 400); scheduled = callback; return 7; },
+    clearTimeout: function(handle) { checkReceiver(this); assert.equal(handle, 7); cleared = true; },
+    onPhase: phase => phases.push(phase)
+  });
+  const source = fs.readFileSync(new URL('../dist/move-animation.js', import.meta.url), 'utf8').replace(/^export /gm, '');
+  vm.runInContext(source + ';const animation = new CombatAnimator(onPhase, () => {}); animation.start(null, true);', context);
+  assert.deepEqual(phases, ['deaths']); scheduled();
+  assert.deepEqual(phases, ['deaths', 'idle']); assert.equal(cleared, true);
 });
