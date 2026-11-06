@@ -1,15 +1,15 @@
 import { DEFAULT_CONFIG, LABELS } from './rules.js';
 import { clone, cells, key, distance, reachable, movementPath, analyze, auraReaches, attacks, inspectCell, move, resolve } from './engine.js';
-import { auraPatternDefinitions } from './board-presentation.js';
+import { auraPatternDefinitions, renderDeathEffects, renderMovingToken } from './board-presentation.js';
 
 export const MOVE_LESSONS = ['Маршруты', 'Ближний бой', 'Щит на пути', 'Достать до врага', 'Аура атаки', 'Аура защиты'];
 const lessonPiece = (id, type, team, q, r) => ({ id, type, team, q, r });
 const lessonPosition = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
-const lessonPoint = cell => ({ x: 280 + Math.sqrt(3) * 30 * (cell.q + cell.r / 2), y: 205 + 45 * cell.r });
-const lessonPolygon = cell => {
-  const p = lessonPoint(cell);
+export const lessonPoint = cell => ({ x: 280 + Math.sqrt(3) * 30 * (cell.q + cell.r / 2), y: 205 + 45 * cell.r });
+const lessonPolygonPoints = p => {
   return Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 180 * (60 * i - 30); return `${(p.x + 30 * Math.cos(a)).toFixed(2)},${(p.y + 30 * Math.sin(a)).toFixed(2)}`; }).join(' ');
 };
+const lessonPolygon = cell => lessonPolygonPoints(lessonPoint(cell));
 // Combat always uses the game's current default rules; only lesson one has a three-step training move.
 export function createMoveLesson(index = 0, { advanced = false, selected = false, aura = 'attack', destination = null, placement = null, previewPlacement = null, shieldRemoved = false } = {}) {
   if (!selected && !advanced) destination = null;
@@ -104,18 +104,21 @@ export function createMoveLesson(index = 0, { advanced = false, selected = false
   return lesson;
 }
 
-export function renderMoveLesson(lesson, icons, renderBadges = () => '') {
+export function renderMoveLesson(lesson, icons, renderBadges = () => '', animation = null) {
   const sceneKey = lesson.index === 4 ? `4-${lesson.aura}` : String(lesson.index);
   const titleId = `lesson-title-${sceneKey}`;
-  const { index, config, position, advanced } = lesson;
-  const visiblePath = index === 0 && !lesson.completed ? lesson.path : [];
+  const { index, config } = lesson;
+  const phase = animation?.phase || 'idle', busy = phase !== 'idle';
+  const position = phase === 'movement' ? lesson.before : lesson.position;
+  const displayReport = phase === 'movement' ? lesson.beforeReport : lesson.displayReport;
+  const visiblePath = !busy && index === 0 && !lesson.completed ? lesson.path : [];
   const path = new Map(visiblePath.slice(1).map((c, i) => [key(c.q, c.r), i + 1]));
-  const available = new Map(lesson.available.map(c => [key(c.q, c.r), c.steps]));
-  const aura = new Set((lesson.auraCells || []).map(c => key(c.q, c.r)));
+  const available = new Map((busy ? [] : lesson.available).map(c => [key(c.q, c.r), c.steps]));
+  const aura = new Set((busy ? [] : lesson.auraCells || []).map(c => key(c.q, c.r)));
   const auraMask = lesson.aura === 'defense' ? 2 : 1, auraPrefix = `lesson-${sceneKey}-aura`;
   const auraDefinitions = index === 4 ? `<defs>${auraPatternDefinitions(auraPrefix, [auraMask])}</defs>` : '';
   const blocked = new Set(lesson.enemyBlocked.map(c => key(c.q, c.r)));
-  const selectedUnit = lesson.selected ? position.pieces.find(piece => piece.id === lesson.moverId) : null;
+  const selectedUnit = !busy && lesson.selected ? position.pieces.find(piece => piece.id === lesson.moverId) : null;
   const tiles = cells(config).map(cell => {
     const k = key(cell.q, cell.r), p = lessonPoint(cell), number = path.get(k), clickable = available.has(k);
     return `<g class="lesson-tile${clickable ? ' lesson-available' : ''}${number ? ' lesson-route' : ''}${blocked.has(k) ? ' lesson-enemy-blocked' : ''}${selectedUnit && selectedUnit.q === cell.q && selectedUnit.r === cell.r ? ' lesson-unit-cell' : ''}${aura.has(k) ? lesson.aura === 'defense' ? ' lesson-defense-aura' : ' lesson-attack-aura' : ''}" data-lesson-position="${k}"${clickable ? ` ${lesson.supportLesson ? 'data-lesson-place' : 'data-lesson-cell'}="${k}" role="button" tabindex="0" aria-label="${'Клетка ' + k + ', шагов до неё: ' + available.get(k)}"` : ''}><polygon points="${lessonPolygon(cell)}"/>${index === 4 ? `<polygon class="lesson-aura-overlay" points="${lessonPolygon(cell)}" style="--aura-fill:url(#${auraPrefix}-${auraMask})"/>` : ''}${clickable && !number ? `<circle class="lesson-move-dot" cx="${p.x}" cy="${p.y}" r="3"/>` : ''}${blocked.has(k) && !position.pieces.some(piece => piece.q === cell.q && piece.r === cell.r) ? `<path class="lesson-blocked-cross" d="M${p.x - 4} ${p.y - 4}l8 8m-8 0 8-8"><title>Враг перекрыл путь</title></path>` : ''}</g>`;
@@ -123,9 +126,9 @@ export function renderMoveLesson(lesson, icons, renderBadges = () => '') {
   const projected = lesson.previewPosition;
   const routeLine = visiblePath.length > 1 ? `<polyline class="lesson-path" points="${visiblePath.map(c => { const p = lessonPoint(c); return `${p.x},${p.y}`; }).join(' ')}"/>` : '';
   const pieces = position.pieces.map(piece => {
-    const p = lessonPoint(piece), info = lesson.displayReport.get(piece.id), fatal = info.dead;
-    const selected = piece === selectedUnit, unitControl = piece.id === lesson.moverId;
-    return `<g class="lesson-piece ${piece.team ? 'lesson-enemy' : 'lesson-friendly'}${fatal ? ' lesson-fatal' : ''}${selected ? ' lesson-unit-selected' : ''}${unitControl ? ' lesson-unit-control' : ''}${lesson.isPreview && piece.id === lesson.moverId ? ' lesson-preview-origin' : ''}" data-lesson-piece="${piece.id}"${selected ? ` data-lesson-selected-unit="${piece.id}"` : ''}${unitControl ? ` data-lesson-unit="${piece.id}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${selected ? 'Выбран: ' + LABELS[piece.type] + '. Нажми, чтобы снять выбор' : 'Выбрать: ' + LABELS[piece.type]}"` : ''} transform="translate(${p.x},${p.y})">${selected ? '<g class="lesson-selection-ring"><circle r="24"/></g>' : ''}<title>${piece.team ? 'Враг' : 'Союзник'}: ${LABELS[piece.type]}${fatal ? ', погибнет при расчёте' : ''}</title><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${icons[piece.type]}</g><g class="lesson-unit-badges">${renderBadges(info)}</g></g>`;
+    const p = lessonPoint(piece), info = displayReport.get(piece.id), fatal = info.dead;
+    const selected = piece === selectedUnit, unitControl = !busy && piece.id === lesson.moverId;
+    return `<g class="lesson-piece${phase === 'movement' && piece.id === lesson.moverId ? ' moving-origin' : ''} ${piece.team ? 'lesson-enemy' : 'lesson-friendly'}${fatal ? ' lesson-fatal' : ''}${selected ? ' lesson-unit-selected' : ''}${unitControl ? ' lesson-unit-control' : ''}${lesson.isPreview && piece.id === lesson.moverId ? ' lesson-preview-origin' : ''}" data-lesson-piece="${piece.id}"${selected ? ` data-lesson-selected-unit="${piece.id}"` : ''}${unitControl ? ` data-lesson-unit="${piece.id}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${selected ? 'Выбран: ' + LABELS[piece.type] + '. Нажми, чтобы снять выбор' : 'Выбрать: ' + LABELS[piece.type]}"` : ''} transform="translate(${p.x},${p.y})">${selected ? '<g class="lesson-selection-ring"><circle r="24"/></g>' : ''}<title>${piece.team ? 'Враг' : 'Союзник'}: ${LABELS[piece.type]}${fatal ? ', погибнет при расчёте' : ''}</title><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${icons[piece.type]}</g><g class="lesson-unit-badges">${renderBadges(info)}</g></g>`;
   }).join('');
   const projectedMover = projected.pieces.find(piece => piece.id === lesson.moverId), projectedPoint = projectedMover && lessonPoint(projectedMover);
   const ghost = lesson.isPreview ? `<g class="lesson-preview-piece" transform="translate(${projectedPoint.x},${projectedPoint.y})"><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${icons[projectedMover.type]}</g><g class="lesson-unit-badges">${renderBadges(lesson.report.get(projectedMover.id))}</g></g>` : '';
@@ -134,19 +137,23 @@ export function renderMoveLesson(lesson, icons, renderBadges = () => '') {
     return `<g class="lesson-path-number" transform="translate(${p.x + (occupied ? 19 : 0)},${p.y + (occupied ? -20 : 0)})"><circle r="11"/><text y=".35em">${i + 1}</text></g>`;
   }).join('');
 
-  const stateLabel = lesson.completed ? 'ПОСЛЕ РАСЧЁТА БОЯ' : lesson.isPreview ? 'ПРОГНОЗ · НАЖМИ НА КЛЕТКУ' : lesson.selected ? index === 4 ? 'АУРА ВЫДЕЛЕННОЙ ФИГУРЫ' : 'НАВЕДИ НА КЛЕТКУ' : index === 2 ? 'ЩИТ НА ПУТИ' : 'ВЫБЕРИ ФИГУРУ';
-  const controls = (index === 2 && !lesson.completed ? '<button class="button" data-lesson-action="remove-shield">Убрать щитовика</button>' : '') +
+  const movingPiece = phase === 'movement' ? lesson.before.pieces.find(piece => piece.id === lesson.moverId) : null;
+  const effects = phase === 'deaths' ? `<g class="death-effects" aria-hidden="true">${renderDeathEffects(lesson.deaths, lessonPoint, lessonPolygonPoints({ x: 0, y: 0 }), icons)}</g>` : '';
+  const movingToken = movingPiece ? renderMovingToken(movingPiece, animation.frame || { ...lessonPoint(movingPiece), progress: 0 }, icons, `lesson-moving-token-${sceneKey}`) : '';
+  const feedback = phase === 'movement' ? 'Фигура движется по выбранному маршруту.' : phase === 'deaths' ? 'Расчёт боя: погибшие фигуры удаляются одновременно.' : lesson.feedback;
+  const stateLabel = phase === 'movement' ? 'ДВИЖЕНИЕ' : phase === 'deaths' ? 'РАСЧЁТ БОЯ' : lesson.completed ? 'ПОСЛЕ РАСЧЁТА БОЯ' : lesson.isPreview ? 'ПРОГНОЗ · НАЖМИ НА КЛЕТКУ' : lesson.selected ? index === 4 ? 'АУРА ВЫДЕЛЕННОЙ ФИГУРЫ' : 'НАВЕДИ НА КЛЕТКУ' : index === 2 ? 'ЩИТ НА ПУТИ' : 'ВЫБЕРИ ФИГУРУ';
+  const controls = (index === 2 && !lesson.completed ? '<button class="button primary" data-lesson-action="remove-shield">Убрать щитовика</button>' : '') +
     '<button class="button outline" data-lesson-action="reset">Вернуть исходную позицию</button>';
-  return `<section class="lesson-scene" data-lesson-scene="${sceneKey}" aria-labelledby="${titleId}"><div class="lesson-scene-heading"><p class="eyebrow">ПРИМЕР ${index === 4 && lesson.aura === 'defense' ? 6 : index + 1} ИЗ ${MOVE_LESSONS.length}${index === 4 ? lesson.aura === 'defense' ? ' · ЗАЩИТА' : ' · АТАКА' : ''}</p><h4 id="${titleId}">${lesson.title}</h4>${lesson.description.split('\n').map(text => `<p>${text}</p>`).join('')}</div><div class="lesson-layout"><div class="lesson-field"><svg class="lesson-board" viewBox="70 25 420 360" role="group" aria-label="Учебная позиция: ${lesson.title}">${auraDefinitions}${tiles}<g class="lesson-lines">${routeLine}</g>${pieces}<g class="lesson-ghost">${ghost}</g><g class="lesson-numbers">${numbers}</g></svg><p class="lesson-legend"><span><i></i> Ваши фигуры</span><span><i class="enemy"></i> Противник</span>${index === 0 ? '<span>Цифры — шаги маршрута</span><span>× — враг перекрыл путь</span>' : '<span>Череп — погибнет при расчёте</span>'}</p></div><div class="lesson-details"><p class="lesson-state">${stateLabel}</p><dl>${lesson.facts.map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`).join('')}</dl><p class="lesson-feedback" role="status">${lesson.feedback}</p>${controls}<p class="lesson-hint">${lesson.hint}</p></div></div></section>`;
+  return `<section class="lesson-scene" data-lesson-scene="${sceneKey}" aria-labelledby="${titleId}"><div class="lesson-scene-heading"><p class="eyebrow">ПРИМЕР ${index === 4 && lesson.aura === 'defense' ? 6 : index + 1} ИЗ ${MOVE_LESSONS.length}${index === 4 ? lesson.aura === 'defense' ? ' · ЗАЩИТА' : ' · АТАКА' : ''}</p><h4 id="${titleId}">${lesson.title}</h4>${lesson.description.split('\n').map(text => `<p>${text}</p>`).join('')}</div><div class="lesson-layout"><div class="lesson-field"><svg class="lesson-board" aria-busy="${busy}" viewBox="70 25 420 360" role="group" aria-label="Учебная позиция: ${lesson.title}">${auraDefinitions}${tiles}<g class="lesson-lines">${routeLine}</g>${pieces}<g class="lesson-ghost">${ghost}</g><g class="lesson-numbers">${numbers}</g>${effects}${movingToken}</svg><p class="lesson-legend"><span><i></i> Ваши фигуры</span><span><i class="enemy"></i> Противник</span>${index === 0 ? '<span>Цифры — шаги маршрута</span><span>× — враг перекрыл путь</span>' : '<span>Череп — погибнет при расчёте</span>'}</p></div><div class="lesson-details"><p class="lesson-state">${stateLabel}</p><dl>${lesson.facts.map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`).join('')}</dl><p class="lesson-feedback" role="status">${feedback}</p>${controls}<p class="lesson-hint">${lesson.hint}</p></div></div></section>`;
 }
 
-export function renderMoveExamples(exampleStates, icons, renderBadges = () => '') {
+export function renderMoveExamples(exampleStates, icons, renderBadges = () => '', animation = null) {
   const examples = [
     { index: 0, key: '0' }, { index: 1, key: '1' }, { index: 2, key: '2' }, { index: 3, key: '3' },
     { index: 4, key: '4-attack', aura: 'attack' }, { index: 4, key: '4-defense', aura: 'defense' }
   ];
   return '<div class="lesson-page">' + examples.map(example => {
     const state = exampleStates[example.key] || {};
-    return renderMoveLesson(createMoveLesson(example.index, { advanced: state.advanced || false, selected: state.selected || false, destination: state.destination || null, placement: state.placement || null, previewPlacement: state.previewPlacement || null, shieldRemoved: state.shieldRemoved || false, aura: example.aura || 'attack' }), icons, renderBadges);
+    return renderMoveLesson(createMoveLesson(example.index, { advanced: state.advanced || false, selected: state.selected || false, destination: state.destination || null, placement: state.placement || null, previewPlacement: state.previewPlacement || null, shieldRemoved: state.shieldRemoved || false, aura: example.aura || 'attack' }), icons, renderBadges, animation?.sceneKey === example.key ? animation : null);
   }).join('') + '</div><p class="lesson-footnote">Учебные позиции: в первом примере лукарь ходит на 3 клетки, боевые параметры фигур — как в игре. Под фигурами — сила атаки и стойкость после ожидаемого урона, как в игре. Можно пробовать — ваша партия не изменится.</p>';
 }

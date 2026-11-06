@@ -2,18 +2,37 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { createMoveLesson, renderMoveLesson } from '../dist/onboarding-examples.js';
+import { createMoveLesson, renderMoveLesson, renderMoveExamples, lessonPoint } from '../dist/onboarding-examples.js';
+import { createMovementPlan, CombatAnimator, DEATH_EFFECT_DURATION } from '../dist/move-animation.js';
 
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
 const scenes = ['0', '1', '2', '3', '4-attack', '4-defense'];
-function setup() {
-  let handler;
-  const body = { scrollTop: 180, addEventListener(type, callback) { handler = callback; }, querySelector() { return { focus() {} }; } };
-  const context = vm.createContext({ onboardingExamples: {}, createMoveLesson, $: () => body, renderOnboarding() { body.scrollTop = 0; } });
+function setup({ reducedMotion = true } = {}) {
+  let handler, time = 0, id = 0, mediaHandler, closeHandler;
+  const frames = new Map(), timers = new Map();
+  const media = { matches: reducedMotion, addEventListener(type, callback) { mediaHandler = callback; } };
+  const clock = { now: () => time, requestFrame: callback => { frames.set(++id, callback); return id; }, cancelFrame: handle => frames.delete(handle),
+    setTimer: (callback, delay) => { timers.set(++id, { callback, at: time + delay }); return id; }, clearTimer: handle => timers.delete(handle) };
+  const body = { scrollTop: 180, html: '', token: { dataset: {}, attrs: {}, setAttribute(name, value) { this.attrs[name] = value; } }, focus() {},
+    addEventListener(type, callback) { handler = callback; }, querySelector(selector) { return selector.startsWith('#lesson-moving-token-') ? this.token : { focus() {} }; } };
+  const context = vm.createContext({ onboardingExamples: {}, onboardingAnimation: null, createMoveLesson, createMovementPlan, lessonPoint,
+    CombatAnimator: class extends CombatAnimator { constructor(onPhase, onFrame) { super(onPhase, onFrame, clock); } },
+    matchMedia: () => media, movement: null, render() {}, onboardingStep: 2, onboardingSteps: ['Идея', 'Фигуры', 'Ход', 'Бой', 'Старт'],
+    document: { querySelectorAll: () => [{ id: 'rules-dialog', addEventListener(type, callback) { closeHandler = callback; } }] },
+    $: () => body, renderOnboarding() { body.scrollTop = 0; body.html = renderMoveExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation); } });
   vm.runInContext(app.slice(app.indexOf('function onboardingLessonModel('), app.indexOf('function refreshOnboardingMovePreview(')), context);
   vm.runInContext(app.slice(app.indexOf("$('#onboarding-body').addEventListener('click'"), app.indexOf("$('#onboarding-body').addEventListener('keydown'")), context);
+  vm.runInContext(app.slice(app.indexOf('function goToOnboardingStep('), app.indexOf("$('#about-guide-tab').addEventListener")), context);
+  vm.runInContext(app.split('\n').find(line => line.startsWith("matchMedia('(prefers-reduced-motion: reduce)').addEventListener")), context);
+  vm.runInContext(app.split('\n').find(line => line.startsWith("document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close'")), context);
   return {
-    state: context.onboardingExamples, body,
+    state: context.onboardingExamples, body, phase: () => context.onboardingAnimation?.phase || 'idle',
+    advance(ms) { time += ms; const scheduled = [...frames.values()]; frames.clear(); scheduled.forEach(callback => callback());
+      for (const [handle, timer] of [...timers]) if (timer.at <= time) { timers.delete(handle); timer.callback(); } },
+    reduce() { media.matches = true; mediaHandler({ matches: true }); },
+    close() { closeHandler(); },
+    goToStep(step) { context.goToOnboardingStep(step); },
+    staleFrames: () => [...frames.values()], staleTimers: () => [...timers.values()].map(timer => timer.callback),
     click(sceneKey, data = {}, control = true) {
       const scene = sceneKey ? { dataset: { lessonScene: sceneKey } } : null;
       const element = { dataset: data, closest(selector) { return selector === '[data-lesson-scene]' ? scene : control ? element : null; } };
@@ -96,4 +115,71 @@ test('the shield removal button works without selection and reset restores the t
   ui.click('2', { lessonAction: 'reset' });
   assert.equal(ui.state['2'].shieldRemoved, false);
   assert.deepEqual(createMoveLesson(2, ui.state['2']).position, createMoveLesson(2).position);
+});
+
+test('animated actions move before showing the shared death effect and then remove it', () => {
+  for (const [key, goal] of [['1', '0,1'], ['4-attack', '1,-2'], ['4-defense', '-1,0']]) {
+    const ui = setup({ reducedMotion: false }), support = key.startsWith('4-');
+    ui.click(key, { lessonUnit: support ? 'support' : 'blue' });
+    ui.click(key, support ? { lessonPlace: goal } : { lessonCell: goal });
+    assert.equal(ui.phase(), 'movement'); assert.ok(ui.body.html.includes(`id="lesson-moving-token-${key}"`));
+    assert.ok(!ui.body.html.includes('class="death-effects"')); assert.equal(ui.body.scrollTop, 180);
+    const committed = JSON.stringify(ui.state[key]);
+    ui.click('0', { lessonUnit: 'blue' }); assert.equal(ui.state['0'], undefined, 'new actions wait for presentation to finish');
+    const duringMove = ui.body.html; ui.click(null, {}, false); assert.equal(ui.body.html, duringMove);
+    ui.advance(120); assert.equal(ui.phase(), 'movement');
+    assert.ok(Number(ui.body.token.dataset.progress) > 0 && Number(ui.body.token.dataset.progress) < 1);
+    assert.ok(ui.body.token.attrs.transform.startsWith('translate('));
+    ui.advance(500);
+    assert.equal(ui.phase(), 'deaths'); assert.ok(ui.body.html.includes('class="death-effects"'));
+    assert.ok(ui.body.html.includes('death-ghost')); assert.ok(ui.body.html.includes('death-skull'));
+    ui.advance(DEATH_EFFECT_DURATION - 1); assert.equal(ui.phase(), 'deaths');
+    ui.advance(1); assert.equal(ui.phase(), 'idle'); assert.ok(!ui.body.html.includes('class="death-effects"'));
+    assert.ok(!ui.body.html.includes(`id="lesson-moving-token-${key}"`));
+    assert.equal(JSON.stringify(ui.state[key]), committed, 'animation never repeats the move or combat');
+    assert.equal(ui.body.scrollTop, 180);
+  }
+});
+
+test('removing the blocker plays death directly, and reset cancels movement and stale death timers', () => {
+  const ui = setup({ reducedMotion: false });
+  ui.click('2', { lessonAction: 'remove-shield' });
+  assert.equal(ui.phase(), 'deaths'); const timers = ui.staleTimers();
+  ui.click('2', { lessonAction: 'reset' });
+  assert.equal(ui.phase(), 'idle'); assert.equal(ui.state['2'].shieldRemoved, false);
+  const afterReset = ui.body.html; timers.forEach(callback => callback());
+  assert.equal(ui.body.html, afterReset);
+  ui.click('1', { lessonUnit: 'blue' }); ui.click('1', { lessonCell: '0,1' });
+  const frames = ui.staleFrames();
+  ui.click('1', { lessonAction: 'reset' }); frames.forEach(callback => callback());
+  assert.equal(ui.phase(), 'idle'); assert.equal(ui.state['1'].advanced, false);
+  assert.ok(!ui.body.html.includes('death-ghost'));
+});
+
+test('step changes and reduced motion settle animations without replaying combat', () => {
+  const ui = setup({ reducedMotion: false });
+  ui.click('1', { lessonUnit: 'blue' }); ui.click('1', { lessonCell: '0,1' });
+  const frames = ui.staleFrames(), committed = JSON.stringify(ui.state['1']);
+  ui.goToStep(1); frames.forEach(callback => callback());
+  assert.equal(ui.phase(), 'idle'); assert.equal(JSON.stringify(ui.state['1']), committed);
+  ui.click('1', { lessonAction: 'reset' }); ui.goToStep(2);
+  ui.click('1', { lessonUnit: 'blue' }); ui.click('1', { lessonCell: '0,1' });
+  const beforeReduce = JSON.stringify(ui.state['1']);
+  ui.reduce(); ui.advance(5000);
+  assert.equal(ui.phase(), 'idle'); assert.ok(!ui.body.html.includes('death-ghost'));
+  assert.equal(JSON.stringify(ui.state['1']), beforeReduce);
+  const reduced = setup(); reduced.click('2', { lessonAction: 'remove-shield' });
+  assert.equal(reduced.phase(), 'idle'); assert.ok(!reduced.body.html.includes('death-ghost'));
+});
+
+test('nonlethal moves finish without death effects and closing the dialog cancels the pending presentation', () => {
+  const ui = setup({ reducedMotion: false });
+  ui.click('0', { lessonUnit: 'blue' }); ui.click('0', { lessonCell: '-2,3' });
+  assert.equal(ui.phase(), 'movement'); ui.advance(500);
+  assert.equal(ui.phase(), 'idle'); assert.ok(!ui.body.html.includes('death-ghost'));
+  ui.click('1', { lessonUnit: 'blue' }); ui.click('1', { lessonCell: '0,1' });
+  const frames = ui.staleFrames(), committed = JSON.stringify(ui.state['1']), html = ui.body.html;
+  ui.close(); frames.forEach(callback => callback()); ui.advance(5000);
+  assert.equal(ui.phase(), 'idle'); assert.equal(JSON.stringify(ui.state['1']), committed);
+  assert.equal(ui.body.html, html, 'a closed dialog is not repainted by stale callbacks');
 });

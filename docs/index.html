@@ -23,12 +23,12 @@
 .piece.fatal .incoming-badge,.piece.fatal .incoming-text,.preview-ghost.fatal .incoming-badge,.preview-ghost.fatal .incoming-text{visibility:hidden}
 
 .aura-legend{display:flex;gap:12px;flex-wrap:wrap;padding:0 0 12px;font-size:10px;color:var(--muted)}.aura-legend[hidden]{display:none}.aura-legend span{display:flex;gap:5px;align-items:center}.aura-swatch{display:inline-block;width:13px;height:13px;border-radius:3px;border:1px solid #bcc4bc;background:repeating-linear-gradient(var(--aura-angle,135deg),transparent 0 3px,var(--aura-color) 3px 6px,transparent 6px 8px)}.aura-swatch.north-attack{--aura-solid:#a9cf91;--aura-color:#a9cf9166}.aura-swatch.north-defense{--aura-solid:#c6a5df;--aura-color:#c6a5df66;--aura-angle:45deg}.aura-swatch.south-attack{--aura-solid:#b66a80;--aura-color:#b66a8066}.aura-swatch.south-defense{--aura-solid:#edd46c;--aura-color:#edd46c66;--aura-angle:45deg}
-#death-effects{pointer-events:none}.piece.preview-origin{opacity:.28}.piece.preview-origin .fort-indicator,.piece.preview-origin .incoming-indicator,.piece.preview-origin .attack-indicator,.piece.preview-origin .range-indicator,.piece.preview-origin .fatal-mark,.piece.preview-origin .group-text{display:none}.death-ghost{pointer-events:none}.death-token{animation:token-to-skull 80ms cubic-bezier(.3,0,1,1) both}.death-skull{animation:skull-away 360ms cubic-bezier(.3,0,1,1) both}.death-ghost.north .piece-circle{fill:var(--blue)}.death-ghost.south .piece-circle{fill:var(--rust)}.death-ghost .piece-circle{stroke:var(--red);filter:none}.death-ghost .fatal-mark{display:block}.death-pulse{fill:none;stroke:var(--red);stroke-width:2;animation:death-ring 260ms cubic-bezier(.2,0,0,1) both}.death-glow{fill:#ba5349;stroke:none;animation:death-glow 280ms ease-out both}
+#death-effects,.death-effects{pointer-events:none}.piece.preview-origin{opacity:.28}.piece.preview-origin .fort-indicator,.piece.preview-origin .incoming-indicator,.piece.preview-origin .attack-indicator,.piece.preview-origin .range-indicator,.piece.preview-origin .fatal-mark,.piece.preview-origin .group-text{display:none}.death-ghost{pointer-events:none}.death-token{animation:token-to-skull 80ms cubic-bezier(.3,0,1,1) both}.death-skull{animation:skull-away 360ms cubic-bezier(.3,0,1,1) both}.death-ghost.north .piece-circle{fill:var(--blue)}.death-ghost.south .piece-circle{fill:var(--rust)}.death-ghost .piece-circle{stroke:var(--red);filter:none}.death-ghost .fatal-mark{display:block}.death-pulse{fill:none;stroke:var(--red);stroke-width:2;animation:death-ring 260ms cubic-bezier(.2,0,0,1) both}.death-glow{fill:#ba5349;stroke:none;animation:death-glow 280ms ease-out both}
 @keyframes token-to-skull{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.7)}}
 @keyframes skull-away{0%{opacity:0;transform:scale(.7)}20%,60%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(6px) scale(.86)}}
 @keyframes death-ring{0%{opacity:.75;transform:scale(.92)}100%{opacity:0;transform:scale(1.35)}}
 @keyframes death-glow{0%{opacity:.19}100%{opacity:0}}
-@media(prefers-reduced-motion:reduce){#death-effects{display:none}}
+@media(prefers-reduced-motion:reduce){#death-effects,.death-effects{display:none}}
 
 .cell.attack-zone .tile{fill:#f4d1c3;stroke:#ca8974;stroke-width:1.6}.cell.attack-zone.selected .tile{stroke:#68865e;stroke-width:2.6}.attack-map-label{pointer-events:none}.attack-map-label circle{fill:#fff9f2;stroke:#c98b72;stroke-width:.8}.attack-map-label text{fill:#994b30;font-weight:750;text-anchor:middle;dominant-baseline:middle}.attack-legend{display:flex;gap:7px;align-items:center;padding:0 0 11px;color:#99543d;font-size:10px;line-height:1.5}
 
@@ -42,7 +42,7 @@
 @media(max-width:1000px){.right-panel{display:block}}
 .heading-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}.settings-gear{width:39px;height:39px;min-height:39px;flex:0 0 39px;padding:0;line-height:1}.settings-gear svg{display:block;width:20px;height:20px;flex-shrink:0}.start-settings{margin-top:18px}.start-settings>.section-label{margin-bottom:8px}.start-settings .field-label{margin-top:13px}.about-stats{width:100%;border-collapse:collapse;font-size:12px}.about-stats th,.about-stats td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center}.about-stats th:first-child,.about-stats td:first-child{text-align:left}.about-stats th{font-size:10px;color:var(--muted);font-weight:550}.rules-content h3{font-size:16px}.rules-content ul{padding-left:22px}
 @media(max-width:700px){.heading-actions{margin-top:17px}.page-heading .heading-actions .button{margin-top:0}.left-panel>#start-setup{grid-column:1/-1}.left-panel>#new-game{grid-column:1/-1}.left-panel .config-summary{grid-column:1/-1}.start-settings .button.full{margin-top:8px}}
-.piece.moving-origin{visibility:hidden}.moving-token{pointer-events:none}.moving-token.north .piece-circle{fill:var(--blue)}.moving-token.south .piece-circle{fill:var(--rust)}.moving-token .piece-circle{stroke:#fffdf7;stroke-width:3;filter:drop-shadow(0 2px 1px #1b332215)}.last-move-trace{pointer-events:none}.last-move-trace circle,.last-move-trace polyline{fill:none;stroke:#9b7325;stroke-width:1.6;stroke-dasharray:4 3;opacity:.55}.last-move-trace .move-arrival{stroke-dasharray:none}.last-move-trace polyline{stroke-linecap:round;stroke-linejoin:round}
+.piece.moving-origin,.lesson-piece.moving-origin{visibility:hidden}.moving-token{pointer-events:none}.moving-token.north .piece-circle{fill:var(--blue)}.moving-token.south .piece-circle{fill:var(--rust)}.moving-token .piece-circle{stroke:#fffdf7;stroke-width:3;filter:drop-shadow(0 2px 1px #1b332215)}.last-move-trace{pointer-events:none}.last-move-trace circle,.last-move-trace polyline{fill:none;stroke:#9b7325;stroke-width:1.6;stroke-dasharray:4 3;opacity:.55}.last-move-trace .move-arrival{stroke-dasharray:none}.last-move-trace polyline{stroke-linecap:round;stroke-linejoin:round}
 
 .rules-figure{margin:18px 0 24px}.rules-figure img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line)}.rules-figure figcaption{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5}
 
@@ -310,7 +310,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.6</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-06T16:41:12.779Z">Сборка 06.11.2026, 19:41:12 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.6</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-06T17:51:59.074Z">Сборка 06.11.2026, 20:51:59 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <main>
     <div class="workspace">
@@ -900,6 +900,8 @@ function prepareStartPosition(state, inputConfig, turn) {
   return position;
 }
 
+const DEATH_EFFECT_DURATION = 400;
+
 function createMovementPlan(points) {
   if (!Array.isArray(points) || points.length < 2 || points.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) throw new Error('Нужен маршрут перемещения.');
   const route = points.map(p => ({ x: p.x, y: p.y })), lengths = [];
@@ -951,6 +953,35 @@ class MovementAnimator {
       else this.handle = this.requestFrame(tick);
     };
     tick();
+  }
+}
+
+class CombatAnimator {
+  constructor(onPhase, onFrame, clock = {}) {
+    this.onPhase = onPhase;
+    this.setTimer = clock.setTimer || setTimeout;
+    this.clearTimer = clock.clearTimer || clearTimeout;
+    this.timer = null; this.serial = 0; this.phase = 'idle';
+    this.movement = new MovementAnimator(onFrame, () => this.showDeaths(), clock);
+  }
+  cancel() {
+    this.serial++; this.movement.cancel();
+    if (this.timer !== null) this.clearTimer(this.timer);
+    this.timer = null; this.phase = 'idle';
+  }
+  finish() { this.cancel(); this.onPhase('idle'); }
+  showDeaths() {
+    if (!this.hasDeaths) { this.finish(); return; }
+    this.phase = 'deaths'; this.onPhase('deaths');
+    const serial = this.serial;
+    this.timer = this.setTimer(() => { if (this.serial === serial) this.finish(); }, DEATH_EFFECT_DURATION);
+  }
+  start(plan, hasDeaths, reducedMotion = false) {
+    this.cancel(); this.hasDeaths = hasDeaths;
+    if (reducedMotion) { this.finish(); return; }
+    if (plan) {
+      this.phase = 'movement'; this.onPhase('movement'); this.movement.start(plan);
+    } else this.showDeaths();
   }
 }
 
@@ -1401,6 +1432,19 @@ class GameRecorder {
 
 const AURA_COLORS = ['#a9cf91', '#c6a5df', '#b66a80', '#edd46c'];
 
+const skullShape = () => '<path class="skull-head" d="M8 1.5c-3.4 0-5.5 2.4-5.5 5.3 0 2 1.2 3.4 2.5 3.9V14h6v-3.3c1.3-.5 2.5-1.9 2.5-3.9C13.5 3.9 11.4 1.5 8 1.5Z"/><circle class="skull-eye" cx="5.5" cy="6.8" r="1.4"/><circle class="skull-eye" cx="10.5" cy="6.8" r="1.4"/><path class="skull-nose" d="m8 8.6-1.2 1.8h2.4Z"/><path class="skull-teeth" d="M7 11.5V14m2-2.5V14"/>';
+
+function renderDeathEffects(deaths, point, polygonPoints, icons) {
+  return deaths.map(piece => {
+    const { x, y } = point(piece);
+    return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygonPoints}"/><circle class="death-pulse" r="22"/><g class="death-ghost ${piece.team === 0 ? 'north' : 'south'}"><g class="death-token"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${icons[piece.type]}</g></g><g class="death-skull"><g class="fatal-mark" transform="translate(-16,-17) scale(2)">${skullShape()}</g></g></g></g>`;
+  }).join('');
+}
+
+function renderMovingToken(piece, frame, icons, id = 'moving-token') {
+  return `<g id="${id}" class="moving-token ${piece.team ? 'south' : 'north'}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${icons[piece.type]}</g>${piece.group ? `<text class="group-text" x="0" y="16">${piece.group === 1 ? 'I' : piece.group === 2 ? 'II' : piece.group}</text>` : ''}</g>`;
+}
+
 // Both the board and onboarding use the same selected-aura palette and hatch.
 function auraPatternDefinitions(prefix = 'aura', masks = Array.from({ length: 15 }, (_, i) => i + 1)) {
   return masks.map(mask => {
@@ -1464,10 +1508,10 @@ const MOVE_LESSONS = ['Маршруты', 'Ближний бой', 'Щит на 
 const lessonPiece = (id, type, team, q, r) => ({ id, type, team, q, r });
 const lessonPosition = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
 const lessonPoint = cell => ({ x: 280 + Math.sqrt(3) * 30 * (cell.q + cell.r / 2), y: 205 + 45 * cell.r });
-const lessonPolygon = cell => {
-  const p = lessonPoint(cell);
+const lessonPolygonPoints = p => {
   return Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 180 * (60 * i - 30); return `${(p.x + 30 * Math.cos(a)).toFixed(2)},${(p.y + 30 * Math.sin(a)).toFixed(2)}`; }).join(' ');
 };
+const lessonPolygon = cell => lessonPolygonPoints(lessonPoint(cell));
 // Combat always uses the game's current default rules; only lesson one has a three-step training move.
 function createMoveLesson(index = 0, { advanced = false, selected = false, aura = 'attack', destination = null, placement = null, previewPlacement = null, shieldRemoved = false } = {}) {
   if (!selected && !advanced) destination = null;
@@ -1562,18 +1606,21 @@ function createMoveLesson(index = 0, { advanced = false, selected = false, aura 
   return lesson;
 }
 
-function renderMoveLesson(lesson, icons, renderBadges = () => '') {
+function renderMoveLesson(lesson, icons, renderBadges = () => '', animation = null) {
   const sceneKey = lesson.index === 4 ? `4-${lesson.aura}` : String(lesson.index);
   const titleId = `lesson-title-${sceneKey}`;
-  const { index, config, position, advanced } = lesson;
-  const visiblePath = index === 0 && !lesson.completed ? lesson.path : [];
+  const { index, config } = lesson;
+  const phase = animation?.phase || 'idle', busy = phase !== 'idle';
+  const position = phase === 'movement' ? lesson.before : lesson.position;
+  const displayReport = phase === 'movement' ? lesson.beforeReport : lesson.displayReport;
+  const visiblePath = !busy && index === 0 && !lesson.completed ? lesson.path : [];
   const path = new Map(visiblePath.slice(1).map((c, i) => [key(c.q, c.r), i + 1]));
-  const available = new Map(lesson.available.map(c => [key(c.q, c.r), c.steps]));
-  const aura = new Set((lesson.auraCells || []).map(c => key(c.q, c.r)));
+  const available = new Map((busy ? [] : lesson.available).map(c => [key(c.q, c.r), c.steps]));
+  const aura = new Set((busy ? [] : lesson.auraCells || []).map(c => key(c.q, c.r)));
   const auraMask = lesson.aura === 'defense' ? 2 : 1, auraPrefix = `lesson-${sceneKey}-aura`;
   const auraDefinitions = index === 4 ? `<defs>${auraPatternDefinitions(auraPrefix, [auraMask])}</defs>` : '';
   const blocked = new Set(lesson.enemyBlocked.map(c => key(c.q, c.r)));
-  const selectedUnit = lesson.selected ? position.pieces.find(piece => piece.id === lesson.moverId) : null;
+  const selectedUnit = !busy && lesson.selected ? position.pieces.find(piece => piece.id === lesson.moverId) : null;
   const tiles = cells(config).map(cell => {
     const k = key(cell.q, cell.r), p = lessonPoint(cell), number = path.get(k), clickable = available.has(k);
     return `<g class="lesson-tile${clickable ? ' lesson-available' : ''}${number ? ' lesson-route' : ''}${blocked.has(k) ? ' lesson-enemy-blocked' : ''}${selectedUnit && selectedUnit.q === cell.q && selectedUnit.r === cell.r ? ' lesson-unit-cell' : ''}${aura.has(k) ? lesson.aura === 'defense' ? ' lesson-defense-aura' : ' lesson-attack-aura' : ''}" data-lesson-position="${k}"${clickable ? ` ${lesson.supportLesson ? 'data-lesson-place' : 'data-lesson-cell'}="${k}" role="button" tabindex="0" aria-label="${'Клетка ' + k + ', шагов до неё: ' + available.get(k)}"` : ''}><polygon points="${lessonPolygon(cell)}"/>${index === 4 ? `<polygon class="lesson-aura-overlay" points="${lessonPolygon(cell)}" style="--aura-fill:url(#${auraPrefix}-${auraMask})"/>` : ''}${clickable && !number ? `<circle class="lesson-move-dot" cx="${p.x}" cy="${p.y}" r="3"/>` : ''}${blocked.has(k) && !position.pieces.some(piece => piece.q === cell.q && piece.r === cell.r) ? `<path class="lesson-blocked-cross" d="M${p.x - 4} ${p.y - 4}l8 8m-8 0 8-8"><title>Враг перекрыл путь</title></path>` : ''}</g>`;
@@ -1581,9 +1628,9 @@ function renderMoveLesson(lesson, icons, renderBadges = () => '') {
   const projected = lesson.previewPosition;
   const routeLine = visiblePath.length > 1 ? `<polyline class="lesson-path" points="${visiblePath.map(c => { const p = lessonPoint(c); return `${p.x},${p.y}`; }).join(' ')}"/>` : '';
   const pieces = position.pieces.map(piece => {
-    const p = lessonPoint(piece), info = lesson.displayReport.get(piece.id), fatal = info.dead;
-    const selected = piece === selectedUnit, unitControl = piece.id === lesson.moverId;
-    return `<g class="lesson-piece ${piece.team ? 'lesson-enemy' : 'lesson-friendly'}${fatal ? ' lesson-fatal' : ''}${selected ? ' lesson-unit-selected' : ''}${unitControl ? ' lesson-unit-control' : ''}${lesson.isPreview && piece.id === lesson.moverId ? ' lesson-preview-origin' : ''}" data-lesson-piece="${piece.id}"${selected ? ` data-lesson-selected-unit="${piece.id}"` : ''}${unitControl ? ` data-lesson-unit="${piece.id}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${selected ? 'Выбран: ' + LABELS[piece.type] + '. Нажми, чтобы снять выбор' : 'Выбрать: ' + LABELS[piece.type]}"` : ''} transform="translate(${p.x},${p.y})">${selected ? '<g class="lesson-selection-ring"><circle r="24"/></g>' : ''}<title>${piece.team ? 'Враг' : 'Союзник'}: ${LABELS[piece.type]}${fatal ? ', погибнет при расчёте' : ''}</title><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${icons[piece.type]}</g><g class="lesson-unit-badges">${renderBadges(info)}</g></g>`;
+    const p = lessonPoint(piece), info = displayReport.get(piece.id), fatal = info.dead;
+    const selected = piece === selectedUnit, unitControl = !busy && piece.id === lesson.moverId;
+    return `<g class="lesson-piece${phase === 'movement' && piece.id === lesson.moverId ? ' moving-origin' : ''} ${piece.team ? 'lesson-enemy' : 'lesson-friendly'}${fatal ? ' lesson-fatal' : ''}${selected ? ' lesson-unit-selected' : ''}${unitControl ? ' lesson-unit-control' : ''}${lesson.isPreview && piece.id === lesson.moverId ? ' lesson-preview-origin' : ''}" data-lesson-piece="${piece.id}"${selected ? ` data-lesson-selected-unit="${piece.id}"` : ''}${unitControl ? ` data-lesson-unit="${piece.id}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${selected ? 'Выбран: ' + LABELS[piece.type] + '. Нажми, чтобы снять выбор' : 'Выбрать: ' + LABELS[piece.type]}"` : ''} transform="translate(${p.x},${p.y})">${selected ? '<g class="lesson-selection-ring"><circle r="24"/></g>' : ''}<title>${piece.team ? 'Враг' : 'Союзник'}: ${LABELS[piece.type]}${fatal ? ', погибнет при расчёте' : ''}</title><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${icons[piece.type]}</g><g class="lesson-unit-badges">${renderBadges(info)}</g></g>`;
   }).join('');
   const projectedMover = projected.pieces.find(piece => piece.id === lesson.moverId), projectedPoint = projectedMover && lessonPoint(projectedMover);
   const ghost = lesson.isPreview ? `<g class="lesson-preview-piece" transform="translate(${projectedPoint.x},${projectedPoint.y})"><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${icons[projectedMover.type]}</g><g class="lesson-unit-badges">${renderBadges(lesson.report.get(projectedMover.id))}</g></g>` : '';
@@ -1592,20 +1639,24 @@ function renderMoveLesson(lesson, icons, renderBadges = () => '') {
     return `<g class="lesson-path-number" transform="translate(${p.x + (occupied ? 19 : 0)},${p.y + (occupied ? -20 : 0)})"><circle r="11"/><text y=".35em">${i + 1}</text></g>`;
   }).join('');
 
-  const stateLabel = lesson.completed ? 'ПОСЛЕ РАСЧЁТА БОЯ' : lesson.isPreview ? 'ПРОГНОЗ · НАЖМИ НА КЛЕТКУ' : lesson.selected ? index === 4 ? 'АУРА ВЫДЕЛЕННОЙ ФИГУРЫ' : 'НАВЕДИ НА КЛЕТКУ' : index === 2 ? 'ЩИТ НА ПУТИ' : 'ВЫБЕРИ ФИГУРУ';
-  const controls = (index === 2 && !lesson.completed ? '<button class="button" data-lesson-action="remove-shield">Убрать щитовика</button>' : '') +
+  const movingPiece = phase === 'movement' ? lesson.before.pieces.find(piece => piece.id === lesson.moverId) : null;
+  const effects = phase === 'deaths' ? `<g class="death-effects" aria-hidden="true">${renderDeathEffects(lesson.deaths, lessonPoint, lessonPolygonPoints({ x: 0, y: 0 }), icons)}</g>` : '';
+  const movingToken = movingPiece ? renderMovingToken(movingPiece, animation.frame || { ...lessonPoint(movingPiece), progress: 0 }, icons, `lesson-moving-token-${sceneKey}`) : '';
+  const feedback = phase === 'movement' ? 'Фигура движется по выбранному маршруту.' : phase === 'deaths' ? 'Расчёт боя: погибшие фигуры удаляются одновременно.' : lesson.feedback;
+  const stateLabel = phase === 'movement' ? 'ДВИЖЕНИЕ' : phase === 'deaths' ? 'РАСЧЁТ БОЯ' : lesson.completed ? 'ПОСЛЕ РАСЧЁТА БОЯ' : lesson.isPreview ? 'ПРОГНОЗ · НАЖМИ НА КЛЕТКУ' : lesson.selected ? index === 4 ? 'АУРА ВЫДЕЛЕННОЙ ФИГУРЫ' : 'НАВЕДИ НА КЛЕТКУ' : index === 2 ? 'ЩИТ НА ПУТИ' : 'ВЫБЕРИ ФИГУРУ';
+  const controls = (index === 2 && !lesson.completed ? '<button class="button primary" data-lesson-action="remove-shield">Убрать щитовика</button>' : '') +
     '<button class="button outline" data-lesson-action="reset">Вернуть исходную позицию</button>';
-  return `<section class="lesson-scene" data-lesson-scene="${sceneKey}" aria-labelledby="${titleId}"><div class="lesson-scene-heading"><p class="eyebrow">ПРИМЕР ${index === 4 && lesson.aura === 'defense' ? 6 : index + 1} ИЗ ${MOVE_LESSONS.length}${index === 4 ? lesson.aura === 'defense' ? ' · ЗАЩИТА' : ' · АТАКА' : ''}</p><h4 id="${titleId}">${lesson.title}</h4>${lesson.description.split('\n').map(text => `<p>${text}</p>`).join('')}</div><div class="lesson-layout"><div class="lesson-field"><svg class="lesson-board" viewBox="70 25 420 360" role="group" aria-label="Учебная позиция: ${lesson.title}">${auraDefinitions}${tiles}<g class="lesson-lines">${routeLine}</g>${pieces}<g class="lesson-ghost">${ghost}</g><g class="lesson-numbers">${numbers}</g></svg><p class="lesson-legend"><span><i></i> Ваши фигуры</span><span><i class="enemy"></i> Противник</span>${index === 0 ? '<span>Цифры — шаги маршрута</span><span>× — враг перекрыл путь</span>' : '<span>Череп — погибнет при расчёте</span>'}</p></div><div class="lesson-details"><p class="lesson-state">${stateLabel}</p><dl>${lesson.facts.map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`).join('')}</dl><p class="lesson-feedback" role="status">${lesson.feedback}</p>${controls}<p class="lesson-hint">${lesson.hint}</p></div></div></section>`;
+  return `<section class="lesson-scene" data-lesson-scene="${sceneKey}" aria-labelledby="${titleId}"><div class="lesson-scene-heading"><p class="eyebrow">ПРИМЕР ${index === 4 && lesson.aura === 'defense' ? 6 : index + 1} ИЗ ${MOVE_LESSONS.length}${index === 4 ? lesson.aura === 'defense' ? ' · ЗАЩИТА' : ' · АТАКА' : ''}</p><h4 id="${titleId}">${lesson.title}</h4>${lesson.description.split('\n').map(text => `<p>${text}</p>`).join('')}</div><div class="lesson-layout"><div class="lesson-field"><svg class="lesson-board" aria-busy="${busy}" viewBox="70 25 420 360" role="group" aria-label="Учебная позиция: ${lesson.title}">${auraDefinitions}${tiles}<g class="lesson-lines">${routeLine}</g>${pieces}<g class="lesson-ghost">${ghost}</g><g class="lesson-numbers">${numbers}</g>${effects}${movingToken}</svg><p class="lesson-legend"><span><i></i> Ваши фигуры</span><span><i class="enemy"></i> Противник</span>${index === 0 ? '<span>Цифры — шаги маршрута</span><span>× — враг перекрыл путь</span>' : '<span>Череп — погибнет при расчёте</span>'}</p></div><div class="lesson-details"><p class="lesson-state">${stateLabel}</p><dl>${lesson.facts.map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`).join('')}</dl><p class="lesson-feedback" role="status">${feedback}</p>${controls}<p class="lesson-hint">${lesson.hint}</p></div></div></section>`;
 }
 
-function renderMoveExamples(exampleStates, icons, renderBadges = () => '') {
+function renderMoveExamples(exampleStates, icons, renderBadges = () => '', animation = null) {
   const examples = [
     { index: 0, key: '0' }, { index: 1, key: '1' }, { index: 2, key: '2' }, { index: 3, key: '3' },
     { index: 4, key: '4-attack', aura: 'attack' }, { index: 4, key: '4-defense', aura: 'defense' }
   ];
   return '<div class="lesson-page">' + examples.map(example => {
     const state = exampleStates[example.key] || {};
-    return renderMoveLesson(createMoveLesson(example.index, { advanced: state.advanced || false, selected: state.selected || false, destination: state.destination || null, placement: state.placement || null, previewPlacement: state.previewPlacement || null, shieldRemoved: state.shieldRemoved || false, aura: example.aura || 'attack' }), icons, renderBadges);
+    return renderMoveLesson(createMoveLesson(example.index, { advanced: state.advanced || false, selected: state.selected || false, destination: state.destination || null, placement: state.placement || null, previewPlacement: state.previewPlacement || null, shieldRemoved: state.shieldRemoved || false, aura: example.aura || 'attack' }), icons, renderBadges, animation?.sceneKey === example.key ? animation : null);
   }).join('') + '</div><p class="lesson-footnote">Учебные позиции: в первом примере лукарь ходит на 3 клетки, боевые параметры фигур — как в игре. Под фигурами — сила атаки и стойкость после ожидаемого урона, как в игре. Можно пробовать — ваша партия не изменится.</p>';
 }
 
@@ -1673,7 +1724,6 @@ const auraFills = Array.from({ length: 15 }, (_, i) => {
   const stops = colors.map((color, index) => `<stop offset="${index * 100 / colors.length}%" stop-color="${color}"/><stop offset="${(index + 1) * 100 / colors.length}%" stop-color="${color}"/>`).join('');
   return `<linearGradient id="aura-fill-${mask}" x1="0%" y1="0%" x2="100%" y2="100%">${stops}</linearGradient>`;
 }).join('');
-const skullShape = () => '<path class="skull-head" d="M8 1.5c-3.4 0-5.5 2.4-5.5 5.3 0 2 1.2 3.4 2.5 3.9V14h6v-3.3c1.3-.5 2.5-1.9 2.5-3.9C13.5 3.9 11.4 1.5 8 1.5Z"/><circle class="skull-eye" cx="5.5" cy="6.8" r="1.4"/><circle class="skull-eye" cx="10.5" cy="6.8" r="1.4"/><path class="skull-nose" d="m8 8.6-1.2 1.8h2.4Z"/><path class="skull-teeth" d="M7 11.5V14m2-2.5V14"/>';
 const fatalMark = () => `<g class="fatal-mark" transform="translate(5,5)" aria-hidden="true"><circle class="skull-badge" cx="8" cy="8" r="8.5"/>${skullShape()}</g>`;
 let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], log = [];
 let firstMove = 'south';
@@ -1842,10 +1892,7 @@ function boardMarkup() {
       token = `<g class="piece ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[p.type]}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info)}</g>`;
     }
     return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/><polygon class="aura-overlay" points="${polygon(c)}" aria-hidden="true"/>${damageLabel}${token}</g>`;
-  }).join('') + '<g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" aria-hidden="true">${currentDeaths.map(piece => {
-    const { x, y } = point(piece);
-    return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygon({ q: 0, r: 0 })}"/><circle class="death-pulse" r="22"/><g class="death-ghost ${piece.team === 0 ? 'north' : 'south'}"><g class="death-token"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[piece.type]}</g></g><g class="death-skull"><g class="fatal-mark" transform="translate(-16,-17) scale(2)">${skullShape()}</g></g></g></g>`;
-  }).join('')}</g>` + lastMoveTrace() + movingTokenMarkup();
+  }).join('') + '<g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS)}</g>` + lastMoveTrace() + movingTokenMarkup();
   if (restoreFocus) $('#board [tabindex="0"]')?.focus({ preventScroll: true });
 }
 function paintAuras() {
@@ -1882,7 +1929,7 @@ function lastMoveTrace() {
 function movingTokenMarkup() {
   if (!movement) return '';
   const p = movement.piece, frame = moveAnimator.active ? moveAnimator.frame : sampleMovement(movement.plan, 0);
-  return `<g id="moving-token" class="moving-token ${p.team ? 'south' : 'north'}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[p.type]}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}</g>`;
+  return renderMovingToken(p, frame, ICON_PATHS);
 }
 function inspectionContext() {
   const position = visibleState();
@@ -2050,7 +2097,7 @@ function render(deaths = []) {
   $('#erase-tool').classList.toggle('selected-tool', tool === 'erase');
   $('#piece-palette').innerHTML = TYPES.map(type => `<button class="palette-item ${tool === type ? 'active' : ''}" data-tool="${type}">${icon(type)}<span>${LABELS[type]}</span></button>`).join('');
   save();
-  if (currentDeaths.length) deathEffectTimer = setTimeout(() => { currentDeaths = []; render(); }, 400);
+  if (currentDeaths.length) deathEffectTimer = setTimeout(() => { currentDeaths = []; render(); }, DEATH_EFFECT_DURATION);
   queueBot();
 }
 function deathDetail(deaths) { return deaths.length ? 'Погибли: ' + [0, 1].map(team => { const n = deaths.filter(p => p.team === team).length; return n ? `${TEAM_NAMES[team]} — ${n}` : ''; }).filter(Boolean).join(', ') : 'Все фигуры держатся.'; }
@@ -2241,6 +2288,7 @@ $('#reset-defaults').addEventListener('click', () => fillSettings(DEFAULT_CONFIG
 const onboardingSteps = ['Идея', 'Фигуры', 'Ход', 'Бой', 'Старт'];
 let onboardingStep = 0, onboardingDamage = 2;
 let onboardingExamples = {};
+let onboardingAnimation = null;
 function onboardingUnit(type) { return `<span class="onboarding-unit">${icon(type)}</span>`; }
 function renderOnboarding() {
   $('#onboarding-progress').innerHTML = onboardingSteps.map((label, index) => `<button type="button" data-onboarding-step="${index}"${index === onboardingStep ? ' aria-current="step"' : ''} aria-label="Шаг ${index + 1}: ${label}"><span class="step-number">${index + 1}</span>${label}</button>`).join('');
@@ -2270,7 +2318,7 @@ function renderOnboarding() {
     }).join('')}</div>`;
   }
   if (onboardingStep === 2) {
-    content = heading('Один ход меняет всё построение', 'Шесть примеров: пробуйте ходы и смотрите, что изменится.') + renderMoveExamples(onboardingExamples, ICON_PATHS, unitBadges);
+    content = heading('Один ход меняет всё построение', 'Шесть примеров: пробуйте ходы и смотрите, что изменится.') + renderMoveExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
   }
   if (onboardingStep === 3) content = heading('Вы двигаете — армия атакует', 'После каждого хода все фигуры обеих сторон автоматически атакуют врагов в пределах дальности. Отдельная кнопка выстрела не нужна.') +
     `<div class="onboarding-demo"><p class="onboarding-demo-label">ПРИМЕР · стойкость фигуры равна 3</p><div class="onboarding-outcome"><button data-damage="2" aria-pressed="${onboardingDamage === 2}"><strong>2 &lt; 3</strong><span>Входящий урон меньше стойкости</span></button><button data-damage="3" aria-pressed="${onboardingDamage === 3}"><strong>3 = 3</strong><span>Входящий урон равен стойкости</span></button></div><p class="onboarding-demo-feedback" role="status">${onboardingDamage === 2 ? 'Фигура выживает: урон меньше стойкости, на фишке остаётся 1.' : 'Фигура погибает: урон равен стойкости. На поле показан череп.'}</p></div><div class="onboarding-note">Входящий урон от разных врагов складывается, но между ходами не накапливается. Погибшие удаляются одновременно и в этом расчёте ещё успевают атаковать и усиливать союзников.</div>`;
@@ -2283,18 +2331,21 @@ function renderOnboarding() {
   $('#onboarding-next').textContent = onboardingStep === 4 ? (editor ? 'К расстановке →' : gamePhase === 'setup' ? 'К подготовке →' : 'Вернуться к партии →') : 'Далее →';
 }
 function showAboutView(guide) {
+  if (cancelOnboardingAnimation()) redrawOnboarding();
   $('#onboarding').hidden = !guide;
   $('#rules-reference').hidden = guide;
   $('#about-guide-tab').setAttribute('aria-pressed', String(guide));
   $('#about-reference-tab').setAttribute('aria-pressed', String(!guide));
 }
 function openAbout() {
+  cancelOnboardingAnimation();
   cancelBot(); cancelMovement(); renderAbout();
   onboardingStep = 0; onboardingDamage = 2;
   onboardingExamples = {};
   renderOnboarding(); showAboutView(true); $('#rules-dialog').showModal(); render();
 }
 function goToOnboardingStep(step) {
+  cancelOnboardingAnimation();
   onboardingStep = Math.max(0, Math.min(onboardingSteps.length - 1, step));
   renderOnboarding(); $('#onboarding-body').focus();
 }
@@ -2314,10 +2365,44 @@ $('#onboarding-next').addEventListener('click', () => {
 function onboardingLessonModel(sceneKey, example) {
   return createMoveLesson(sceneKey.startsWith('4-') ? 4 : Number(sceneKey), { ...example, aura: sceneKey === '4-defense' ? 'defense' : 'attack' });
 }
+function cancelOnboardingAnimation() {
+  const previous = onboardingAnimation;
+  onboardingAnimation = null;
+  previous?.animator.cancel();
+  return Boolean(previous);
+}
+function redrawOnboarding() {
+  const scroll = $('#onboarding-body').scrollTop;
+  renderOnboarding(); $('#onboarding-body').scrollTop = scroll;
+}
+function presentOnboardingAction(sceneKey) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  const lesson = onboardingLessonModel(sceneKey, onboardingExamples[sceneKey]);
+  const plan = lesson.path.length > 1 ? createMovementPlan(lesson.path.map(lessonPoint)) : null;
+  if (!plan && !lesson.deaths.length) return false;
+  const presentation = { sceneKey, phase: 'idle', frame: null, animator: null };
+  presentation.animator = new CombatAnimator(phase => {
+    if (onboardingAnimation !== presentation) return;
+    presentation.phase = phase;
+    if (phase === 'idle') onboardingAnimation = null;
+    redrawOnboarding();
+    $('#onboarding-body').querySelector(`[data-lesson-scene="${sceneKey}"] [data-lesson-action="reset"]`)?.focus({ preventScroll: true });
+  }, frame => {
+    if (onboardingAnimation !== presentation) return;
+    presentation.frame = frame;
+    const token = $('#onboarding-body').querySelector(`#lesson-moving-token-${sceneKey}`);
+    if (token) { token.setAttribute('transform', `translate(${frame.x},${frame.y})`); token.dataset.progress = String(frame.progress); }
+  });
+  onboardingAnimation = presentation;
+  presentation.animator.start(plan, lesson.deaths.length > 0);
+  return true;
+}
 function updateOnboardingLesson(button) {
   const sceneKey = button.closest('[data-lesson-scene]')?.dataset.lessonScene;
   if (!sceneKey) return false;
   const data = button.dataset;
+  if (onboardingAnimation && data.lessonAction !== 'reset') return true;
+  if (data.lessonAction === 'reset') cancelOnboardingAnimation();
   const example = onboardingExamples[sceneKey] ||= { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null };
   let selector;
   if (data.lessonUnit) {
@@ -2345,8 +2430,8 @@ function updateOnboardingLesson(button) {
     Object.assign(example, { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null, shieldRemoved: false });
     selector = '[data-lesson-unit]';
   } else return false;
-  const scroll = $('#onboarding-body').scrollTop;
-  renderOnboarding(); $('#onboarding-body').scrollTop = scroll;
+  const isAction = data.lessonCell || data.lessonPlace || data.lessonAction === 'remove-shield';
+  if (!isAction || !presentOnboardingAction(sceneKey)) redrawOnboarding();
   $('#onboarding-body').querySelector(`[data-lesson-scene="${sceneKey}"] ${selector}`)?.focus({ preventScroll: true });
   return true;
 }
@@ -2375,6 +2460,7 @@ function onboardingPreviewTarget(element) {
   return element?.closest?.('[data-lesson-cell],[data-lesson-place]');
 }
 function previewOnboardingMove(event) {
+  if (onboardingAnimation) return;
   const cell = onboardingPreviewTarget(event.target);
   const sceneKey = cell?.closest('[data-lesson-scene]')?.dataset.lessonScene;
   const example = onboardingExamples[sceneKey];
@@ -2386,6 +2472,7 @@ function previewOnboardingMove(event) {
   refreshOnboardingMovePreview(sceneKey);
 }
 function clearOnboardingMovePreview(event) {
+  if (onboardingAnimation) return;
   const cell = onboardingPreviewTarget(event.target);
   const sceneKey = cell?.closest('[data-lesson-scene]')?.dataset.lessonScene;
   if (!sceneKey) return;
@@ -2403,6 +2490,7 @@ $('#onboarding-body').addEventListener('pointerout', clearOnboardingMovePreview)
 $('#onboarding-body').addEventListener('focusout', clearOnboardingMovePreview);
 $('#onboarding-body').addEventListener('click', event => {
   const button = event.target.closest('button,[data-lesson-cell],[data-lesson-unit],[data-lesson-place]');
+  if (onboardingAnimation && button?.dataset.lessonAction !== 'reset') return;
   const sceneKey = button?.closest('[data-lesson-scene]')?.dataset.lessonScene;
   let cleared = false;
   for (const [key, example] of Object.entries(onboardingExamples)) {
@@ -2428,12 +2516,12 @@ $('#onboarding-body').addEventListener('keydown', event => {
 $('#onboarding-open').addEventListener('click', openAbout);
 
 $('#rules-open').addEventListener('click', openAbout);
-document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => render()));
+document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { if (dialog.id === 'rules-dialog') cancelOnboardingAnimation(); render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
-matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const deaths = movement.deaths; cancelMovement(); render(deaths); } });
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const deaths = movement.deaths; cancelMovement(); render(deaths); } if (event.matches && onboardingAnimation) onboardingAnimation.animator.finish(); });
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
 ready = true; render();
 if (presetUpdated) toast('Подготовлена расстановка с одним барабанщиком и одним знаменосцем. Нажмите «Начать», чтобы играть.');

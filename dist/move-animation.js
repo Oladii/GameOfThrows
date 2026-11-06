@@ -1,3 +1,5 @@
+export const DEATH_EFFECT_DURATION = 400;
+
 export function createMovementPlan(points) {
   if (!Array.isArray(points) || points.length < 2 || points.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) throw new Error('Нужен маршрут перемещения.');
   const route = points.map(p => ({ x: p.x, y: p.y })), lengths = [];
@@ -49,5 +51,34 @@ export class MovementAnimator {
       else this.handle = this.requestFrame(tick);
     };
     tick();
+  }
+}
+
+export class CombatAnimator {
+  constructor(onPhase, onFrame, clock = {}) {
+    this.onPhase = onPhase;
+    this.setTimer = clock.setTimer || setTimeout;
+    this.clearTimer = clock.clearTimer || clearTimeout;
+    this.timer = null; this.serial = 0; this.phase = 'idle';
+    this.movement = new MovementAnimator(onFrame, () => this.showDeaths(), clock);
+  }
+  cancel() {
+    this.serial++; this.movement.cancel();
+    if (this.timer !== null) this.clearTimer(this.timer);
+    this.timer = null; this.phase = 'idle';
+  }
+  finish() { this.cancel(); this.onPhase('idle'); }
+  showDeaths() {
+    if (!this.hasDeaths) { this.finish(); return; }
+    this.phase = 'deaths'; this.onPhase('deaths');
+    const serial = this.serial;
+    this.timer = this.setTimer(() => { if (this.serial === serial) this.finish(); }, DEATH_EFFECT_DURATION);
+  }
+  start(plan, hasDeaths, reducedMotion = false) {
+    this.cancel(); this.hasDeaths = hasDeaths;
+    if (reducedMotion) { this.finish(); return; }
+    if (plan) {
+      this.phase = 'movement'; this.onPhase('movement'); this.movement.start(plan);
+    } else this.showDeaths();
   }
 }

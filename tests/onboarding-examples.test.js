@@ -353,4 +353,26 @@ test('every example always has its own reset button in the right details panel',
   assert.equal((html.match(/data-lesson-action="reset"/g) || []).length, 6);
   for (const scene of sceneHtml(html).values()) assert.ok(scene.slice(scene.indexOf('<div class="lesson-details">')).includes('data-lesson-action="reset"'));
   assert.ok(!html.includes('переставляется свободно'));
+  assert.ok(html.includes('class="button primary" data-lesson-action="remove-shield"'));
+});
+
+test('lesson presentation shows the original board during movement, shared death effects, then only survivors', () => {
+  for (const [index, options] of [[1, { advanced: true, destination: { q: 0, r: 1 } }], [2, { shieldRemoved: true }], [2, { advanced: true, destination: { q: -2, r: 0 } }],
+    [4, { aura: 'attack', placement: { q: 1, r: -2 } }], [4, { aura: 'defense', placement: { q: -1, r: -2 } }]]) {
+    const lesson = createMoveLesson(index, options), snapshot = structuredClone(lesson.position);
+    if (lesson.path.length) {
+      const moving = renderMoveLesson(lesson, icons, () => '', { phase: 'movement' });
+      for (const piece of lesson.before.pieces) assert.ok(moving.includes(`data-lesson-piece="${piece.id}"`));
+      assert.ok(moving.includes('moving-origin')); assert.ok(moving.includes('class="moving-token'));
+      assert.ok(moving.includes('aria-busy="true"')); assert.ok(!moving.includes('data-lesson-unit='));
+      assert.ok(!moving.includes('death-ghost'));
+    }
+    const dying = renderMoveLesson(lesson, icons, () => '', { phase: 'deaths' });
+    assert.equal((dying.match(/class="death-ghost /g) || []).length, lesson.deaths.length);
+    assert.equal((dying.match(/class="death-pulse"/g) || []).length, lesson.deaths.length);
+    for (const dead of lesson.deaths) assert.ok(!dying.includes(`data-lesson-piece="${dead.id}"`));
+    const settled = renderMoveLesson(lesson, icons);
+    assert.ok(!settled.includes('death-ghost')); assert.ok(!settled.includes('moving-token'));
+    assert.ok(settled.includes('aria-busy="false"')); assert.deepEqual(lesson.position, snapshot);
+  }
 });

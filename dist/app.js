@@ -3,10 +3,10 @@ import { DEFAULT_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSave
 import { clone, key, cells, distance, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, isLethalDamage, auraReaches, reachable, movementPath, shieldCanRetreat, move, pass, resolve } from './engine.js';
 import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from './bot-client.js';
 import { classifyPosition, prepareStartPosition } from './start-position.js';
-import { createMovementPlan, sampleMovement, MovementAnimator } from './move-animation.js';
+import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION } from './move-animation.js';
 import { GameRecorder } from './game-archive.js';
-import { durabilityDisplay, attackCellsFor, unitStatParts, alliedBonusDetails, AURA_COLORS, auraPatternDefinitions } from './board-presentation.js';
-import { createMoveLesson, renderMoveLesson, renderMoveExamples } from './onboarding-examples.js';
+import { durabilityDisplay, attackCellsFor, unitStatParts, alliedBonusDetails, AURA_COLORS, auraPatternDefinitions, skullShape, renderDeathEffects, renderMovingToken } from './board-presentation.js';
+import { createMoveLesson, renderMoveLesson, renderMoveExamples, lessonPoint } from './onboarding-examples.js';
 const $ = selector => document.querySelector(selector);
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
@@ -54,7 +54,6 @@ const auraFills = Array.from({ length: 15 }, (_, i) => {
   const stops = colors.map((color, index) => `<stop offset="${index * 100 / colors.length}%" stop-color="${color}"/><stop offset="${(index + 1) * 100 / colors.length}%" stop-color="${color}"/>`).join('');
   return `<linearGradient id="aura-fill-${mask}" x1="0%" y1="0%" x2="100%" y2="100%">${stops}</linearGradient>`;
 }).join('');
-const skullShape = () => '<path class="skull-head" d="M8 1.5c-3.4 0-5.5 2.4-5.5 5.3 0 2 1.2 3.4 2.5 3.9V14h6v-3.3c1.3-.5 2.5-1.9 2.5-3.9C13.5 3.9 11.4 1.5 8 1.5Z"/><circle class="skull-eye" cx="5.5" cy="6.8" r="1.4"/><circle class="skull-eye" cx="10.5" cy="6.8" r="1.4"/><path class="skull-nose" d="m8 8.6-1.2 1.8h2.4Z"/><path class="skull-teeth" d="M7 11.5V14m2-2.5V14"/>';
 const fatalMark = () => `<g class="fatal-mark" transform="translate(5,5)" aria-hidden="true"><circle class="skull-badge" cx="8" cy="8" r="8.5"/>${skullShape()}</g>`;
 let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], log = [];
 let firstMove = 'south';
@@ -223,10 +222,7 @@ function boardMarkup() {
       token = `<g class="piece ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[p.type]}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info)}</g>`;
     }
     return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/><polygon class="aura-overlay" points="${polygon(c)}" aria-hidden="true"/>${damageLabel}${token}</g>`;
-  }).join('') + '<g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" aria-hidden="true">${currentDeaths.map(piece => {
-    const { x, y } = point(piece);
-    return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygon({ q: 0, r: 0 })}"/><circle class="death-pulse" r="22"/><g class="death-ghost ${piece.team === 0 ? 'north' : 'south'}"><g class="death-token"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[piece.type]}</g></g><g class="death-skull"><g class="fatal-mark" transform="translate(-16,-17) scale(2)">${skullShape()}</g></g></g></g>`;
-  }).join('')}</g>` + lastMoveTrace() + movingTokenMarkup();
+  }).join('') + '<g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS)}</g>` + lastMoveTrace() + movingTokenMarkup();
   if (restoreFocus) $('#board [tabindex="0"]')?.focus({ preventScroll: true });
 }
 function paintAuras() {
@@ -263,7 +259,7 @@ function lastMoveTrace() {
 function movingTokenMarkup() {
   if (!movement) return '';
   const p = movement.piece, frame = moveAnimator.active ? moveAnimator.frame : sampleMovement(movement.plan, 0);
-  return `<g id="moving-token" class="moving-token ${p.team ? 'south' : 'north'}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[p.type]}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}</g>`;
+  return renderMovingToken(p, frame, ICON_PATHS);
 }
 function inspectionContext() {
   const position = visibleState();
@@ -431,7 +427,7 @@ function render(deaths = []) {
   $('#erase-tool').classList.toggle('selected-tool', tool === 'erase');
   $('#piece-palette').innerHTML = TYPES.map(type => `<button class="palette-item ${tool === type ? 'active' : ''}" data-tool="${type}">${icon(type)}<span>${LABELS[type]}</span></button>`).join('');
   save();
-  if (currentDeaths.length) deathEffectTimer = setTimeout(() => { currentDeaths = []; render(); }, 400);
+  if (currentDeaths.length) deathEffectTimer = setTimeout(() => { currentDeaths = []; render(); }, DEATH_EFFECT_DURATION);
   queueBot();
 }
 function deathDetail(deaths) { return deaths.length ? 'Погибли: ' + [0, 1].map(team => { const n = deaths.filter(p => p.team === team).length; return n ? `${TEAM_NAMES[team]} — ${n}` : ''; }).filter(Boolean).join(', ') : 'Все фигуры держатся.'; }
@@ -622,6 +618,7 @@ $('#reset-defaults').addEventListener('click', () => fillSettings(DEFAULT_CONFIG
 const onboardingSteps = ['Идея', 'Фигуры', 'Ход', 'Бой', 'Старт'];
 let onboardingStep = 0, onboardingDamage = 2;
 let onboardingExamples = {};
+let onboardingAnimation = null;
 function onboardingUnit(type) { return `<span class="onboarding-unit">${icon(type)}</span>`; }
 function renderOnboarding() {
   $('#onboarding-progress').innerHTML = onboardingSteps.map((label, index) => `<button type="button" data-onboarding-step="${index}"${index === onboardingStep ? ' aria-current="step"' : ''} aria-label="Шаг ${index + 1}: ${label}"><span class="step-number">${index + 1}</span>${label}</button>`).join('');
@@ -651,7 +648,7 @@ function renderOnboarding() {
     }).join('')}</div>`;
   }
   if (onboardingStep === 2) {
-    content = heading('Один ход меняет всё построение', 'Шесть примеров: пробуйте ходы и смотрите, что изменится.') + renderMoveExamples(onboardingExamples, ICON_PATHS, unitBadges);
+    content = heading('Один ход меняет всё построение', 'Шесть примеров: пробуйте ходы и смотрите, что изменится.') + renderMoveExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
   }
   if (onboardingStep === 3) content = heading('Вы двигаете — армия атакует', 'После каждого хода все фигуры обеих сторон автоматически атакуют врагов в пределах дальности. Отдельная кнопка выстрела не нужна.') +
     `<div class="onboarding-demo"><p class="onboarding-demo-label">ПРИМЕР · стойкость фигуры равна 3</p><div class="onboarding-outcome"><button data-damage="2" aria-pressed="${onboardingDamage === 2}"><strong>2 &lt; 3</strong><span>Входящий урон меньше стойкости</span></button><button data-damage="3" aria-pressed="${onboardingDamage === 3}"><strong>3 = 3</strong><span>Входящий урон равен стойкости</span></button></div><p class="onboarding-demo-feedback" role="status">${onboardingDamage === 2 ? 'Фигура выживает: урон меньше стойкости, на фишке остаётся 1.' : 'Фигура погибает: урон равен стойкости. На поле показан череп.'}</p></div><div class="onboarding-note">Входящий урон от разных врагов складывается, но между ходами не накапливается. Погибшие удаляются одновременно и в этом расчёте ещё успевают атаковать и усиливать союзников.</div>`;
@@ -664,18 +661,21 @@ function renderOnboarding() {
   $('#onboarding-next').textContent = onboardingStep === 4 ? (editor ? 'К расстановке →' : gamePhase === 'setup' ? 'К подготовке →' : 'Вернуться к партии →') : 'Далее →';
 }
 function showAboutView(guide) {
+  if (cancelOnboardingAnimation()) redrawOnboarding();
   $('#onboarding').hidden = !guide;
   $('#rules-reference').hidden = guide;
   $('#about-guide-tab').setAttribute('aria-pressed', String(guide));
   $('#about-reference-tab').setAttribute('aria-pressed', String(!guide));
 }
 function openAbout() {
+  cancelOnboardingAnimation();
   cancelBot(); cancelMovement(); renderAbout();
   onboardingStep = 0; onboardingDamage = 2;
   onboardingExamples = {};
   renderOnboarding(); showAboutView(true); $('#rules-dialog').showModal(); render();
 }
 function goToOnboardingStep(step) {
+  cancelOnboardingAnimation();
   onboardingStep = Math.max(0, Math.min(onboardingSteps.length - 1, step));
   renderOnboarding(); $('#onboarding-body').focus();
 }
@@ -695,10 +695,44 @@ $('#onboarding-next').addEventListener('click', () => {
 function onboardingLessonModel(sceneKey, example) {
   return createMoveLesson(sceneKey.startsWith('4-') ? 4 : Number(sceneKey), { ...example, aura: sceneKey === '4-defense' ? 'defense' : 'attack' });
 }
+function cancelOnboardingAnimation() {
+  const previous = onboardingAnimation;
+  onboardingAnimation = null;
+  previous?.animator.cancel();
+  return Boolean(previous);
+}
+function redrawOnboarding() {
+  const scroll = $('#onboarding-body').scrollTop;
+  renderOnboarding(); $('#onboarding-body').scrollTop = scroll;
+}
+function presentOnboardingAction(sceneKey) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  const lesson = onboardingLessonModel(sceneKey, onboardingExamples[sceneKey]);
+  const plan = lesson.path.length > 1 ? createMovementPlan(lesson.path.map(lessonPoint)) : null;
+  if (!plan && !lesson.deaths.length) return false;
+  const presentation = { sceneKey, phase: 'idle', frame: null, animator: null };
+  presentation.animator = new CombatAnimator(phase => {
+    if (onboardingAnimation !== presentation) return;
+    presentation.phase = phase;
+    if (phase === 'idle') onboardingAnimation = null;
+    redrawOnboarding();
+    $('#onboarding-body').querySelector(`[data-lesson-scene="${sceneKey}"] [data-lesson-action="reset"]`)?.focus({ preventScroll: true });
+  }, frame => {
+    if (onboardingAnimation !== presentation) return;
+    presentation.frame = frame;
+    const token = $('#onboarding-body').querySelector(`#lesson-moving-token-${sceneKey}`);
+    if (token) { token.setAttribute('transform', `translate(${frame.x},${frame.y})`); token.dataset.progress = String(frame.progress); }
+  });
+  onboardingAnimation = presentation;
+  presentation.animator.start(plan, lesson.deaths.length > 0);
+  return true;
+}
 function updateOnboardingLesson(button) {
   const sceneKey = button.closest('[data-lesson-scene]')?.dataset.lessonScene;
   if (!sceneKey) return false;
   const data = button.dataset;
+  if (onboardingAnimation && data.lessonAction !== 'reset') return true;
+  if (data.lessonAction === 'reset') cancelOnboardingAnimation();
   const example = onboardingExamples[sceneKey] ||= { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null };
   let selector;
   if (data.lessonUnit) {
@@ -726,8 +760,8 @@ function updateOnboardingLesson(button) {
     Object.assign(example, { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null, shieldRemoved: false });
     selector = '[data-lesson-unit]';
   } else return false;
-  const scroll = $('#onboarding-body').scrollTop;
-  renderOnboarding(); $('#onboarding-body').scrollTop = scroll;
+  const isAction = data.lessonCell || data.lessonPlace || data.lessonAction === 'remove-shield';
+  if (!isAction || !presentOnboardingAction(sceneKey)) redrawOnboarding();
   $('#onboarding-body').querySelector(`[data-lesson-scene="${sceneKey}"] ${selector}`)?.focus({ preventScroll: true });
   return true;
 }
@@ -756,6 +790,7 @@ function onboardingPreviewTarget(element) {
   return element?.closest?.('[data-lesson-cell],[data-lesson-place]');
 }
 function previewOnboardingMove(event) {
+  if (onboardingAnimation) return;
   const cell = onboardingPreviewTarget(event.target);
   const sceneKey = cell?.closest('[data-lesson-scene]')?.dataset.lessonScene;
   const example = onboardingExamples[sceneKey];
@@ -767,6 +802,7 @@ function previewOnboardingMove(event) {
   refreshOnboardingMovePreview(sceneKey);
 }
 function clearOnboardingMovePreview(event) {
+  if (onboardingAnimation) return;
   const cell = onboardingPreviewTarget(event.target);
   const sceneKey = cell?.closest('[data-lesson-scene]')?.dataset.lessonScene;
   if (!sceneKey) return;
@@ -784,6 +820,7 @@ $('#onboarding-body').addEventListener('pointerout', clearOnboardingMovePreview)
 $('#onboarding-body').addEventListener('focusout', clearOnboardingMovePreview);
 $('#onboarding-body').addEventListener('click', event => {
   const button = event.target.closest('button,[data-lesson-cell],[data-lesson-unit],[data-lesson-place]');
+  if (onboardingAnimation && button?.dataset.lessonAction !== 'reset') return;
   const sceneKey = button?.closest('[data-lesson-scene]')?.dataset.lessonScene;
   let cleared = false;
   for (const [key, example] of Object.entries(onboardingExamples)) {
@@ -809,12 +846,12 @@ $('#onboarding-body').addEventListener('keydown', event => {
 $('#onboarding-open').addEventListener('click', openAbout);
 
 $('#rules-open').addEventListener('click', openAbout);
-document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => render()));
+document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { if (dialog.id === 'rules-dialog') cancelOnboardingAnimation(); render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
-matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const deaths = movement.deaths; cancelMovement(); render(deaths); } });
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const deaths = movement.deaths; cancelMovement(); render(deaths); } if (event.matches && onboardingAnimation) onboardingAnimation.animator.finish(); });
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
 ready = true; render();
 if (presetUpdated) toast('Подготовлена расстановка с одним барабанщиком и одним знаменосцем. Нажмите «Начать», чтобы играть.');
