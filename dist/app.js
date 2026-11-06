@@ -621,6 +621,7 @@ const onboardingSteps = ['Идея', 'Фигуры', 'Ход', 'Бой', 'Ста
 let onboardingStep = 0, onboardingDamage = 2;
 let onboardingExamples = {};
 let onboardingAnimation = null;
+let onboardingPreviewByKeyboard = false;
 function onboardingUnit(type) { return `<span class="onboarding-unit">${icon(type)}</span>`; }
 function renderOnboarding() {
   $('#onboarding-progress').innerHTML = onboardingSteps.map((label, index) => `<button type="button" data-onboarding-step="${index}"${index === onboardingStep ? ' aria-current="step"' : ''} aria-label="Шаг ${index + 1}: ${label}"><span class="step-number">${index + 1}</span>${label}</button>`).join('');
@@ -658,6 +659,7 @@ function openAbout() {
 }
 function goToOnboardingStep(step) {
   cancelOnboardingAnimation();
+  onboardingPreviewByKeyboard = false;
   onboardingStep = Math.max(0, Math.min(onboardingSteps.length - 1, step));
   renderOnboarding(); $('#onboarding-body').focus();
 }
@@ -720,6 +722,7 @@ function updateOnboardingLesson(button) {
   const example = onboardingExamples[sceneKey] ||= { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null };
   let selector;
   if (data.lessonUnit) {
+    onboardingPreviewByKeyboard = false;
     example.selected = !example.selected; example.previewPlacement = null;
     if (!example.advanced) example.destination = null;
     selector = '[data-lesson-unit]';
@@ -787,6 +790,12 @@ function previewOnboardingMove(event) {
   const sceneKey = cell?.closest('[data-lesson-scene]')?.dataset.lessonScene;
   const example = onboardingExamples[sceneKey];
   if (!sceneKey || !example?.selected || example.advanced) return;
+  if (event.type === 'focusin') onboardingPreviewByKeyboard = true;
+  else if (onboardingPreviewByKeyboard) {
+    // Scrolling a focused cell under a stationary mouse must not replace its forecast.
+    if (event.type !== 'pointermove' || !event.movementX && !event.movementY) return;
+    onboardingPreviewByKeyboard = false;
+  }
   const property = cell.dataset.lessonPlace ? 'previewPlacement' : 'destination';
   const [q, r] = (cell.dataset.lessonPlace || cell.dataset.lessonCell).split(',').map(Number);
   if (example[property]?.q === q && example[property]?.r === r) return;
@@ -795,6 +804,7 @@ function previewOnboardingMove(event) {
 }
 function clearOnboardingMovePreview(event) {
   if (onboardingAnimation) return;
+  if (onboardingPreviewByKeyboard && event.type === 'pointerout') return;
   const cell = onboardingPreviewTarget(event.target);
   const sceneKey = cell?.closest('[data-lesson-scene]')?.dataset.lessonScene;
   if (!sceneKey) return;

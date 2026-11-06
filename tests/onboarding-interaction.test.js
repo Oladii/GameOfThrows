@@ -16,7 +16,7 @@ function setup({ reducedMotion = true } = {}) {
     setTimer: (callback, delay) => { timers.set(++id, { callback, at: time + delay }); return id; }, clearTimer: handle => timers.delete(handle) };
   const body = { scrollTop: 180, html: '', token: { dataset: {}, attrs: {}, setAttribute(name, value) { this.attrs[name] = value; } }, focus() {},
     addEventListener(type, callback) { handler = callback; }, querySelector(selector) { return selector.startsWith('#lesson-moving-token-') ? this.token : { focus() {} }; } };
-  const context = vm.createContext({ onboardingExamples: {}, onboardingAnimation: null, createMoveLesson, createCombatLesson, createUnitLesson, createMovementPlan, lessonPoint,
+  const context = vm.createContext({ onboardingExamples: {}, onboardingAnimation: null, onboardingPreviewByKeyboard: false, createMoveLesson, createCombatLesson, createUnitLesson, createMovementPlan, lessonPoint,
     CombatAnimator: class extends CombatAnimator { constructor(onPhase, onFrame) { super(onPhase, onFrame, clock); } },
     matchMedia: () => media, movement: null, render() {}, onboardingStep: 2, onboardingSteps: ['Идея', 'Фигуры', 'Ход', 'Бой', 'Старт'],
     document: { querySelectorAll: () => [{ id: 'rules-dialog', addEventListener(type, callback) { closeHandler = callback; } }] },
@@ -233,4 +233,22 @@ test('removing a contributing archer resets the sum example without inventing a 
   ui.click('9', { lessonAction: 'reset' });
   assert.equal(ui.state['9'].secondArcher, true);
   assert.ok(!ui.body.html.includes('Выстрелить'));
+});
+
+test('keyboard forecast survives scrolling under a stationary pointer until the mouse actually moves', () => {
+  const scene = { dataset: { lessonScene: '8' } }, state = { selected: true, advanced: false, destination: null };
+  const cell = position => ({ dataset: { lessonCell: position }, closest(selector) { return selector === '[data-lesson-scene]' ? scene : this; } });
+  let refreshed = 0;
+  const context = vm.createContext({ onboardingAnimation: null, onboardingPreviewByKeyboard: false, onboardingExamples: { '8': state }, refreshOnboardingMovePreview() { refreshed++; } });
+  vm.runInContext(app.slice(app.indexOf('function onboardingPreviewTarget('), app.indexOf("$('#onboarding-body').addEventListener('pointerover'")), context);
+  context.previewOnboardingMove({ type: 'focusin', target: cell('1,0') });
+  assert.equal(state.destination.q, 1); assert.equal(state.destination.r, 0);
+  context.previewOnboardingMove({ type: 'pointerover', target: cell('0,1') });
+  context.previewOnboardingMove({ type: 'pointermove', target: cell('0,1'), movementX: 0, movementY: 0 });
+  context.clearOnboardingMovePreview({ type: 'pointerout', target: cell('0,1'), relatedTarget: null });
+  assert.equal(state.destination.q, 1); assert.equal(state.destination.r, 0); assert.equal(refreshed, 1);
+  context.previewOnboardingMove({ type: 'pointermove', target: cell('0,1'), movementX: 1, movementY: 0 });
+  assert.equal(state.destination.q, 0); assert.equal(state.destination.r, 1);
+  context.clearOnboardingMovePreview({ type: 'pointerout', target: cell('0,1'), relatedTarget: null });
+  assert.equal(state.destination, null);
 });
