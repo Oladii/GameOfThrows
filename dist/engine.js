@@ -106,7 +106,9 @@ function blocked(a, b, state, config, aura = false) {
 }
 export function auraReaches(source, target, state, config) {
   const radius = shieldCanRetreat(source, config) ? promotionStats(config).aura : config.stats[source.type].aura;
-  return distance(source, target, config) <= radius && isRay(source, target, config) && !blocked(source, target, state, config, true);
+  const separation = distance(source, target, config);
+  const areaAura = ['attackLamp', 'defenseLamp'].includes(source.type);
+  return separation > 0 && separation <= radius && (areaAura || isRay(source, target, config)) && !blocked(source, target, state, config, true);
 }
 export function effective(piece, state, config) {
   const stats = config.stats[piece.type];

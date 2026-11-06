@@ -271,9 +271,9 @@ test('shields cannot gain attack range from stacked banners, but retain damage a
     assert.equal(attacks(shield, far, s, c), true);
   }
 });
-test('auras extend two cells on each of six face rays, excluding vertex directions and the source', () => {
+test('support auras cover every cell within two steps, including cells between rays and excluding the source', () => {
   const c = config(), source = p('banner', 'attackLamp', 0, 0, 0), s = state([source]);
-  assert.equal(cells(c).filter(cell => auraReaches(source, cell, s, c)).length, 12);
+  assert.equal(cells(c).filter(cell => auraReaches(source, cell, s, c)).length, 18);
   assert.equal(auraReaches(source, source, s, c), false);
   for (const [q, r] of [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]]) {
     for (const step of [1, 2]) assert.equal(auraReaches(source, { q: q * step, r: r * step }, s, c), true);
@@ -282,8 +282,8 @@ test('auras extend two cells on each of six face rays, excluding vertex directio
   for (const [q, r] of [[1, 1], [-1, -1], [1, -2], [-1, 2], [2, -1], [-2, 1]]) {
     const target = p('target', 'shield', 0, q, r), position = state([source, target]);
     assert.equal(distance(source, target, c), 2);
-    assert.equal(auraReaches(source, target, position, c), false);
-    assert.equal(effective(target, position, c).damageBonus, 0);
+    assert.equal(auraReaches(source, target, position, c), true);
+    assert.equal(effective(target, position, c).damageBonus, c.stats.attackLamp.damageBonus);
   }
 });
 test('all attacks, including attack banners, follow face rays and cannot shoot vertically through vertices', () => {
@@ -306,9 +306,9 @@ test('promoted shields keep personal bonuses and grant both banner effects to ad
   assert.equal(info.damage, 6); assert.equal(info.fortitude, 7); assert.equal(info.range, 2);
   assert.equal(info.aura, 1); assert.deepEqual(info.sources.sort(), ['attack', 'defense', 'second', 'shield']);
   const a = effective(archer, s, c);
-  assert.equal(a.damage, 3); assert.equal(a.range, 6); assert.equal(a.fortitude, 3);
+  assert.equal(a.damage, 3); assert.equal(a.range, 6); assert.equal(a.fortitude, 4);
   const shield = effective(normal, s, c);
-  assert.equal(shield.range, 1); assert.equal(shield.damage, 5);
+  assert.equal(shield.range, 1); assert.equal(shield.damage, 6);
   assert.equal(effective(defense, s, c).damage, 2); assert.equal(effective(defense, s, c).range, 1);
   assert.equal(auraReaches(veteran, p('far', 'archer', 0, 2, 0), s, c), false);
   assert.equal(auraReaches(veteran, veteran, s, c), false);
@@ -449,7 +449,7 @@ test('drummers keep granting +2 damage but cannot arm each other without a veter
   const result = resolve(s, c);
   assert.ok(result.deaths.some(piece => piece.id === banner.id));
   assert.equal(result.report.get(ally.id).damage, 6);
-  const preview = inspectCell(s, c, { q: 0, r: -1 }, banner.id);
+  const preview = inspectCell(s, c, { q: 0, r: -2 }, banner.id);
   assert.equal(preview.isPreview, true); assert.equal(preview.report.get(ally.id).damage, 4);
 });
 test('banner balance migration updates revision two once and preserves explicit current settings', () => {

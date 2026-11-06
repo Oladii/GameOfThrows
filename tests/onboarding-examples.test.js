@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
-import { cells, distance, movementPath, validateConfig, validateState, inspectCell, resolve } from '../dist/engine.js';
+import { cells, distance, movementPath, validateConfig, validateState, inspectCell, resolve, move, analyze, reachable } from '../dist/engine.js';
 import { MOVE_LESSONS, createMoveLesson, renderMoveLesson, renderMoveExamples } from '../dist/onboarding-examples.js';
 const icons = Object.fromEntries(['shield', 'archer', 'attackLamp', 'defenseLamp'].map(type => [type, '<path d="M1 1h1"/>']));
 const sceneHtml = html => new Map([...html.matchAll(/<section class="lesson-scene" data-lesson-scene="([^"]+)"[^>]*>([\s\S]*?)<\/section>/g)].map(match => [match[1], match[2]]));
@@ -37,7 +37,7 @@ test('movement starts without a selected unit, cell, path or highlights; selecti
   assert.deepEqual(initial.available, []); assert.deepEqual(initial.enemyBlocked, []);
   assert.ok(initialHtml.includes('data-lesson-unit="blue" role="button" tabindex="0" aria-pressed="false"'));
   for (const absent of ['data-lesson-selected-unit', 'class="lesson-path-number"', 'class="lesson-path"', ' lesson-available', ' lesson-unit-cell', ' lesson-enemy-blocked']) assert.ok(!initialHtml.includes(absent), absent);
-  assert.ok(!initialHtml.includes('data-lesson-action='));
+  assert.ok(initialHtml.includes('data-lesson-action="reset"'));
   assert.equal(createMoveLesson(0, { destination: { q: -2, r: 3 } }).destination, null, 'a stale destination does not select a unit');
   assert.equal(createMoveLesson(0, { advanced: true }).advanced, false);
   const selected = createMoveLesson(0, { selected: true }), selectedHtml = renderMoveLesson(selected, icons);
@@ -47,7 +47,7 @@ test('movement starts without a selected unit, cell, path or highlights; selecti
   assert.ok(selectedHtml.includes('class="lesson-selection-ring"'));
   assert.ok(selectedHtml.includes(' lesson-unit-cell'));
   assert.ok(!selectedHtml.includes('class="lesson-path-number"'));
-  assert.ok(!selectedHtml.includes('data-lesson-action='));
+  assert.ok(selectedHtml.includes('data-lesson-action="reset"'));
 });
 
 test('every selected destination has the shortest legal numbered path, including straight and turning routes', () => {
@@ -92,44 +92,41 @@ test('the moved-back enemy blocks passage, allies allow passing, and occupied ce
   assert.equal(moved.position.pieces.find(piece => piece.id === 'blue').r, destination.r);
 });
 
-test('melee requires approaching, and the enemy shield intercepts shots aimed behind it', () => {
-  assert.equal(createMoveLesson(1).report.get('enemy').incoming, 0);
-  const melee = createMoveLesson(1, { advanced: true });
-  assert.equal(melee.report.get('enemy').incoming, 15); assert.equal(melee.report.get('enemy').dead, true);
-  const blocked = createMoveLesson(2), open = createMoveLesson(2, { advanced: true });
-  assert.equal(blocked.report.get('wall').incoming, 12); assert.equal(blocked.report.get('enemy').incoming, 0);
-  assert.equal(blocked.canHit, false); assert.equal(open.report.get('enemy').incoming, 12); assert.equal(open.canHit, true);
-  for (const lesson of [blocked, open]) {
-    const blue = lesson.report.get('blue');
-    assert.ok(blue.sources.includes('drummer')); assert.equal(blue.range, 4); assert.equal(blue.damage, 12);
-    assert.equal(blue.incoming, 0); assert.equal(blue.dead, false);
-    assert.ok(resolve(lesson.position, lesson.config).state.pieces.some(piece => piece.id === 'blue'));
-    assert.equal(lesson.report.get('drummer').damage, 0);
-  }
-  assert.equal(blocked.report.get('wall').dead, false);
-  assert.equal(blocked.report.get('enemy').dead, false);
-  assert.equal(open.report.get('enemy').dead, true);
-});
-
-test('moving the archer two cells brings the enemy within its three-cell shooting range', () => {
-  const before = createMoveLesson(3), after = createMoveLesson(3, { advanced: true });
-  assert.equal(before.path.length - 1, 2); assert.equal(before.canHit, false); assert.equal(after.canHit, true);
-  assert.equal(before.report.get('enemy').incoming, 0); assert.equal(after.report.get('enemy').incoming, 8);
-  assert.equal(after.report.get('enemy').dead, false); assert.equal(after.report.get('blue').incoming, 0);
+test('melee and shooting reach are explored by real cell moves instead of action buttons', () => {
+  const meleeStart = createMoveLesson(1);
+  assert.equal(meleeStart.report.get('enemy').incoming, 0);
+  assert.ok(meleeStart.position.pieces.find(piece => piece.id === 'enemy').r > meleeStart.position.pieces.find(piece => piece.id === 'blue').r, 'the archer is below the shield');
+  const melee = createMoveLesson(1, { advanced: true, destination: { q: 0, r: 1 } });
+  assert.equal(melee.report.get('enemy').incoming, DEFAULT_CONFIG.stats.shield.damage);
+  assert.equal(melee.report.get('enemy').dead, true);
+  const blocked = createMoveLesson(2);
+  assert.equal(blocked.report.get('enemy').incoming, 0);
+  assert.ok(blocked.report.get('blue').sources.includes('drummer'));
+  assert.equal(blocked.report.get('blue').incoming, 0);
+  assert.equal(blocked.report.get('wall').incoming, blocked.report.get('blue').damage);
+  assert.equal(blocked.report.get('enemy').fortitude, DEFAULT_CONFIG.stats.archer.fortitude, 'shield does not add armor to the protected archer in this blocking example');
+  assert.equal(distance(blocked.position.pieces.find(piece => piece.id === 'wall'), blocked.position.pieces.find(piece => piece.id === 'enemy'), blocked.config), 2);
+  const risky = createMoveLesson(2, { selected: true, destination: { q: -2, r: 0 } });
+  assert.ok(risky.position.pieces.some(piece => piece.id === 'wall'), 'shield is never removed by a synthetic action');
+  assert.equal(risky.report.get('blue').incoming, DEFAULT_CONFIG.stats.archer.damage + DEFAULT_CONFIG.stats.shield.damage, 'approaching the shield enters both its melee reach and the enemy archer range');
+  const before = createMoveLesson(3), after = createMoveLesson(3, { advanced: true, destination: { q: -1, r: 0 } });
+  assert.equal(before.canHit, false); assert.equal(after.canHit, true);
+  assert.equal(after.report.get('enemy').incoming, DEFAULT_CONFIG.stats.archer.damage);
+  assert.equal(after.report.get('blue').incoming, 0);
 });
 
 test('both auras improve allies while support stays unarmed without a veteran', () => {
   for (const aura of ['attack', 'defense']) {
-    const before = createMoveLesson(4, { aura }), after = createMoveLesson(4, { aura, placement: { q: 0, r: 1 }, selected: true });
+    const before = createMoveLesson(4, { aura }), after = createMoveLesson(4, { aura, placement: aura === 'attack' ? { q: 1, r: -2 } : { q: -1, r: 0 }, selected: true });
     const initial = before.report.get('blue'), buffed = after.report.get('blue');
     assert.ok(!initial.sources.includes('support')); assert.ok(buffed.sources.includes('support'));
     assert.equal(after.report.get('support').damage, 0); assert.equal(after.report.get('support').range, 0);
     if (aura === 'attack') {
-      assert.equal(buffed.damage - initial.damage, 4); assert.equal(buffed.range - initial.range, 1);
-      assert.equal(before.report.get('enemy').dead, false); assert.equal(after.report.get('enemy').dead, false);
+      assert.equal(buffed.damage - initial.damage, DEFAULT_CONFIG.stats.attackLamp.damageBonus); assert.equal(buffed.range - initial.range, 1);
+      assert.equal(before.report.get('enemy').dead, false); assert.equal(after.report.get('enemy').dead, true);
     } else {
-      assert.equal(buffed.fortitude - initial.fortitude, 2); assert.equal(initial.incoming, 8); assert.equal(buffed.incoming, 8);
-      assert.equal(initial.dead, true); assert.equal(buffed.dead, true);
+      assert.equal(buffed.fortitude - initial.fortitude, DEFAULT_CONFIG.stats.defenseLamp.defenseBonus); assert.equal(initial.incoming, DEFAULT_CONFIG.stats.shield.damage); assert.equal(buffed.incoming, initial.incoming);
+      assert.equal(initial.dead, true); assert.equal(buffed.dead, false);
     }
   }
 });
@@ -142,7 +139,7 @@ test('all examples appear on one page with unique SVG ids and independent states
   const ids = [...initialHtml.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   assert.equal(new Set(ids).size, ids.length);
   for (const ref of initialHtml.matchAll(/url\(#([^\)]+)\)/g)) assert.ok(ids.includes(ref[1]), ref[1]);
-  const state = { '1': { advanced: true }, '4-defense': { selected: true, placement: { q: 0, r: 1 } } }, original = structuredClone(state);
+  const state = { '1': { advanced: true, destination: { q: 1, r: 0 } }, '4-defense': { selected: true, placement: { q: -1, r: 0 } } }, original = structuredClone(state);
   const modified = sceneHtml(renderMoveExamples(state, icons)); assert.deepEqual(state, original);
   for (const key of ['0', '2', '3', '4-attack']) assert.equal(modified.get(key), initial.get(key));
   assert.notEqual(modified.get('1'), initial.get('1')); assert.notEqual(modified.get('4-defense'), initial.get('4-defense'));
@@ -171,7 +168,7 @@ test('a hover route previews without moving; a completed click move clears the r
   assert.equal((previewHtml.match(/class="lesson-path-number"/g) || []).length, 3);
   assert.ok(previewHtml.includes('class="lesson-path"'));
   assert.equal((previewHtml.match(/data-lesson-position=/g) || []).length, 37);
-  assert.ok(!previewHtml.includes('data-lesson-action='));
+  assert.ok(previewHtml.includes('data-lesson-action="reset"'));
   assert.ok(!previewHtml.includes('Передвинуть лукаря'));
   const moved = createMoveLesson(0, { advanced: true, destination }), movedHtml = renderMoveLesson(moved, icons);
   assert.equal(moved.position.pieces.find(piece => piece.id === 'blue').r, 3);
@@ -183,31 +180,177 @@ test('a hover route previews without moving; a completed click move clears the r
 });
 
 
-test('both support examples allow free empty-cell placement and show the aura only while selected', () => {
+test('both supports use actual reachable cells and resolve a single real move before reset', () => {
   for (const aura of ['attack', 'defense']) {
-    const initial = createMoveLesson(4, { aura });
-    assert.deepEqual(initial.auraCells, []); assert.deepEqual(initial.available, []);
-    const selected = createMoveLesson(4, { aura, selected: true });
-    assert.ok(selected.auraCells.length > 0); assert.equal(selected.available.length, 34);
-    const selectedHtml = renderMoveLesson(selected, icons);
-    assert.ok(selectedHtml.includes('data-lesson-unit="support"'));
-    assert.ok(selectedHtml.includes('data-lesson-place="0,1"'));
-    assert.ok(!selectedHtml.includes('data-lesson-cell='));
-    assert.ok(!selectedHtml.includes('data-lesson-action="advance"'));
-    for (const cell of selected.available) {
-      const placed = createMoveLesson(4, { aura, selected: true, placement: cell });
+    const initial = createMoveLesson(4, { aura }), selected = createMoveLesson(4, { aura, selected: true });
+    const source = initial.before.pieces.find(piece => piece.id === 'support');
+    assert.equal(initial.config.stats[source.type].move, DEFAULT_CONFIG.stats[source.type].move);
+    assert.deepEqual(initial.available, []); assert.deepEqual(initial.auraCells, []);
+    assert.deepEqual(selected.available, reachable(source, initial.before, initial.config));
+    assert.ok(selected.available.length > 0 && selected.available.length < 34);
+    const allowed = new Set(selected.available.map(cell => cell.q + ',' + cell.r));
+    for (const cell of cells(initial.config)) {
+      const options = { aura, selected: true, placement: cell };
+      if (!allowed.has(cell.q + ',' + cell.r)) {
+        assert.throws(() => createMoveLesson(4, options), /Недоступная/);
+        assert.throws(() => createMoveLesson(4, { aura, selected: true, previewPlacement: cell }), /Недоступная/);
+        continue;
+      }
+      assert.ok(movementPath(source, initial.before, initial.config, cell).length - 1 <= DEFAULT_CONFIG.stats[source.type].move);
+      const placed = createMoveLesson(4, options), expected = move(initial.before, initial.config, 'support', cell);
+      assert.deepEqual(placed.position, expected.state); assert.deepEqual(placed.deaths, expected.deaths);
+      assert.deepEqual([...placed.report], [...expected.report]); assert.deepEqual(placed.available, []);
       assert.doesNotThrow(() => validateState(placed.position, placed.config));
-      assert.equal(placed.position.pieces.find(piece => piece.id === 'support').q, cell.q);
-      assert.equal(placed.position.pieces.find(piece => piece.id === 'support').r, cell.r);
     }
-    const placement = { q: 0, r: 1 };
+    const placement = aura === 'attack' ? { q: 1, r: -2 } : { q: -1, r: 0 };
     const active = createMoveLesson(4, { aura, selected: true, placement });
-    const deselected = createMoveLesson(4, { aura, selected: false, placement });
-    assert.deepEqual(deselected.auraCells, []); assert.deepEqual(deselected.available, []);
-    assert.deepEqual(deselected.report.get('blue'), active.report.get('blue'), 'hiding the aura does not remove its gameplay effect');
+    const deselected = createMoveLesson(4, { aura, placement });
+    assert.deepEqual(deselected.auraCells, []); assert.deepEqual(deselected.position, active.position);
+    assert.deepEqual([...deselected.report], [...active.report]);
     assert.ok(active.report.get('blue').sources.includes('support'));
-    const away = createMoveLesson(4, { aura, selected: true, placement: { q: -2, r: 1 } });
-    assert.ok(!away.report.get('blue').sources.includes('support'));
-    for (const invalid of [{ q: 0, r: 0 }, { q: 3, r: 0 }, { q: 99, r: 99 }]) assert.throws(() => createMoveLesson(4, { aura, placement: invalid }), /пустую клетку/);
   }
+});
+
+test('all movement scenes share select, numbered hover forecast and cell-click commit with no advance buttons', () => {
+  const destinations = [{ q: -2, r: 3 }, { q: 0, r: 1 }, { q: -2, r: 0 }, { q: -1, r: 0 }];
+  for (let index = 0; index < 4; index++) {
+    const initial = createMoveLesson(index), initialHtml = renderMoveLesson(initial, icons);
+    assert.deepEqual(initial.available, []); assert.deepEqual(initial.path, []);
+    assert.ok(initialHtml.includes('data-lesson-unit="blue"'));
+    assert.ok(!initialHtml.includes('data-lesson-cell=')); assert.ok(!initialHtml.includes('data-lesson-action="advance"'));
+    const selected = createMoveLesson(index, { selected: true }); assert.ok(selected.available.length > 0);
+    const destination = destinations[index], preview = createMoveLesson(index, { selected: true, destination });
+    assert.equal(preview.isPreview, true); assert.deepEqual(preview.position, preview.before);
+    const real = inspectCell(preview.before, preview.config, destination, 'blue');
+    assert.equal(real.isPreview, true); assert.deepEqual(preview.previewPosition, real.position);
+    assert.deepEqual([...preview.report], [...real.report]);
+    const html = renderMoveLesson(preview, icons);
+    assert.ok(html.includes('lesson-preview-origin')); assert.ok(html.includes('class="lesson-preview-piece"'));
+    assert.equal(html.includes('class="lesson-path-number"'), index === 0); assert.ok(!html.includes('data-lesson-action="advance"'));
+    const committed = createMoveLesson(index, { advanced: true, destination });
+    assert.deepEqual(committed.position, move(preview.before, preview.config, 'blue', destination).state); assert.equal(committed.isPreview, false);
+    assert.ok(!renderMoveLesson(committed, icons).includes('class="lesson-path-number"'));
+    assert.ok(renderMoveLesson(committed, icons).includes('data-lesson-action="reset"'));
+  }
+});
+
+test('support hover forecasts combat without moving or removing any piece', () => {
+  for (const aura of ['attack', 'defense']) {
+    const placement = aura === 'attack' ? { q: 1, r: -2 } : { q: -1, r: 0 };
+    const hover = createMoveLesson(4, { aura, selected: true, previewPlacement: placement });
+    assert.deepEqual(hover.position, hover.before); assert.equal(hover.isPreview, true);
+    assert.equal(hover.position.pieces.length, 3); assert.equal(hover.deaths.length, 0);
+    assert.equal(hover.previewPosition.pieces.find(piece => piece.id === 'support').q, placement.q);
+    assert.ok(hover.report.get('blue').sources.includes('support'));
+    const real = inspectCell(hover.before, hover.config, placement, 'support');
+    assert.deepEqual(hover.previewPosition, real.position); assert.deepEqual([...hover.report], [...real.report]);
+    const committed = createMoveLesson(4, { aura, placement });
+    assert.deepEqual([...hover.report], [...committed.report]);
+    assert.ok(renderMoveLesson(hover, icons).includes('class="lesson-preview-piece"'));
+    assert.ok(!renderMoveLesson(committed, icons).includes('class="lesson-preview-piece"'));
+  }
+});
+
+test('only the first example shows step numbers, and no example draws combat arrows or crosses over occupied cells', () => {
+  const goals = [{ q: -2, r: 3 }, { q: 0, r: 1 }, { q: -2, r: 0 }, { q: -1, r: 0 }];
+  for (let index = 0; index < 4; index++) {
+    const html = renderMoveLesson(createMoveLesson(index, { selected: true, destination: goals[index] }), icons);
+    assert.equal(html.includes('class="lesson-path-number"'), index === 0);
+    for (const extra of ['<marker', 'marker-end=', 'lesson-shot', 'lesson-enemy-shot', 'lesson-blocked-shot']) assert.ok(!html.includes(extra));
+  }
+  const initial = createMoveLesson(0, { selected: true }), html = renderMoveLesson(initial, icons);
+  const emptyBlocked = initial.enemyBlocked.filter(cell => !initial.position.pieces.some(piece => piece.q === cell.q && piece.r === cell.r));
+  assert.equal((html.match(/class="lesson-blocked-cross"/g) || []).length, emptyBlocked.length);
+  assert.ok(!html.includes('translate(19,-20)" d='), 'no cross fragments protrude from occupied cells');
+});
+
+test('the fifth example lets the drummer enable a safe lethal shot against an enemy archer', () => {
+  const initial = createMoveLesson(4, { aura: 'attack' });
+  assert.equal(initial.position.pieces.find(piece => piece.id === 'enemy').type, 'archer');
+  assert.equal(initial.canHit, false); assert.equal(initial.report.get('enemy').incoming, 0);
+  const preview = createMoveLesson(4, { aura: 'attack', selected: true, previewPlacement: { q: 1, r: -2 } });
+  assert.equal(preview.canHit, true); assert.equal(preview.report.get('enemy').dead, true);
+  assert.equal(preview.report.get('blue').dead, false); assert.equal(preview.report.get('blue').incoming, 0);
+  const placed = createMoveLesson(4, { aura: 'attack', selected: true, placement: { q: 1, r: -2 } });
+  assert.deepEqual([...preview.report], [...placed.report]);
+  assert.ok(placed.feedback.includes('Погибли:'));
+  assert.ok(!placed.position.pieces.some(piece => piece.id === 'enemy'));
+  const resolved = resolve(placed.position, placed.config);
+  assert.ok(resolved.state.pieces.some(piece => piece.id === 'blue'));
+  assert.ok(!resolved.state.pieces.some(piece => piece.id === 'enemy'));
+});
+
+test('removing the shield in example three exposes a lethal shot and reset can restore the blocker', () => {
+  const initial = createMoveLesson(2), removed = createMoveLesson(2, { shieldRemoved: true });
+  assert.equal(initial.report.get('enemy').incoming, 0);
+  assert.ok(renderMoveLesson(initial, icons).includes('data-lesson-action="remove-shield"'));
+  assert.ok(!removed.position.pieces.some(piece => piece.id === 'wall'));
+  assert.equal(removed.report.get('enemy').incoming, removed.report.get('blue').damage);
+  assert.equal(removed.report.get('enemy').dead, true); assert.equal(removed.report.get('blue').incoming, 0);
+  const result = resolve(removed.position, removed.config);
+  assert.ok(!result.state.pieces.some(piece => piece.id === 'enemy'));
+  assert.ok(result.state.pieces.some(piece => piece.id === 'blue'));
+  const removedHtml = sceneHtml(renderMoveExamples({ '2': { shieldRemoved: true } }, icons)).get('2');
+  assert.ok(!removedHtml.includes('data-lesson-piece="wall"'));
+  assert.ok(!removedHtml.includes('data-lesson-action="remove-shield"'));
+  assert.ok(removedHtml.includes('data-lesson-action="reset"'));
+  assert.ok(removedHtml.includes('Расчёт завершён'));
+  assert.ok(!removedHtml.includes('data-lesson-piece="enemy"'));
+  assert.deepEqual(createMoveLesson(2, { shieldRemoved: false }).position, initial.position);
+});
+
+test('the sixth example lets the banner turn a lethal shield clash into survival', () => {
+  const initial = createMoveLesson(4, { aura: 'defense' });
+  const placement = { q: -1, r: 0 };
+  const preview = createMoveLesson(4, { aura: 'defense', selected: true, previewPlacement: placement });
+  const placed = createMoveLesson(4, { aura: 'defense', selected: true, placement });
+  assert.equal(initial.position.pieces.find(piece => piece.id === 'blue').type, 'shield');
+  assert.equal(initial.position.pieces.find(piece => piece.id === 'enemy').type, 'shield');
+  assert.equal(initial.report.get('blue').incoming, initial.report.get('blue').fortitude);
+  assert.equal(initial.report.get('blue').dead, true);
+  assert.ok(!resolve(initial.position, initial.config).state.pieces.some(piece => piece.id === 'blue'));
+  assert.equal(placed.report.get('blue').incoming, initial.report.get('blue').incoming);
+  assert.equal(placed.report.get('blue').fortitude, initial.report.get('blue').fortitude + DEFAULT_CONFIG.stats.defenseLamp.defenseBonus);
+  assert.equal(placed.report.get('blue').dead, false); assert.equal(placed.report.get('support').incoming, 0);
+  assert.equal(placed.report.get('enemy').fortitude, initial.report.get('enemy').fortitude, 'enemy receives no banner bonus');
+  assert.deepEqual([...preview.report], [...placed.report]);
+  assert.equal(preview.position.pieces.find(piece => piece.id === 'support').q, -2, 'hover preserves the real banner position');
+  const result = resolve(placed.position, placed.config);
+  assert.ok(result.state.pieces.some(piece => piece.id === 'blue'));
+  assert.ok(result.state.pieces.some(piece => piece.id === 'support'));
+  assert.ok(!result.state.pieces.some(piece => piece.id === 'enemy'));
+  const deselected = createMoveLesson(4, { aura: 'defense', placement });
+  assert.deepEqual(deselected.auraCells, []); assert.deepEqual([...deselected.report], [...placed.report]);
+  assert.ok(placed.feedback.includes('Расчёт завершён'));
+  assert.ok(placed.position.pieces.some(piece => piece.id === 'blue'));
+  assert.ok(!placed.position.pieces.some(piece => piece.id === 'enemy'));
+  const html = renderMoveLesson(placed, icons);
+  assert.ok(html.includes('Стойкость броненосца')); assert.ok(!html.includes('стойкость лукаря'));
+  assert.equal(createMoveLesson(4, { aura: 'defense' }).report.get('blue').dead, true, 'reset restores the unprotected setup');
+});
+
+
+test('every legal lesson move removes exactly the engine deaths and renders surviving pieces with fresh combat badges', () => {
+  for (let index = 0; index < 5; index++) for (const aura of index === 4 ? ['attack', 'defense'] : ['attack']) {
+    const selected = createMoveLesson(index, { aura, selected: true });
+    for (const cell of selected.available) {
+      const committed = createMoveLesson(index, { aura, advanced: true, ...(index === 4 ? { placement: cell } : { destination: cell }) });
+      const real = move(selected.before, selected.config, selected.moverId, cell);
+      assert.deepEqual(committed.position, real.state); assert.deepEqual(committed.deaths, real.deaths);
+      assert.deepEqual([...committed.report], [...real.report]);
+      assert.deepEqual([...committed.displayReport], [...analyze(real.state, selected.config)]);
+      const html = renderMoveLesson(committed, icons);
+      for (const piece of selected.before.pieces) assert.equal(html.includes('data-lesson-piece="' + piece.id + '"'), real.state.pieces.some(p => p.id === piece.id));
+      assert.ok(!html.includes('lesson-preview-piece')); assert.ok(!html.includes('lesson-path-number'));
+      const reselected = createMoveLesson(index, { aura, advanced: true, selected: true, ...(index === 4 ? { placement: cell } : { destination: cell }) });
+      assert.deepEqual(reselected.position, real.state); assert.deepEqual(reselected.available, []);
+    }
+  }
+});
+
+test('every example always has its own reset button in the right details panel', () => {
+  const html = renderMoveExamples({}, icons);
+  assert.equal((html.match(/data-lesson-action="reset"/g) || []).length, 6);
+  for (const scene of sceneHtml(html).values()) assert.ok(scene.slice(scene.indexOf('<div class="lesson-details">')).includes('data-lesson-action="reset"'));
+  assert.ok(!html.includes('переставляется свободно'));
 });

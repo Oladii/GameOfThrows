@@ -1,3 +1,4 @@
+import { boardNavigationTarget } from './board-navigation.js';
 import { DEFAULT_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance } from './rules.js';
 import { clone, key, cells, distance, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, isLethalDamage, auraReaches, reachable, movementPath, shieldCanRetreat, move, pass, resolve } from './engine.js';
 import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from './bot-client.js';
@@ -11,8 +12,9 @@ $('#version-channel').textContent = location.protocol === 'file:' || ['localhost
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
 const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
 function renderArchiveStatus(info) {
-  const text = { disabled: 'Автозапись партий работает на сайте.', pending: 'Записи партий ожидают отправки в архив.', syncing: 'Сохраняем партию в общем архиве…', saved: 'Партия сохранена в общем архиве.', error: 'Не удалось сохранить запись в общем архиве. Игра продолжается.' };
+  const text = { disabled: '', pending: 'Записи партий ожидают отправки в архив.', syncing: 'Сохраняем партию в общем архиве…', saved: 'Партия сохранена в общем архиве.', error: 'Не удалось сохранить запись в общем архиве. Игра продолжается.' };
   $('#archive-status').textContent = info.failed > 0 ? 'Часть записей не отправлена в архив. Остальные партии продолжают сохраняться.' : !info.gameId && !info.pending && !['disabled', 'error'].includes(info.state) ? 'Партии автоматически записываются для анализа баланса.' : text[info.state] || '';
+  $('#archive-status').hidden = !$('#archive-status').textContent;
 }
 const archiveRecorder = new GameRecorder({
   endpoint: archiveEndpoint, enabled: archiveIsSite && Boolean(archiveEndpoint),
@@ -73,6 +75,7 @@ let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
 let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
 const botRunner = new BotRunner();
+let boardFocus = null;
 let selected = null, editor = false, tool = 'shield', editorTeam = 0, hover = null, inspection = null, toastTimer, fieldView = null;
 let report = analyze(state, config), available = [], ready = false;
 const STORAGE = 'lamps-prototype-v1';
@@ -88,7 +91,7 @@ const moveAnimator = new MovementAnimator(frame => {
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
 function currentSnapshot() { return clone({ config, state, log, positionKind }); }
 function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); if (history.length > 40) history.shift(); }
-function save() { try { localStorage.setItem(STORAGE, JSON.stringify({ ...currentSnapshot(), history, firstMove, playMode, humanTeam, botDifficulty, lastTurn, gamePhase, editor, previousGame, balanceRevision: BALANCE_REVISION, presetRevision: PRESET_REVISION, startPrefsRevision: START_PREFS_REVISION })); } catch { if (ready) toast('Не удалось сохранить позицию в браузере. Можно скачать JSON.'); } }
+function save() { try { localStorage.setItem(STORAGE, JSON.stringify({ ...currentSnapshot(), history, firstMove, playMode, humanTeam, botDifficulty, lastTurn, gamePhase, editor, previousGame, balanceRevision: BALANCE_REVISION, presetRevision: PRESET_REVISION, startPrefsRevision: START_PREFS_REVISION })); } catch { if (ready) toast('Не удалось сохранить позицию в браузере.'); } }
 function normalizeUnitNames(value) {
   const legacyDefenseForms = { '': 'знаменосец', а: 'знаменосца', у: 'знаменосцу', ом: 'знаменосцем', е: 'знаменосце', ы: 'знаменосцы', ов: 'знаменосцев', ам: 'знаменосцам', ами: 'знаменосцами', ах: 'знаменосцах' };
   value = value.replace(/([Кк])омандир(ами|ов|ом|ам|ах|а|у|ы|е)?/g, (_, initial, ending = '') => { const name = legacyDefenseForms[ending]; return initial === 'К' ? name[0].toUpperCase() + name.slice(1) : name; });
@@ -195,11 +198,16 @@ function startBot() {
 function point(c) { return config.geometry === 'hex' ? { x: Math.sqrt(3) * 33 * (c.q + c.r / 2), y: 49.5 * c.r } : { x: c.q * 59, y: c.r * 59 }; }
 function polygon(c) { const { x, y } = point(c); return config.geometry === 'hex' ? Array.from({ length: 6 }, (_, i) => `${x + 32 * Math.cos((60 * i - 30) * Math.PI / 180)},${y + 32 * Math.sin((60 * i - 30) * Math.PI / 180)}`).join(' ') : `${x-28},${y-28} ${x+28},${y-28} ${x+28},${y+28} ${x-28},${y+28}`; }
 function boardMarkup() {
+  const restoreFocus = $('#board').contains(document.activeElement) && document.activeElement?.hasAttribute('data-cell');
   const state = visibleState();
   const board = cells(config), points = board.map(point), minX = Math.min(...points.map(p => p.x)) - 37, maxX = Math.max(...points.map(p => p.x)) + 37, minY = Math.min(...points.map(p => p.y)) - 40, maxY = Math.max(...points.map(p => p.y)) + 40;
   $('#board').setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
   const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p])), destinations = new Set(available.map(c => key(c.q, c.r)));
   const selectedPiece = state.pieces.find(p => p.id === selected);
+  if (!board.some(cell => key(cell.q, cell.r) === boardFocus)) {
+    const first = selectedPiece || state.pieces.find(piece => piece.team === state.turn) || board[0];
+    boardFocus = first ? key(first.q, first.r) : null;
+  }
   const showAttacks = fieldView === 'attacks', showTeamDamage = showAttacks;
   const attackSources = showAttacks ? state.pieces.map(piece => ({ piece, stats: report.get(piece.id) })).filter(source => source.stats.damage > 0) : [];
   $('#attack-legend').hidden = !showAttacks;
@@ -227,11 +235,12 @@ function boardMarkup() {
       const info = report.get(p.id);
       token = `<g class="piece ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[p.type]}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info)}</g>`;
     }
-    return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="0" role="button" aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/><polygon class="aura-overlay" points="${polygon(c)}" aria-hidden="true"/>${damageLabel}${token}</g>`;
+    return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/><polygon class="aura-overlay" points="${polygon(c)}" aria-hidden="true"/>${damageLabel}${token}</g>`;
   }).join('') + '<g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" aria-hidden="true">${currentDeaths.map(piece => {
     const { x, y } = point(piece);
     return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygon({ q: 0, r: 0 })}"/><circle class="death-pulse" r="22"/><g class="death-ghost ${piece.team === 0 ? 'north' : 'south'}"><g class="death-token"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${ICON_PATHS[piece.type]}</g></g><g class="death-skull"><g class="fatal-mark" transform="translate(-16,-17) scale(2)">${skullShape()}</g></g></g></g>`;
   }).join('')}</g>` + lastMoveTrace() + movingTokenMarkup();
+  if (restoreFocus) $('#board [tabindex="0"]')?.focus({ preventScroll: true });
 }
 function paintAuras() {
   const context = inspectionContext(), showAll = fieldView === 'auras';
@@ -381,14 +390,13 @@ function render(deaths = []) {
   $('#cancel-new-game').hidden = !previousGame;
   $('#position-kind').value = positionKind;
   $('#configure-position').disabled = positionKind !== 'custom';
+  $('#configure-position').hidden = positionKind !== 'custom';
   $('#mode-caption').textContent = playMode === 'bot' ? `Против бота · ${BOT_DIFFICULTIES[botDifficulty].label.toLowerCase()}` : '2 игрока на одном экране';
   hover = null; inspection = null; report = analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
   boardMarkup(); paintAuras(); highlightSources();
   $('#board').setAttribute('aria-busy', String(Boolean(movement)));
-  const cellCount = cells(config).length;
-  $('#board-name').textContent = `${config.geometry === 'hex' ? 'Гексы' : 'Квадраты'} · ${cellCount} ${plural(cellCount, ['клетка', 'клетки', 'клеток'])}`;
   $('#move-counter').textContent = gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${state.ply + 1}${movement ? ' · движение' : ''}`;
   $('#scoreboard').innerHTML = [0, 1].map(team => {
     const pieces = state.pieces.filter(p => p.team === team), n = pieces.length;
@@ -423,12 +431,13 @@ function render(deaths = []) {
   if (!editor && isBotTurn()) hint = 'Сейчас ход бота. Можно рассматривать атаки и ауры или открыть настройки.';
   else if (!editor && !selected && lastAction) hint = `${lastMoveText} Выберите свою фигуру.`;
   if (!editor && p && p.team !== state.turn && !isBotTurn()) hint = `Выбрана фигура команды «${TEAM_NAMES[p.team]}». Сейчас ходит «${TEAM_NAMES[state.turn]}» — выберите ${state.turn === 0 ? 'синюю' : 'оранжевую'} фигуру.`;
-  if (gamePhase === 'setup') hint = editor ? 'Выберите фигуру и пустую клетку для перестановки. Палитра добавляет фигуры. «Готово» завершает настройку позиции.' : 'Нажмите «Начать игру», настройте партию и подтвердите старт.';
+  if (gamePhase === 'setup') hint = editor ? 'Выберите фигуру и пустую клетку для перестановки. Палитра добавляет фигуры. «Готово» завершает настройку позиции.' : '';
   if (fieldView) hint = `${{ attacks: 'Показаны атаки обеих команд', auras: 'Показаны ауры всех фигур' }[fieldView]}. Нажмите кнопку ещё раз или выберите фигуру, чтобы выйти.`;
   if (reviewingTurn) hint = `Просмотр перед последним ходом. ${lastMoveText} Нажмите →, чтобы вернуться к партии.`;
   if (currentDeaths.length) hint = 'Расчёт боя: погибшие фигуры удаляются одновременно.';
   if (movement) hint = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(lastAction.from)} → ${positionText(lastAction.to)}. Движение…`;
   $('#board-hint').textContent = hint;
+  $('#board-hint').hidden = !hint;
   $('#log-count').textContent = `${state.ply} ${plural(state.ply, ['ход', 'хода', 'ходов'])}`;
   $('#move-log').innerHTML = displayLog.length ? displayLog.map((entry, i) => `<div class="log-row"><span class="log-number">${i + 1}</span><p>${escape(entry.text)}<small>${escape(entry.detail)}</small></p></div>`).reverse().join('') : '<p class="log-empty">Здесь появятся перемещения и результат каждого расчёта. Урон не накапливается.</p>';
   document.querySelectorAll('[data-team]').forEach(b => b.classList.toggle('active', Number(b.dataset.team) === editorTeam));
@@ -459,8 +468,28 @@ function onCell(q, r) {
   if (!available.some(c => c.q === q && c.r === r)) { clearSelection(); return; }
   try { const result = move(state, config, selected, { q, r }), before = currentSnapshot(), action = { id: selected, from: result.action.from, to: result.action.to }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; state = result.state; log.push({ text: `${TEAM_NAMES[result.action.team]} · ${LABELS[result.action.type]}: ${positionText(result.action.from)} → ${q}, ${r}`, detail: deathDetail(result.deaths) }); recordGameAction('move', { action, deaths: result.deaths, actor: 'human' }); selected = null; presentMove(before, action, result.deaths); } catch (error) { toast(error.message); }
 }
-$('.board-wrap').addEventListener('click', event => { const c = event.target.closest('[data-cell]'); if (c) onCell(...c.dataset.cell.split(',').map(Number)); else clearSelection(); });
-$('#board').addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { const c = event.target.closest('[data-cell]'); if (c) { event.preventDefault(); onCell(...c.dataset.cell.split(',').map(Number)); } } });
+function focusBoardCell(cellKey, moveFocus = false) {
+  boardFocus = cellKey;
+  document.querySelectorAll('#board [data-cell]').forEach(cell => cell.setAttribute('tabindex', cell.dataset.cell === cellKey ? '0' : '-1'));
+  if (moveFocus) $('#board [tabindex="0"]')?.focus({ preventScroll: true });
+}
+$('.board-wrap').addEventListener('click', event => {
+  const cell = event.target.closest('[data-cell]');
+  if (cell) { focusBoardCell(cell.dataset.cell); onCell(...cell.dataset.cell.split(',').map(Number)); }
+  else clearSelection();
+});
+$('#board').addEventListener('keydown', event => {
+  const cell = event.target.closest('[data-cell]');
+  if (!cell) return;
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault(); onCell(...cell.dataset.cell.split(',').map(Number));
+  } else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+    event.preventDefault();
+    const [q, r] = cell.dataset.cell.split(',').map(Number);
+    const target = boardNavigationTarget(cells(config), { q, r }, event.key, config.geometry, event.ctrlKey || event.metaKey);
+    focusBoardCell(key(target.q, target.r), true);
+  }
+});
 function hoverCell(event) {
   if (fieldView) return;
   const c = event.target.closest('[data-cell]'), k = c?.dataset.cell;
@@ -592,7 +621,7 @@ $('#settings-form').addEventListener('submit', event => {
   } catch (error) { $('#settings-error').textContent = error.message; }
 });
 function renderAbout() {
-  $('#about-directions').textContent = config.geometry === 'hex' ? 'На шестиугольном поле атаки и ауры идут по шести прямым линиям через стороны клеток. Через углы они не идут. Дальность — сколько клеток проходит такая линия от фигуры.' : `На квадратном поле атаки и ауры идут по ${config.experiments.squareDiagonals ? 'восьми направлениям, включая диагонали' : 'четырём направлениям через грани'}. Длина луча — число клеток от источника.`;
+  $('#about-directions').textContent = config.geometry === 'hex' ? 'На шестиугольном поле атаки идут по шести прямым лучам через стороны клеток. Ауры барабанщика и знаменосца охватывают все клетки в пределах радиуса, включая клетки между лучами. Остальные ауры следуют направлениям сетки.' : `На квадратном поле атаки идут по ${config.experiments.squareDiagonals ? 'восьми направлениям, включая диагонали' : 'четырём направлениям через грани'}. Длина луча — число клеток от источника. Ауры барабанщика и знаменосца охватывают все клетки в пределах радиуса.`;
   $('#about-promotion').innerHTML = shieldDescriptionMarkup();
   $('#about-stats').innerHTML = '<thead><tr><th>Фигура</th><th>Шаг</th><th>Урон</th><th>Дальность</th><th>Стойкость</th><th>Аура</th></tr></thead><tbody>' + TYPES.map(type => { const stats = config.stats[type]; return `<tr><td>${LABELS[type]}</td><td>${stats.move}</td><td>${stats.damage || '—'}</td><td>${stats.range || '—'}</td><td>${stats.fortitude}</td><td>${stats.aura || '—'}</td></tr>`; }).join('') + '</tbody>';
   const experiments = config.experiments;
@@ -640,7 +669,7 @@ function renderOnboarding() {
   if (onboardingStep === 3) content = heading('Вы двигаете — армия атакует', 'После каждого хода все фигуры обеих сторон автоматически атакуют врагов в пределах дальности. Отдельная кнопка выстрела не нужна.') +
     `<div class="onboarding-demo"><p class="onboarding-demo-label">ПРИМЕР · стойкость фигуры равна 3</p><div class="onboarding-outcome"><button data-damage="2" aria-pressed="${onboardingDamage === 2}"><strong>2 &lt; 3</strong><span>Входящий урон меньше стойкости</span></button><button data-damage="3" aria-pressed="${onboardingDamage === 3}"><strong>3 = 3</strong><span>Входящий урон равен стойкости</span></button></div><p class="onboarding-demo-feedback" role="status">${onboardingDamage === 2 ? 'Фигура выживает: урон меньше стойкости, на фишке остаётся 1.' : 'Фигура погибает: урон равен стойкости. На поле показан череп.'}</p></div><div class="onboarding-note">Входящий урон от разных врагов складывается, но между ходами не накапливается. Погибшие удаляются одновременно и в этом расчёте ещё успевают атаковать и усиливать союзников.</div>`;
   if (onboardingStep === 4) content = heading('Теперь можно попробовать партию', 'Для начала достаточно одного решения: куда передвинуть фигуру, чтобы сохранить поддержку и достать противника.') +
-    `<ol class="onboarding-checklist">${(editor ? ['Закончите расстановку кнопкой «Готово».', 'В подготовке выберите режим и нажмите «Начать».', 'Выберите свою фигуру, посмотрите подсветку и сделайте ход.'] : gamePhase === 'setup' ? ['Выберите режим: против бота или вдвоём. Для первой партии оставьте позицию «Дефолт».', 'Выберите первый ход и свою сторону, если играете против бота. Нажмите «Начать».', 'Нажмите на свою фигуру, затем на доступную пустую клетку.'] : ['Продолжайте текущую партию: окно знакомства её не сбрасывает.', 'Выберите свою фигуру и посмотрите доступные клетки.', 'Передвиньте фигуру. Если сейчас ход бота, дождитесь его ответа.']).map(text => `<li>${text}</li>`).join('')}</ol><div class="onboarding-note"><strong>Подсказки всегда рядом.</strong> Снизу слева — сила атаки, справа — стойкость после потенциального урона или череп. Выбор фигуры показывает её дальность значками меча или стрелы. «Ауры» показывает поддержку, «Атаки» — угрозы. Стрелки ← и → позволяют посмотреть последний ход; «Отменить» возвращает позицию.</div>`;
+    `<ol class="onboarding-checklist">${(editor ? ['Закончите расстановку кнопкой «Готово».', 'В подготовке выберите режим и нажмите «Начать».', 'Выберите свою фигуру, посмотрите подсветку и сделайте ход.'] : gamePhase === 'setup' ? ['Выберите режим: против бота или вдвоём. Для первой партии оставьте позицию «Стандартная».', 'Выберите первый ход и свою сторону, если играете против бота. Нажмите «Начать».', 'Нажмите на свою фигуру, затем на доступную пустую клетку.'] : ['Продолжайте текущую партию: окно знакомства её не сбрасывает.', 'Выберите свою фигуру и посмотрите доступные клетки.', 'Передвиньте фигуру. Если сейчас ход бота, дождитесь его ответа.']).map(text => `<li>${text}</li>`).join('')}</ol><div class="onboarding-note"><strong>Подсказки всегда рядом.</strong> Снизу слева — сила атаки, справа — стойкость после потенциального урона или череп. Выбор фигуры показывает её дальность значками меча или стрелы. «Ауры» показывает поддержку, «Атаки» — угрозы. Стрелки ← и → позволяют посмотреть последний ход; «Отменить» возвращает позицию.</div>`;
   $('#onboarding-body').innerHTML = content;
   $('#onboarding-body').scrollTop = 0;
   $('#onboarding-back').disabled = onboardingStep === 0;
@@ -676,73 +705,90 @@ $('#onboarding-next').addEventListener('click', () => {
     target?.focus(); target?.scrollIntoView({ block: 'nearest' });
   });
 });
+function onboardingLessonModel(sceneKey, example) {
+  return createMoveLesson(sceneKey.startsWith('4-') ? 4 : Number(sceneKey), { ...example, aura: sceneKey === '4-defense' ? 'defense' : 'attack' });
+}
 function updateOnboardingLesson(button) {
   const sceneKey = button.closest('[data-lesson-scene]')?.dataset.lessonScene;
   if (!sceneKey) return false;
   const data = button.dataset;
-  const supportExample = sceneKey === '4-attack' || sceneKey === '4-defense';
-  const example = onboardingExamples[sceneKey] ||= { selected: false, advanced: false, destination: null, placement: null };
+  const example = onboardingExamples[sceneKey] ||= { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null };
   let selector;
-  if (data.lessonUnit && (sceneKey === '0' || supportExample)) {
-    example.selected = !example.selected; example.destination = null; example.advanced = false;
+  if (data.lessonUnit) {
+    example.selected = !example.selected; example.previewPlacement = null;
+    if (!example.advanced) example.destination = null;
     selector = '[data-lesson-unit]';
-  } else if (data.lessonPlace && supportExample) {
-    if (!example.selected) return true;
+  } else if (data.lessonPlace) {
+    if (!example.selected || example.advanced) return true;
     const [q, r] = data.lessonPlace.split(',').map(Number);
-    example.placement = { q, r };
-    selector = '[data-lesson-unit]';
+    if (!onboardingLessonModel(sceneKey, example).available.some(cell => cell.q === q && cell.r === r)) return true;
+    example.placement = { q, r }; example.previewPlacement = null; example.advanced = true; example.selected = false;
+    selector = '[data-lesson-action="reset"]';
   } else if (data.lessonCell) {
     if (!example.selected || example.advanced) return true;
     const [q, r] = data.lessonCell.split(',').map(Number);
+    if (!onboardingLessonModel(sceneKey, example).available.some(cell => cell.q === q && cell.r === r)) return true;
     example.destination = { q, r }; example.advanced = true; example.selected = false;
     selector = '[data-lesson-action="reset"]';
-  } else if (data.lessonAction) {
-    if (data.lessonAction === 'advance' && (sceneKey === '0' || supportExample)) return true;
-    example.advanced = data.lessonAction === 'advance';
-    if (supportExample) { example.selected = false; example.placement = null; }
-    if (sceneKey === '0') {
-      example.selected = false;
-      if (data.lessonAction === 'reset') example.destination = null;
-    }
-    selector = data.lessonAction === 'reset' && (sceneKey === '0' || supportExample) ? '[data-lesson-unit]' : '[data-lesson-action]';
+  } else if (data.lessonAction === 'remove-shield' && sceneKey === '2') {
+    if (example.advanced || example.shieldRemoved) return true;
+    example.shieldRemoved = true; example.selected = false; example.previewPlacement = null;
+    if (!example.advanced) example.destination = null;
+    selector = '[data-lesson-action="reset"]';
+  } else if (data.lessonAction === 'reset') {
+    Object.assign(example, { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null, shieldRemoved: false });
+    selector = '[data-lesson-unit]';
   } else return false;
   const scroll = $('#onboarding-body').scrollTop;
   renderOnboarding(); $('#onboarding-body').scrollTop = scroll;
   $('#onboarding-body').querySelector(`[data-lesson-scene="${sceneKey}"] ${selector}`)?.focus({ preventScroll: true });
   return true;
 }
-function refreshOnboardingMovePreview() {
-  const example = onboardingExamples['0'];
-  const scene = $('#onboarding-body').querySelector('[data-lesson-scene="0"]');
+function refreshOnboardingMovePreview(sceneKey) {
+  const example = onboardingExamples[sceneKey];
+  const scene = $('#onboarding-body').querySelector(`[data-lesson-scene="${sceneKey}"]`);
   if (!scene || !example?.selected || example.advanced) return;
-  const lesson = createMoveLesson(0, { selected: true, destination: example.destination });
+  const lesson = onboardingLessonModel(sceneKey, example);
   const template = document.createElement('template');
   template.innerHTML = renderMoveLesson(lesson, ICON_PATHS, unitBadges);
-  for (const selector of ['.lesson-lines', '.lesson-numbers', '.lesson-details dl', '.lesson-feedback', '.lesson-state']) {
+  for (const selector of ['.lesson-lines', '.lesson-numbers', '.lesson-ghost', '.lesson-details dl', '.lesson-feedback', '.lesson-state']) {
     scene.querySelector(selector).innerHTML = template.content.querySelector(selector).innerHTML;
   }
-  const path = new Set(lesson.path.slice(1).map(cell => key(cell.q, cell.r)));
-  scene.querySelectorAll('[data-lesson-position]').forEach(cell => cell.classList.toggle('lesson-route', path.has(cell.dataset.lessonPosition)));
+  scene.querySelectorAll('[data-lesson-position]').forEach(cell => {
+    const source = template.content.querySelector(`[data-lesson-position="${cell.dataset.lessonPosition}"]`);
+    for (const name of ['lesson-route', 'lesson-attack-aura', 'lesson-defense-aura']) cell.classList.toggle(name, source.classList.contains(name));
+  });
+  scene.querySelectorAll('[data-lesson-piece]').forEach(piece => {
+    const source = template.content.querySelector(`[data-lesson-piece="${piece.dataset.lessonPiece}"]`);
+    piece.querySelector('.lesson-unit-badges').innerHTML = source.querySelector('.lesson-unit-badges').innerHTML;
+    piece.classList.toggle('lesson-preview-origin', source.classList.contains('lesson-preview-origin'));
+    piece.classList.toggle('lesson-fatal', source.classList.contains('lesson-fatal'));
+  });
+}
+function onboardingPreviewTarget(element) {
+  return element?.closest?.('[data-lesson-cell],[data-lesson-place]');
 }
 function previewOnboardingMove(event) {
-  const cell = event.target.closest('[data-lesson-cell]');
-  if (!cell || cell.closest('[data-lesson-scene]')?.dataset.lessonScene !== '0') return;
-  const example = onboardingExamples['0'];
-  if (!example?.selected || example.advanced) return;
-  const [q, r] = cell.dataset.lessonCell.split(',').map(Number);
-  if (example.destination?.q === q && example.destination?.r === r) return;
-  example.destination = { q, r };
-  refreshOnboardingMovePreview();
+  const cell = onboardingPreviewTarget(event.target);
+  const sceneKey = cell?.closest('[data-lesson-scene]')?.dataset.lessonScene;
+  const example = onboardingExamples[sceneKey];
+  if (!sceneKey || !example?.selected || example.advanced) return;
+  const property = cell.dataset.lessonPlace ? 'previewPlacement' : 'destination';
+  const [q, r] = (cell.dataset.lessonPlace || cell.dataset.lessonCell).split(',').map(Number);
+  if (example[property]?.q === q && example[property]?.r === r) return;
+  example[property] = { q, r };
+  refreshOnboardingMovePreview(sceneKey);
 }
 function clearOnboardingMovePreview(event) {
-  const cell = event.target.closest('[data-lesson-cell]');
-  if (!cell || cell.closest('[data-lesson-scene]')?.dataset.lessonScene !== '0') return;
-  const next = event.relatedTarget?.closest?.('[data-lesson-cell]');
-  if (next?.closest('[data-lesson-scene]')?.dataset.lessonScene === '0') return;
-  const example = onboardingExamples['0'];
-  if (!example?.selected || example.advanced || !example.destination) return;
-  example.destination = null;
-  refreshOnboardingMovePreview();
+  const cell = onboardingPreviewTarget(event.target);
+  const sceneKey = cell?.closest('[data-lesson-scene]')?.dataset.lessonScene;
+  if (!sceneKey) return;
+  const next = onboardingPreviewTarget(event.relatedTarget);
+  if (next?.closest('[data-lesson-scene]')?.dataset.lessonScene === sceneKey) return;
+  const example = onboardingExamples[sceneKey];
+  if (!example?.selected || example.advanced || !example.destination && !example.previewPlacement) return;
+  example.destination = null; example.previewPlacement = null;
+  refreshOnboardingMovePreview(sceneKey);
 }
 $('#onboarding-body').addEventListener('pointerover', previewOnboardingMove);
 $('#onboarding-body').addEventListener('pointermove', previewOnboardingMove);
@@ -750,11 +796,23 @@ $('#onboarding-body').addEventListener('focusin', previewOnboardingMove);
 $('#onboarding-body').addEventListener('pointerout', clearOnboardingMovePreview);
 $('#onboarding-body').addEventListener('focusout', clearOnboardingMovePreview);
 $('#onboarding-body').addEventListener('click', event => {
-  const button = event.target.closest('button,[data-lesson-cell],[data-lesson-unit],[data-lesson-place]'); if (!button) return;
-  if (updateOnboardingLesson(button)) return;
-  if (!button.dataset.damage) return;
-  onboardingDamage = Number(button.dataset.damage);
-  renderOnboarding(); $('#onboarding-body').querySelector(`[data-damage="${button.dataset.damage}"]`)?.focus();
+  const button = event.target.closest('button,[data-lesson-cell],[data-lesson-unit],[data-lesson-place]');
+  const sceneKey = button?.closest('[data-lesson-scene]')?.dataset.lessonScene;
+  let cleared = false;
+  for (const [key, example] of Object.entries(onboardingExamples)) {
+    if (!example.selected || key === sceneKey && (button.dataset.lessonUnit || button.dataset.lessonCell || button.dataset.lessonPlace || button.dataset.lessonAction === 'reset')) continue;
+    example.selected = false; example.previewPlacement = null;
+    if (!example.advanced) example.destination = null;
+    cleared = true;
+  }
+  if (button && updateOnboardingLesson(button)) return;
+  if (button?.dataset.damage) {
+    onboardingDamage = Number(button.dataset.damage);
+    renderOnboarding(); $('#onboarding-body').querySelector(`[data-damage="${button.dataset.damage}"]`)?.focus();
+  } else if (cleared) {
+    const scroll = $('#onboarding-body').scrollTop;
+    renderOnboarding(); $('#onboarding-body').scrollTop = scroll;
+  }
 });
 $('#onboarding-body').addEventListener('keydown', event => {
   if (!['Enter', ' '].includes(event.key)) return;
@@ -767,22 +825,6 @@ $('#rules-open').addEventListener('click', openAbout);
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => render()));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
-$('#export-game').addEventListener('click', () => { const blob = new Blob([JSON.stringify({ format: 'lamps-prototype', version: 1, ...currentSnapshot() }, null, 2)], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `lamps-position-${state.ply}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000); });
-$('#import-game').addEventListener('click', () => $('#import-file').click());
-$('#import-file').addEventListener('change', async event => {
-  const file = event.target.files[0]; if (!file) return;
-  try {
-    if (file.size > 500000) throw new Error('Файл слишком большой.');
-    const data = JSON.parse(await file.text());
-    if (data.format !== 'lamps-prototype' || data.version !== 1) throw new Error('Это не файл позиции прототипа.');
-    const restored = readSnapshot(data);
-    if (gamePhase === 'playing') previousGame = { snapshot: currentSnapshot(), history: clone(history), lastTurn: clone(lastTurn), playMode, humanTeam, firstMove, botDifficulty };
-    resetBotContext(); config = restored.config; state = restored.state; state.ply = 0; state.winner = null;
-    log = []; history = []; positionKind = classifyPosition(state, config); gamePhase = 'setup'; selected = null; editor = false;
-    render(); openStartSettings(); toast('Позиция загружена. Нажмите «Начать», чтобы запустить партию.');
-  } catch (error) { toast(error.message); }
-  event.target.value = '';
-});
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const deaths = movement.deaths; cancelMovement(); render(deaths); } });
@@ -790,4 +832,4 @@ if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
 ready = true; render();
 if (presetUpdated) toast('Подготовлена расстановка с одним барабанщиком и одним знаменосцем. Нажмите «Начать», чтобы играть.');
 
-if (balanceUpdated) toast('Применён проверенный баланс: обновлены характеристики и ауры фигур, включая ауру атаки лукарей.');
+if (balanceUpdated) toast('Обновлены настройки баланса сплошных аур барабанщика и знаменосца.');

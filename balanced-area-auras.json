@@ -1,0 +1,243 @@
+{
+  "format": "lamps-prototype",
+  "version": 1,
+  "config": {
+    "version": 1,
+    "geometry": "hex",
+    "size": 4,
+    "auraDefenseCap": -1,
+    "army": {
+      "groups": 2,
+      "shields": 2,
+      "archers": 2,
+      "attackLamps": 1,
+      "defenseLamps": 1
+    },
+    "shieldPromotion": {
+      "aura": 1,
+      "damageBonus": 9,
+      "rangeBonus": 2,
+      "defenseBonus": 9,
+      "maxRange": 3
+    },
+    "stats": {
+      "shield": {
+        "move": 2,
+        "damage": 15,
+        "range": 1,
+        "fortitude": 15,
+        "aura": 1,
+        "damageBonus": 0,
+        "rangeBonus": 0,
+        "defenseBonus": 9
+      },
+      "archer": {
+        "move": 2,
+        "damage": 8,
+        "range": 3,
+        "fortitude": 6,
+        "aura": 1,
+        "damageBonus": 4,
+        "rangeBonus": 0,
+        "defenseBonus": 0
+      },
+      "attackLamp": {
+        "move": 2,
+        "damage": 0,
+        "range": 0,
+        "fortitude": 5,
+        "aura": 2,
+        "damageBonus": 4,
+        "rangeBonus": 1,
+        "defenseBonus": 0
+      },
+      "defenseLamp": {
+        "move": 2,
+        "damage": 0,
+        "range": 0,
+        "fortitude": 5,
+        "aura": 1,
+        "damageBonus": 0,
+        "rangeBonus": 0,
+        "defenseBonus": 2
+      }
+    },
+    "experiments": {
+      "squareDiagonals": true,
+      "lampShieldBlocking": true,
+      "allyShotsPass": true,
+      "aurasThroughShields": true,
+      "allowPass": false
+    }
+  },
+  "state": {
+    "pieces": [
+      {
+        "id": "p1",
+        "type": "attackLamp",
+        "team": 0,
+        "q": 1,
+        "r": -3,
+        "group": null
+      },
+      {
+        "id": "p2",
+        "type": "attackLamp",
+        "team": 1,
+        "q": -1,
+        "r": 3,
+        "group": null
+      },
+      {
+        "id": "p3",
+        "type": "defenseLamp",
+        "team": 0,
+        "q": 2,
+        "r": -3,
+        "group": null
+      },
+      {
+        "id": "p4",
+        "type": "defenseLamp",
+        "team": 1,
+        "q": -2,
+        "r": 3,
+        "group": null
+      },
+      {
+        "id": "p5",
+        "type": "shield",
+        "team": 0,
+        "q": -1,
+        "r": -2,
+        "group": 1
+      },
+      {
+        "id": "p6",
+        "type": "shield",
+        "team": 1,
+        "q": 1,
+        "r": 2,
+        "group": 1
+      },
+      {
+        "id": "p7",
+        "type": "shield",
+        "team": 0,
+        "q": 0,
+        "r": -2,
+        "group": 1
+      },
+      {
+        "id": "p8",
+        "type": "shield",
+        "team": 1,
+        "q": 0,
+        "r": 2,
+        "group": 1
+      },
+      {
+        "id": "p9",
+        "type": "archer",
+        "team": 0,
+        "q": 0,
+        "r": -3,
+        "group": 1
+      },
+      {
+        "id": "p10",
+        "type": "archer",
+        "team": 1,
+        "q": 0,
+        "r": 3,
+        "group": 1
+      },
+      {
+        "id": "p11",
+        "type": "archer",
+        "team": 0,
+        "q": -1,
+        "r": -3,
+        "group": 1
+      },
+      {
+        "id": "p12",
+        "type": "archer",
+        "team": 1,
+        "q": 1,
+        "r": 3,
+        "group": 1
+      },
+      {
+        "id": "p13",
+        "type": "shield",
+        "team": 0,
+        "q": 2,
+        "r": -2,
+        "group": 2
+      },
+      {
+        "id": "p14",
+        "type": "shield",
+        "team": 1,
+        "q": -2,
+        "r": 2,
+        "group": 2
+      },
+      {
+        "id": "p15",
+        "type": "shield",
+        "team": 0,
+        "q": 3,
+        "r": -2,
+        "group": 2
+      },
+      {
+        "id": "p16",
+        "type": "shield",
+        "team": 1,
+        "q": -3,
+        "r": 2,
+        "group": 2
+      },
+      {
+        "id": "p17",
+        "type": "archer",
+        "team": 0,
+        "q": 3,
+        "r": -3,
+        "group": 2
+      },
+      {
+        "id": "p18",
+        "type": "archer",
+        "team": 1,
+        "q": -3,
+        "r": 3,
+        "group": 2
+      },
+      {
+        "id": "p19",
+        "type": "archer",
+        "team": 0,
+        "q": 4,
+        "r": -3,
+        "group": 2
+      },
+      {
+        "id": "p20",
+        "type": "archer",
+        "team": 1,
+        "q": -4,
+        "r": 3,
+        "group": 2
+      }
+    ],
+    "turn": 0,
+    "ply": 0,
+    "winner": null
+  },
+  "log": [],
+  "research": "outputs/area-aura-balance-2026-11-06",
+  "variant": "radius2"
+}

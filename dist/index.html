@@ -12,18 +12,18 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.5</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-06T11:38:54.482Z">Сборка 06.11.2026, 14:38:54 МСК</span></span></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.6</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-06T16:36:41.758Z">Сборка 06.11.2026, 19:36:41 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <main>
-    <section class="page-heading"><div><p class="eyebrow">ПРОВЕРЯЕМ МЕХАНИКУ</p><h1>Сила — в построении.</h1><p class="intro">Два броненосца и два лукаря образуют группу. Барабанщик усиливает её атаки, а знаменосец помогает держать удар.</p></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настроить эксперимент" aria-label="Настроить эксперимент"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></section>
     <div class="workspace">
       <aside class="left-panel">
-        <div class="section-label">ФИГУРЫ И АУРЫ</div>
-        <h2>Базовые параметры</h2>
-        <div id="unit-reference" class="unit-reference" aria-label="Базовые характеристики фигур и их аур"></div>
-        <div class="config-summary" id="config-summary" hidden></div>
         <button id="start-setup" class="button primary full" aria-haspopup="dialog" aria-controls="start-dialog">Начать игру <span aria-hidden="true">↗</span></button>
         <button id="new-game" class="button primary full" hidden>Новая игра <span aria-hidden="true">↗</span></button>
+        <section class="reference-panel" aria-labelledby="reference-title"><h2 id="reference-title">Базовые параметры</h2><div id="unit-reference" class="unit-reference" aria-label="Базовые характеристики фигур и их аур"></div></section>
+        <div class="config-summary" id="config-summary" hidden></div>
+        <div class="board-hint" id="board-hint" aria-live="polite" hidden></div>
+        <p class="archive-status" id="archive-status" role="status" hidden></p>
+        <div id="bot-controls" class="bot-controls" hidden><div class="bot-review-actions"><button id="resume-bot" class="button subtle" hidden>Ход бота</button></div><p id="bot-status" class="muted tiny" role="status"></p></div>
         <div id="editor-controls" hidden>
           <div class="divider"></div><div class="section-label">РАССТАНОВКА</div>
           <div class="segmented team-select"><button data-team="0" class="active">Север</button><button data-team="1">Юг</button></div>
@@ -33,44 +33,40 @@
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="divider"></div>
-        <div class="file-actions"><button id="export-game" class="text-button">↓ Сохранить JSON</button><button id="import-game" class="text-button">↑ Загрузить</button><input type="file" id="import-file" accept=".json,application/json" hidden></div>
-        <p class="muted tiny">Позиция сохраняется в этом браузере. Файл JSON позволяет вернуться к эксперименту.</p>
       </aside>
       <section class="arena" aria-label="Игровая доска">
-        <div class="arena-top"><div><span class="section-label">ПОЛЕ</span><h2 id="board-name">Гексы · 61 клетка</h2></div><span id="move-counter" class="move-counter">Ход 1</span></div>
+        <div class="arena-top"><span id="move-counter" class="move-counter">Ход 1</span></div>
         <div class="scoreboard" id="scoreboard"></div>
-        <div class="board-wrap"><svg id="board" role="group" aria-label="Поле игры" xmlns="http://www.w3.org/2000/svg"></svg><div id="result-banner" class="result-banner" hidden></div></div>
+        <div class="board-wrap"><svg id="board" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Поле игры" aria-describedby="board-keyboard-help" xmlns="http://www.w3.org/2000/svg"></svg><p id="board-keyboard-help">Стрелки перемещают фокус по клеткам. Enter или пробел выбирает фигуру или делает ход. Tab выходит с поля.</p><div id="result-banner" class="result-banner" hidden></div></div>
         <div class="board-footer"><div class="overlays" role="group" aria-label="Подсветка поля"><button id="show-attacks" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать атаки обеих команд">Атаки</button><button id="show-auras" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать ауры обеих команд">Ауры</button></div><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие">↶ Отменить</button><button id="review-previous" class="button subtle history-arrow" title="Показать позицию перед последним ходом" aria-label="Показать последний ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Вернуться к текущей позиции" aria-label="Вернуться к текущей позиции" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
-        <div id="bot-controls" class="bot-controls" hidden><div class="bot-review-actions"><button id="resume-bot" class="button subtle" hidden>Ход бота</button></div><p id="bot-status" class="muted tiny" role="status"></p></div>
+        <div class="board-legend-slot">
         <div id="attack-legend" class="attack-legend" hidden></div>
         <div id="aura-legend" class="aura-legend" hidden><span><i class="aura-swatch north-attack"></i> Север · атака</span><span><i class="aura-swatch north-defense"></i> Север · защита</span><span><i class="aura-swatch south-attack"></i> Юг · атака</span><span><i class="aura-swatch south-defense"></i> Юг · защита</span><span>Пересечения — цветными штрихами</span></div>
-        <div class="board-hint" id="board-hint" aria-live="polite">Выберите свою фигуру, затем подсвеченную клетку.</div>
-        <p class="archive-status" id="archive-status" role="status"></p>
+        </div>
       </section>
       <aside class="right-panel" aria-label="Выбранная фигура"><span class="section-label">ВЫБРАННАЯ ФИГУРА</span><div id="inspector" aria-live="polite"></div></aside><section class="journal-panel" aria-label="Журнал партии"><div class="log-heading"><h2>Журнал</h2><span id="log-count">0 ходов</span></div><div id="move-log" class="move-log" aria-live="polite"></div></section>
     </div>
     <footer class="page-footer"><span>Снизу слева — сила атаки; справа — стойкость с учётом угроз или череп. Мечи и стрелы в центре затемнённых клеток показывают дальность выбранной фигуры.</span><span><span class="legend-dot mint"></span> доступный ход <span class="legend-skull" aria-hidden="true">☠</span> погибнет при расчёте <span class="legend-dot source"></span> наносит урон</span></footer>
   </main>
   <dialog id="start-dialog" aria-labelledby="start-title">
-    <div class="dialog-header"><div><p class="eyebrow">НОВАЯ ПАРТИЯ</p><h2 id="start-title">Настройки старта</h2></div><button type="button" class="icon-button close-dialog" aria-label="Закрыть настройки старта">×</button></div>
-        <div id="start-settings" class="start-settings">
-        <div class="play-mode-field">
-          <label class="field-label" for="play-mode">Режим игры</label>
-          <select id="play-mode"><option value="local">Вдвоём на одном экране</option><option value="bot">Против бота</option></select>
-          <div id="human-side-field" hidden><label class="field-label" for="human-side">Ваша сторона</label><select id="human-side"><option value="0">Север · синие</option><option value="1">Юг · оранжевые</option></select><label class="field-label" for="bot-difficulty">Сложность бота</label><select id="bot-difficulty"><option value="easy" selected>Лёгкий</option><option value="hard">Сложный</option></select><p class="muted tiny">Лёгкий — для знакомства с игрой. Сложный — для более серьёзного соперника.</p></div>
+    <div class="dialog-header"><div><h2 id="start-title">Настройки старта</h2></div><button type="button" class="icon-button close-dialog" aria-label="Закрыть настройки старта">×</button></div>
+    <div id="start-settings" class="start-settings">
+      <div class="start-fields">
+        <div class="play-mode-field"><label class="field-label" for="play-mode">Режим игры</label><select id="play-mode"><option value="local">Вдвоём на одном экране</option><option value="bot">Против бота</option></select></div>
+        <div id="human-side-field" hidden>
+          <div><label class="field-label" for="human-side">Ваша сторона</label><select id="human-side"><option value="0">Север · синие</option><option value="1">Юг · оранжевые</option></select></div>
+          <div><label class="field-label" for="bot-difficulty">Сложность бота</label><select id="bot-difficulty"><option value="easy" selected>Лёгкий</option><option value="hard">Сложный</option></select></div>
+          <p class="muted tiny">Лёгкий — для знакомства с игрой. Сложный — для более серьёзного соперника.</p>
         </div>
-        <div class="first-move-field">
-          <label class="field-label" for="first-move">Первый ход</label>
-          <select id="first-move"><option value="north">Север</option><option value="south">Юг</option><option value="random">Случайно</option></select>
-        </div>
-        <label class="field-label" for="position-kind">Позиция</label>
-        <select id="position-kind"><option value="default">Дефолт</option><option value="custom">Кастом</option></select>
-        <button id="configure-position" class="button outline full" disabled>Настроить позицию</button>
-        <button id="start-game" class="button primary full">Начать <span aria-hidden="true">↗</span></button>
-        <button id="onboarding-open" class="onboarding-entry">Первый раз? Познакомиться с игрой</button>
-        <button id="cancel-new-game" class="button subtle full" hidden>Вернуться к партии</button>
-        </div>
+        <div class="first-move-field"><label class="field-label" for="first-move">Первый ход</label><select id="first-move"><option value="north">Север</option><option value="south">Юг</option><option value="random">Случайно</option></select></div>
+        <div class="position-field"><label class="field-label" for="position-kind">Расстановка</label><select id="position-kind"><option value="default">Стандартная</option><option value="custom">Своя расстановка</option></select></div>
+      </div>
+      <button id="configure-position" class="button outline full" disabled hidden>Расставить фигуры</button>
+    </div>
+    <div class="start-dialog-footer"><div class="start-dialog-actions">
+      <button id="start-game" class="button primary">Начать <span aria-hidden="true">↗</span></button>
+      <button id="cancel-new-game" class="button subtle" hidden>Вернуться к партии</button>
+    </div><button id="onboarding-open" class="onboarding-entry">Первый раз? Познакомиться с игрой</button></div>
   </dialog>
   <dialog id="settings-dialog"><form id="settings-form">
     <div class="dialog-header"><div><p class="eyebrow">ПАРАМЕТРЫ ЭКСПЕРИМЕНТА</p><h2>Настройка партии</h2></div><button type="button" class="icon-button close-dialog" aria-label="Закрыть настройки">×</button></div>
@@ -104,7 +100,7 @@
     <p><strong>Пример:</strong> стойкость 3, урон 2 — фигура жива. Урон 3 — погибла.</p>
     <p>Урон не накапливается. После следующего хода всё считается заново. Исчезновение фигуры само по себе не вызывает ещё один расчёт.</p>
     <h3>Как работает поддержка</h3>
-    <p>Область поддержки называется аурой. Она усиливает только союзников. Своей аурой фигура себя не усиливает, а от других получает бонусы. Бонусы складываются.</p>
+    <p>Область поддержки называется аурой. У барабанщика и знаменосца она охватывает все клетки в пределах радиуса. Она усиливает только союзников. Своей аурой фигура себя не усиливает, а от других получает бонусы. Бонусы складываются.</p>
     <p>Ауры не увеличивают радиусы друг друга. Броненосцы не получают дополнительную дальность от союзных аур.</p><p id="about-auras"></p><div id="about-promotion"></div>
     <h3>Подсказки</h3>
     <p>Снизу слева — сила атаки. Справа — стойкость, а при угрозе — стойкость минус потенциальный урон. Если урон равен стойкости или больше, показан череп. Выбранная фигура отмечает достижимые атакой клетки мечами или стрелами; на своих фигурах таких отметок нет. Череп означает гибель при следующем расчёте. Наведение на фигуру показывает, кто её атакует; на доступную клетку — что произойдёт после перемещения.</p>
@@ -116,7 +112,7 @@
     <figure class="rules-figure"><img id="guide-board" src="./guide/board.svg" alt="Доступный ход, прогноз перемещения, атакующие и череп гибели."/><figcaption>Как читать подсветку и прогноз на поле.</figcaption></figure>
     <h3>Как начать</h3>
     <p>Партии на сайте автоматически записываются для анализа баланса: сохраняются версия игры, настройки, позиции, ходы и результат. Случайный анонимный ID браузера связывает ваши партии между посещениями. Это не аккаунт: другой браузер или очистка его данных создаёт новый ID, а при игре вдвоём на одном устройстве ID общий. Имена игроков не собираются. При обрыве связи запись ждёт отправки в браузере.</p>
-    <ol><li>Выберите режим, свою сторону и первого игрока.</li><li>Оставьте «Дефолт» или выберите «Кастом» → «Настроить позицию» → «Готово».</li><li>Нажмите «Начать». Для следующей партии нажмите «Новая игра».</li></ol>
+    <ol><li>Выберите режим, свою сторону и первого игрока.</li><li>Оставьте «Стандартная» или выберите «Своя расстановка» → «Расставить фигуры» → «Готово».</li><li>Нажмите «Начать». Для следующей партии нажмите «Новая игра».</li></ol>
   </div></dialog>
   <div id="toast" role="status" class="toast" hidden></div>
   <script type="module" src="/app.js"></script>
