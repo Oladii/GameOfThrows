@@ -5,7 +5,7 @@ import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty 
 import { classifyPosition, prepareStartPosition } from './start-position.js';
 import { createMovementPlan, sampleMovement, MovementAnimator } from './move-animation.js';
 import { GameRecorder } from './game-archive.js';
-import { durabilityDisplay, attackCellsFor, unitStatParts, alliedBonusDetails } from './board-presentation.js';
+import { durabilityDisplay, attackCellsFor, unitStatParts, alliedBonusDetails, AURA_COLORS, auraPatternDefinitions } from './board-presentation.js';
 import { createMoveLesson, renderMoveLesson, renderMoveExamples } from './onboarding-examples.js';
 const $ = selector => document.querySelector(selector);
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
@@ -48,20 +48,7 @@ const REACH_ICONS = {
   sword: '<path d="m5 19 9-9M10 8l6-6 6-1-1 6-6 6M6 12l6 6M3 21l3-3"/>',
   arrow: '<path d="M3 21 18 6M13 5l8-2-2 8Z"/><path d="M3 15l5 1 1 5M6 12l5 1 1 5"/>'
 };
-const AURA_COLORS = ['#a9cf91', '#c6a5df', '#b66a80', '#edd46c'];
-// Opposite hatch directions distinguish attack and defense; team colors alternate.
-const auraPatterns = Array.from({ length: 15 }, (_, i) => {
-  const mask = i + 1;
-  const strokes = AURA_COLORS.map((color, bit) => {
-    if (!(mask & (1 << bit))) return '';
-    const offset = bit < 2 ? 0 : 6;
-    const path = bit % 2 === 0
-      ? [0, 1, 2].map(k => `M${offset + k * 12 - 12} 12L${offset + k * 12} 0`).join(' ')
-      : [-1, 0, 1].map(k => `M${offset + k * 12} 0L${offset + k * 12 + 12} 12`).join(' ');
-    return `<path d="${path}" fill="none" stroke="${color}" stroke-width="3" stroke-opacity="0.4"/>`;
-  }).join('');
-  return `<pattern id="aura-${mask}" width="12" height="12" patternUnits="userSpaceOnUse">${strokes}</pattern>`;
-}).join('');
+const auraPatterns = auraPatternDefinitions();
 const auraFills = Array.from({ length: 15 }, (_, i) => {
   const mask = i + 1, colors = AURA_COLORS.filter((_, bit) => mask & (1 << bit));
   const stops = colors.map((color, index) => `<stop offset="${index * 100 / colors.length}%" stop-color="${color}"/><stop offset="${(index + 1) * 100 / colors.length}%" stop-color="${color}"/>`).join('');

@@ -1,5 +1,22 @@
 import { cells, attacks, effective, shieldCanRetreat } from './engine.js';
 
+export const AURA_COLORS = ['#a9cf91', '#c6a5df', '#b66a80', '#edd46c'];
+
+// Both the board and onboarding use the same selected-aura palette and hatch.
+export function auraPatternDefinitions(prefix = 'aura', masks = Array.from({ length: 15 }, (_, i) => i + 1)) {
+  return masks.map(mask => {
+    const strokes = AURA_COLORS.map((color, bit) => {
+      if (!(mask & (1 << bit))) return '';
+      const offset = bit < 2 ? 0 : 6;
+      const path = bit % 2 === 0
+        ? [0, 1, 2].map(k => `M${offset + k * 12 - 12} 12L${offset + k * 12} 0`).join(' ')
+        : [-1, 0, 1].map(k => `M${offset + k * 12} 0L${offset + k * 12 + 12} 12`).join(' ');
+      return `<path d="${path}" fill="none" stroke="${color}" stroke-width="3" stroke-opacity="0.4"/>`;
+    }).join('');
+    return `<pattern id="${prefix}-${mask}" width="12" height="12" patternUnits="userSpaceOnUse">${strokes}</pattern>`;
+  }).join('');
+}
+
 export function durabilityDisplay(info) {
   return { value: info.incoming > 0 ? info.fortitude - info.incoming : info.fortitude,
     threatened: info.incoming > 0, dead: info.dead,

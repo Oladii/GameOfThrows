@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG, TEAM_NAMES } from '../dist/rules.js';
 import { clone, cells, effective, auraReaches, shieldCanRetreat } from '../dist/engine.js';
+import { AURA_COLORS, auraPatternDefinitions } from '../dist/board-presentation.js';
+import { createMoveLesson, renderMoveLesson, renderMoveExamples } from '../dist/onboarding-examples.js';
 
 // Exercise the actual DOM painter, rather than a second implementation of its rules.
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
@@ -69,4 +71,39 @@ test('all-aura mode keeps solid overlaps, while deselection, attack mode and zer
   ui.context.fieldView = null; ui.context.selected = 'a'; ui.config.stats.archer.aura = 0; ui.paint();
   assert.equal(ui.board.some(c => c.classes.has('has-aura')), false);
   assert.equal(ui.legend.hidden, true);
+});
+
+test('board and tutorial auras share one palette, hatch geometry and opacity', () => {
+  assert.deepEqual(AURA_COLORS, ['#a9cf91', '#c6a5df', '#b66a80', '#edd46c']);
+  assert.ok(app.includes('const auraPatterns = auraPatternDefinitions();'));
+  for (const aura of ['attack', 'defense']) {
+    const mask = aura === 'attack' ? 1 : 2, prefix = `lesson-4-${aura}-aura`;
+    const lesson = createMoveLesson(4, { aura, selected: true }), html = renderMoveLesson(lesson, {});
+    const definitions = html.match(/<defs>([\s\S]*?)<\/defs>/)[1];
+    assert.equal(definitions.replaceAll(prefix, 'aura'), auraPatternDefinitions('aura', [mask]));
+    assert.ok(definitions.includes(`stroke="${AURA_COLORS[mask - 1]}"`));
+    assert.ok(definitions.includes('stroke-opacity="0.4"'));
+    assert.ok(html.includes(`--aura-fill:url(#${prefix}-${mask})`));
+    assert.equal((html.match(/class="lesson-aura-overlay"/g) || []).length, cells(lesson.config).length);
+  }
+});
+
+test('tutorial aura definitions are scoped per scene and keep the same pattern through hover, move and deselection', () => {
+  const states = {
+    '4-attack': { selected: true, previewPlacement: { q: 1, r: -2 } },
+    '4-defense': { selected: true, previewPlacement: { q: -1, r: 0 } }
+  };
+  const html = renderMoveExamples(states, {}), ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const ref of html.matchAll(/url\(#([^\)]+)\)/g)) assert.ok(ids.includes(ref[1]));
+  for (const aura of ['attack', 'defense']) {
+    const placement = states[`4-${aura}`].previewPlacement;
+    const hover = renderMoveLesson(createMoveLesson(4, { aura, selected: true, previewPlacement: placement }), {});
+    const committed = renderMoveLesson(createMoveLesson(4, { aura, selected: true, placement }), {});
+    const deselected = renderMoveLesson(createMoveLesson(4, { aura, placement }), {});
+    assert.equal(hover.match(/<defs>[\s\S]*?<\/defs>/)[0], committed.match(/<defs>[\s\S]*?<\/defs>/)[0]);
+    assert.ok(hover.includes(` lesson-${aura}-aura`));
+    assert.ok(committed.includes(` lesson-${aura}-aura`));
+    assert.ok(!deselected.includes(` lesson-${aura}-aura`));
+  }
 });

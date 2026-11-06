@@ -141,10 +141,10 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .lesson-tile polygon{fill:#f0ede3;stroke:#d9d9cb;stroke-width:1.1;stroke-linejoin:round}
 .lesson-tile.lesson-available{cursor:pointer;outline:none}
 .lesson-available polygon{fill:#e5eddb}
-.lesson-available:hover polygon,.lesson-available:focus-visible polygon{fill:#d4e2c0}
+.lesson-available:hover>polygon:not(.lesson-aura-overlay),.lesson-available:focus-visible>polygon:not(.lesson-aura-overlay){fill:#d4e2c0}
 .lesson-route polygon{fill:#d4e2c0}
-.lesson-attack-aura polygon{fill:#d3e8c5}
-.lesson-defense-aura polygon{fill:#e4d6ee}
+.lesson-tile .lesson-aura-overlay{fill:none;stroke:none;pointer-events:none}
+.lesson-attack-aura .lesson-aura-overlay,.lesson-defense-aura .lesson-aura-overlay{fill:var(--aura-fill)}
 .lesson-move-dot{fill:#8aa577}
 .lesson-lines,.lesson-numbers,.lesson-piece{pointer-events:none}
 .lesson-path{fill:none;stroke:#7d9e62;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:5 6}

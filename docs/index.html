@@ -151,10 +151,10 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .lesson-tile polygon{fill:#f0ede3;stroke:#d9d9cb;stroke-width:1.1;stroke-linejoin:round}
 .lesson-tile.lesson-available{cursor:pointer;outline:none}
 .lesson-available polygon{fill:#e5eddb}
-.lesson-available:hover polygon,.lesson-available:focus-visible polygon{fill:#d4e2c0}
+.lesson-available:hover>polygon:not(.lesson-aura-overlay),.lesson-available:focus-visible>polygon:not(.lesson-aura-overlay){fill:#d4e2c0}
 .lesson-route polygon{fill:#d4e2c0}
-.lesson-attack-aura polygon{fill:#d3e8c5}
-.lesson-defense-aura polygon{fill:#e4d6ee}
+.lesson-tile .lesson-aura-overlay{fill:none;stroke:none;pointer-events:none}
+.lesson-attack-aura .lesson-aura-overlay,.lesson-defense-aura .lesson-aura-overlay{fill:var(--aura-fill)}
 .lesson-move-dot{fill:#8aa577}
 .lesson-lines,.lesson-numbers,.lesson-piece{pointer-events:none}
 .lesson-path{fill:none;stroke:#7d9e62;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:5 6}
@@ -310,7 +310,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.6</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-06T16:36:41.758Z">Сборка 06.11.2026, 19:36:41 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.6</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-06T16:41:12.779Z">Сборка 06.11.2026, 19:41:12 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <main>
     <div class="workspace">
@@ -1399,6 +1399,23 @@ class GameRecorder {
 }
 
 
+const AURA_COLORS = ['#a9cf91', '#c6a5df', '#b66a80', '#edd46c'];
+
+// Both the board and onboarding use the same selected-aura palette and hatch.
+function auraPatternDefinitions(prefix = 'aura', masks = Array.from({ length: 15 }, (_, i) => i + 1)) {
+  return masks.map(mask => {
+    const strokes = AURA_COLORS.map((color, bit) => {
+      if (!(mask & (1 << bit))) return '';
+      const offset = bit < 2 ? 0 : 6;
+      const path = bit % 2 === 0
+        ? [0, 1, 2].map(k => `M${offset + k * 12 - 12} 12L${offset + k * 12} 0`).join(' ')
+        : [-1, 0, 1].map(k => `M${offset + k * 12} 0L${offset + k * 12 + 12} 12`).join(' ');
+      return `<path d="${path}" fill="none" stroke="${color}" stroke-width="3" stroke-opacity="0.4"/>`;
+    }).join('');
+    return `<pattern id="${prefix}-${mask}" width="12" height="12" patternUnits="userSpaceOnUse">${strokes}</pattern>`;
+  }).join('');
+}
+
 function durabilityDisplay(info) {
   return { value: info.incoming > 0 ? info.fortitude - info.incoming : info.fortitude,
     threatened: info.incoming > 0, dead: info.dead,
@@ -1553,11 +1570,13 @@ function renderMoveLesson(lesson, icons, renderBadges = () => '') {
   const path = new Map(visiblePath.slice(1).map((c, i) => [key(c.q, c.r), i + 1]));
   const available = new Map(lesson.available.map(c => [key(c.q, c.r), c.steps]));
   const aura = new Set((lesson.auraCells || []).map(c => key(c.q, c.r)));
+  const auraMask = lesson.aura === 'defense' ? 2 : 1, auraPrefix = `lesson-${sceneKey}-aura`;
+  const auraDefinitions = index === 4 ? `<defs>${auraPatternDefinitions(auraPrefix, [auraMask])}</defs>` : '';
   const blocked = new Set(lesson.enemyBlocked.map(c => key(c.q, c.r)));
   const selectedUnit = lesson.selected ? position.pieces.find(piece => piece.id === lesson.moverId) : null;
   const tiles = cells(config).map(cell => {
     const k = key(cell.q, cell.r), p = lessonPoint(cell), number = path.get(k), clickable = available.has(k);
-    return `<g class="lesson-tile${clickable ? ' lesson-available' : ''}${number ? ' lesson-route' : ''}${blocked.has(k) ? ' lesson-enemy-blocked' : ''}${selectedUnit && selectedUnit.q === cell.q && selectedUnit.r === cell.r ? ' lesson-unit-cell' : ''}${aura.has(k) ? lesson.aura === 'defense' ? ' lesson-defense-aura' : ' lesson-attack-aura' : ''}" data-lesson-position="${k}"${clickable ? ` ${lesson.supportLesson ? 'data-lesson-place' : 'data-lesson-cell'}="${k}" role="button" tabindex="0" aria-label="${'Клетка ' + k + ', шагов до неё: ' + available.get(k)}"` : ''}><polygon points="${lessonPolygon(cell)}"/>${clickable && !number ? `<circle class="lesson-move-dot" cx="${p.x}" cy="${p.y}" r="3"/>` : ''}${blocked.has(k) && !position.pieces.some(piece => piece.q === cell.q && piece.r === cell.r) ? `<path class="lesson-blocked-cross" d="M${p.x - 4} ${p.y - 4}l8 8m-8 0 8-8"><title>Враг перекрыл путь</title></path>` : ''}</g>`;
+    return `<g class="lesson-tile${clickable ? ' lesson-available' : ''}${number ? ' lesson-route' : ''}${blocked.has(k) ? ' lesson-enemy-blocked' : ''}${selectedUnit && selectedUnit.q === cell.q && selectedUnit.r === cell.r ? ' lesson-unit-cell' : ''}${aura.has(k) ? lesson.aura === 'defense' ? ' lesson-defense-aura' : ' lesson-attack-aura' : ''}" data-lesson-position="${k}"${clickable ? ` ${lesson.supportLesson ? 'data-lesson-place' : 'data-lesson-cell'}="${k}" role="button" tabindex="0" aria-label="${'Клетка ' + k + ', шагов до неё: ' + available.get(k)}"` : ''}><polygon points="${lessonPolygon(cell)}"/>${index === 4 ? `<polygon class="lesson-aura-overlay" points="${lessonPolygon(cell)}" style="--aura-fill:url(#${auraPrefix}-${auraMask})"/>` : ''}${clickable && !number ? `<circle class="lesson-move-dot" cx="${p.x}" cy="${p.y}" r="3"/>` : ''}${blocked.has(k) && !position.pieces.some(piece => piece.q === cell.q && piece.r === cell.r) ? `<path class="lesson-blocked-cross" d="M${p.x - 4} ${p.y - 4}l8 8m-8 0 8-8"><title>Враг перекрыл путь</title></path>` : ''}</g>`;
   }).join('');
   const projected = lesson.previewPosition;
   const routeLine = visiblePath.length > 1 ? `<polyline class="lesson-path" points="${visiblePath.map(c => { const p = lessonPoint(c); return `${p.x},${p.y}`; }).join(' ')}"/>` : '';
@@ -1576,7 +1595,7 @@ function renderMoveLesson(lesson, icons, renderBadges = () => '') {
   const stateLabel = lesson.completed ? 'ПОСЛЕ РАСЧЁТА БОЯ' : lesson.isPreview ? 'ПРОГНОЗ · НАЖМИ НА КЛЕТКУ' : lesson.selected ? index === 4 ? 'АУРА ВЫДЕЛЕННОЙ ФИГУРЫ' : 'НАВЕДИ НА КЛЕТКУ' : index === 2 ? 'ЩИТ НА ПУТИ' : 'ВЫБЕРИ ФИГУРУ';
   const controls = (index === 2 && !lesson.completed ? '<button class="button" data-lesson-action="remove-shield">Убрать щитовика</button>' : '') +
     '<button class="button outline" data-lesson-action="reset">Вернуть исходную позицию</button>';
-  return `<section class="lesson-scene" data-lesson-scene="${sceneKey}" aria-labelledby="${titleId}"><div class="lesson-scene-heading"><p class="eyebrow">ПРИМЕР ${index === 4 && lesson.aura === 'defense' ? 6 : index + 1} ИЗ ${MOVE_LESSONS.length}${index === 4 ? lesson.aura === 'defense' ? ' · ЗАЩИТА' : ' · АТАКА' : ''}</p><h4 id="${titleId}">${lesson.title}</h4>${lesson.description.split('\n').map(text => `<p>${text}</p>`).join('')}</div><div class="lesson-layout"><div class="lesson-field"><svg class="lesson-board" viewBox="70 25 420 360" role="group" aria-label="Учебная позиция: ${lesson.title}">${tiles}<g class="lesson-lines">${routeLine}</g>${pieces}<g class="lesson-ghost">${ghost}</g><g class="lesson-numbers">${numbers}</g></svg><p class="lesson-legend"><span><i></i> Ваши фигуры</span><span><i class="enemy"></i> Противник</span>${index === 0 ? '<span>Цифры — шаги маршрута</span><span>× — враг перекрыл путь</span>' : '<span>Череп — погибнет при расчёте</span>'}</p></div><div class="lesson-details"><p class="lesson-state">${stateLabel}</p><dl>${lesson.facts.map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`).join('')}</dl><p class="lesson-feedback" role="status">${lesson.feedback}</p>${controls}<p class="lesson-hint">${lesson.hint}</p></div></div></section>`;
+  return `<section class="lesson-scene" data-lesson-scene="${sceneKey}" aria-labelledby="${titleId}"><div class="lesson-scene-heading"><p class="eyebrow">ПРИМЕР ${index === 4 && lesson.aura === 'defense' ? 6 : index + 1} ИЗ ${MOVE_LESSONS.length}${index === 4 ? lesson.aura === 'defense' ? ' · ЗАЩИТА' : ' · АТАКА' : ''}</p><h4 id="${titleId}">${lesson.title}</h4>${lesson.description.split('\n').map(text => `<p>${text}</p>`).join('')}</div><div class="lesson-layout"><div class="lesson-field"><svg class="lesson-board" viewBox="70 25 420 360" role="group" aria-label="Учебная позиция: ${lesson.title}">${auraDefinitions}${tiles}<g class="lesson-lines">${routeLine}</g>${pieces}<g class="lesson-ghost">${ghost}</g><g class="lesson-numbers">${numbers}</g></svg><p class="lesson-legend"><span><i></i> Ваши фигуры</span><span><i class="enemy"></i> Противник</span>${index === 0 ? '<span>Цифры — шаги маршрута</span><span>× — враг перекрыл путь</span>' : '<span>Череп — погибнет при расчёте</span>'}</p></div><div class="lesson-details"><p class="lesson-state">${stateLabel}</p><dl>${lesson.facts.map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`).join('')}</dl><p class="lesson-feedback" role="status">${lesson.feedback}</p>${controls}<p class="lesson-hint">${lesson.hint}</p></div></div></section>`;
 }
 
 function renderMoveExamples(exampleStates, icons, renderBadges = () => '') {
@@ -1648,20 +1667,7 @@ const REACH_ICONS = {
   sword: '<path d="m5 19 9-9M10 8l6-6 6-1-1 6-6 6M6 12l6 6M3 21l3-3"/>',
   arrow: '<path d="M3 21 18 6M13 5l8-2-2 8Z"/><path d="M3 15l5 1 1 5M6 12l5 1 1 5"/>'
 };
-const AURA_COLORS = ['#a9cf91', '#c6a5df', '#b66a80', '#edd46c'];
-// Opposite hatch directions distinguish attack and defense; team colors alternate.
-const auraPatterns = Array.from({ length: 15 }, (_, i) => {
-  const mask = i + 1;
-  const strokes = AURA_COLORS.map((color, bit) => {
-    if (!(mask & (1 << bit))) return '';
-    const offset = bit < 2 ? 0 : 6;
-    const path = bit % 2 === 0
-      ? [0, 1, 2].map(k => `M${offset + k * 12 - 12} 12L${offset + k * 12} 0`).join(' ')
-      : [-1, 0, 1].map(k => `M${offset + k * 12} 0L${offset + k * 12 + 12} 12`).join(' ');
-    return `<path d="${path}" fill="none" stroke="${color}" stroke-width="3" stroke-opacity="0.4"/>`;
-  }).join('');
-  return `<pattern id="aura-${mask}" width="12" height="12" patternUnits="userSpaceOnUse">${strokes}</pattern>`;
-}).join('');
+const auraPatterns = auraPatternDefinitions();
 const auraFills = Array.from({ length: 15 }, (_, i) => {
   const mask = i + 1, colors = AURA_COLORS.filter((_, bit) => mask & (1 << bit));
   const stops = colors.map((color, index) => `<stop offset="${index * 100 / colors.length}%" stop-color="${color}"/><stop offset="${(index + 1) * 100 / colors.length}%" stop-color="${color}"/>`).join('');
