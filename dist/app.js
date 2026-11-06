@@ -6,7 +6,8 @@ import { classifyPosition, prepareStartPosition } from './start-position.js';
 import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION } from './move-animation.js';
 import { GameRecorder } from './game-archive.js';
 import { durabilityDisplay, attackCellsFor, unitStatParts, alliedBonusDetails, AURA_COLORS, auraPatternDefinitions, skullShape, renderDeathEffects, renderMovingToken, unitAppearance, attackMarkerRotation } from './board-presentation.js';
-import { createMoveLesson, renderMoveLesson, renderMoveExamples, lessonPoint } from './onboarding-examples.js';
+import { createMoveLesson, renderMoveLesson, renderMoveExamples, createCombatLesson, renderCombatExamples, lessonPoint } from './onboarding-examples.js';
+import { createUnitLesson, renderUnitExamples } from './onboarding-units.js';
 const $ = selector => document.querySelector(selector);
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
@@ -628,31 +629,11 @@ function renderOnboarding() {
   if (onboardingStep === 0) content = heading('Вы командуете армией', 'Под вашим началом — броненосцы со щитами, лукари, барабанщик и знаменосец.') +
     '<p>Бой идёт до полного уничтожения одной из армий. Ничья — тоже поражение.</p><p>Солдаты сами выбирают цели и атакуют — с этим они разберутся. Ваша задача — помочь им занять выгодные позиции и сохранить строй.</p>' +
     `<div class="onboarding-formation">${[['shield', 'Прикрывает'], ['archer', 'Бьёт издалека'], ['attackLamp', 'Усиливает атаку'], ['defenseLamp', 'Усиливает защиту']].map(([type, role]) => `<div>${onboardingUnit(type)}<strong>${LABELS[type]}</strong><br>${role}</div>`).join('')}</div>`;
-  if (onboardingStep === 1) {
-    const roles = {
-      shield: [
-        'Идёт вперёд и вбок, сражается вблизи и щитом закрывает союзников от вражеских стрел. Рядом с опытным воином спокойнее — строй лучше держит удар.',
-        'Дойдя до противоположного края доски, становится ветераном: бьёт сильнее и ходит во всех направлениях.'
-      ],
-      archer: ['Бьёт по прямым линиям. Держите врага на расстоянии, прикрывайте лукаря броненосцами и усиливайте барабанщиком.'],
-      attackLamp: [
-        'Под звуки барабанов стрелы летят дальше и лучше пробивают броню.',
-        'Дерётся только рядом с ветераном: тот подержит палочки и одолжит меч.'
-      ],
-      defenseLamp: [
-        'Вселяет уверенность в завтрашнем дне — с ним строй лучше держит удар.',
-        'Сам берётся за оружие только рядом с ветераном.'
-      ]
-    };
-    content = heading('У каждой фигуры своя работа', '') + `<div class="onboarding-roles">${TYPES.map(type => {
-      return `<article class="onboarding-role">${onboardingUnit(type)}<div><h4>${LABELS[type]}</h4>${roles[type].map(text => `<p>${text}</p>`).join('')}</div></article>`;
-    }).join('')}</div>`;
-  }
+  if (onboardingStep === 1) content = heading('У каждой фигуры своя работа', 'Сначала разберись с бейджами, затем попробуй сильные и слабые стороны четырёх фигур.') + renderUnitExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
   if (onboardingStep === 2) {
     content = heading('Один ход меняет всё построение', 'Шесть примеров: пробуйте ходы и смотрите, что изменится.') + renderMoveExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
   }
-  if (onboardingStep === 3) content = heading('Вы двигаете — армия атакует', 'После каждого хода все фигуры обеих сторон автоматически атакуют врагов в пределах дальности. Отдельная кнопка выстрела не нужна.') +
-    `<div class="onboarding-demo"><p class="onboarding-demo-label">ПРИМЕР · стойкость фигуры равна 3</p><div class="onboarding-outcome"><button data-damage="2" aria-pressed="${onboardingDamage === 2}"><strong>2 &lt; 3</strong><span>Входящий урон меньше стойкости</span></button><button data-damage="3" aria-pressed="${onboardingDamage === 3}"><strong>3 = 3</strong><span>Входящий урон равен стойкости</span></button></div><p class="onboarding-demo-feedback" role="status">${onboardingDamage === 2 ? 'Фигура выживает: урон меньше стойкости, на фишке остаётся 1.' : 'Фигура погибает: урон равен стойкости. На поле показан череп.'}</p></div><div class="onboarding-note">Входящий урон от разных врагов складывается, но между ходами не накапливается. Погибшие удаляются одновременно и в этом расчёте ещё успевают атаковать и усиливать союзников.</div>`;
+  if (onboardingStep === 3) content = heading('Вы двигаете — армия атакует', 'После каждого хода обе армии атакуют автоматически. Попробуй уйти из-под обстрела, сложить урон и обменяться ударами.') + renderCombatExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
   if (onboardingStep === 4) content = heading('Теперь можно попробовать партию', 'Для начала достаточно одного решения: куда передвинуть фигуру, чтобы сохранить поддержку и достать противника.') +
     `<ol class="onboarding-checklist">${(editor ? ['Закончите расстановку кнопкой «Готово».', 'В подготовке выберите режим и нажмите «Начать».', 'Выберите свою фигуру, посмотрите подсветку и сделайте ход.'] : gamePhase === 'setup' ? ['Выберите режим: против бота или вдвоём. Для первой партии оставьте позицию «Стандартная».', 'Выберите первый ход и свою сторону, если играете против бота. Нажмите «Начать».', 'Нажмите на свою фигуру, затем на доступную пустую клетку.'] : ['Продолжайте текущую партию: окно знакомства её не сбрасывает.', 'Выберите свою фигуру и посмотрите доступные клетки.', 'Передвиньте фигуру. Если сейчас ход бота, дождитесь его ответа.']).map(text => `<li>${text}</li>`).join('')}</ol><div class="onboarding-note"><strong>Подсказки всегда рядом.</strong> Снизу слева — сила атаки, справа — стойкость после потенциального урона или череп. Выбор фигуры показывает её дальность значками меча или стрелы. «Ауры» показывает поддержку, «Атаки» — угрозы. Стрелки ← и → позволяют посмотреть последний ход; «Отменить» возвращает позицию.</div>`;
   $('#onboarding-body').innerHTML = content;
@@ -694,6 +675,8 @@ $('#onboarding-next').addEventListener('click', () => {
   });
 });
 function onboardingLessonModel(sceneKey, example) {
+  if (sceneKey.startsWith('unit-')) return createUnitLesson(sceneKey.slice(5), example);
+  if (['8', '9', '10'].includes(sceneKey)) return createCombatLesson(Number(sceneKey) - 8, example);
   return createMoveLesson(sceneKey.startsWith('4-') ? 4 : Number(sceneKey), { ...example, aura: sceneKey === '4-defense' ? 'defense' : 'attack' });
 }
 function cancelOnboardingAnimation() {
@@ -709,7 +692,7 @@ function redrawOnboarding() {
 function presentOnboardingAction(sceneKey) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
   const lesson = onboardingLessonModel(sceneKey, onboardingExamples[sceneKey]);
-  const plan = lesson.path.length > 1 ? createMovementPlan(lesson.path.map(lessonPoint)) : null;
+  const plan = lesson.path.length > 1 ? createMovementPlan(lesson.path.map(lesson.point || lessonPoint)) : null;
   if (!plan && !lesson.deaths.length) return false;
   const presentation = { sceneKey, phase: 'idle', frame: null, animator: null };
   presentation.animator = new CombatAnimator(phase => {
@@ -757,8 +740,12 @@ function updateOnboardingLesson(button) {
     example.shieldRemoved = true; example.selected = false; example.previewPlacement = null;
     if (!example.advanced) example.destination = null;
     selector = '[data-lesson-action="reset"]';
+  } else if (data.lessonAction === 'toggle-archer' && sceneKey === '9') {
+    cancelOnboardingAnimation();
+    Object.assign(example, { selected: false, advanced: false, destination: null, secondArcher: example.secondArcher === false });
+    selector = '[data-lesson-action="toggle-archer"]';
   } else if (data.lessonAction === 'reset') {
-    Object.assign(example, { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null, shieldRemoved: false });
+    Object.assign(example, { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null, shieldRemoved: false, secondArcher: true });
     selector = '[data-lesson-unit]';
   } else return false;
   const isAction = data.lessonCell || data.lessonPlace || data.lessonAction === 'remove-shield';
@@ -776,9 +763,13 @@ function refreshOnboardingMovePreview(sceneKey) {
   for (const selector of ['.lesson-lines', '.lesson-numbers', '.lesson-ghost', '.lesson-details dl', '.lesson-feedback', '.lesson-state']) {
     scene.querySelector(selector).innerHTML = template.content.querySelector(selector).innerHTML;
   }
+  const auraDefinitions = scene.querySelector('defs');
+  if (auraDefinitions) auraDefinitions.innerHTML = template.content.querySelector('defs').innerHTML;
   scene.querySelectorAll('[data-lesson-position]').forEach(cell => {
     const source = template.content.querySelector(`[data-lesson-position="${cell.dataset.lessonPosition}"]`);
     for (const name of ['lesson-route', 'lesson-attack-aura', 'lesson-defense-aura']) cell.classList.toggle(name, source.classList.contains(name));
+    const overlay = cell.querySelector('.lesson-aura-overlay');
+    if (overlay) overlay.setAttribute('style', source.querySelector('.lesson-aura-overlay').getAttribute('style'));
   });
   scene.querySelectorAll('[data-lesson-piece]').forEach(piece => {
     const source = template.content.querySelector(`[data-lesson-piece="${piece.dataset.lessonPiece}"]`);

@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { createMoveLesson, renderMoveLesson, renderMoveExamples, lessonPoint } from '../dist/onboarding-examples.js';
+import { createMoveLesson, renderMoveLesson, renderMoveExamples, createCombatLesson, renderCombatExamples, lessonPoint } from '../dist/onboarding-examples.js';
+import { createUnitLesson, renderUnitExamples } from '../dist/onboarding-units.js';
 import { createMovementPlan, CombatAnimator, DEATH_EFFECT_DURATION } from '../dist/move-animation.js';
 
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
@@ -15,11 +16,11 @@ function setup({ reducedMotion = true } = {}) {
     setTimer: (callback, delay) => { timers.set(++id, { callback, at: time + delay }); return id; }, clearTimer: handle => timers.delete(handle) };
   const body = { scrollTop: 180, html: '', token: { dataset: {}, attrs: {}, setAttribute(name, value) { this.attrs[name] = value; } }, focus() {},
     addEventListener(type, callback) { handler = callback; }, querySelector(selector) { return selector.startsWith('#lesson-moving-token-') ? this.token : { focus() {} }; } };
-  const context = vm.createContext({ onboardingExamples: {}, onboardingAnimation: null, createMoveLesson, createMovementPlan, lessonPoint,
+  const context = vm.createContext({ onboardingExamples: {}, onboardingAnimation: null, createMoveLesson, createCombatLesson, createUnitLesson, createMovementPlan, lessonPoint,
     CombatAnimator: class extends CombatAnimator { constructor(onPhase, onFrame) { super(onPhase, onFrame, clock); } },
     matchMedia: () => media, movement: null, render() {}, onboardingStep: 2, onboardingSteps: ['Идея', 'Фигуры', 'Ход', 'Бой', 'Старт'],
     document: { querySelectorAll: () => [{ id: 'rules-dialog', addEventListener(type, callback) { closeHandler = callback; } }] },
-    $: () => body, renderOnboarding() { body.scrollTop = 0; body.html = renderMoveExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation); } });
+    $: () => body, renderOnboarding() { body.scrollTop = 0; body.html = renderMoveExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation) + renderUnitExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation) + renderCombatExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation); } });
   vm.runInContext(app.slice(app.indexOf('function onboardingLessonModel('), app.indexOf('function refreshOnboardingMovePreview(')), context);
   vm.runInContext(app.slice(app.indexOf("$('#onboarding-body').addEventListener('click'"), app.indexOf("$('#onboarding-body').addEventListener('keydown'")), context);
   vm.runInContext(app.slice(app.indexOf('function goToOnboardingStep('), app.indexOf("$('#about-guide-tab').addEventListener")), context);
@@ -182,4 +183,54 @@ test('nonlethal moves finish without death effects and closing the dialog cancel
   ui.close(); frames.forEach(callback => callback()); ui.advance(5000);
   assert.equal(ui.phase(), 'idle'); assert.equal(JSON.stringify(ui.state['1']), committed);
   assert.equal(ui.body.html, html, 'a closed dialog is not repainted by stale callbacks');
+});
+
+test('unit examples and combat commit a real move, animate deaths and reset through the existing handlers', () => {
+  const goals = { 'unit-shield': '0,2', 'unit-archer': '0,1', 'unit-attackLamp': '1,-2', 'unit-defenseLamp': '-1,0', '8': '1,0', '9': '-2,0', '10': '0,1' };
+  for (const [key, goal] of Object.entries(goals)) {
+    const ui = setup({ reducedMotion: false }), support = key.includes('Lamp');
+    ui.click(key, { lessonUnit: support ? 'support' : 'blue' });
+    assert.equal(ui.state[key].selected, true);
+    ui.click(key, { lessonCell: goal });
+    assert.equal(ui.phase(), 'movement');
+    assert.equal(ui.state[key].advanced, true);
+    const state = JSON.stringify(ui.state[key]);
+    ui.advance(500);
+    assert.equal(ui.phase(), key === '8' ? 'idle' : 'deaths');
+    ui.advance(DEATH_EFFECT_DURATION);
+    assert.equal(ui.phase(), 'idle');
+    assert.equal(JSON.stringify(ui.state[key]), state);
+    assert.ok(!ui.body.html.includes('death-ghost'));
+    ui.click(key, { lessonAction: 'reset' });
+    assert.equal(ui.state[key].advanced, false);
+    assert.equal(ui.state[key].selected, false);
+    assert.equal(ui.state[key].destination, null);
+    assert.equal(ui.body.scrollTop, 180);
+  }
+});
+
+test('new unit and combat examples cancel selection on repeat and outside clicks, and reject an illegal move', () => {
+  for (const key of ['unit-shield', 'unit-archer', 'unit-attackLamp', 'unit-defenseLamp', '8', '9', '10']) {
+    const ui = setup(), unit = key.includes('Lamp') ? 'support' : 'blue';
+    ui.click(key, { lessonUnit: unit }); ui.click(key, { lessonUnit: unit });
+    assert.equal(ui.state[key].selected, false);
+    ui.click(key, { lessonUnit: unit }); ui.click(null, {}, false);
+    assert.equal(ui.state[key].selected, false);
+    ui.click(key, { lessonUnit: unit }); ui.click(key, { lessonCell: '99,99' });
+    assert.equal(ui.state[key].advanced, false);
+  }
+});
+
+test('removing a contributing archer resets the sum example without inventing a shoot action', () => {
+  const ui = setup();
+  ui.click('9', { lessonUnit: 'blue' }); ui.click('9', { lessonCell: '-2,0' });
+  assert.equal(createCombatLesson(1, ui.state['9']).report.get('enemy').incoming, 16);
+  ui.click('9', { lessonAction: 'toggle-archer' });
+  assert.equal(ui.state['9'].advanced, false);
+  assert.equal(ui.state['9'].secondArcher, false);
+  ui.click('9', { lessonUnit: 'blue' }); ui.click('9', { lessonCell: '-2,0' });
+  assert.equal(createCombatLesson(1, ui.state['9']).report.get('enemy').incoming, 8);
+  ui.click('9', { lessonAction: 'reset' });
+  assert.equal(ui.state['9'].secondArcher, true);
+  assert.ok(!ui.body.html.includes('Выстрелить'));
 });
