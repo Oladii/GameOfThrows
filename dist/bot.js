@@ -1,4 +1,4 @@
-import { analyze, distance, move, pass, reachable, shieldCanRetreat, validateConfig, validateState } from './engine.js';
+import { analyze, distance, isLethalDamage, move, pass, reachable, shieldCanRetreat, validateConfig, validateState } from './engine.js';
 
 // This search follows the production rules. It ranks all legal moves, keeps a
 // small beam, then looks four half-moves ahead by default. No game rules or
@@ -39,10 +39,12 @@ function damageBound(state, config, team) {
   const own = state.pieces.filter(p => p.team === team);
   const flags = own.filter(p => p.type === 'attackLamp').length;
   const shields = own.filter(p => p.type === 'shield').length;
+  const archers = own.filter(p => p.type === 'archer').length;
   return own.reduce((sum, p) => sum + config.stats[p.type].damage
     + flags * config.stats.attackLamp.damageBonus
     - (p.type === 'attackLamp' ? config.stats.attackLamp.damageBonus : 0)
-    + shields * config.shieldPromotion.damageBonus, 0);
+    + shields * config.shieldPromotion.damageBonus
+    + (archers - (p.type === 'archer' ? 1 : 0)) * config.stats.archer.damageBonus, 0);
 }
 
 function evaluate(state, report, config, team, repeated) {
@@ -58,11 +60,11 @@ function evaluate(state, report, config, team, repeated) {
     const enemyBound = bounds[1 - piece.team];
     scores[piece.team] += 100 * PIECE_VALUES[piece.type];
     if (info.dead) scores[piece.team] -= 30 * PIECE_VALUES[piece.type];
-    const usefulDefense = Math.min(info.defenseBonus, Math.max(0, enemyBound - config.stats[piece.type].fortitude));
+    const usefulDefense = Math.min(info.defenseBonus, Math.max(0, enemyBound - config.stats[piece.type].fortitude + (enemyBound > 0 ? 1 : 0)));
     scores[piece.team] += (info.damage > 0 && info.range > 0 ? info.damageBonus : 0) * 3 + usefulDefense * 3
       + (piece.type === 'archer' ? info.rangeBonus * 2 : 0);
     if (shieldCanRetreat(piece, config)) scores[piece.team] += 15;
-    scores[1 - piece.team] += Math.min(info.incoming / Math.max(1, info.fortitude + 1), 1) * 4;
+    scores[1 - piece.team] += Math.min(info.incoming / Math.max(1, info.fortitude), 1) * 4;
     if (info.damage > 0 && info.range > 0 && enemies.length) {
       const chase = Math.min(...enemies.map(target => distance(piece, target, config)
         / (target.type === 'shield' || target.type === 'attackLamp' || target.type === 'defenseLamp' ? 1 : 1.4)));
@@ -70,12 +72,12 @@ function evaluate(state, report, config, team, repeated) {
       scores[piece.team] -= finishing * Math.max(0, chase - comfort) * (piece.type === 'shield' ? 2 : 1.4);
       if (piece.type === 'archer' && chase < 2) scores[piece.team] -= 2;
     }
-    if (piece.type === 'archer' && piece.group != null && enemyBound > config.stats.archer.fortitude) {
+    if (piece.type === 'archer' && piece.group != null && isLethalDamage(enemyBound, config.stats.archer.fortitude)) {
       for (const guard of own.filter(p => p.type === 'shield' && p.group === piece.group)) {
         scores[piece.team] += Math.max(0, 4 - distance(piece, guard, config)) * 2;
       }
     }
-    if (piece.type === 'defenseLamp' && own.some(p => config.stats[p.type].fortitude < enemyBound)) {
+    if (piece.type === 'defenseLamp' && own.some(p => isLethalDamage(enemyBound, config.stats[p.type].fortitude))) {
       const guards = own.filter(p => p.type === 'shield');
       if (guards.length) scores[piece.team] -= Math.min(...guards.map(p => distance(p, piece, config))) * .4;
     }

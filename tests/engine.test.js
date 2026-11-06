@@ -1,9 +1,10 @@
+import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
 import { clone, cells, distance, createGame, createScenario, analyze, inspectCell, attacks, auraReaches, resolve, effective, reachable, move, pass, validateState, validateConfig, shieldCanRetreat } from '../dist/engine.js';
 // Fix the combat fixture so future balance tuning does not rewrite aura tests.
-const config = () => { const c = clone(DEFAULT_CONFIG); c.stats.shield.damage = 3; c.stats.archer.damage = 1; c.stats.attackLamp.damage = 2; c.stats.attackLamp.range = 3; c.stats.attackLamp.damageBonus = 1; return c; };
+const config = () => { const c = clone(REVISION_FOUR_CONFIG); c.stats.shield.fortitude = 3; c.stats.archer.fortitude = 1; c.stats.attackLamp.fortitude = 2; c.stats.defenseLamp.fortitude = 2; c.stats.shield.damage = 3; c.stats.archer.damage = 1; c.stats.attackLamp.damage = 2; c.stats.attackLamp.range = 3; c.stats.attackLamp.damageBonus = 1; return c; };
 const p = (id, type, team, q, r) => ({ id, type, team, q, r });
 const state = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
 
@@ -32,8 +33,8 @@ test('two groups of 2 shields + 2 archers and one banner of each type per player
     }
   }
 });
-test('strict death threshold, summed incoming damage, no persistent wounds', () => {
-  const c = config();
+test('equality is lethal, summed incoming damage, no persistent wounds', () => {
+  const c = config(); c.stats.archer.fortitude = 2;
   const s = state([p('target', 'archer', 0, 0, 0), p('a', 'archer', 1, 1, 0)]);
   assert.equal(analyze(s, c).get('target').incoming, 1);
   assert.equal(resolve(s, c).state.pieces.some(p => p.id === 'target'), true);
@@ -56,16 +57,16 @@ test('aura bonuses stack, do not amplify aura radius, exclude self and enemy lam
   const s = state([p('x', 'shield', 0, 0, 0), p('a', 'attackLamp', 0, 1, 0), p('b', 'attackLamp', 0, 0, 1), p('d', 'defenseLamp', 0, -1, 0), p('e', 'attackLamp', 1, 0, -1)]);
   const x = effective(s.pieces[0], s, c), a = effective(s.pieces[1], s, c);
   assert.equal(x.damage, 5); assert.equal(x.range, 1); assert.equal(x.rangeBonus, 0); assert.equal(x.fortitude, 4);
-  assert.equal(a.damage, 3); assert.equal(a.range, 4); assert.equal(a.aura, 2);
-  assert.equal(effective(s.pieces[3], s, c).damage, 1);
-  assert.equal(effective(s.pieces[4], s, c).damage, 2);
+  assert.equal(a.damage, 0); assert.equal(a.range, 0); assert.equal(a.aura, 2);
+  assert.equal(effective(s.pieces[3], s, c).damage, 0);
+  assert.equal(effective(s.pieces[4], s, c).damage, 0);
 });
 test('a dying protection lamp still grants fortitude during this single calculation', () => {
-  const c = config(); c.stats.attackLamp.damage = 3;
+  const c = config(); c.stats.attackLamp.damage = 4; c.stats.defenseLamp.defenseBonus = 2;
   const s = state([p('lamp', 'defenseLamp', 0, 0, 0), p('protected', 'archer', 0, 1, 0), p('a', 'archer', 1, 2, 0), p('b', 'archer', 1, 3, 0), p('killer', 'attackLamp', 1, -3, 0)]);
   const r = resolve(s, c);
   assert.ok(r.deaths.some(p => p.id === 'lamp'));
-  assert.equal(r.report.get('protected').fortitude, 2);
+  assert.equal(r.report.get('protected').fortitude, 3);
   assert.equal(r.report.get('protected').incoming, 2);
   assert.ok(r.state.pieces.some(p => p.id === 'protected'));
 });
@@ -185,7 +186,7 @@ test('the explanatory shield-2 example differs from the working shield-4 configu
   assert.equal(resolve(s, c).deaths.length, 0);
   c.stats.shield.fortitude = 2;
   const first = resolve(s, c); assert.equal(first.deaths.length, 2);
-  const second = resolve(first.state, c); assert.equal(second.deaths.length, 2); // outer archers are too far apart
+  const second = resolve(first.state, c); assert.equal(second.deaths.length, 4); // ranged units now die at equal incoming damage
 });
 test('experimental flags change tested behavior; import rejects invalid positions', () => {
   const c = config();
@@ -194,9 +195,9 @@ test('experimental flags change tested behavior; import rejects invalid position
   assert.throws(() => validateState(state([p('a', 'archer', 0, 0, 0), p('b', 'archer', 1, 0, 0)]), c));
   c.stats.archer.range = NaN; assert.throws(() => validateConfig(c));
 });
-test('attack banner rays respect shields and independent allied-fire blocking settings', () => {
-  const c = config();
-  const s = state([p('lamp', 'attackLamp', 0, -3, 0), p('wall', 'shield', 1, -1, 0), p('target', 'archer', 1, 0, 0)]);
+test('veteran-enabled custom drummer rays respect shields and independent allied-fire blocking settings', () => {
+  const c = config(); c.shieldPromotion.damageBonus = 0; c.shieldPromotion.rangeBonus = 0;
+  const s = state([p('lamp', 'attackLamp', 0, -3, 0), { ...p('vet', 'shield', 0, -3, 1), reachedFarEdge: true }, p('wall', 'shield', 1, -1, 0), p('target', 'archer', 1, 0, 0)]);
   assert.equal(analyze(s, c).get('target').incoming, 0);
   c.experiments.lampShieldBlocking = false;
   assert.equal(analyze(s, c).get('target').incoming, 2);
@@ -210,7 +211,7 @@ test('casualties are independent of piece enumeration order', () => {
   assert.deepEqual(a.deaths.map(p => p.id).sort(), b.deaths.map(p => p.id).sort());
 });
 test('JSON settings cannot give a lamp unsupported aura bonuses', () => {
-  for (const [type, field] of [['attackLamp', 'defenseBonus'], ['defenseLamp', 'damageBonus'], ['defenseLamp', 'rangeBonus'], ['shield', 'damageBonus'], ['archer', 'damageBonus']]) {
+  for (const [type, field] of [['attackLamp', 'defenseBonus'], ['defenseLamp', 'damageBonus'], ['defenseLamp', 'rangeBonus'], ['shield', 'damageBonus'], ['archer', 'rangeBonus'], ['archer', 'defenseBonus']]) {
     const c = config(); c.stats[type][field] = 7;
     const decoded = JSON.parse(JSON.stringify(c));
     assert.throws(() => validateConfig(decoded), /не поддерживает/, `${type}.${field}`);
@@ -288,7 +289,7 @@ test('auras extend two cells on each of six face rays, excluding vertex directio
 test('all attacks, including attack banners, follow face rays and cannot shoot vertically through vertices', () => {
   const c = config(); c.stats.shield.range = 3; c.shieldPromotion.maxRange = 3;
   for (const type of ['shield', 'archer', 'attackLamp']) {
-    const attacker = p('attacker', type, 0, 0, 0), s = state([attacker]);
+    const attacker = p('attacker', type, 0, 0, 0), s = state([attacker, { ...p('vet', 'shield', 0, 1, 0), reachedFarEdge: true }]);
     for (const [q, r] of [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]]) assert.equal(attacks(attacker, p('target', 'archer', 1, q * 2, r * 2), s, c), true);
     for (const [q, r] of [[1, 1], [-1, -1], [1, -2], [-1, 2], [2, -1], [-2, 1]]) assert.equal(attacks(attacker, p('target', 'archer', 1, q, r), s, c), false);
   }
@@ -315,25 +316,25 @@ test('promoted shields keep personal bonuses and grant both banner effects to ad
 });
 test('arrival grants the permanent bonuses before simultaneous damage, and a dying veteran still supports allies in that snapshot', () => {
   const c = config(), shield = p('vet', 'shield', 0, 0, 3);
-  const s = state([shield, p('enemy', 'attackLamp', 1, -2, 4)]);
-  c.stats.attackLamp.damage = 4;
+  const s = state([shield, p('enemy', 'archer', 1, -2, 4)]);
+  c.stats.archer.damage = 3;
   const arrival = move(s, c, shield.id, { q: 0, r: 4 });
-  assert.equal(arrival.report.get(shield.id).incoming, 4);
+  assert.equal(arrival.report.get(shield.id).incoming, 3);
   assert.equal(arrival.report.get(shield.id).fortitude, 4);
   assert.ok(arrival.state.pieces.some(p => p.id === shield.id));
-  const dying = state([{ ...p('vet', 'shield', 0, 0, 0), reachedFarEdge: true }, p('ally', 'archer', 0, 0, 1), p('killer', 'attackLamp', 1, -2, 0)]);
-  c.stats.attackLamp.damage = 5;
+  const dying = state([{ ...p('vet', 'shield', 0, 0, 0), reachedFarEdge: true }, p('ally', 'archer', 0, 0, 1), p('killer', 'archer', 1, -2, 0)]);
+  c.stats.archer.damage = 5;
   const result = resolve(dying, c);
   assert.ok(result.deaths.some(p => p.id === 'vet'));
   assert.equal(result.report.get('ally').fortitude, 2);
-  assert.equal(result.report.get('ally').damage, 2);
+  assert.equal(result.report.get('ally').damage, c.stats.archer.damage + c.shieldPromotion.damageBonus);
   assert.equal(result.report.get('ally').range, 5);
 });
 test('old configurations receive promotion defaults and editable promotion values are validated and applied', () => {
   const old = config(); delete old.shieldPromotion;
   const c = validateConfig(old);
-  assert.deepEqual(c.shieldPromotion, { aura: 1, damageBonus: 1, rangeBonus: 1, defenseBonus: 1, maxRange: 2 });
-  c.shieldPromotion = { aura: 2, damageBonus: 2, rangeBonus: 3, defenseBonus: 4 };
+  assert.deepEqual(c.shieldPromotion, DEFAULT_CONFIG.shieldPromotion);
+  c.shieldPromotion = { aura: 2, damageBonus: 2, rangeBonus: 3, defenseBonus: 4, maxRange: 2 };
   validateConfig(c);
   const veteran = { ...p('vet', 'shield', 0, 0, 0), reachedFarEdge: true }, archer = p('archer', 'archer', 0, 2, 0), s = state([veteran, archer]);
   assert.equal(effective(veteran, s, c).damage, 5); assert.equal(effective(veteran, s, c).fortitude, 7);
@@ -357,49 +358,49 @@ test('a promoted shield has reach two even under stacked allied auras, while an 
 
 test('ordinary shields protect adjacent allies from the start without self, enemy, damage or range bonuses', () => {
   for (const geometry of ['hex', 'square']) {
-    const c = clone(DEFAULT_CONFIG); c.geometry = geometry; if (geometry === 'square') c.size = 8;
+    const c = clone(REVISION_FOUR_CONFIG); c.geometry = geometry; if (geometry === 'square') c.size = 8;
     const shield = p('shield', 'shield', 0, 1, 1);
     const ally = p('ally', 'archer', 0, 2, 1), far = p('far', 'archer', 0, 3, 1);
     const enemy = p('enemy', 'archer', 1, 1, 0);
     const s = state([shield, ally, far, enemy]);
     assert.equal(shieldCanRetreat(shield, c), false);
-    assert.equal(effective(shield, s, c).fortitude, 3);
+    assert.equal(effective(shield, s, c).fortitude, 4);
     const stats = effective(ally, s, c);
-    assert.equal(stats.fortitude, 2); assert.equal(stats.damage, 2); assert.equal(stats.range, 4);
+    assert.equal(stats.fortitude, 3); assert.equal(stats.damage, 2); assert.equal(stats.range, 4);
     assert.deepEqual(stats.sources, ['shield']);
-    assert.equal(effective(far, s, c).fortitude, 1);
-    assert.equal(effective(enemy, s, c).fortitude, 1);
+    assert.equal(effective(far, s, c).fortitude, 2);
+    assert.equal(effective(enemy, s, c).fortitude, 2);
     assert.equal(auraReaches(shield, shield, s, c), false);
     const covered = cells(c).filter(cell => auraReaches(shield, cell, s, c));
     assert.equal(covered.length, geometry === 'hex' ? 6 : 8);
     s.pieces.push(p('second', 'shield', 0, 2, 0));
-    assert.equal(effective(ally, s, c).fortitude, 3);
+    assert.equal(effective(ally, s, c).fortitude, 4);
     c.auraDefenseCap = 1;
-    assert.equal(effective(ally, s, c).fortitude, 2);
+    assert.equal(effective(ally, s, c).fortitude, 3);
     assert.doesNotThrow(() => validateConfig(c));
   }
 });
 test('ordinary shield protection is present in movement previews and simultaneous combat even when the source dies', () => {
-  const c = clone(DEFAULT_CONFIG), guard = p('guard', 'shield', 0, 0, 0);
-  const ally = p('ally', 'archer', 0, 1, 0), enemy = p('enemy', 'attackLamp', 1, -2, 0);
-  c.stats.attackLamp.damage = 4; c.stats.attackLamp.range = 3;
+  const c = clone(REVISION_FOUR_CONFIG), guard = p('guard', 'shield', 0, 0, 0);
+  const ally = p('ally', 'archer', 0, 1, 0), enemy = p('enemy', 'archer', 1, -2, 0);
+  c.stats.archer.damage = 4; c.stats.archer.range = 3;
   const s = state([guard, ally, enemy]);
   const result = resolve(s, c);
   assert.ok(result.deaths.some(p => p.id === 'guard'));
-  assert.equal(result.report.get('ally').fortitude, 2);
+  assert.equal(result.report.get('ally').fortitude, 3);
   const preview = inspectCell(s, c, { q: 1, r: 1 }, guard.id);
   // Shield move is one step; use a sideways destination next to its ally.
   const sidePreview = inspectCell(s, c, { q: -1, r: 0 }, guard.id);
   assert.equal(preview.isPreview, false);
   assert.equal(sidePreview.isPreview, true);
-  assert.equal(sidePreview.report.get('ally').fortitude, 1);
+  assert.equal(sidePreview.report.get('ally').fortitude, 2);
   const coveredPreview = inspectCell(s, c, { q: 0, r: 1 }, guard.id);
   assert.equal(coveredPreview.isPreview, true);
-  assert.equal(coveredPreview.report.get('ally').fortitude, 2);
+  assert.equal(coveredPreview.report.get('ally').fortitude, 3);
 });
 test('default attack banners can move two cells but cannot cross enemies or move three', () => {
   for (const geometry of ['hex', 'square']) {
-    const c = clone(DEFAULT_CONFIG); c.geometry = geometry; if (geometry === 'square') c.size = 8;
+    const c = clone(REVISION_FOUR_CONFIG); c.geometry = geometry; if (geometry === 'square') c.size = 8;
     c.size = geometry === 'hex' ? 6 : 8; c.experiments.squareDiagonals = false;
     const banner = p('banner', 'attackLamp', 0, 2, 2), s = state([banner]);
     const destinations = reachable(banner, s, c);
@@ -413,10 +414,10 @@ test('default attack banners can move two cells but cannot cross enemies or move
   }
 });
 test('saved balance upgrades old defaults once while preserving current user settings and custom values', () => {
-  const old = clone(DEFAULT_CONFIG); old.stats.shield.aura = 0; old.stats.shield.defenseBonus = 0; old.stats.attackLamp.move = 1; old.stats.archer.damage = 1;
+  const old = clone(REVISION_FOUR_CONFIG); old.stats.shield.aura = 0; old.stats.shield.defenseBonus = 0; old.stats.attackLamp.move = 1; old.stats.archer.damage = 1;
   const updated = updateSavedBalance(old);
-  assert.equal(updated.stats.shield.aura, 1); assert.equal(updated.stats.shield.defenseBonus, 1);
-  assert.equal(updated.stats.attackLamp.move, 2); assert.equal(updated.stats.archer.damage, 2);
+  assert.equal(updated.stats.shield.aura, 1); assert.equal(updated.stats.shield.defenseBonus, DEFAULT_CONFIG.stats.shield.defenseBonus);
+  assert.equal(updated.stats.attackLamp.move, 2); assert.equal(updated.stats.archer.damage, DEFAULT_CONFIG.stats.archer.damage);
   assert.equal(old.stats.shield.aura, 0); assert.equal(old.stats.attackLamp.move, 1);
   assert.deepEqual(updateSavedBalance(old, BALANCE_REVISION), old);
   const custom = clone(old); custom.stats.shield.aura = 2; custom.stats.shield.defenseBonus = 3; custom.stats.attackLamp.move = 3; custom.stats.archer.damage = 3;
@@ -428,8 +429,8 @@ test('saved balance upgrades old defaults once while preserving current user set
   assert.deepEqual(validateConfig(JSON.parse(JSON.stringify(updated))), updated);
 });
 
-test('banners have no base attack, grant +2 damage and can attack one cell under allied auras', () => {
-  const c = clone(DEFAULT_CONFIG);
+test('drummers keep granting +2 damage but cannot arm each other without a veteran', () => {
+  const c = clone(REVISION_FOUR_CONFIG);
   const banner = p('banner', 'attackLamp', 0, 0, 0), second = p('second', 'attackLamp', 0, 0, 1);
   const ally = p('ally', 'archer', 0, 1, 0), enemy = p('enemy', 'shield', 1, -1, 0);
   const alone = state([banner, enemy]);
@@ -441,10 +442,10 @@ test('banners have no base attack, grant +2 damage and can attack one cell under
   assert.equal(effective(ally, s, c).damage, 6); assert.equal(effective(ally, s, c).range, 6);
   for (const source of [banner, second]) {
     const stats = effective(source, s, c);
-    assert.equal(stats.damage, 2); assert.equal(stats.range, 1);
+    assert.equal(stats.damage, 0); assert.equal(stats.range, 0);
     assert.ok(stats.sources.includes(source === banner ? 'second' : 'banner'));
   }
-  assert.equal(attacks(banner, enemy, s, c), true);
+  assert.equal(attacks(banner, enemy, s, c), false);
   const result = resolve(s, c);
   assert.ok(result.deaths.some(piece => piece.id === banner.id));
   assert.equal(result.report.get(ally.id).damage, 6);
@@ -452,12 +453,12 @@ test('banners have no base attack, grant +2 damage and can attack one cell under
   assert.equal(preview.isPreview, true); assert.equal(preview.report.get(ally.id).damage, 4);
 });
 test('banner balance migration updates revision two once and preserves explicit current settings', () => {
-  const old = clone(DEFAULT_CONFIG);
+  const old = clone(REVISION_FOUR_CONFIG);
   Object.assign(old.stats.attackLamp, { damage: 2, range: 3, damageBonus: 1 });
   const next = updateSavedBalance(old, 2);
   assert.equal(next.stats.attackLamp.damage, 0);
   assert.equal(next.stats.attackLamp.range, 0);
-  assert.equal(next.stats.attackLamp.damageBonus, 2);
+  assert.equal(next.stats.attackLamp.damageBonus, DEFAULT_CONFIG.stats.attackLamp.damageBonus);
   assert.deepEqual(updateSavedBalance(old, BALANCE_REVISION), old);
   assert.deepEqual(validateConfig(old), old);
   const custom = clone(old); Object.assign(custom.stats.attackLamp, { damage: 4, range: 5, damageBonus: 3 });
@@ -465,7 +466,7 @@ test('banner balance migration updates revision two once and preserves explicit 
 });
 
 test('veteran auras grant both support types damage, one-cell attacks and defense', () => {
-  const c = clone(DEFAULT_CONFIG);
+  const c = clone(REVISION_FOUR_CONFIG);
   const veteran = { ...p('veteran', 'shield', 0, 0, 0), reachedFarEdge: true };
   for (const type of ['attackLamp', 'defenseLamp']) {
     const support = p('support', type, 0, 1, 0);
@@ -477,14 +478,14 @@ test('veteran auras grant both support types damage, one-cell attacks and defens
     const buffed = state([veteran, support, near, far]);
     const stats = effective(support, buffed, c);
     assert.deepEqual(stats.sources, ['veteran']);
-    assert.equal(stats.fortitude, 3); assert.equal(stats.damage, 1); assert.equal(stats.range, 1);
+    assert.equal(stats.fortitude, 4); assert.equal(stats.damage, 1); assert.equal(stats.range, 1);
     assert.equal(attacks(support, near, buffed, c), true);
     assert.equal(attacks(support, far, buffed, c), false);
     assert.ok(analyze(buffed, c).get('near').attackers.some(a => a.id === support.id));
     const second = { ...p('second', 'shield', 0, 1, -1), reachedFarEdge: true };
     buffed.pieces.push(second);
     const stacked = effective(support, buffed, c);
-    assert.equal(stacked.damage, 2); assert.equal(stacked.range, 1); assert.equal(stacked.fortitude, 4);
+    assert.equal(stacked.damage, 2); assert.equal(stacked.range, 1); assert.equal(stacked.fortitude, 5);
     assert.equal(attacks(support, far, buffed, c), false);
   }
 });

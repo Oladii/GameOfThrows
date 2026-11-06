@@ -1,4 +1,4 @@
-import { cells, directions, distance, isRay, shieldCanRetreat } from './dist/engine.js';
+import { cells, directions, distance, isRay, isLethalDamage, shieldCanRetreat } from './dist/engine.js';
 
 // Exact reachability game: an invulnerable veteran and defense flag versus one
 // non-shield enemy. Other positions retain the ordinary selective search.
@@ -6,6 +6,7 @@ export function createEndgameTablebase(config) {
   const cache = new Map(), metrics = { queries: 0, hits: 0, builds: 0 };
   function lookup(state) {
     metrics.queries++;
+    if (config.stats.archer.aura > 0 && config.stats.archer.damageBonus > 0) return null;
     if (state.winner !== null || state.pieces.length !== 3 || config.geometry !== 'hex' || config.size !== 4 || !config.experiments.allyShotsPass || config.experiments.allowPass) return null;
     const shield = state.pieces.find(p => shieldCanRetreat(p, config));
     if (!shield || config.stats.shield.move !== 1) return null;
@@ -13,9 +14,11 @@ export function createEndgameTablebase(config) {
     const enemy = state.pieces.find(p => p.team !== shield.team);
     if (!flag || !enemy || enemy.type === 'shield') return null;
     const enemyStats = config.stats[enemy.type], promotion = config.shieldPromotion;
+    // The reduced table models shield kills only. An aura-armed commander needs the full engine search.
+    if (promotion.aura > 0 && promotion.rangeBonus > 0 && isLethalDamage(promotion.damageBonus, enemyStats.fortitude)) return null;
     if (![1, 2].includes(enemyStats.move) || ![1, 2].includes(config.stats.defenseLamp.move)) return null;
-    if (enemyStats.damage > Math.min(config.stats.defenseLamp.fortitude, config.stats.shield.fortitude + promotion.defenseBonus)) return null;
-    if (config.stats.shield.damage + promotion.damageBonus <= enemyStats.fortitude) return null;
+    if (isLethalDamage(enemyStats.damage, Math.min(config.stats.defenseLamp.fortitude, config.stats.shield.fortitude + promotion.defenseBonus))) return null;
+    if (!isLethalDamage(config.stats.shield.damage + promotion.damageBonus, enemyStats.fortitude)) return null;
     const range = Math.min(config.stats.shield.range + promotion.rangeBonus, promotion.maxRange);
     const key = `${config.stats.defenseLamp.move}:${enemyStats.move}:${range}`;
     if (!cache.has(key)) { cache.set(key, build(config, config.stats.defenseLamp.move, enemyStats.move, range)); metrics.builds++; }

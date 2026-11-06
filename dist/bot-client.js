@@ -1,3 +1,10 @@
+export const DEFAULT_BOT_DIFFICULTY = 'easy';
+export const BOT_DIFFICULTIES = Object.freeze({
+  easy: Object.freeze({ label: 'Лёгкий', depth: 2 }),
+  hard: Object.freeze({ label: 'Сложный', depth: 4 })
+});
+export function readBotDifficulty(value) { return value === 'hard' ? 'hard' : DEFAULT_BOT_DIFFICULTY; }
+
 export function createBotWorker() {
   const embedded = document.querySelector('#bot-worker-source');
   if (!embedded) return new Worker(new URL('./bot-worker.js', import.meta.url), { type: 'module' });

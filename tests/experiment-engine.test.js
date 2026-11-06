@@ -1,3 +1,4 @@
+import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
@@ -8,13 +9,13 @@ const p = (id, type, team, q, r) => ({ id, type, team, q, r });
 const state = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
 
 test('experimental baseline exactly preserves production transitions', () => {
-  const c = clone(DEFAULT_CONFIG), s = state([p('a', 'archer', 0, -3, 0), p('b', 'archer', 1, 3, 0)]);
+  const c = clone(REVISION_FOUR_CONFIG), s = state([p('a', 'archer', 0, -3, 0), p('b', 'archer', 1, 3, 0)]);
   const expected = baseMove(s, c, 'a', { q: -2, r: 0 });
   const actual = createExperiment(c).move(s, 'a', { q: -2, r: 0 });
   assert.equal(actual.adjudication, null); delete actual.adjudication; assert.deepEqual(actual, expected);
 });
 test('the archived edge variant restricts edge movement to sidesteps and blocks occupied destinations', () => {
-  const c = clone(DEFAULT_CONFIG), engine = createExperiment(c, 'shield_edge_sideways');
+  const c = clone(REVISION_FOUR_CONFIG), engine = createExperiment(c, 'shield_edge_sideways');
   const s = state([p('a', 'shield', 0, -2, 4), p('friend', 'archer', 0, -1, 4)]);
   assert.deepEqual(engine.reachable(s.pieces[0], s), [{ q: -3, r: 4, steps: 1 }]);
   assert.equal(engine.move(s, 'a', { q: -3, r: 4 }).state.pieces.find(p => p.id === 'a').q, -3);
@@ -22,7 +23,7 @@ test('the archived edge variant restricts edge movement to sidesteps and blocks 
   assert.ok(engine.reachable(beforeEdge.pieces[0], beforeEdge).every(c => c.r >= 3));
 });
 test('alternative victory conditions are explicit and do not replace a production result', () => {
-  const c = clone(DEFAULT_CONFIG), trapped = state([p('a', 'shield', 0, -2, 4), ...[[-1, 4], [-1, 3], [-2, 3], [-3, 4]].map(([q, r], i) => p('b' + i, 'archer', 1, q, r))]);
+  const c = clone(REVISION_FOUR_CONFIG), trapped = state([p('a', 'shield', 0, -2, 4), ...[[-1, 4], [-1, 3], [-2, 3], [-3, 4]].map(([q, r], i) => p('b' + i, 'archer', 1, q, r))]);
   assert.equal(createExperiment(c).initial(trapped).winner, null);
   assert.equal(createExperiment(c, 'immobility_loss').initial(trapped).winner, 1);
   const flags = state([p('a', 'attackLamp', 0, -3, 0), p('b', 'archer', 1, 3, 0)]);
@@ -32,7 +33,7 @@ test('alternative victory conditions are explicit and do not replace a productio
 });
 test('permanent survivors do not prove a dead end when victory can occur without annihilation', () => {
   for (const variant of VARIANTS) assert.equal(usesAnnihilationGoal(variant), variant.kind !== 'victory');
-  const c = clone(DEFAULT_CONFIG); c.stats.shield.damage = 3; // Fixed non-annihilation fixture, independent of the current balance.
+  const c = clone(REVISION_FOUR_CONFIG); c.stats.shield.damage = 2; // Fixed non-annihilation fixture, independent of the current balance.
   const s = state([p('a', 'shield', 0, 0, 0), p('b', 'shield', 1, 2, -4), ...[[3, -4], [1, -4], [1, -3], [2, -3]].map(([q, r], i) => p('wall' + i, 'defenseLamp', 0, q, r))]);
   // The surrounded shield survives, yet the explicit immobility rule can end the game.
   const result = createExperiment(c, 'immobility_loss').move(s, 'a', { q: 0, r: 1 });
