@@ -7,7 +7,7 @@ test('escape is vertical, red while threatened and safe to the side with a real 
   const initial = createCombatLesson(0), blue = initial.before.pieces[0], enemy = initial.before.pieces[1];
   assert.equal(blue.q, enemy.q); assert.ok(enemy.r > blue.r);
   assert.ok(Math.abs(initial.point(blue).x - initial.point(enemy).x) < 1e-10);
-  assert.ok(initial.point(enemy).y > initial.point(blue).y);
+  assert.ok(initial.point(enemy).y < initial.point(blue).y);
   assert.equal(initial.report.get('blue').incoming, 8);
   assert.match(initial.description, /подсвечивается красным/);
   const safe = createCombatLesson(0, { advanced: true, destination: { q: 1, r: 0 } });
@@ -35,7 +35,7 @@ test('vertical shield example starts apart and a real approach ends with both de
   const initial = createCombatLesson(2), [blue, enemy] = initial.before.pieces;
   assert.equal(blue.q, enemy.q); assert.equal(enemy.r - blue.r, 2);
   assert.ok(Math.abs(initial.point(blue).x - initial.point(enemy).x) < 1e-10);
-  assert.ok(initial.point(enemy).y > initial.point(blue).y);
+  assert.ok(initial.point(enemy).y < initial.point(blue).y);
   assert.equal(initial.report.get('blue').incoming, 0);
   assert.equal(initial.report.get('enemy').incoming, 0);
   assert.ok(!initial.description.includes('?'));

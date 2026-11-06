@@ -3,107 +3,64 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG, TEAM_NAMES } from '../dist/rules.js';
-import { clone, cells, effective, auraReaches, shieldCanRetreat } from '../dist/engine.js';
-import { AURA_COLORS, auraPatternDefinitions } from '../dist/board-presentation.js';
-import { createMoveLesson, renderMoveLesson, renderMoveExamples } from '../dist/onboarding-examples.js';
-
-// Exercise the actual DOM painter, rather than a second implementation of its rules.
+import { clone, effective, shieldCanRetreat } from '../dist/engine.js';
+import { AURA_COLORS, auraKind, auraCircleMarkup } from '../dist/board-presentation.js';
+import { createMoveLesson, renderMoveLesson } from '../dist/onboarding-examples.js';
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
 const painter = app.slice(app.indexOf('function paintAuras() {'), app.indexOf('\nfunction lastMoveTrace()'));
-function element(cell) {
-  const classes = new Set(), styles = new Map();
-  return { dataset: { cell }, classes, styles, hidden: true, innerHTML: '',
-    classList: { toggle: (name, on) => on ? classes.add(name) : classes.delete(name) },
-    style: { setProperty: (name, value) => styles.set(name, value), removeProperty: name => styles.delete(name) } };
-}
+const piece = (id,type,team,q=0,r=0)=>({id,type,team,q,r});
 function setup(pieces) {
-  const config = clone(DEFAULT_CONFIG), board = cells(config).map(c => element(`${c.q},${c.r}`)), legend = element('');
-  const state = { pieces, turn: 0, ply: 0, winner: null };
-  const context = vm.createContext({ config, TEAM_NAMES, effective, auraReaches, shieldCanRetreat, selected: null, fieldView: null, preview: null,
-    visibleState: () => state, $: () => legend,
-    document: { querySelectorAll: () => board } });
-  context.inspectionContext = () => context.preview || { position: state, isPreview: false };
-  vm.runInContext(painter, context);
-  return { context, config, board, legend, state, paint: () => vm.runInContext('paintAuras()', context),
-    fill: key => board.find(c => c.dataset.cell === key).styles.get('--aura-fill') };
+  const config=clone(DEFAULT_CONFIG), state={pieces,turn:0,ply:0,winner:null};
+  const layer={innerHTML:''},legend={innerHTML:'',hidden:true};
+  const context=vm.createContext({config,TEAM_NAMES,effective,shieldCanRetreat,AURA_COLORS,auraKind,auraCircleMarkup,selected:null,fieldView:null,preview:null,
+    visibleState:()=>state,$:selector=>selector==='#aura-circles'?layer:legend});
+  context.inspectionContext=()=>context.preview||{position:state,isPreview:false};
+  vm.runInContext(app.split('\n').find(line=>line.startsWith('function point(')),context);
+  vm.runInContext(painter,context);
+  return {context,config,state,layer,legend,paint:()=>vm.runInContext('paintAuras()',context)};
 }
-const piece = (id, type, team, q = 0, r = 0) => ({ id, type, team, q, r });
-
-test('selecting any aura unit shows only its hatched aura, including archers and veterans on either team', () => {
-  for (const team of [0, 1]) for (const [type, veteran, baseMask, count] of [
-    ['shield', false, 2, 6], ['archer', false, 1, 6], ['attackLamp', false, 1, 18],
-    ['defenseLamp', false, 2, 6], ['shield', true, 3, 6]
-  ]) {
-    const selected = { ...piece('selected', type, team), ...(veteran ? { reachedFarEdge: true } : {}) };
-    const ui = setup([selected, piece('other', 'attackLamp', 1 - team, 3, 0)]);
-    ui.context.selected = selected.id; ui.paint();
-    assert.equal(ui.board.filter(c => c.classes.has('has-aura')).length, count);
-    assert.equal(ui.fill('1,0'), `url(#aura-${baseMask << (team * 2)})`);
-    assert.equal(ui.fill('0,0'), undefined, 'the source cell is excluded');
-    assert.equal(ui.legend.hidden, false);
-    assert.equal(ui.legend.classes.has('solid-auras'), false);
-    assert.ok(ui.legend.innerHTML.includes(TEAM_NAMES[team]));
-    assert.ok(!ui.legend.innerHTML.includes(TEAM_NAMES[1 - team]));
+test('selected auras are circles with effect colors and a boundary just beyond the outer-cell centre',()=>{
+  for(const team of [0,1])for(const type of ['shield','archer','attackLamp','defenseLamp'])for(const veteran of [false,true]){
+    const source={...piece('a',type,team),reachedFarEdge:veteran},ui=setup([source,piece('b','attackLamp',1-team,3,0)]);
+    ui.context.selected='a';ui.paint();
+    const promoted=type==='shield'&&veteran, radius=effective(source,ui.state,ui.config).aura;
+    const circles=[...ui.layer.innerHTML.matchAll(/<circle[^>]*r="([^"]+)"[^>]*stroke="([^"]+)"/g)];
+    assert.equal(circles.length,1);
+    for(const c of circles){const lastCentre=radius*Math.sqrt(3)*33;assert.ok(Number(c[1])>lastCentre);assert.ok(Number(c[1])<lastCentre+10);}
+    assert.ok(ui.layer.innerHTML.includes(`data-aura-origin="0,0"`));
+    const kind=promoted?'combined':['shield','defenseLamp'].includes(type)?'defense':'attack';
+    assert.ok(circles.some(c=>c[2]===AURA_COLORS[kind]));
+    assert.ok(!ui.layer.innerHTML.includes('polygon'));
+    assert.equal(ui.legend.hidden,false);
   }
 });
-
-test('selected aura follows a movement preview and returns after leaving it; hovering another piece keeps the selected source', () => {
-  const selected = piece('selected', 'archer', 0), other = piece('other', 'shield', 1, -3, 0);
-  const ui = setup([selected, other]); ui.context.selected = selected.id;
-  ui.paint(); assert.equal(ui.fill('2,0'), undefined);
-  const preview = clone(ui.state); preview.pieces[0].q = 1;
-  ui.context.preview = { isPreview: true, piece: preview.pieces[0], position: preview };
-  ui.paint(); assert.equal(ui.fill('2,0'), 'url(#aura-1)'); assert.equal(ui.fill('-1,0'), undefined);
-  ui.context.preview = { isPreview: false, piece: other, position: ui.state };
-  ui.paint(); assert.equal(ui.fill('-1,0'), 'url(#aura-1)'); assert.equal(ui.fill('2,0'), undefined);
-  assert.equal(selected.q, 0);
+test('circle centre follows the selected movement preview; unrelated hover and deselection do not retain it',()=>{
+  const source=piece('a','attackLamp',0),other=piece('b','shield',1,-3,0),ui=setup([source,other]);ui.context.selected='a';ui.paint();
+  const original=ui.layer.innerHTML,preview=clone(ui.state);preview.pieces[0].q=1;
+  ui.context.preview={isPreview:true,piece:preview.pieces[0],position:preview};ui.paint();
+  assert.ok(ui.layer.innerHTML.includes('data-aura-origin="1,0"'));
+  ui.context.preview={isPreview:false,piece:other,position:ui.state};ui.paint();assert.equal(ui.layer.innerHTML,original);
+  ui.context.selected=null;ui.paint();assert.equal(ui.layer.innerHTML,'');assert.equal(ui.legend.hidden,true);
 });
-
-test('all-aura mode keeps solid overlaps, while deselection, attack mode and zero-radius units clear selection auras', () => {
-  const ui = setup([piece('a', 'archer', 0), piece('b', 'shield', 1, 2, 0)]);
-  ui.context.fieldView = 'auras'; ui.paint();
-  assert.equal(ui.fill('1,0'), 'url(#aura-fill-9)'); assert.equal(ui.legend.classes.has('solid-auras'), true);
-  for (const view of [null, 'attacks']) {
-    ui.context.fieldView = view; ui.context.selected = null; ui.paint();
-    assert.equal(ui.board.some(c => c.classes.has('has-aura') || c.styles.size), false);
-    assert.equal(ui.legend.hidden, true);
-  }
-  ui.context.fieldView = null; ui.context.selected = 'a'; ui.config.stats.archer.aura = 0; ui.paint();
-  assert.equal(ui.board.some(c => c.classes.has('has-aura')), false);
-  assert.equal(ui.legend.hidden, true);
+test('all-aura view shows both sources; attack view and zero radii hide rings',()=>{
+  const ui=setup([piece('a','archer',0),piece('b','shield',1,2,0)]);ui.context.fieldView='auras';ui.paint();
+  assert.equal((ui.layer.innerHTML.match(/class="aura-circles"/g)||[]).length,2);
+  ui.context.fieldView='attacks';ui.context.selected='a';ui.paint();assert.equal(ui.layer.innerHTML,'');
+  ui.context.fieldView=null;ui.config.stats.archer.aura=0;ui.paint();assert.equal(ui.layer.innerHTML,'');
 });
-
-test('board and tutorial auras share one palette, hatch geometry and opacity', () => {
-  assert.deepEqual(AURA_COLORS, ['#a9cf91', '#c6a5df', '#b66a80', '#edd46c']);
-  assert.ok(app.includes('const auraPatterns = auraPatternDefinitions();'));
-  for (const aura of ['attack', 'defense']) {
-    const mask = aura === 'attack' ? 1 : 2, prefix = `lesson-4-${aura}-aura`;
-    const lesson = createMoveLesson(4, { aura, selected: true }), html = renderMoveLesson(lesson, {});
-    const definitions = html.match(/<defs>([\s\S]*?)<\/defs>/)[1];
-    assert.equal(definitions.replaceAll(prefix, 'aura'), auraPatternDefinitions('aura', [mask]));
-    assert.ok(definitions.includes(`stroke="${AURA_COLORS[mask - 1]}"`));
-    assert.ok(definitions.includes('stroke-opacity="0.4"'));
-    assert.ok(html.includes(`--aura-fill:url(#${prefix}-${mask})`));
-    assert.equal((html.match(/class="lesson-aura-overlay"/g) || []).length, cells(lesson.config).length);
-  }
+test('square circles reach the furthest covered cell centres with and without diagonals',()=>{
+  const ui=setup([piece('a','attackLamp',0,3,3)]);ui.config.geometry='square';ui.context.selected='a';
+  for(const diagonal of [false,true]){ui.config.experiments.squareDiagonals=diagonal;ui.paint();const radius=Number(ui.layer.innerHTML.match(/<circle[^>]*r="([^"]+)"/)[1]);assert.equal(radius,2*59*(diagonal?Math.SQRT2:1)+5.9);}
 });
-
-test('tutorial aura definitions are scoped per scene and keep the same pattern through hover, move and deselection', () => {
-  const states = {
-    '4-attack': { selected: true, previewPlacement: { q: 1, r: -2 } },
-    '4-defense': { selected: true, previewPlacement: { q: -1, r: 0 } }
-  };
-  const html = renderMoveExamples(states, {}), ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(ids).size, ids.length);
-  for (const ref of html.matchAll(/url\(#([^\)]+)\)/g)) assert.ok(ids.includes(ref[1]));
-  for (const aura of ['attack', 'defense']) {
-    const placement = states[`4-${aura}`].previewPlacement;
-    const hover = renderMoveLesson(createMoveLesson(4, { aura, selected: true, previewPlacement: placement }), {});
-    const committed = renderMoveLesson(createMoveLesson(4, { aura, selected: true, placement }), {});
-    const deselected = renderMoveLesson(createMoveLesson(4, { aura, placement }), {});
-    assert.equal(hover.match(/<defs>[\s\S]*?<\/defs>/)[0], committed.match(/<defs>[\s\S]*?<\/defs>/)[0]);
-    assert.ok(hover.includes(` lesson-${aura}-aura`));
-    assert.ok(committed.includes(` lesson-${aura}-aura`));
-    assert.ok(!deselected.includes(` lesson-${aura}-aura`));
+test('tutorial aura circles use the same renderer and follow hover, committed selection, and deselection',()=>{
+  for(const aura of ['attack','defense']){
+    const destination=aura==='attack'?{q:1,r:-2}:{q:-1,r:0};
+    for(const options of [{selected:true,previewPlacement:destination},{selected:true,placement:destination}]){
+      const lesson=createMoveLesson(4,{aura,...options}),html=renderMoveLesson(lesson,{});
+      assert.ok(html.includes(`data-aura-origin="${destination.q},${destination.r}"`));
+      assert.ok(html.includes('class="aura-ring"'));assert.ok(!html.includes('lesson-aura-overlay'));
+    }
+    const html=renderMoveLesson(createMoveLesson(4,{aura,placement:destination}),{});
+    assert.ok(!html.includes('class="aura-ring"'));
   }
 });

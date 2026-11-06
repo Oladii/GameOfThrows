@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
 import { analyze, inspectCell, resolve, isLethalDamage, move, effective, key } from '../dist/engine.js';
-import { durabilityDisplay, attackCellsFor, unitStatParts, unitAppearance, VETERAN_SHIELD_ICON, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape } from '../dist/board-presentation.js';
+import { durabilityDisplay, attackCellsFor, unitStatParts, unitAppearance, VETERAN_SHIELD_ICON, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape, attackReachPresentation } from '../dist/board-presentation.js';
 import { LABELS } from '../dist/rules.js';
 const piece = (id, type, team, q, r) => ({id, type, team, q, r});
 const position = pieces => ({pieces, turn:0, ply:0, winner:null});
@@ -81,45 +81,87 @@ test('a promoted shield gets veteran armor and keeps it after retreat, during mo
 
 const appSource = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
 function reachPainter(config, state, selected) {
-  const layer = { innerHTML: '' };
-  const context = vm.createContext({ config, selected, attackCellsFor, effective, isLethalDamage, attackMarkerRotation, key, LABELS, skullShape,
+  let writes = 0, html = ''; const layer = { get innerHTML() { return html; }, set innerHTML(value) { writes++; html = value; } };
+  const context = vm.createContext({ config, selected, attackReachPresentation, attackCellsFor, effective, isLethalDamage, attackMarkerRotation, key, LABELS, skullShape,
     visibleState: () => state, $: () => layer, document: { querySelectorAll: () => [] } });
   vm.runInContext(appSource.split('\n').find(line => line.startsWith('function point(')), context);
   vm.runInContext(appSource.split('\n').find(line => line.startsWith('function polygon(')), context);
-  vm.runInContext(appSource.slice(appSource.indexOf('const REACH_ICONS ='), appSource.indexOf('const auraPatterns =')), context);
   vm.runInContext(appSource.slice(appSource.indexOf('function paintAttackReach('), appSource.indexOf('function renderInspector(')), context);
-  return { context, render(input) { context.paintAttackReach(input); return layer.innerHTML; } };
+  return { context, writes: () => writes, render(input) { context.paintAttackReach(input); return layer.innerHTML; } };
 }
 
-test('the actual reach painter turns arrows and swords outward along every hex and square attack ray, including previews', () => {
+test('empty attack cells show directional arrows for archers and swords for other units', () => {
   for (const geometry of ['hex', 'square']) for (const type of ['archer', 'shield']) for (const team of [0, 1]) {
-    const config = structuredClone(DEFAULT_CONFIG); config.geometry = geometry; config.size = 7; config.experiments.squareDiagonals = true;
-    const source = piece('selected', type, team, geometry === 'hex' ? 0 : 3, geometry === 'hex' ? 0 : 3), state = position([source]); state.turn = team;
-    const painter = reachPainter(config, state, source.id);
-    const preview = inspectCell(state, config, { q: source.q + 1, r: source.r }, source.id);
-    assert.equal(preview.isPreview, true);
-    for (const input of [{ position: state, piece: source, isPreview: false }, preview]) {
-      const from = painter.context.point(input.piece), html = painter.render(input);
-      const markers = html.split(/(?=<g class="attack-reach )/).filter(part => part.startsWith('<g class="attack-reach '));
-      assert.ok(markers.length >= (geometry === 'hex' ? 6 : 8));
-      for (const marker of markers) {
-        const coords = marker.match(/data-reach-cell="(-?\d+),(-?\d+)"/), to = painter.context.point({ q: Number(coords[1]), r: Number(coords[2]) });
-        const rotation = Number(marker.match(/class="reach-icon" transform="rotate\(([^)]+)\)"/)[1]) * Math.PI / 180;
-        // Rotate the weapon's original (1,-1) shaft vector and compare it with the real source-to-cell ray.
-        const x = (Math.cos(rotation) + Math.sin(rotation)) / Math.SQRT2, y = (Math.sin(rotation) - Math.cos(rotation)) / Math.SQRT2;
-        const length = Math.hypot(to.x - from.x, to.y - from.y);
-        assert.ok(Math.abs(x - (to.x - from.x) / length) < 1e-9);
-        assert.ok(Math.abs(y - (to.y - from.y) / length) < 1e-9);
-        assert.ok(marker.includes(`data-attack-kind="${type === 'archer' ? 'arrow' : 'sword'}"`));
-      }
+    const config=structuredClone(DEFAULT_CONFIG);config.geometry=geometry;config.size=11;
+    config.experiments.allyShotsPass=true;config.stats[type].range=3;config.shieldPromotion.maxRange=3;config.stats.archer.fortitude=1000;
+    const center=geometry==='hex'?0:5,source=piece('s',type,team,center,center);
+    const ally=piece('a','archer',team,center+1,center),enemy=piece('e','archer',1-team,center+2,center);
+    const state=position([source,ally,enemy]),painter=reachPainter(config,state,source.id);
+    const html=painter.render({position:state,piece:source,isPreview:false});
+    assert.ok(html.includes('attack-target-outline'));
+    assert.ok(html.includes(`class="attack-target-fill ${team?'south':'north'}" data-threat-cell="${enemy.q},${enemy.r}"`));
+    assert.ok(!html.includes(`data-threat-cell="${source.q},${source.r}"`));
+    assert.ok(!html.includes(`data-threat-cell="${ally.q},${ally.r}"`));
+    const weapons=[...html.matchAll(/class="attack-target-weapon [^"]+" data-weapon-cell="(-?\d+),(-?\d+)" data-weapon-kind="([^"]+)" transform="translate\([^)]+\) rotate\(([^)]+)\)"/g)];
+    const emptyTargets=attackCellsFor(source,state,config).filter(c=>!state.pieces.some(p=>p.q===c.q&&p.r===c.r));
+    assert.equal(weapons.length,emptyTargets.length);
+    for(const weapon of weapons){
+      assert.equal(weapon[3],type==='archer'?'arrow':'sword');
+      const to=painter.context.point({q:+weapon[1],r:+weapon[2]}),from=painter.context.point(source),angle=Number(weapon[4])*Math.PI/180;
+      const length=Math.hypot(to.x-from.x,to.y-from.y);
+      assert.ok(Math.abs((Math.cos(angle)+Math.sin(angle))/Math.SQRT2-(to.x-from.x)/length)<1e-9);
+      assert.ok(Math.abs((Math.sin(angle)-Math.cos(angle))/Math.SQRT2-(to.y-from.y)/length)<1e-9);
     }
+    assert.ok(!/reach-flight|reach-icon|attack-streams|data-attack-kind="(?:arrow|sword)"/.test(html));
+  }
+});
+test('lethal attacks retain upright skulls above the enemy cell fill', () => {
+  for(const type of ['archer','shield']) {
+    const config=structuredClone(DEFAULT_CONFIG),source=piece('s',type,0,0,0),state=position([source,piece('e','archer',1,-1,0)]);
+    const painter=reachPainter(config,state,source.id),html=painter.render({position:state,piece:source,isPreview:false});
+    assert.ok(html.includes('data-attack-kind="skull"'));assert.ok(html.includes('class="reach-skull"'));
+    assert.ok(html.indexOf('attack-target-fill')<html.indexOf('class="reach-skull"'));
+    const skull=html.match(/<g class="attack-reach [\s\S]*?<\/g><\/g>/)[0];
+    assert.ok(!skull.includes('rotate('));
+  }
+});
+test('movement preview leaves the visible source and every allied figure unmarked',()=>{
+  for(const geometry of ['hex','square']) for(const team of [0,1]) {
+    const config=structuredClone(DEFAULT_CONFIG);config.geometry=geometry;config.size=11;
+    const center=geometry==='hex'?0:5,source=piece('s','archer',team,center,center),ally=piece('a','shield',team,center-1,center);
+    const state=position([source,ally]);state.turn=team;
+    const painter=reachPainter(config,state,source.id),preview=inspectCell(state,config,{q:center+1,r:center},source.id);
+    assert.equal(preview.isPreview,true);
+    assert.ok(attackCellsFor(preview.piece,preview.position,config).some(c=>c.q===source.q&&c.r===source.r));
+    const html=painter.render(preview);
+    for(const cell of [source,ally,preview.piece]) assert.ok(!html.includes(`data-threat-cell="${cell.q},${cell.r}"`));
+    assert.ok(html.includes('data-threat-cell='));
+  }
+});
+test('unchanged inspection avoids rebuilding attack markers',()=>{
+  const config=structuredClone(DEFAULT_CONFIG),source=piece('s','archer',0,0,0),state=position([source]),painter=reachPainter(config,state,'s');
+  painter.render({position:state,piece:source,isPreview:false});const writes=painter.writes();
+  painter.render({position:state,piece:null,isPreview:false});assert.equal(painter.writes(),writes);
+  painter.render(inspectCell(state,config,{q:1,r:0},source.id));assert.equal(painter.writes(),writes+1);
+  painter.context.selected=null;assert.equal(painter.render({position:state,isPreview:false}),'');
+});
+test('archer tokens face the enemy side during rest, movement and death',()=>{
+  const config=structuredClone(DEFAULT_CONFIG),icons={archer:'<path data-arrow="right"/>'};
+  for(const team of [0,1]){const archer=piece('a','archer',team,0,0),rotation=`rotate(${team===0?90:-90} 12 12)`;
+    assert.ok(unitAppearance(archer,config,icons).icon.includes(rotation));
+    assert.ok(renderMovingToken(archer,{x:0,y:0,progress:0},icons,'moving',config).includes(rotation));
+    assert.ok(renderDeathEffects([archer],()=>({x:0,y:0}),'',icons,config).includes(rotation));
   }
 });
 
-test('lethal attack skulls stay upright when weapon direction changes', () => {
-  const config = structuredClone(DEFAULT_CONFIG), source = piece('selected', 'shield', 0, 0, 0), state = position([source, piece('target', 'archer', 1, -1, 0)]);
-  const painter = reachPainter(config, state, source.id), html = painter.render({ position: state, piece: source, isPreview: false });
-  const lethal = html.split(/(?=<g class="attack-reach )/).find(marker => marker.includes('data-reach-cell="-1,0"'));
-  assert.ok(lethal.includes('data-attack-kind="skull"')); assert.ok(lethal.includes('class="reach-skull"'));
-  assert.ok(!lethal.includes('rotate('));
+test('board aura playback pauses while hidden or offscreen and resumes only when both conditions clear',()=>{
+  let intersection,visibility;const classes=new Set(),board={classList:{toggle:(name,on)=>on?classes.add(name):classes.delete(name)}};
+  const document={hidden:false,addEventListener:(event,listener)=>{assert.equal(event,'visibilitychange');visibility=listener;}};
+  const context=vm.createContext({document,$:()=>board,IntersectionObserver:class{constructor(callback){intersection=callback;}observe(element){assert.equal(element,board);}}});
+  const start=appSource.indexOf('let attackReachInView ='),end=appSource.indexOf("if (gamePhase === 'playing') archiveRecorder.resume",start);
+  vm.runInContext(appSource.slice(start,end),context);
+  const paused=()=>classes.has('attack-reach-paused');assert.equal(paused(),false);
+  intersection([{isIntersecting:false}]);assert.equal(paused(),true);
+  document.hidden=true;intersection([{isIntersecting:true}]);assert.equal(paused(),true);
+  document.hidden=false;visibility();assert.equal(paused(),false);
 });

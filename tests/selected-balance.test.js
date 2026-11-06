@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { DEFAULT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
+import { DEFAULT_CONFIG, BALANCE_REVISION, updateSavedBalance, PREVIOUS_AREA_CONFIG } from '../dist/rules.js';
 import { clone, createGame, validateConfig } from '../dist/engine.js';
 import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 
-const selected = JSON.parse(fs.readFileSync(new URL('../balanced-area-auras.json', import.meta.url), 'utf8'));
+const selected = JSON.parse(fs.readFileSync(new URL('../balanced-scout-field.json', import.meta.url), 'utf8'));
 
-test('new local defaults match the selected solid-aura preset and deployment', () => {
-  assert.equal(BALANCE_REVISION, 6);
+test('new local defaults match the selected scout-field preset and deployment', () => {
+  assert.equal(BALANCE_REVISION, 7);
   assert.deepEqual(DEFAULT_CONFIG, selected.config);
   assert.deepEqual(clone(createGame(DEFAULT_CONFIG)), selected.state);
 });
@@ -19,7 +19,7 @@ test('old standard saves upgrade once without changing layout, experiments or in
   saved.auraDefenseCap = 2; saved.experiments.allowPass = true;
   const before = clone(saved), updated = updateSavedBalance(saved, 4);
   assert.deepEqual(saved, before);
-  assert.deepEqual(updated, { ...before, stats: clone(DEFAULT_CONFIG.stats), shieldPromotion: clone(DEFAULT_CONFIG.shieldPromotion) });
+  assert.deepEqual(updated, { ...before, stats: clone(PREVIOUS_AREA_CONFIG.stats), shieldPromotion: clone(DEFAULT_CONFIG.shieldPromotion) });
   assert.deepEqual(updateSavedBalance(updated, BALANCE_REVISION), updated);
 });
 
@@ -33,7 +33,7 @@ test('custom combat profiles and explicitly imported older settings keep their v
     assert.deepEqual(updateSavedBalance(custom, 4), custom);
   }
   assert.deepEqual(updateSavedBalance(REVISION_FOUR_CONFIG, BALANCE_REVISION), REVISION_FOUR_CONFIG);
-  assert.deepEqual(validateConfig(clone(REVISION_FOUR_CONFIG)), REVISION_FOUR_CONFIG);
+  assert.deepEqual(validateConfig(clone(REVISION_FOUR_CONFIG)), { ...clone(REVISION_FOUR_CONFIG), army: { ...REVISION_FOUR_CONFIG.army, scoutLamps: 0 }, stats: { ...REVISION_FOUR_CONFIG.stats, scoutLamp: clone(DEFAULT_CONFIG.stats.scoutLamp) } });
 });
 
 test('revision-five standard profiles migrate to the solid aura balance once, preserving custom profiles', () => {
@@ -41,7 +41,7 @@ test('revision-five standard profiles migrate to the solid aura balance once, pr
   const before = clone(old), next = updateSavedBalance(old, 5);
   assert.deepEqual(next, DEFAULT_CONFIG); assert.deepEqual(old, before);
   assert.deepEqual(updateSavedBalance(old, BALANCE_REVISION), old);
-  assert.deepEqual(validateConfig(old), old);
+  assert.deepEqual(validateConfig(old), { ...clone(old), army: { ...old.army, scoutLamps: 0 }, stats: { ...old.stats, scoutLamp: clone(DEFAULT_CONFIG.stats.scoutLamp) } });
   const custom = clone(old); custom.stats.shield.damage += 1;
   assert.deepEqual(updateSavedBalance(custom, 5), custom);
 });

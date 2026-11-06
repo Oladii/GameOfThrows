@@ -460,7 +460,7 @@ test('banner balance migration updates revision two once and preserves explicit 
   assert.equal(next.stats.attackLamp.range, 0);
   assert.equal(next.stats.attackLamp.damageBonus, DEFAULT_CONFIG.stats.attackLamp.damageBonus);
   assert.deepEqual(updateSavedBalance(old, BALANCE_REVISION), old);
-  assert.deepEqual(validateConfig(old), old);
+  assert.deepEqual(validateConfig(old), { ...clone(old), army: { ...old.army, scoutLamps: 0 }, stats: { ...old.stats, scoutLamp: clone(DEFAULT_CONFIG.stats.scoutLamp) } });
   const custom = clone(old); Object.assign(custom.stats.attackLamp, { damage: 4, range: 5, damageBonus: 3 });
   assert.deepEqual(updateSavedBalance(custom, 2), custom);
 });

@@ -10,7 +10,7 @@ const ArchiveBytes = value => new TextEncoder().encode(JSON.stringify(value)).by
 // Version 1 wire fields mirror rules.js / engine.js and the intake validator.
 // Keep this projection separate from game validation: imported annotations are
 // permitted by the game, but must never enter archive requests.
-const ArchivePieceTypes = ['shield', 'archer', 'attackLamp', 'defenseLamp'];
+const ArchivePieceTypes = ['shield', 'archer', 'attackLamp', 'defenseLamp', 'scoutLamp'];
 const ArchiveStatFields = ['move', 'damage', 'range', 'fortitude', 'aura', 'damageBonus', 'rangeBonus', 'defenseBonus'];
 const ArchivePick = (value, fields) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
@@ -19,7 +19,7 @@ const ArchivePick = (value, fields) => {
 const ArchiveConfig = value => {
   const config = ArchivePick(value, ['version', 'geometry', 'size', 'army', 'stats', 'experiments', 'shieldPromotion', 'auraDefenseCap']);
   if (!config || typeof config !== 'object' || Array.isArray(config)) return config;
-  if (Object.hasOwn(config, 'army')) config.army = ArchivePick(config.army, ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps']);
+  if (Object.hasOwn(config, 'army')) config.army = ArchivePick(config.army, ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps', 'scoutLamps']);
   if (Object.hasOwn(config, 'stats')) {
     config.stats = ArchivePick(config.stats, ArchivePieceTypes);
     if (config.stats && typeof config.stats === 'object') for (const type of ArchivePieceTypes) {

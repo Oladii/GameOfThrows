@@ -122,7 +122,7 @@ test('both auras improve allies while support stays unarmed without a veteran', 
     assert.ok(!initial.sources.includes('support')); assert.ok(buffed.sources.includes('support'));
     assert.equal(after.report.get('support').damage, 0); assert.equal(after.report.get('support').range, 0);
     if (aura === 'attack') {
-      assert.equal(buffed.damage - initial.damage, DEFAULT_CONFIG.stats.attackLamp.damageBonus); assert.equal(buffed.range - initial.range, 1);
+      assert.equal(buffed.damage - initial.damage, DEFAULT_CONFIG.stats.attackLamp.damageBonus); assert.equal(buffed.range - initial.range, 0);
       assert.equal(before.report.get('enemy').dead, false); assert.equal(after.report.get('enemy').dead, true);
     } else {
       assert.equal(buffed.fortitude - initial.fortitude, DEFAULT_CONFIG.stats.defenseLamp.defenseBonus); assert.equal(initial.incoming, DEFAULT_CONFIG.stats.shield.damage); assert.equal(buffed.incoming, initial.incoming);
@@ -135,7 +135,8 @@ test('all examples appear on one page with unique SVG ids and independent states
   const initialHtml = renderMoveExamples({}, icons), initial = sceneHtml(initialHtml);
   assert.deepEqual([...initial.keys()], ['0', '1', '2', '3', '4-attack', '4-defense']);
   assert.deepEqual([...initialHtml.matchAll(/ПРИМЕР (\d+) ИЗ (\d+)/g)].map(match => `${match[1]}/${match[2]}`), ['1/6', '2/6', '3/6', '4/6', '5/6', '6/6']);
-  for (const absent of ['lesson-menu', 'lesson-variants', 'data-lesson-route', 'data-lesson-aura', 'role="tab', 'hidden']) assert.ok(!initialHtml.includes(absent), absent);
+  for (const absent of ['lesson-menu', 'lesson-variants', 'data-lesson-route', 'data-lesson-aura', 'role="tab']) assert.ok(!initialHtml.includes(absent), absent);
+  assert.doesNotMatch(initialHtml, /\shidden(?:\s|=|>)/, 'examples remain visible');
   const ids = [...initialHtml.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   assert.equal(new Set(ids).size, ids.length);
   for (const ref of initialHtml.matchAll(/url\(#([^\)]+)\)/g)) assert.ok(ids.includes(ref[1]), ref[1]);
@@ -150,7 +151,7 @@ test('all examples appear on one page with unique SVG ids and independent states
 test('every figure receives the same effective combat report for its game-style badges', () => {
   const reports = [];
   const html = renderMoveExamples({}, icons, info => { reports.push(info); return `<g data-training-damage="${info.damage}" data-training-durability="${info.fortitude - info.incoming}"></g>`; });
-  assert.equal(reports.length, 17); assert.equal((html.match(/class="lesson-unit-badges"/g) || []).length, 17);
+  assert.equal(reports.length, 19); assert.equal((html.match(/class="lesson-unit-badges"/g) || []).length, 19);
   for (const info of reports) for (const field of ['damage', 'range', 'fortitude', 'incoming']) assert.equal(typeof info[field], 'number');
   assert.ok(html.includes('Ходим по кратчайшему пути.'));
   assert.ok(html.includes('За один ход лукарь может пройти до трёх шагов.'));
@@ -239,7 +240,7 @@ test('support hover forecasts combat without moving or removing any piece', () =
     const placement = aura === 'attack' ? { q: 1, r: -2 } : { q: -1, r: 0 };
     const hover = createMoveLesson(4, { aura, selected: true, previewPlacement: placement });
     assert.deepEqual(hover.position, hover.before); assert.equal(hover.isPreview, true);
-    assert.equal(hover.position.pieces.length, 3); assert.equal(hover.deaths.length, 0);
+    assert.equal(hover.position.pieces.length, aura === 'attack' ? 5 : 3); assert.equal(hover.deaths.length, 0);
     assert.equal(hover.previewPosition.pieces.find(piece => piece.id === 'support').q, placement.q);
     assert.ok(hover.report.get('blue').sources.includes('support'));
     const real = inspectCell(hover.before, hover.config, placement, 'support');
@@ -267,10 +268,10 @@ test('only the first example shows step numbers, and no example draws combat arr
 test('the fifth example lets the drummer enable a safe lethal shot against an enemy archer', () => {
   const initial = createMoveLesson(4, { aura: 'attack' });
   assert.equal(initial.position.pieces.find(piece => piece.id === 'enemy').type, 'archer');
-  assert.equal(initial.canHit, false); assert.equal(initial.report.get('enemy').incoming, 0);
+  assert.equal(initial.canHit, true); assert.equal(initial.report.get('enemy').incoming, DEFAULT_CONFIG.stats.archer.damage); assert.equal(initial.report.get('enemy').dead, false);
   const preview = createMoveLesson(4, { aura: 'attack', selected: true, previewPlacement: { q: 1, r: -2 } });
   assert.equal(preview.canHit, true); assert.equal(preview.report.get('enemy').dead, true);
-  assert.equal(preview.report.get('blue').dead, false); assert.equal(preview.report.get('blue').incoming, 0);
+  assert.equal(preview.report.get('blue').dead, false); assert.equal(preview.report.get('blue').incoming, DEFAULT_CONFIG.stats.archer.damage);
   const placed = createMoveLesson(4, { aura: 'attack', selected: true, placement: { q: 1, r: -2 } });
   assert.deepEqual([...preview.report], [...placed.report]);
   assert.ok(placed.feedback.includes('Погибли:'));

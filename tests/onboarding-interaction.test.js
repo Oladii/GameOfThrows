@@ -4,34 +4,39 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { createMoveLesson, renderMoveLesson, renderMoveExamples, createCombatLesson, renderCombatExamples, lessonPoint } from '../dist/onboarding-examples.js';
 import { createUnitLesson, renderUnitExamples } from '../dist/onboarding-units.js';
+import { createShowcaseBattle, renderShowcaseBattle } from '../dist/onboarding-showcase.js';
 import { createMovementPlan, CombatAnimator, DEATH_EFFECT_DURATION } from '../dist/move-animation.js';
 
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
 const scenes = ['0', '1', '2', '3', '4-attack', '4-defense'];
 function setup({ reducedMotion = true } = {}) {
-  let handler, time = 0, id = 0, mediaHandler, closeHandler;
+  let handler, keyboardHandler, cancelHandler, time = 0, id = 0, mediaHandler, closeHandler;
   const frames = new Map(), timers = new Map();
   const media = { matches: reducedMotion, addEventListener(type, callback) { mediaHandler = callback; } };
   const clock = { now: () => time, requestFrame: callback => { frames.set(++id, callback); return id; }, cancelFrame: handle => frames.delete(handle),
     setTimer: (callback, delay) => { timers.set(++id, { callback, at: time + delay }); return id; }, clearTimer: handle => timers.delete(handle) };
   const body = { scrollTop: 180, html: '', token: { dataset: {}, attrs: {}, setAttribute(name, value) { this.attrs[name] = value; } }, focus() {},
-    addEventListener(type, callback) { handler = callback; }, querySelector(selector) { return selector.startsWith('#lesson-moving-token-') ? this.token : { focus() {} }; } };
-  const context = vm.createContext({ onboardingExamples: {}, onboardingAnimation: null, onboardingPreviewByKeyboard: false, createMoveLesson, createCombatLesson, createUnitLesson, createMovementPlan, lessonPoint,
+    addEventListener(type, callback) { if (type === 'cancel') cancelHandler = callback; else if (type === 'keydown') keyboardHandler = callback; else handler = callback; }, querySelector(selector) { if (selector.startsWith('#lesson-moving-token-')) return this.token; const element = { dataset: { showcaseAction: selector.includes('next') ? 'next' : 'prev' }, focus() {}, scrollIntoView() {}, closest() { return element; }, click() { handler({ target: element }); } }; return element; } };
+  const context = vm.createContext({ onboardingExamples: {}, onboardingShowcaseStep: 0, onboardingAnimation: null, onboardingPreviewByKeyboard: false, createMoveLesson, createCombatLesson, createUnitLesson, createShowcaseBattle, createMovementPlan, lessonPoint,
     CombatAnimator: class extends CombatAnimator { constructor(onPhase, onFrame) { super(onPhase, onFrame, clock); } },
     matchMedia: () => media, movement: null, render() {}, onboardingStep: 2, onboardingSteps: ['Идея', 'Фигуры', 'Ход', 'Бой', 'Старт'],
     document: { querySelectorAll: () => [{ id: 'rules-dialog', addEventListener(type, callback) { closeHandler = callback; } }] },
-    $: () => body, renderOnboarding() { body.scrollTop = 0; body.html = renderMoveExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation) + renderUnitExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation) + renderCombatExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation); } });
+    $: () => body, renderOnboarding() { body.scrollTop = 0; body.html = renderMoveExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation) + renderUnitExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation) + renderCombatExamples(context.onboardingExamples, {}, () => '', context.onboardingAnimation) + renderShowcaseBattle(context.onboardingShowcaseStep, {}, () => '', context.onboardingAnimation?.sceneKey === 'showcase' ? context.onboardingAnimation : null); } });
   vm.runInContext(app.slice(app.indexOf('function onboardingLessonModel('), app.indexOf('function refreshOnboardingMovePreview(')), context);
   vm.runInContext(app.slice(app.indexOf("$('#onboarding-body').addEventListener('click'"), app.indexOf("$('#onboarding-body').addEventListener('keydown'")), context);
   vm.runInContext(app.slice(app.indexOf('function goToOnboardingStep('), app.indexOf("$('#about-guide-tab').addEventListener")), context);
+  vm.runInContext(app.slice(app.indexOf("$('#onboarding-body').addEventListener('keydown'"), app.indexOf("$('#onboarding-open').addEventListener")), context);
   vm.runInContext(app.split('\n').find(line => line.startsWith("matchMedia('(prefers-reduced-motion: reduce)').addEventListener")), context);
   vm.runInContext(app.split('\n').find(line => line.startsWith("document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close'")), context);
   return {
     state: context.onboardingExamples, body, phase: () => context.onboardingAnimation?.phase || 'idle',
+    showcase: () => createShowcaseBattle(context.onboardingShowcaseStep),
+    key(key, inBattle = false) { let prevented = false; keyboardHandler({ key, target: { closest() { return inBattle ? {} : null; } }, preventDefault() { prevented = true; } }); return prevented; },
     advance(ms) { time += ms; const scheduled = [...frames.values()]; frames.clear(); scheduled.forEach(callback => callback());
       for (const [handle, timer] of [...timers]) if (timer.at <= time) { timers.delete(handle); timer.callback(); } },
     reduce() { media.matches = true; mediaHandler({ matches: true }); },
     close() { closeHandler(); },
+    cancelDialog() { let prevented = false; cancelHandler({ preventDefault() { prevented = true; } }); return prevented; },
     goToStep(step) { context.goToOnboardingStep(step); },
     staleFrames: () => [...frames.values()], staleTimers: () => [...timers.values()].map(timer => timer.callback),
     click(sceneKey, data = {}, control = true) {
@@ -186,7 +191,7 @@ test('nonlethal moves finish without death effects and closing the dialog cancel
 });
 
 test('unit examples and combat commit a real move, animate deaths and reset through the existing handlers', () => {
-  const goals = { 'unit-shield': '0,2', 'unit-archer': '0,1', 'unit-attackLamp': '1,-2', 'unit-defenseLamp': '-1,0', '8': '1,0', '9': '-2,0', '10': '0,1' };
+  const goals = { 'unit-shield': '0,2', 'unit-archer': '0,-1', 'unit-attackLamp': '1,-2', 'unit-defenseLamp': '-1,0', '8': '1,0', '9': '-2,0', '10': '0,1' };
   for (const [key, goal] of Object.entries(goals)) {
     const ui = setup({ reducedMotion: false }), support = key.includes('Lamp');
     ui.click(key, { lessonUnit: support ? 'support' : 'blue' });
@@ -251,4 +256,90 @@ test('keyboard forecast survives scrolling under a stationary pointer until the 
   assert.equal(state.destination.q, 0); assert.equal(state.destination.r, 1);
   context.clearOnboardingMovePreview({ type: 'pointerout', target: cell('0,1'), relatedTarget: null });
   assert.equal(state.destination, null);
+});
+
+test('Escape cancel keeps the onboarding open without cancelling its current presentation', () => {
+  const ui = setup({ reducedMotion: false });
+  ui.click('1', { lessonUnit: 'blue' }); ui.click('1', { lessonCell: '0,1' });
+  const phase = ui.phase(), state = JSON.stringify(ui.state), html = ui.body.html;
+  assert.equal(ui.cancelDialog(), true);
+  assert.equal(ui.phase(), phase); assert.equal(JSON.stringify(ui.state), state); assert.equal(ui.body.html, html);
+  ui.close(); assert.equal(ui.phase(), 'idle');
+});
+
+test('the two shield controls switch selection, clear previews and toggle independently', () => {
+  const ui = setup(), key = 'unit-shield';
+  ui.click(key, { lessonUnit: 'blue' });
+  ui.state[key].destination = { q: 0, r: 2 };
+  ui.click(key, { lessonUnit: 'veteran' });
+  assert.equal(ui.state[key].selected, true); assert.equal(ui.state[key].selectedId, 'veteran');
+  assert.equal(ui.state[key].destination, null);
+  assert.ok(ui.body.html.includes('data-lesson-selected-unit="veteran"'));
+  ui.click(key, { lessonUnit: 'veteran' });
+  assert.equal(ui.state[key].selected, false); assert.equal(ui.state[key].selectedId, null);
+  ui.click(key, { lessonUnit: 'veteran' });
+  ui.click(null, {}, false);
+  assert.equal(ui.state[key].selected, false); assert.equal(ui.state[key].selectedId, null);
+});
+
+test('a veteran move animates the veteran and later inspection preserves the committed actor and result', () => {
+  const ui = setup({ reducedMotion: false }), key = 'unit-shield';
+  ui.click(key, { lessonUnit: 'veteran' }); ui.click(key, { lessonCell: '-1,2' });
+  assert.equal(ui.state[key].movedId, 'veteran'); assert.equal(ui.phase(), 'movement');
+  assert.ok(ui.body.html.includes('class="moving-token veteran south"'));
+  ui.advance(500); assert.equal(ui.phase(), 'deaths');
+  ui.advance(DEATH_EFFECT_DURATION); assert.equal(ui.phase(), 'idle');
+  const committed = createUnitLesson('shield', ui.state[key]).position;
+  ui.click(key, { lessonUnit: 'blue' });
+  assert.deepEqual(createUnitLesson('shield', ui.state[key]).position, committed);
+  ui.click(key, { lessonUnit: 'veteran' });
+  assert.equal(ui.state[key].selectedId, 'veteran');
+  assert.deepEqual(createUnitLesson('shield', ui.state[key]).position, committed);
+  ui.click(key, { lessonAction: 'reset' });
+  assert.equal(ui.state[key].movedId, null); assert.equal(ui.state[key].selectedId, null);
+  assert.deepEqual(createUnitLesson('shield', ui.state[key]).position, createUnitLesson('shield').position);
+});
+
+test('the battle viewer advances only on an arrow click and rewinds snapshots without recalculating combat', () => {
+  const ui = setup();
+  ui.click(null, { showcaseAction: 'prev' }); assert.equal(ui.showcase().index, 0);
+  ui.advance(10000); assert.equal(ui.showcase().index, 0);
+  for (let i = 1; i <= ui.showcase().total; i++) {
+    ui.click(null, { showcaseAction: 'next' });
+    assert.equal(ui.showcase().index, i); assert.equal(ui.phase(), 'idle');
+  }
+  assert.equal(ui.showcase().position.winner, 1);
+  ui.click(null, { showcaseAction: 'next' }); assert.equal(ui.showcase().index, ui.showcase().total);
+  for (let i = ui.showcase().total - 1; i >= 0; i--) {
+    ui.click(null, { showcaseAction: 'prev' });
+    assert.equal(ui.showcase().index, i);
+    assert.deepEqual(ui.showcase().position, createShowcaseBattle(i).position);
+  }
+  assert.equal(ui.showcase().position.pieces.length, 10);
+});
+
+test('rewinding cancels an in-progress showcase animation and ignores stale callbacks', () => {
+  const ui = setup({ reducedMotion: false });
+  ui.click(null, { showcaseAction: 'next' });
+  assert.equal(ui.phase(), 'movement'); assert.equal(ui.showcase().index, 1);
+  const frames = ui.staleFrames();
+  ui.click(null, { showcaseAction: 'next' }); assert.equal(ui.showcase().index, 1);
+  ui.click(null, { showcaseAction: 'prev' });
+  assert.equal(ui.phase(), 'idle'); assert.equal(ui.showcase().index, 0);
+  const html = ui.body.html; frames.forEach(callback => callback()); ui.advance(5000);
+  assert.equal(ui.body.html, html); assert.equal(ui.showcase().position.pieces.length, 10);
+  for (let i = 1; i <= ui.showcase().total; i++) {
+    ui.click(null, { showcaseAction: 'next' }); ui.advance(500); ui.advance(DEATH_EFFECT_DURATION);
+    assert.equal(ui.phase(), 'idle'); assert.equal(ui.showcase().index, i);
+  }
+  assert.ok(ui.body.html.includes('Юг победил'));
+  assert.ok(!ui.body.html.includes('death-ghost'));
+});
+
+test('the first arrow key works when the idea tab focuses the onboarding body', () => {
+  const ui = setup(); ui.goToStep(0);
+  assert.equal(ui.key('ArrowRight'), true); assert.equal(ui.showcase().index, 1);
+  assert.equal(ui.key('ArrowLeft'), true); assert.equal(ui.showcase().index, 0);
+  ui.goToStep(1);
+  assert.equal(ui.key('ArrowRight'), false); assert.equal(ui.showcase().index, 0);
 });

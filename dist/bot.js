@@ -3,7 +3,7 @@ import { analyze, distance, isLethalDamage, move, pass, reachable, shieldCanRetr
 // This search follows the production rules. It ranks all legal moves, keeps a
 // small beam, then looks four half-moves ahead by default. No game rules or
 // outcomes are invented for the UI: repetition is only a search preference.
-const PIECE_VALUES = { shield: 4, archer: 4, attackLamp: 7, defenseLamp: 5 };
+const PIECE_VALUES = { shield: 4, archer: 4, attackLamp: 7, defenseLamp: 5, scoutLamp: 5 };
 const ROOT_BEAM = 8, REPLY_BEAM = 3, WIN_SCORE = 1e7;
 
 export function botPositionKey(state, config) {
@@ -67,7 +67,7 @@ function evaluate(state, report, config, team, repeated) {
     scores[1 - piece.team] += Math.min(info.incoming / Math.max(1, info.fortitude), 1) * 4;
     if (info.damage > 0 && info.range > 0 && enemies.length) {
       const chase = Math.min(...enemies.map(target => distance(piece, target, config)
-        / (target.type === 'shield' || target.type === 'attackLamp' || target.type === 'defenseLamp' ? 1 : 1.4)));
+        / (target.type === 'shield' || target.type === 'attackLamp' || target.type === 'defenseLamp' || target.type === 'scoutLamp' ? 1 : 1.4)));
       const comfort = piece.type === 'archer' ? 2 : 1, finishing = enemies.length <= 2 ? 3 : 1;
       scores[piece.team] -= finishing * Math.max(0, chase - comfort) * (piece.type === 'shield' ? 2 : 1.4);
       if (piece.type === 'archer' && chase < 2) scores[piece.team] -= 2;

@@ -29,7 +29,10 @@ export function validateConfig(input) {
   config.auraDefenseCap ??= -1;
   number(config.auraDefenseCap, -1, 20, 'Предел защиты от аур');
   if (!config.army || !config.stats || !config.experiments) throw new Error('Неполные настройки.');
-  for (const field of ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps']) number(config.army[field], 0, field === 'groups' ? 6 : 12, 'Состав армии');
+  // Historical saves have no scout; extend the schema without adding units to a running game.
+  config.army.scoutLamps ??= 0;
+  config.stats.scoutLamp ??= clone(DEFAULT_CONFIG.stats.scoutLamp);
+  for (const field of ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps', 'scoutLamps']) number(config.army[field], 0, field === 'groups' ? 6 : 12, 'Состав армии');
   for (const type of TYPES) {
     const stats = config.stats[type];
     if (!stats) throw new Error('В настройках отсутствует тип фигуры.');
@@ -41,6 +44,7 @@ export function validateConfig(input) {
     shield: ['damageBonus', 'rangeBonus'],
     archer: ['rangeBonus', 'defenseBonus'],
     attackLamp: ['defenseBonus'],
+    scoutLamp: ['damage', 'range', 'damageBonus', 'defenseBonus'],
     defenseLamp: ['damage', 'range', 'damageBonus', 'rangeBonus']
   };
   for (const [type, fields] of Object.entries(unsupported)) for (const field of fields) {
@@ -107,7 +111,7 @@ function blocked(a, b, state, config, aura = false) {
 export function auraReaches(source, target, state, config) {
   const radius = shieldCanRetreat(source, config) ? promotionStats(config).aura : config.stats[source.type].aura;
   const separation = distance(source, target, config);
-  const areaAura = ['attackLamp', 'defenseLamp'].includes(source.type);
+  const areaAura = ['attackLamp', 'defenseLamp', 'scoutLamp'].includes(source.type);
   return separation > 0 && separation <= radius && (areaAura || isRay(source, target, config)) && !blocked(source, target, state, config, true);
 }
 export function effective(piece, state, config) {
@@ -118,12 +122,12 @@ export function effective(piece, state, config) {
   let veteranSupport = false;
   for (const source of state.pieces) {
     const veteranSource = shieldCanRetreat(source, config);
-    if (source.id === piece.id || source.team !== piece.team || !veteranSource && !['shield', 'archer', 'attackLamp', 'defenseLamp'].includes(source.type)) continue;
+    if (source.id === piece.id || source.team !== piece.team || !veteranSource && !['shield', 'archer', 'attackLamp', 'defenseLamp', 'scoutLamp'].includes(source.type)) continue;
     const aura = veteranSource ? promotion : config.stats[source.type];
     if (!auraReaches(source, piece, state, config)) continue;
     if (veteranSource) veteranSupport = true;
     sources.push(source.id);
-    if (['attackLamp', 'archer'].includes(source.type) || veteranSource) {
+    if (['attackLamp', 'archer', 'scoutLamp'].includes(source.type) || veteranSource) {
       damageBonus += aura.damageBonus;
       if (piece.type !== 'shield') rangeBonus += aura.rangeBonus;
     }
@@ -133,7 +137,7 @@ export function effective(piece, state, config) {
     const personal = veteran ? promotion.defenseBonus : 0;
     defenseBonus = personal + Math.min(config.auraDefenseCap, defenseBonus - personal);
   }
-  const support = ['attackLamp', 'defenseLamp'].includes(piece.type);
+  const support = ['attackLamp', 'defenseLamp', 'scoutLamp'].includes(piece.type);
   const canAttack = !support || veteranSupport;
   const damage = canAttack ? stats.damage + damageBonus : 0;
   const range = !canAttack ? 0 : support && stats.range === 0 ? Math.min(rangeBonus, 1) : piece.type === 'shield' ? Math.min(stats.range + rangeBonus, promotion.maxRange ?? DEFAULT_CONFIG.shieldPromotion.maxRange) : stats.range + rangeBonus;
@@ -250,7 +254,7 @@ export function pass(state, config) {
 function mirror(c, config) { return config.geometry === 'hex' ? { q: -c.q, r: -c.r } : { q: config.size - 1 - c.q, r: config.size - 1 - c.r }; }
 export function createGame(input) {
   const config = validateConfig(input), board = cells(config), pieces = [];
-  const army = config.army, total = army.groups * (army.shields + army.archers) + army.attackLamps + army.defenseLamps;
+  const army = config.army, total = army.groups * (army.shields + army.archers) + army.attackLamps + army.defenseLamps + army.scoutLamps;
   if (!total) throw new Error('Добавьте хотя бы одну фигуру в армию.');
   const side = board.filter(c => config.geometry === 'hex' ? c.r < 0 : c.r < Math.floor(config.size / 2));
   if (total > side.length) throw new Error(`Армия из ${total} фигур не помещается на своей половине (${side.length} клеток). Увеличьте поле или уменьшите состав.`);
@@ -266,6 +270,8 @@ export function createGame(input) {
   // Reserve the rear centre for support before the groups fill that row.
   const banners = [['attackLamp', army.attackLamps], ['defenseLamp', army.defenseLamps]].flatMap(([type, count]) => Array(count).fill(type));
   for (const [index, type] of banners.entries()) place(type, null, { r: rowTarget - 1, x: index - (banners.length - 1) / 2 });
+  // Scout occupies the rear centre; adding it keeps the existing two wings intact.
+  for (let n = 0; n < army.scoutLamps; n++) place('scoutLamp', null, { r: rowTarget - 2, x: n - (army.scoutLamps - 1) / 2 });
   for (let group = 1; group <= army.groups; group++) {
     const x = (group - (army.groups + 1) / 2) * 3;
     for (let n = 0; n < army.shields; n++) place('shield', group, { r: rowTarget, x: x + (n - (army.shields - 1) / 2) });
