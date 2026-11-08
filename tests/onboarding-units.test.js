@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { DEFAULT_CONFIG, TYPES } from '../dist/rules.js';
 import { move, reachable, shieldCanRetreat, analyze } from '../dist/engine.js';
 import { createUnitLesson, renderUnitExamples, badgeExamples } from '../dist/onboarding-units.js';
-import { renderMoveLesson } from '../dist/onboarding-examples.js';
+import { createPositionLesson, renderMoveLesson } from '../dist/onboarding-examples.js';
 
 test('badge explanations use actual attack, threat and death values from the game engine', () => {
   const [safe, threatened, lethal] = badgeExamples();
@@ -53,17 +53,14 @@ test('every figure has a safe strong move and an actual dangerous alternative wi
   }
 });
 
-test('the shield can reach a free edge cell and promote next to the existing veteran', () => {
-  const preview = createUnitLesson('shield', { selected: true, destination: { q: -2, r: 3 } });
+test('one step to a free edge cell promotes a shield beside a veteran with separate allied bonuses', () => {
+  const pieces = [{ id: 'blue', type: 'shield', team: 0, q: -2, r: 2 }, { id: 'veteran', type: 'shield', team: 0, q: -1, r: 3, reachedFarEdge: true }, { id: 'enemy', type: 'shield', team: 1, q: 2, r: -2 }];
+  const preview = createPositionLesson(pieces, 'blue', { selected: true, destination: { q: -2, r: 3 } });
   assert.equal(shieldCanRetreat(preview.previewPosition.pieces.find(p => p.id === 'blue'), preview.config), true);
-  assert.equal(preview.auraMask, 3);
-  const html = renderMoveLesson(preview, {});
-  assert.equal((html.match(/class="aura-ring"/g) || []).length, 1);
-  assert.match(html, /stroke="#9770be"/);
-  const completed = createUnitLesson('shield', { advanced: true, destination: { q: -2, r: 3 } });
+  const completed = createPositionLesson(pieces, 'blue', { advanced: true, destination: { q: -2, r: 3 } });
   assert.equal(completed.position.pieces.find(p => p.id === 'blue').reachedFarEdge, true);
-  assert.equal(completed.report.get('blue').damage, 33);
-  assert.equal(completed.report.get('veteran').damage, 33);
+  assert.equal(completed.report.get('blue').damage, 27);
+  assert.equal(completed.report.get('veteran').damage, 27);
 });
 
 test('support figures do not attack without a veteran and their own aura does not protect them', () => {
@@ -83,9 +80,9 @@ test('the veteran starts on the far edge and both shields gain protection only w
   assert.equal(initial.report.get('blue').fortitude, 15);
   assert.equal(initial.report.get('veteran').fortitude, 24);
   const close = createUnitLesson('shield', { selected: true, destination: { q: 0, r: 2 } });
-  assert.equal(close.report.get('blue').fortitude, 24);
-  assert.equal(close.report.get('blue').damage, 24);
-  assert.equal(close.report.get('veteran').fortitude, 33);
+  assert.equal(close.report.get('blue').fortitude, 21);
+  assert.equal(close.report.get('blue').damage, 18);
+  assert.equal(close.report.get('veteran').fortitude, 30);
   assert.ok(close.report.get('blue').sources.includes('veteran'));
   assert.ok(close.report.get('veteran').sources.includes('blue'));
   const withoutVeteran = analyze({ ...close.combatPosition, pieces: close.combatPosition.pieces.filter(piece => piece.id !== 'veteran') }, close.config);
@@ -108,10 +105,10 @@ test('selecting the veteran uses his actual aura and forecasts his support while
   assert.ok(html.includes('data-aura-origin="-1,3"'));
   const preview = createUnitLesson('shield', { selected: true, selectedId: 'veteran', destination: { q: -1, r: 2 } });
   assert.deepEqual(preview.position, initial.position);
-  assert.equal(preview.report.get('blue').damage, 24); assert.equal(preview.report.get('blue').fortitude, 24);
-  assert.equal(preview.report.get('veteran').fortitude, 33);
-  assert.ok(preview.facts.some(([label, value]) => label === 'Атака броненосца' && value === '15 → 24'));
-  assert.ok(preview.facts.some(([label, value]) => label === 'Стойкость ветерана' && value === '24 → 33'));
+  assert.equal(preview.report.get('blue').damage, 18); assert.equal(preview.report.get('blue').fortitude, 21);
+  assert.equal(preview.report.get('veteran').fortitude, 30);
+  assert.ok(preview.facts.some(([label, value]) => label === 'Атака броненосца' && value === '15 → 18'));
+  assert.ok(preview.facts.some(([label, value]) => label === 'Стойкость ветерана' && value === '24 → 30'));
   assert.ok(renderMoveLesson(preview, {}).includes('data-aura-origin="-1,2"'));
 });
 
@@ -127,7 +124,7 @@ test('switching the inspected figure after a veteran move never repeats or chang
     assert.deepEqual(inspected.position, expected);
     assert.equal(inspected.moverId, 'veteran'); assert.equal(inspected.selectedId, selectedId);
     assert.deepEqual(inspected.available, []);
-    const origin = selectedId === 'blue' ? '-1,1' : '-1,2';
+    const origin = selectedId === 'blue' ? '0,1' : '-1,2';
     assert.ok(renderMoveLesson(inspected, {}).includes(`data-aura-origin="${origin}"`));
   }
 });

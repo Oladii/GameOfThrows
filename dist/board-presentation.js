@@ -88,7 +88,7 @@ export function alliedBonusDetails(piece, position, config) {
   return power.sources.map(id => {
     const source = position.pieces.find(p => p.id === id);
     const veteran = shieldCanRetreat(source, config);
-    const aura = veteran ? config.shieldPromotion : config.stats[source.type];
+    const aura = veteran ? config.shieldPromotion.allies ?? config.shieldPromotion : config.stats[source.type];
     const offensive = veteran || ['attackLamp', 'archer', 'scoutLamp'].includes(source.type);
     const raw = {
       damage: offensive ? aura.damageBonus : 0,

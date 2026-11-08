@@ -10,7 +10,7 @@ const piece = (id, type, team, q, r, extra = {}) => ({ id, type, team, q, r, ...
 
 test('default classification ignores IDs, order, game history and absent flag spelling', () => {
   for (const geometry of ['hex', 'square']) {
-    const c = config(); c.geometry = geometry; if (geometry === 'square') c.size = 8;
+    const c = config(); c.geometry = geometry; if (geometry === 'square') c.size = 10;
     const standard = createGame(c), draft = clone(standard);
     draft.pieces.reverse().forEach((p, index) => { p.id = `edited-${index}`; if (p.type === 'shield') p.reachedFarEdge = false; if (p.group == null) delete p.group; });
     Object.assign(draft, { turn: 1, ply: 23, winner: 1 });
@@ -64,14 +64,14 @@ test('starting either side resets history and returns a detached position withou
   }
 });
 
-test('starting requires valid turns, valid pieces and at least one figure for both sides', () => {
+test('starting requires valid turns, valid pieces and at least one combat unit for both sides', () => {
   const c = config(), standard = createGame(c);
   for (const turn of [-1, 2, '0', undefined]) assert.throws(() => prepareStartPosition(standard, c, turn), /ходит первой/);
   for (const team of [0, 1]) {
     const draft = state(standard.pieces.filter(p => p.team === team));
-    assert.throws(() => prepareStartPosition(draft, c, 0), /хотя бы одна фигура у каждой стороны/);
+    assert.throws(() => prepareStartPosition(draft, c, 0), /хотя бы один броненосец или лукарь у каждой стороны/);
   }
-  assert.throws(() => prepareStartPosition(state([]), c, 0), /хотя бы одна фигура у каждой стороны/);
+  assert.throws(() => prepareStartPosition(state([]), c, 0), /хотя бы один броненосец или лукарь у каждой стороны/);
   const overlap = clone(standard); Object.assign(overlap.pieces[1], { q: overlap.pieces[0].q, r: overlap.pieces[0].r });
   assert.throws(() => prepareStartPosition(overlap, c, 0), /пересечение/);
   const invalidFlag = clone(standard); invalidFlag.pieces.find(p => p.type === 'shield').reachedFarEdge = 'true';

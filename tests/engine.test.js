@@ -1,7 +1,7 @@
 import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
+import { DEFAULT_CONFIG, PREVIOUS_SCOUT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
 import { clone, cells, distance, createGame, createScenario, analyze, inspectCell, attacks, auraReaches, resolve, effective, reachable, move, pass, validateState, validateConfig, shieldCanRetreat } from '../dist/engine.js';
 // Fix the combat fixture so future balance tuning does not rewrite aura tests.
 const config = () => { const c = clone(REVISION_FOUR_CONFIG); c.stats.shield.fortitude = 3; c.stats.archer.fortitude = 1; c.stats.attackLamp.fortitude = 2; c.stats.defenseLamp.fortitude = 2; c.stats.shield.damage = 3; c.stats.archer.damage = 1; c.stats.attackLamp.damage = 2; c.stats.attackLamp.range = 3; c.stats.attackLamp.damageBonus = 1; return c; };
@@ -333,7 +333,7 @@ test('arrival grants the permanent bonuses before simultaneous damage, and a dyi
 test('old configurations receive promotion defaults and editable promotion values are validated and applied', () => {
   const old = config(); delete old.shieldPromotion;
   const c = validateConfig(old);
-  assert.deepEqual(c.shieldPromotion, DEFAULT_CONFIG.shieldPromotion);
+  assert.deepEqual(c.shieldPromotion, PREVIOUS_SCOUT_CONFIG.shieldPromotion);
   c.shieldPromotion = { aura: 2, damageBonus: 2, rangeBonus: 3, defenseBonus: 4, maxRange: 2 };
   validateConfig(c);
   const veteran = { ...p('vet', 'shield', 0, 0, 0), reachedFarEdge: true }, archer = p('archer', 'archer', 0, 2, 0), s = state([veteran, archer]);
@@ -460,7 +460,7 @@ test('banner balance migration updates revision two once and preserves explicit 
   assert.equal(next.stats.attackLamp.range, 0);
   assert.equal(next.stats.attackLamp.damageBonus, DEFAULT_CONFIG.stats.attackLamp.damageBonus);
   assert.deepEqual(updateSavedBalance(old, BALANCE_REVISION), old);
-  assert.deepEqual(validateConfig(old), { ...clone(old), army: { ...old.army, scoutLamps: 0 }, stats: { ...old.stats, scoutLamp: clone(DEFAULT_CONFIG.stats.scoutLamp) } });
+  assert.deepEqual(validateConfig(old), { ...clone(old), army: { ...old.army, scoutLamps: 0 }, stats: { ...old.stats, scoutLamp: clone(PREVIOUS_SCOUT_CONFIG.stats.scoutLamp) } });
   const custom = clone(old); Object.assign(custom.stats.attackLamp, { damage: 4, range: 5, damageBonus: 3 });
   assert.deepEqual(updateSavedBalance(custom, 2), custom);
 });

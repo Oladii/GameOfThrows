@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from '../dist/bot-client.js';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { DEFAULT_CONFIG, upgradeSelectedBalancePreset } from '../dist/rules.js';
 import { clone, createGame, move } from '../dist/engine.js';
 import { classifyPosition } from '../dist/start-position.js';
 import { chooseBotAction } from '../dist/bot.js';
@@ -22,7 +22,7 @@ function setup() {
     config: clone(DEFAULT_CONFIG), state: clone(createGame(DEFAULT_CONFIG)), gamePhase: 'playing', editor: false,
     playMode: 'bot', humanTeam: 1, firstMove: 'south', history: [], log: [], lastTurn: null, previousGame: null, positionKind: 'default',
     STORAGE: 'test', BALANCE_REVISION: 5, PRESET_REVISION: 1, START_PREFS_REVISION: 1,
-    DEFAULT_CONFIG, validateConfig: clone, refreshingNewGame: false,
+    DEFAULT_CONFIG, upgradeSelectedBalancePreset, validateConfig: clone, refreshingNewGame: false,
     localStorage: { setItem(key, value) { saved = JSON.parse(value); } },
     $: selector => nodes[selector], resetBotContext() {}, openStartSettings() {},
     archiveRecorder: { resume() {} }, readSnapshot: clone, readLastTurn: value => value,
@@ -73,7 +73,7 @@ test('new-game preparation defaults to easy and returning restores the saved gam
 
 test('new game discards even older or custom characteristics and returning restores the entire previous game', async () => {
   const ui = setup();
-  ui.context.config.size = 4; ui.context.config.stats.shield.damage = 4;
+  ui.context.config.size = 4; ui.context.config.deploymentOffset = 0; ui.context.config.stats.shield.damage = 4;
   ui.context.config.stats.archer.damage = 2; ui.context.config.army.scoutLamps = 0;
   ui.context.state = createGame(ui.context.config); ui.context.state.ply = 7;
   ui.context.history = [{ config: clone(ui.context.config), state: clone(ui.context.state) }];

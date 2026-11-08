@@ -29,6 +29,7 @@ test('browser bot takes an immediate forced win instead of wandering', () => {
 
 test('browser bot obeys supplied balance and movement settings', () => {
   const config = clone(DEFAULT_CONFIG);
+  config.victoryCondition = 'all-units';
   config.stats.shield.move = 2; config.stats.shield.damage = 10;
   const state = position([piece('shield', 'shield', 0, 0, 0), piece('target', 'defenseLamp', 1, 3, 0)]);
   const result = chooseBotAction(state, config, { depth: 2 });
@@ -38,6 +39,7 @@ test('browser bot obeys supplied balance and movement settings', () => {
 
 test('browser bot distinguishes a blocked turn, an allowed pass, and a finished game', () => {
   const config = clone(DEFAULT_CONFIG);
+  config.victoryCondition = 'all-units';
   config.geometry = 'square'; config.size = 6; config.experiments.squareDiagonals = false;
   config.stats.defenseLamp.move = 1;
   const state = position([piece('blocked', 'defenseLamp', 0, 0, 0), piece('wall-1', 'shield', 1, 1, 0), piece('wall-2', 'shield', 1, 0, 1)]);

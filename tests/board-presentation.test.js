@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
 import { analyze, inspectCell, resolve, isLethalDamage, move, effective, key } from '../dist/engine.js';
-import { durabilityDisplay, attackCellsFor, unitStatParts, unitAppearance, VETERAN_SHIELD_ICON, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape, attackReachPresentation } from '../dist/board-presentation.js';
+import { durabilityDisplay, attackCellsFor, unitStatParts, alliedBonusDetails, unitAppearance, VETERAN_SHIELD_ICON, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape, attackReachPresentation } from '../dist/board-presentation.js';
 import { LABELS } from '../dist/rules.js';
 const piece = (id, type, team, q, r) => ({id, type, team, q, r});
 const position = pieces => ({pieces, turn:0, ply:0, winner:null});
@@ -61,7 +61,7 @@ test('unit details distinguish personal veteran improvements and allied bonuses'
 
 test('a promoted shield gets veteran armor and keeps it after retreat, during movement and death', () => {
   const config = structuredClone(DEFAULT_CONFIG); config.size = 3;
-  const source = piece('blue', 'shield', 0, 0, 1), enemy = piece('enemy', 'shield', 1, -3, 0);
+  const source = piece('blue', 'shield', 0, 0, 2), enemy = piece('enemy', 'shield', 1, -3, 0);
   const icons = { shield: '<path data-plain-shield="true"/>', archer: '<path data-archer="true"/>' };
   assert.equal(unitAppearance(source, config, icons).icon, icons.shield);
   const promoted = move(position([source, enemy]), config, source.id, { q: 0, r: 3 }).state;
@@ -164,4 +164,18 @@ test('board aura playback pauses while hidden or offscreen and resumes only when
   intersection([{isIntersecting:false}]);assert.equal(paused(),true);
   document.hidden=true;intersection([{isIntersecting:true}]);assert.equal(paused(),true);
   document.hidden=false;visibility();assert.equal(paused(),false);
+});
+
+
+test('veteran ally details use the separate aura while personal stat calculations keep the permanent bonus', () => {
+  const config = structuredClone(DEFAULT_CONFIG);
+  const veteran = { ...piece('veteran', 'shield', 0, 0, 0), reachedFarEdge: true };
+  const archer = piece('archer', 'archer', 0, 0, 1), support = piece('support', 'attackLamp', 0, 1, 0);
+  const state = position([veteran, archer, support]);
+  assert.deepEqual(alliedBonusDetails(archer, state, config).find(({ source }) => source.id === veteran.id).bonuses, { damage: 3, range: 1, fortitude: 6 });
+  assert.equal(unitStatParts(veteran, state, config).find(({ field }) => field === 'damage').personal, 9);
+  assert.equal(unitStatParts(veteran, state, config).find(({ field }) => field === 'fortitude').personal, 9);
+  assert.equal(effective(support, state, config).range, 1, 'the selected aura still arms support');
+  delete config.shieldPromotion.allies;
+  assert.deepEqual(alliedBonusDetails(archer, state, config).find(({ source }) => source.id === veteran.id).bonuses, { damage: 9, range: 2, fortitude: 9 }, 'old saves report their actual flat aura');
 });

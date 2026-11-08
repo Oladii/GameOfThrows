@@ -47,7 +47,7 @@ function archiveServer() {
   const server = { games, requests, offline: false, loseCreateAck: false, loseEventAck: false, onRequest: null };
   server.fetch = async (url, request) => {
     const body = JSON.parse(request.body), authorization = request.headers.Authorization;
-    requests.push({ url, body: archiveCopy(body), authorization });
+    requests.push({ url, body: archiveCopy(body), rawBody: request.body, authorization });
     if (server.offline) throw new Error('offline');
     await server.onRequest?.(url, body);
     const response = (status, value) => ({ ok: status >= 200 && status < 300, status, json: async () => value });
@@ -410,6 +410,7 @@ test('archive keeps optional fields absent and preserves every present game valu
   const harness = archiveHarness(), recorder = new GameRecorder(harness.options);
   const initial = archiveFixture();
   delete initial.config.auraDefenseCap; delete initial.config.shieldPromotion;
+  delete initial.config.victoryCondition; delete initial.config.deploymentOffset;
   delete initial.state.pieces[0].group; delete initial.state.pieces[0].reachedFarEdge;
   const before = JSON.stringify(initial);
   await recorder.start(initial);
@@ -417,8 +418,34 @@ test('archive keeps optional fields absent and preserves every present game valu
   assert.deepEqual(game.create.initial.config, initial.config);
   assert.deepEqual(game.create.initial.state, initial.state);
   assert.equal(Object.hasOwn(game.create.initial.config, 'shieldPromotion'), false);
+  assert.equal(Object.hasOwn(game.create.initial.config, 'victoryCondition'), false);
+  assert.equal(Object.hasOwn(game.create.initial.config, 'deploymentOffset'), false);
   assert.equal(Object.hasOwn(game.create.initial.state.pieces[0], 'reachedFarEdge'), false);
   assert.equal(JSON.stringify(initial), before);
+  recorder.close();
+});
+
+test('archive retains selected balance fields in initial and event snapshots and projects ally annotations', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const recorder = new GameRecorder(harness.options), initial = archiveFixture();
+  initial.config.victoryCondition = 'combat-units';
+  initial.config.deploymentOffset = 1;
+  initial.config.shieldPromotion.allies = { aura: 1, damageBonus: 3, defenseBonus: 6, rangeBonus: 1 };
+  const expectedConfig = archiveCopy(initial.config);
+  initial.config.shieldPromotion.allies.annotation = 'private ally annotation';
+  const before = JSON.stringify(initial);
+  await recorder.start(initial);
+  await recorder.record('config', { config: initial.config, state: archiveFixture(1).state });
+  // An explicit legacy mode/offset is also a value, not a signal to omit it.
+  const changedConfig = { ...archiveCopy(expectedConfig), victoryCondition: 'all-units', deploymentOffset: 0 };
+  await recorder.record('config', { config: changedConfig, state: archiveFixture(2).state });
+  await recorder.flush();
+  const [game] = server.games.values();
+  assert.deepEqual(game.create.initial.config, expectedConfig);
+  assert.deepEqual(game.events[0].payload.config, expectedConfig);
+  assert.deepEqual(game.events[1].payload.config, changedConfig);
+  assert.equal(JSON.stringify(initial), before);
+  assert.equal(JSON.stringify(server.requests.map(request => request.body)).includes('annotation'), false);
   recorder.close();
 });
 
@@ -545,23 +572,32 @@ test('a different browser store receives a different anonymous ID', async () => 
   first.close(); second.close();
 });
 
-test('legacy queued and acknowledged creates keep their exact body and gain no inferred player ID', async () => {
+test('legacy queued create and event bodies retain exact bytes and gain no inferred balance or player fields', async () => {
   const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
   let recorder = new GameRecorder(harness.options);
-  await recorder.start(archiveFixture()); const legacyId = recorder.status.gameId;
+  const initial = archiveFixture();
+  delete initial.config.victoryCondition;
+  delete initial.config.deploymentOffset;
+  delete initial.config.shieldPromotion.allies;
+  const moved = { ...initial, state: archiveFixture(1).state };
+  await recorder.start(initial); const legacyId = recorder.status.gameId;
+  await recorder.record('move', moved);
   const legacy = await harness.storage.get(legacyId);
   delete legacy.create.playerId;
   await harness.storage.put(legacy);
-  const oldBody = archiveCopy(legacy.create);
+  const oldBody = JSON.stringify(legacy.create), oldEvents = JSON.stringify({ events: legacy.events });
   server.loseCreateAck = true;
   await recorder.flush();
   assert.equal(recorder.status.state, 'error');
   recorder.close();
   recorder = new GameRecorder(harness.options);
-  await recorder.resume(archiveFixture(1)); await recorder.flush();
+  await recorder.resume(moved); await recorder.flush();
   const creates = server.requests.filter(request => request.url.endsWith('/api/games'));
   assert.equal(creates.length, 2);
-  assert.deepEqual(creates.map(request => request.body), [oldBody, oldBody]);
+  assert.deepEqual(creates.map(request => request.rawBody), [oldBody, oldBody]);
+  assert.deepEqual(server.requests.filter(request => request.url.endsWith('/events')).map(request => request.rawBody), [oldEvents]);
+  assert.equal(JSON.stringify((await harness.storage.get(legacyId)).create), oldBody);
+  assert.deepEqual(server.games.get(legacyId).events[0].payload.config, initial.config);
   assert.equal(Object.hasOwn(server.games.get(legacyId).create, 'playerId'), false);
   assert.equal(Object.hasOwn((await harness.storage.get(legacyId)).create, 'playerId'), false);
   await recorder.start(archiveFixture()); await recorder.flush();

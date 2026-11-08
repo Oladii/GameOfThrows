@@ -17,7 +17,7 @@ const ArchivePick = (value, fields) => {
   return Object.fromEntries(fields.filter(field => Object.hasOwn(value, field)).map(field => [field, value[field]]));
 };
 const ArchiveConfig = value => {
-  const config = ArchivePick(value, ['version', 'geometry', 'size', 'army', 'stats', 'experiments', 'shieldPromotion', 'auraDefenseCap']);
+  const config = ArchivePick(value, ['version', 'geometry', 'size', 'army', 'stats', 'experiments', 'shieldPromotion', 'auraDefenseCap', 'victoryCondition', 'deploymentOffset']);
   if (!config || typeof config !== 'object' || Array.isArray(config)) return config;
   if (Object.hasOwn(config, 'army')) config.army = ArchivePick(config.army, ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps', 'scoutLamps']);
   if (Object.hasOwn(config, 'stats')) {
@@ -27,7 +27,12 @@ const ArchiveConfig = value => {
     }
   }
   if (Object.hasOwn(config, 'experiments')) config.experiments = ArchivePick(config.experiments, ['squareDiagonals', 'lampShieldBlocking', 'allyShotsPass', 'aurasThroughShields', 'allowPass']);
-  if (Object.hasOwn(config, 'shieldPromotion')) config.shieldPromotion = ArchivePick(config.shieldPromotion, ['aura', 'damageBonus', 'rangeBonus', 'defenseBonus', 'maxRange']);
+  if (Object.hasOwn(config, 'shieldPromotion')) {
+    config.shieldPromotion = ArchivePick(config.shieldPromotion, ['aura', 'damageBonus', 'rangeBonus', 'defenseBonus', 'maxRange', 'allies']);
+    if (config.shieldPromotion && Object.hasOwn(config.shieldPromotion, 'allies')) {
+      config.shieldPromotion.allies = ArchivePick(config.shieldPromotion.allies, ['aura', 'damageBonus', 'rangeBonus', 'defenseBonus']);
+    }
+  }
   return config;
 };
 const ArchivePiece = (value, death = false) => ArchivePick(value, ['id', 'type', 'team', 'q', 'r', 'group', 'reachedFarEdge', ...(death ? ['incoming', 'fortitude'] : [])]);

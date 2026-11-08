@@ -19,18 +19,24 @@ export const DEFAULT_CONFIG = {
     "damageBonus": 9,
     "rangeBonus": 2,
     "defenseBonus": 9,
-    "maxRange": 3
+    "maxRange": 3,
+    "allies": {
+      "aura": 1,
+      "damageBonus": 3,
+      "defenseBonus": 6,
+      "rangeBonus": 1
+    }
   },
   "stats": {
     "shield": {
-      "move": 2,
+      "move": 1,
       "damage": 15,
       "range": 1,
       "fortitude": 15,
       "aura": 1,
       "damageBonus": 0,
       "rangeBonus": 0,
-      "defenseBonus": 9
+      "defenseBonus": 6
     },
     "archer": {
       "move": 2,
@@ -69,7 +75,7 @@ export const DEFAULT_CONFIG = {
       "fortitude": 5,
       "aura": 2,
       "damageBonus": 0,
-      "rangeBonus": 2,
+      "rangeBonus": 1,
       "defenseBonus": 0
     }
   },
@@ -79,10 +85,15 @@ export const DEFAULT_CONFIG = {
     "allyShotsPass": true,
     "aurasThroughShields": true,
     "allowPass": false
-  }
+  },
+  "victoryCondition": "combat-units",
+  "deploymentOffset": 0
 };
 
-export const BALANCE_REVISION = 7;
+// Frozen historical defaults keep old saves and earlier migration stages unchanged.
+export const PREVIOUS_SCOUT_CONFIG = {"version":1,"geometry":"hex","size":5,"auraDefenseCap":-1,"army":{"groups":2,"shields":2,"archers":2,"attackLamps":1,"defenseLamps":1,"scoutLamps":1},"shieldPromotion":{"aura":1,"damageBonus":9,"rangeBonus":2,"defenseBonus":9,"maxRange":3},"stats":{"shield":{"move":2,"damage":15,"range":1,"fortitude":15,"aura":1,"damageBonus":0,"rangeBonus":0,"defenseBonus":9},"archer":{"move":2,"damage":8,"range":3,"fortitude":6,"aura":1,"damageBonus":4,"rangeBonus":0,"defenseBonus":0},"attackLamp":{"move":2,"damage":0,"range":0,"fortitude":5,"aura":2,"damageBonus":4,"rangeBonus":0,"defenseBonus":0},"defenseLamp":{"move":2,"damage":0,"range":0,"fortitude":5,"aura":2,"damageBonus":0,"rangeBonus":0,"defenseBonus":4},"scoutLamp":{"move":2,"damage":0,"range":0,"fortitude":5,"aura":2,"damageBonus":0,"rangeBonus":2,"defenseBonus":0}},"experiments":{"squareDiagonals":true,"lampShieldBlocking":true,"allyShotsPass":true,"aurasThroughShields":true,"allowPass":false}};
+
+export const BALANCE_REVISION = 8;
 export const PREVIOUS_AREA_CONFIG = {"version":1,"geometry":"hex","size":4,"auraDefenseCap":-1,"army":{"groups":2,"shields":2,"archers":2,"attackLamps":1,"defenseLamps":1},"shieldPromotion":{"aura":1,"damageBonus":9,"rangeBonus":2,"defenseBonus":9,"maxRange":3},"stats":{"shield":{"move":2,"damage":15,"range":1,"fortitude":15,"aura":1,"damageBonus":0,"rangeBonus":0,"defenseBonus":9},"archer":{"move":2,"damage":8,"range":3,"fortitude":6,"aura":1,"damageBonus":4,"rangeBonus":0,"defenseBonus":0},"attackLamp":{"move":2,"damage":0,"range":0,"fortitude":5,"aura":2,"damageBonus":4,"rangeBonus":1,"defenseBonus":0},"defenseLamp":{"move":2,"damage":0,"range":0,"fortitude":5,"aura":1,"damageBonus":0,"rangeBonus":0,"defenseBonus":2}},"experiments":{"squareDiagonals":true,"lampShieldBlocking":true,"allyShotsPass":true,"aurasThroughShields":true,"allowPass":false}};
 const PREVIOUS_STATS = {"shield": {"move": 1, "damage": 4, "range": 1, "fortitude": 4, "aura": 1, "damageBonus": 0, "rangeBonus": 0, "defenseBonus": 1}, "archer": {"move": 2, "damage": 2, "range": 4, "fortitude": 2, "aura": 0, "damageBonus": 0, "rangeBonus": 0, "defenseBonus": 0}, "attackLamp": {"move": 2, "damage": 0, "range": 0, "fortitude": 3, "aura": 2, "damageBonus": 2, "rangeBonus": 1, "defenseBonus": 0}, "defenseLamp": {"move": 2, "damage": 0, "range": 0, "fortitude": 3, "aura": 2, "damageBonus": 0, "rangeBonus": 0, "defenseBonus": 1}};
 const PREVIOUS_PROMOTION = {"aura": 1, "damageBonus": 1, "rangeBonus": 1, "defenseBonus": 1, "maxRange": 2};
@@ -92,7 +103,7 @@ const PREVIOUS_RAY_PROMOTION = {"aura":1,"damageBonus":9,"rangeBonus":2,"defense
 const SOLID_AURA_CHANGES = {"attackLamp":{"aura":2}};
 export function updateSavedBalance(config, revision) {
   const next = JSON.parse(JSON.stringify(config));
-  if (revision === BALANCE_REVISION) return next;
+  if ((revision ?? 0) >= BALANCE_REVISION) return next;
   if ((revision ?? 0) < 1) {
     if (next.stats.shield.aura === 0 && next.stats.shield.defenseBonus === 0) {
       next.stats.shield.aura = 1;
@@ -117,17 +128,18 @@ export function updateSavedBalance(config, revision) {
   // Replace only the complete previous combat profile; keep custom settings and layout.
   if ((revision ?? 0) < 5 &&
       Object.entries(PREVIOUS_STATS).every(([type, fields]) => Object.entries(fields).every(([field, value]) => next.stats[type][field] === value)) &&
-      Object.entries(PREVIOUS_PROMOTION).every(([field, value]) => next.shieldPromotion[field] === value)) {
+      Object.entries(PREVIOUS_PROMOTION).every(([field, value]) => next.shieldPromotion?.[field] === value)) {
     next.stats = JSON.parse(JSON.stringify(PREVIOUS_AREA_CONFIG.stats));
-    next.shieldPromotion = JSON.parse(JSON.stringify(DEFAULT_CONFIG.shieldPromotion));
+    next.shieldPromotion = JSON.parse(JSON.stringify(PREVIOUS_SCOUT_CONFIG.shieldPromotion));
   }
   // Adopt the solid-aura balance only for the complete former standard combat profile.
   if ((revision ?? 0) < 6 &&
       Object.entries(PREVIOUS_RAY_STATS).every(([type, fields]) => Object.entries(fields).every(([field, value]) => next.stats[type][field] === value)) &&
-      Object.entries(PREVIOUS_RAY_PROMOTION).every(([field, value]) => next.shieldPromotion[field] === value)) {
+      Object.entries(PREVIOUS_RAY_PROMOTION).every(([field, value]) => next.shieldPromotion?.[field] === value)) {
     for (const [type, fields] of Object.entries(SOLID_AURA_CHANGES)) Object.assign(next.stats[type], fields);
   }
-  return (revision ?? 0) < 7 ? upgradeScoutFieldPreset(next) : next;
+  const scoutPreset = (revision ?? 0) < 7 ? upgradeScoutFieldPreset(next) : next;
+  return (revision ?? 0) < 8 ? upgradeSelectedBalancePreset(scoutPreset) : scoutPreset;
 }
 
 function sameSettings(a, b) {
@@ -139,7 +151,13 @@ export function upgradeScoutFieldPreset(config) {
   const next = JSON.parse(JSON.stringify(config)), legacy = JSON.parse(JSON.stringify(config));
   if ((legacy.army?.scoutLamps ?? 0) !== 0) return next;
   delete legacy.army.scoutLamps;
-  if (legacy.stats.scoutLamp && !sameSettings(legacy.stats.scoutLamp, DEFAULT_CONFIG.stats.scoutLamp)) return next;
+  if (legacy.stats.scoutLamp && !sameSettings(legacy.stats.scoutLamp, PREVIOUS_SCOUT_CONFIG.stats.scoutLamp)) return next;
   delete legacy.stats.scoutLamp;
-  return sameSettings(legacy, PREVIOUS_AREA_CONFIG) ? JSON.parse(JSON.stringify(DEFAULT_CONFIG)) : next;
+  return sameSettings(legacy, PREVIOUS_AREA_CONFIG) ? JSON.parse(JSON.stringify(PREVIOUS_SCOUT_CONFIG)) : next;
+}
+
+// Only the complete previous standard preset adopts the selected balance.
+// Explicit rule fields, imports and custom values remain as supplied.
+export function upgradeSelectedBalancePreset(config) {
+  return JSON.parse(JSON.stringify(sameSettings(config, PREVIOUS_SCOUT_CONFIG) ? DEFAULT_CONFIG : config));
 }

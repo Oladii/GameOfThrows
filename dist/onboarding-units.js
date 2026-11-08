@@ -20,7 +20,7 @@ export function createUnitLesson(type, options = {}) {
   if (!TYPES.includes(type)) throw new Error('Неизвестная фигура учебного примера.');
   const support = ['attackLamp','defenseLamp','scoutLamp'].includes(type);
   const pieces = type === 'shield'
-    ? [unitPiece('blue', type, 0, -1, 1), { ...unitPiece('veteran', 'shield', 0, -1, 3), reachedFarEdge: true }, unitPiece('enemy', 'shield', 1, 1, 2)]
+    ? [unitPiece('blue', type, 0, 0, 1), { ...unitPiece('veteran', 'shield', 0, -1, 3), reachedFarEdge: true }, unitPiece('enemy', 'shield', 1, 1, 2)]
     : type === 'archer'
       ? [unitPiece('blue', type, 0, -1, -1), unitPiece('enemy', 'defenseLamp', 1, 1, 1), unitPiece('wall', 'shield', 1, 1, -1)]
       : type === 'scoutLamp'
@@ -43,7 +43,7 @@ export function createUnitLesson(type, options = {}) {
     const veteran = shieldCanRetreat(lesson.combatPosition.pieces.find(piece => piece.id === 'blue'), lesson.config);
     const veteranStats = lesson.report.get('veteran'), together = hero.sources.includes('veteran');
     lesson.description = [
-      `Ходит до ${stats.move} клеток вперёд и вбок. Бьёт вблизи.`,
+      `Ходит на ${stats.move} ${stats.move === 1 ? 'клетку' : 'клетки'} вперёд и вбок. Бьёт вблизи.`,
       `Перекрывает вражеские стрелы. Аура даёт соседним союзникам +${stats.defenseBonus} стойкости.`,
       'На противоположном краю становится ветераном: получает усиление и может ходить назад.'
     ].join('\n');

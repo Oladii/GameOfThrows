@@ -13,12 +13,14 @@ export const lessonPolygonPoints = (p, rotation = 0) => {
   return Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 180 * (60 * i + rotation); return `${(p.x + 30 * Math.cos(a)).toFixed(2)},${(p.y + 30 * Math.sin(a)).toFixed(2)}`; }).join(' ');
 };
 export const verticalLessonPoint = lessonPoint;
-// Combat always uses the game's current default rules; only lesson one has a three-step training move.
+// Combat uses the current default unit values; lesson one has a three-step training move.
 export function createMoveLesson(index = 0, { advanced = false, selected = false, aura = 'attack', destination = null, placement = null, previewPlacement = null, shieldRemoved = false } = {}) {
   if (!selected && !advanced) destination = null;
   advanced = index === 4 ? Boolean(placement) : Boolean(advanced && destination);
   if (!selected) previewPlacement = null;
   const config = clone(DEFAULT_CONFIG); config.geometry = 'hex'; config.size = 3;
+  // These isolated combat exercises may contain support-only armies; they do not teach the match ending rule.
+  config.victoryCondition = 'all-units';
   const lesson = { index, advanced, selected, aura, placement, previewPlacement, shieldRemoved: index === 2 && shieldRemoved, supportLesson: index === 4, config, moverId: 'blue', sourceId: null, targetId: 'enemy', facts: [] };
   let pieces;
   if (index === 0) {
@@ -173,6 +175,8 @@ export function createPositionLesson(pieces, moverId, options = {}) {
   const { selected = false, advanced = false } = options;
   const destination = selected || advanced ? options.destination || null : null;
   const config = clone(DEFAULT_CONFIG); config.geometry = 'hex'; config.size = 3;
+  // These isolated combat exercises may contain support-only armies; they do not teach the match ending rule.
+  config.victoryCondition = 'all-units';
   const before = lessonPosition(pieces), mover = pieces.find(piece => piece.id === moverId);
   const path = destination ? movementPath(mover, before, config, destination) : [];
   if (destination && !path.length) throw new Error('Недоступная клетка учебного примера.');

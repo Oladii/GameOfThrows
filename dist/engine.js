@@ -1,4 +1,4 @@
-import { TYPES, DEFAULT_CONFIG } from './rules.js';
+import { TYPES, DEFAULT_CONFIG, PREVIOUS_SCOUT_CONFIG } from './rules.js';
 export const clone = value => JSON.parse(JSON.stringify(value));
 export const key = (q, r) => `${q},${r}`;
 const HEX_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
@@ -6,7 +6,13 @@ const SQUARE_DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [1, -1], [-1, 1],
 export const directions = config => config.geometry === 'hex' ? HEX_DIRS : SQUARE_DIRS.slice(0, config.experiments.squareDiagonals ? 8 : 4);
 const farRow = (team, config) => config.geometry === 'hex' ? (team === 0 ? config.size : -config.size) : (team === 0 ? config.size - 1 : 0);
 export const shieldCanRetreat = (piece, config) => piece.type === 'shield' && (piece.reachedFarEdge === true || piece.r === farRow(piece.team, config));
-const promotionStats = config => config.shieldPromotion ?? DEFAULT_CONFIG.shieldPromotion;
+const promotionStats = config => config.shieldPromotion ?? PREVIOUS_SCOUT_CONFIG.shieldPromotion;
+const alliedPromotionStats = config => promotionStats(config).allies ?? promotionStats(config);
+export const isCombatUnit = piece => piece.type === 'shield' || piece.type === 'archer';
+export function winnerForPieces(pieces, config) {
+  const alive = [0, 1].map(team => pieces.some(piece => piece.team === team && (config.victoryCondition !== 'combat-units' || isCombatUnit(piece))));
+  return !alive[0] && !alive[1] ? 'draw' : !alive[0] ? 1 : !alive[1] ? 0 : null;
+}
 export function cells(config) {
   const out = [];
   if (config.geometry === 'hex') {
@@ -28,10 +34,12 @@ export function validateConfig(input) {
   number(config.size, config.geometry === 'hex' ? 3 : 6, config.geometry === 'hex' ? 6 : 12, 'Размер поля');
   config.auraDefenseCap ??= -1;
   number(config.auraDefenseCap, -1, 20, 'Предел защиты от аур');
+  if (config.victoryCondition !== undefined && !['all-units', 'combat-units'].includes(config.victoryCondition)) throw new Error('Неизвестное условие окончания партии.');
+  if (config.deploymentOffset !== undefined) number(config.deploymentOffset, 0, 1, 'Отступ начальной расстановки');
   if (!config.army || !config.stats || !config.experiments) throw new Error('Неполные настройки.');
   // Historical saves have no scout; extend the schema without adding units to a running game.
   config.army.scoutLamps ??= 0;
-  config.stats.scoutLamp ??= clone(DEFAULT_CONFIG.stats.scoutLamp);
+  config.stats.scoutLamp ??= clone(PREVIOUS_SCOUT_CONFIG.stats.scoutLamp);
   for (const field of ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps', 'scoutLamps']) number(config.army[field], 0, field === 'groups' ? 6 : 12, 'Состав армии');
   for (const type of TYPES) {
     const stats = config.stats[type];
@@ -50,9 +58,13 @@ export function validateConfig(input) {
   for (const [type, fields] of Object.entries(unsupported)) for (const field of fields) {
     if (config.stats[type][field] !== 0) throw new Error(`${type} не поддерживает параметр ${field}: требуется 0.`);
   }
-  config.shieldPromotion ??= clone(DEFAULT_CONFIG.shieldPromotion);
-  config.shieldPromotion.maxRange ??= DEFAULT_CONFIG.shieldPromotion.maxRange;
+  config.shieldPromotion ??= clone(PREVIOUS_SCOUT_CONFIG.shieldPromotion);
+  config.shieldPromotion.maxRange ??= PREVIOUS_SCOUT_CONFIG.shieldPromotion.maxRange;
   for (const field of ['aura', 'damageBonus', 'rangeBonus', 'defenseBonus', 'maxRange']) number(config.shieldPromotion[field], 0, 20, `shieldPromotion.${field}`);
+  if (config.shieldPromotion.allies !== undefined) {
+    if (!config.shieldPromotion.allies || typeof config.shieldPromotion.allies !== 'object' || Array.isArray(config.shieldPromotion.allies)) throw new Error('Неверная аура ветерана для союзников.');
+    for (const field of ['aura', 'damageBonus', 'rangeBonus', 'defenseBonus']) number(config.shieldPromotion.allies[field], 0, 20, `shieldPromotion.allies.${field}`);
+  }
   for (const field of Object.keys(DEFAULT_CONFIG.experiments)) if (typeof config.experiments[field] !== 'boolean') throw new Error('Неверный переключатель правила.');
   config.version = 1;
   return config;
@@ -72,6 +84,7 @@ export function validateState(input, config) {
     if (shieldCanRetreat(p, config)) p.reachedFarEdge = true;
   }
   if (![null, 0, 1, 'draw'].includes(state.winner)) throw new Error('Неверный результат партии.');
+  if (config.victoryCondition === 'combat-units') state.winner = winnerForPieces(state.pieces, config);
   return state;
 }
 function roundCube(q, r) {
@@ -109,7 +122,7 @@ function blocked(a, b, state, config, aura = false) {
   return false;
 }
 export function auraReaches(source, target, state, config) {
-  const radius = shieldCanRetreat(source, config) ? promotionStats(config).aura : config.stats[source.type].aura;
+  const radius = shieldCanRetreat(source, config) ? alliedPromotionStats(config).aura : config.stats[source.type].aura;
   const separation = distance(source, target, config);
   const areaAura = ['attackLamp', 'defenseLamp', 'scoutLamp'].includes(source.type);
   return separation > 0 && separation <= radius && (areaAura || isRay(source, target, config)) && !blocked(source, target, state, config, true);
@@ -123,7 +136,7 @@ export function effective(piece, state, config) {
   for (const source of state.pieces) {
     const veteranSource = shieldCanRetreat(source, config);
     if (source.id === piece.id || source.team !== piece.team || !veteranSource && !['shield', 'archer', 'attackLamp', 'defenseLamp', 'scoutLamp'].includes(source.type)) continue;
-    const aura = veteranSource ? promotion : config.stats[source.type];
+    const aura = veteranSource ? alliedPromotionStats(config) : config.stats[source.type];
     if (!auraReaches(source, piece, state, config)) continue;
     if (veteranSource) veteranSupport = true;
     sources.push(source.id);
@@ -140,8 +153,8 @@ export function effective(piece, state, config) {
   const support = ['attackLamp', 'defenseLamp', 'scoutLamp'].includes(piece.type);
   const canAttack = !support || veteranSupport;
   const damage = canAttack ? stats.damage + damageBonus : 0;
-  const range = !canAttack ? 0 : support && stats.range === 0 ? Math.min(rangeBonus, 1) : piece.type === 'shield' ? Math.min(stats.range + rangeBonus, promotion.maxRange ?? DEFAULT_CONFIG.shieldPromotion.maxRange) : stats.range + rangeBonus;
-  return { damage, range, fortitude: stats.fortitude + defenseBonus, aura: veteran ? promotion.aura : stats.aura, move: stats.move, damageBonus: canAttack ? damageBonus : 0, rangeBonus: Math.max(0, range - stats.range), defenseBonus, sources };
+  const range = !canAttack ? 0 : support && stats.range === 0 ? Math.min(rangeBonus, 1) : piece.type === 'shield' ? Math.min(stats.range + rangeBonus, promotion.maxRange ?? PREVIOUS_SCOUT_CONFIG.shieldPromotion.maxRange) : stats.range + rangeBonus;
+  return { damage, range, fortitude: stats.fortitude + defenseBonus, aura: veteran ? alliedPromotionStats(config).aura : stats.aura, move: stats.move, damageBonus: canAttack ? damageBonus : 0, rangeBonus: Math.max(0, range - stats.range), defenseBonus, sources };
 }
 export function attacks(attacker, target, state, config, stats = effective(attacker, state, config)) {
   if (attacker.id === target.id || attacker.team === target.team || stats.damage <= 0) return false;
@@ -183,8 +196,7 @@ export function resolve(state, config) {
   const deaths = state.pieces.filter(p => report.get(p.id).dead).map(p => ({ ...p, incoming: report.get(p.id).incoming, fortitude: report.get(p.id).fortitude }));
   const removed = new Set(deaths.map(p => p.id));
   next.pieces = next.pieces.filter(p => !removed.has(p.id));
-  const alive = [0, 1].map(team => next.pieces.some(p => p.team === team));
-  next.winner = !alive[0] && !alive[1] ? 'draw' : !alive[0] ? 1 : !alive[1] ? 0 : null;
+  next.winner = winnerForPieces(next.pieces, config);
   return { state: next, deaths, report };
 }
 function movementSearch(piece, state, config, includePath = false) {
@@ -232,7 +244,7 @@ export function movementPath(piece, state, config, destination) {
   return path.reverse();
 }
 export function move(state, config, id, destination) {
-  if (state.winner !== null) throw new Error('Партия завершена. Можно отменить ход или открыть расстановку.');
+  if (state.winner !== null || config.victoryCondition === 'combat-units' && winnerForPieces(state.pieces, config) !== null) throw new Error('Партия завершена. Можно отменить ход или открыть расстановку.');
   const piece = state.pieces.find(p => p.id === id);
   if (!piece || piece.team !== state.turn) throw new Error('Сейчас ход другой команды.');
   const route = reachable(piece, state, config).find(c => c.q === destination.q && c.r === destination.r);
@@ -246,7 +258,7 @@ export function move(state, config, id, destination) {
 }
 export function pass(state, config) {
   if (!config.experiments.allowPass) throw new Error('Пропуск хода выключен в настройках эксперимента.');
-  if (state.winner !== null) throw new Error('Партия завершена.');
+  if (state.winner !== null || config.victoryCondition === 'combat-units' && winnerForPieces(state.pieces, config) !== null) throw new Error('Партия завершена.');
   const outcome = resolve(state, config);
   outcome.state.turn = 1 - state.turn; outcome.state.ply = state.ply + 1;
   return outcome;
@@ -277,7 +289,14 @@ export function createGame(input) {
     for (let n = 0; n < army.shields; n++) place('shield', group, { r: rowTarget, x: x + (n - (army.shields - 1) / 2) });
     for (let n = 0; n < army.archers; n++) place('archer', group, { r: rowTarget - 1, x: x + n });
   }
-  return { pieces, turn: 0, ply: 0, winner: null };
+  const offset = config.deploymentOffset ?? 0, boardKeys = new Set(board.map(c => key(c.q, c.r))), deployed = new Set();
+  for (const piece of pieces) {
+    piece.r += piece.team === 0 ? -offset : offset;
+    const pos = key(piece.q, piece.r);
+    if (!boardKeys.has(pos) || deployed.has(pos)) throw new Error('Начальная расстановка с выбранным отступом не помещается на поле. Увеличьте поле, уменьшите армию или измените отступ.');
+    deployed.add(pos);
+  }
+  return { pieces, turn: 0, ply: 0, winner: config.victoryCondition === 'combat-units' ? winnerForPieces(pieces, config) : null };
 }
 export function createScenario(name, config) {
   if (name === 'start') return createGame(config);

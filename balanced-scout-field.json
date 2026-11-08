@@ -19,18 +19,24 @@
       "damageBonus": 9,
       "rangeBonus": 2,
       "defenseBonus": 9,
-      "maxRange": 3
+      "maxRange": 3,
+      "allies": {
+        "aura": 1,
+        "damageBonus": 3,
+        "defenseBonus": 6,
+        "rangeBonus": 1
+      }
     },
     "stats": {
       "shield": {
-        "move": 2,
+        "move": 1,
         "damage": 15,
         "range": 1,
         "fortitude": 15,
         "aura": 1,
         "damageBonus": 0,
         "rangeBonus": 0,
-        "defenseBonus": 9
+        "defenseBonus": 6
       },
       "archer": {
         "move": 2,
@@ -69,7 +75,7 @@
         "fortitude": 5,
         "aura": 2,
         "damageBonus": 0,
-        "rangeBonus": 2,
+        "rangeBonus": 1,
         "defenseBonus": 0
       }
     },
@@ -79,7 +85,9 @@
       "allyShotsPass": true,
       "aurasThroughShields": true,
       "allowPass": false
-    }
+    },
+    "victoryCondition": "combat-units",
+    "deploymentOffset": 0
   },
   "state": {
     "pieces": [

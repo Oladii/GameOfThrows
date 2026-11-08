@@ -23,7 +23,7 @@ test('only an allied veteran can arm support; other drummers and ordinary shield
     assert.equal(effective(support, s, c).damage, 0, 'enemy veteran does not arm support');
     s.pieces[3] = veteran(0, 1, 2);
     const armed = effective(support, s, c);
-    assert.equal(armed.damage, c.shieldPromotion.damageBonus + c.stats.attackLamp.damageBonus);
+    assert.equal(armed.damage, c.shieldPromotion.allies.damageBonus + c.stats.attackLamp.damageBonus);
     assert.equal(armed.range, 1); assert.equal(attacks(support, target, s, c), true);
     assert.ok(attackCellsFor(support, s, c).some(cell => cell.q === target.q && cell.r === target.r));
     assert.equal(unitStatParts(support, s, c).find(stat => stat.field === 'damage').total, armed.damage);
@@ -36,7 +36,7 @@ test('the veteran must actually reach support along an unblocked aura ray', () =
     for (const [q, r] of [[2, 0], [1, 1]]) {
       assert.equal(effective(support, position([support, veteran(0, q, r)]), c).range, 0);
     }
-    c.shieldPromotion.aura = 2; c.experiments.aurasThroughShields = false;
+    c.shieldPromotion.allies.aura = 2; c.experiments.aurasThroughShields = false;
     const s = position([support, veteran(0, 2, 0), piece('blocker', 'shield', 0, 1, 0)]);
     assert.equal(effective(support, s, c).range, 0);
     c.experiments.aurasThroughShields = true;
