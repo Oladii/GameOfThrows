@@ -1,5 +1,6 @@
 import { boardNavigationTarget } from './board-navigation.js';
-import { DEFAULT_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance, upgradeScoutFieldPreset } from './rules.js';
+import { DEFAULT_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance } from './rules.js';
+import { consumeNewGameRefresh, refreshNewGamePage } from './new-game-refresh.js';
 import { clone, key, cells, distance, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, isLethalDamage, auraReaches, reachable, movementPath, shieldCanRetreat, move, pass, resolve } from './engine.js';
 import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from './bot-client.js';
 import { classifyPosition, prepareStartPosition } from './start-position.js';
@@ -61,6 +62,8 @@ const STORAGE = 'lamps-prototype-v1';
 const PRESET_REVISION = 1;
 const START_PREFS_REVISION = 1;
 let presetUpdated = false, balanceUpdated = false;
+let refreshingNewGame = false;
+const freshNewGameRequested = consumeNewGameRefresh(location, window.history);
 let currentDeaths = [], deathEffectTimer;
 let movement = null;
 const moveAnimator = new MovementAnimator(frame => {
@@ -70,7 +73,7 @@ const moveAnimator = new MovementAnimator(frame => {
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
 function currentSnapshot() { return clone({ config, state, log, positionKind }); }
 function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); if (history.length > 40) history.shift(); }
-function save() { try { localStorage.setItem(STORAGE, JSON.stringify({ ...currentSnapshot(), history, firstMove, playMode, humanTeam, botDifficulty, lastTurn, gamePhase, editor, previousGame, balanceRevision: BALANCE_REVISION, presetRevision: PRESET_REVISION, startPrefsRevision: START_PREFS_REVISION })); } catch { if (ready) toast('Не удалось сохранить позицию в браузере.'); } }
+function save() { try { localStorage.setItem(STORAGE, JSON.stringify({ ...currentSnapshot(), history, firstMove, playMode, humanTeam, botDifficulty, lastTurn, gamePhase, editor, previousGame, balanceRevision: BALANCE_REVISION, presetRevision: PRESET_REVISION, startPrefsRevision: START_PREFS_REVISION })); return true; } catch { if (ready) toast('Не удалось сохранить позицию в браузере.'); return false; } }
 function normalizeUnitNames(value) {
   const legacyDefenseForms = { '': 'знаменосец', а: 'знаменосца', у: 'знаменосцу', ом: 'знаменосцем', е: 'знаменосце', ы: 'знаменосцы', ов: 'знаменосцев', ам: 'знаменосцам', ами: 'знаменосцами', ах: 'знаменосцах' };
   value = value.replace(/([Кк])омандир(ами|ов|ом|ам|ах|а|у|ы|е)?/g, (_, initial, ending = '') => { const name = legacyDefenseForms[ending]; return initial === 'К' ? name[0].toUpperCase() + name.slice(1) : name; });
@@ -127,6 +130,13 @@ try {
     }
   }
 } catch { toast('Сохранённая позиция не прошла проверку. Загружена исходная расстановка.'); }
+function resetNewGameDefaults() {
+  config = validateConfig(DEFAULT_CONFIG); state = createGame(config);
+  positionKind = 'default'; history = []; log = []; lastTurn = null; selected = null;
+}
+// Use the defaults of the newly loaded release, rather than the release
+// that saved the setup immediately before navigation.
+if (freshNewGameRequested && gamePhase === 'setup' && previousGame) resetNewGameDefaults();
 function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
 function visibleState() { return movement ? movement.before.state : reviewingTurn && lastTurn ? lastTurn.before.state : state; }
@@ -357,6 +367,8 @@ function render(deaths = []) {
   $('#bot-difficulty').value = botDifficulty;
   $('#human-side-field').hidden = playMode !== 'bot'; $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
   $('#start-setup').hidden = gamePhase !== 'setup' || editor;
+  $('#start-setup').disabled = refreshingNewGame;
+  $('#settings-open').disabled = refreshingNewGame;
   $('#new-game').hidden = gamePhase !== 'playing';
   $('#cancel-new-game').hidden = !previousGame;
   $('#position-kind').value = positionKind;
@@ -484,7 +496,7 @@ $('#undo').addEventListener('click', () => {
   lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn(); render();
 });
 function openStartSettings() {
-  if (gamePhase !== 'setup' || editor) return;
+  if (gamePhase !== 'setup' || editor || refreshingNewGame) return;
   const dialog = $('#start-dialog');
   if (!dialog.open) dialog.showModal();
 }
@@ -492,19 +504,24 @@ function dismissDialog(dialog) {
   if (dialog.id === 'start-dialog' && previousGame && gamePhase === 'setup' && !editor) return returnToGame();
   dialog.close();
 }
-function openNewGame() {
-  if (gamePhase !== 'playing') return;
+async function openNewGame() {
+  if (gamePhase !== 'playing' || refreshingNewGame) return;
   const backup = { snapshot: currentSnapshot(), history: clone(history), lastTurn: clone(lastTurn), playMode, humanTeam, firstMove, botDifficulty };
-  let next;
-  try { const nextConfig = validateConfig(upgradeScoutFieldPreset(config)); next = createGame(nextConfig); config = nextConfig; }
-  catch { next = clone(state); next.turn = 0; next.ply = 0; next.winner = null; }
   resetBotContext(); previousGame = backup; gamePhase = 'setup'; editor = false;
   playMode = 'bot'; humanTeam = 1; firstMove = 'south'; botDifficulty = DEFAULT_BOT_DIFFICULTY;
-  state = next; positionKind = classifyPosition(state, config); history = []; log = []; selected = null; render();
+  resetNewGameDefaults();
+  const canRefresh = Boolean($('#bot-worker-source')) && ['http:', 'https:'].includes(location.protocol);
+  refreshingNewGame = canRefresh; render();
+  if (canRefresh && save()) {
+    toast('Проверяем обновление игры…');
+    if (await refreshNewGamePage({ location, online: navigator.onLine !== false })) return;
+    toast('Обновление недоступно. Новая игра подготовлена в текущей версии.');
+  }
+  refreshingNewGame = false; render();
   openStartSettings();
 }
 function startGame() {
-  if (gamePhase !== 'setup' || editor) return;
+  if (gamePhase !== 'setup' || editor || refreshingNewGame) return;
   try {
     const next = prepareStartPosition(state, config, startingTeam());
     resetBotContext(); state = next; gamePhase = 'playing'; positionKind = classifyPosition(state, config);
@@ -879,6 +896,7 @@ document.addEventListener('visibilitychange', updateAttackReachPlayback);
 updateAttackReachPlayback();
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
 ready = true; render();
+if (freshNewGameRequested && gamePhase === 'setup' && previousGame) openStartSettings();
 if (presetUpdated) toast('Подготовлена расстановка с одним барабанщиком и одним знаменосцем. Нажмите «Начать», чтобы играть.');
 
 if (balanceUpdated) toast('Обновлена расстановка: новое поле, разведчик и усиленный знаменосец.');

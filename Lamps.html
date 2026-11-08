@@ -326,7 +326,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.7</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-06T23:52:22.663Z">Сборка 07.11.2026, 02:52:22 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.8</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-08T23:32:18.565Z">Сборка 09.11.2026, 02:32:18 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <main>
     <div class="workspace">
@@ -2023,6 +2023,41 @@ function boardNavigationTarget(board, current, direction, geometry = 'hex', whol
   return candidates[0]?.cell || current;
 }
 
+// The standalone page includes all game code, CSS and the bot Worker.
+// A fresh page URL therefore refreshes the whole release without clearing
+// storage belonging to the archive or other projects on the same origin.
+function freshNewGameUrl(href, nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`) {
+  const url = new URL(href);
+  if (!['http:', 'https:'].includes(url.protocol)) return null;
+  url.searchParams.set('_fresh', nonce);
+  url.searchParams.set('_newGame', '1');
+  return url.href;
+}
+
+function consumeNewGameRefresh(location, browserHistory) {
+  const url = new URL(location.href);
+  if (url.searchParams.get('_newGame') !== '1') return false;
+  url.searchParams.delete('_newGame');
+  browserHistory.replaceState(null, '', url.href);
+  return true;
+}
+
+async function refreshNewGamePage({ location, fetchPage = fetch, online = true, timeoutMs = 4000 }) {
+  const url = freshNewGameUrl(location.href);
+  if (!url || !online) return false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchPage(url, { cache: 'no-store', signal: controller.signal });
+    if (!response.ok) return false;
+    const html = await response.text();
+    if (!html.includes('id="version-number"') || !html.includes('<script id="bot-worker-source"')) return false;
+    location.replace(url);
+    return true;
+  } catch { return false; }
+  finally { clearTimeout(timeout); }
+}
+
 const $ = selector => document.querySelector(selector);
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
@@ -2075,6 +2110,8 @@ const STORAGE = 'lamps-prototype-v1';
 const PRESET_REVISION = 1;
 const START_PREFS_REVISION = 1;
 let presetUpdated = false, balanceUpdated = false;
+let refreshingNewGame = false;
+const freshNewGameRequested = consumeNewGameRefresh(location, window.history);
 let currentDeaths = [], deathEffectTimer;
 let movement = null;
 const moveAnimator = new MovementAnimator(frame => {
@@ -2084,7 +2121,7 @@ const moveAnimator = new MovementAnimator(frame => {
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
 function currentSnapshot() { return clone({ config, state, log, positionKind }); }
 function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); if (history.length > 40) history.shift(); }
-function save() { try { localStorage.setItem(STORAGE, JSON.stringify({ ...currentSnapshot(), history, firstMove, playMode, humanTeam, botDifficulty, lastTurn, gamePhase, editor, previousGame, balanceRevision: BALANCE_REVISION, presetRevision: PRESET_REVISION, startPrefsRevision: START_PREFS_REVISION })); } catch { if (ready) toast('Не удалось сохранить позицию в браузере.'); } }
+function save() { try { localStorage.setItem(STORAGE, JSON.stringify({ ...currentSnapshot(), history, firstMove, playMode, humanTeam, botDifficulty, lastTurn, gamePhase, editor, previousGame, balanceRevision: BALANCE_REVISION, presetRevision: PRESET_REVISION, startPrefsRevision: START_PREFS_REVISION })); return true; } catch { if (ready) toast('Не удалось сохранить позицию в браузере.'); return false; } }
 function normalizeUnitNames(value) {
   const legacyDefenseForms = { '': 'знаменосец', а: 'знаменосца', у: 'знаменосцу', ом: 'знаменосцем', е: 'знаменосце', ы: 'знаменосцы', ов: 'знаменосцев', ам: 'знаменосцам', ами: 'знаменосцами', ах: 'знаменосцах' };
   value = value.replace(/([Кк])омандир(ами|ов|ом|ам|ах|а|у|ы|е)?/g, (_, initial, ending = '') => { const name = legacyDefenseForms[ending]; return initial === 'К' ? name[0].toUpperCase() + name.slice(1) : name; });
@@ -2141,6 +2178,13 @@ try {
     }
   }
 } catch { toast('Сохранённая позиция не прошла проверку. Загружена исходная расстановка.'); }
+function resetNewGameDefaults() {
+  config = validateConfig(DEFAULT_CONFIG); state = createGame(config);
+  positionKind = 'default'; history = []; log = []; lastTurn = null; selected = null;
+}
+// Use the defaults of the newly loaded release, rather than the release
+// that saved the setup immediately before navigation.
+if (freshNewGameRequested && gamePhase === 'setup' && previousGame) resetNewGameDefaults();
 function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
 function visibleState() { return movement ? movement.before.state : reviewingTurn && lastTurn ? lastTurn.before.state : state; }
@@ -2371,6 +2415,8 @@ function render(deaths = []) {
   $('#bot-difficulty').value = botDifficulty;
   $('#human-side-field').hidden = playMode !== 'bot'; $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
   $('#start-setup').hidden = gamePhase !== 'setup' || editor;
+  $('#start-setup').disabled = refreshingNewGame;
+  $('#settings-open').disabled = refreshingNewGame;
   $('#new-game').hidden = gamePhase !== 'playing';
   $('#cancel-new-game').hidden = !previousGame;
   $('#position-kind').value = positionKind;
@@ -2498,7 +2544,7 @@ $('#undo').addEventListener('click', () => {
   lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn(); render();
 });
 function openStartSettings() {
-  if (gamePhase !== 'setup' || editor) return;
+  if (gamePhase !== 'setup' || editor || refreshingNewGame) return;
   const dialog = $('#start-dialog');
   if (!dialog.open) dialog.showModal();
 }
@@ -2506,19 +2552,24 @@ function dismissDialog(dialog) {
   if (dialog.id === 'start-dialog' && previousGame && gamePhase === 'setup' && !editor) return returnToGame();
   dialog.close();
 }
-function openNewGame() {
-  if (gamePhase !== 'playing') return;
+async function openNewGame() {
+  if (gamePhase !== 'playing' || refreshingNewGame) return;
   const backup = { snapshot: currentSnapshot(), history: clone(history), lastTurn: clone(lastTurn), playMode, humanTeam, firstMove, botDifficulty };
-  let next;
-  try { const nextConfig = validateConfig(upgradeScoutFieldPreset(config)); next = createGame(nextConfig); config = nextConfig; }
-  catch { next = clone(state); next.turn = 0; next.ply = 0; next.winner = null; }
   resetBotContext(); previousGame = backup; gamePhase = 'setup'; editor = false;
   playMode = 'bot'; humanTeam = 1; firstMove = 'south'; botDifficulty = DEFAULT_BOT_DIFFICULTY;
-  state = next; positionKind = classifyPosition(state, config); history = []; log = []; selected = null; render();
+  resetNewGameDefaults();
+  const canRefresh = Boolean($('#bot-worker-source')) && ['http:', 'https:'].includes(location.protocol);
+  refreshingNewGame = canRefresh; render();
+  if (canRefresh && save()) {
+    toast('Проверяем обновление игры…');
+    if (await refreshNewGamePage({ location, online: navigator.onLine !== false })) return;
+    toast('Обновление недоступно. Новая игра подготовлена в текущей версии.');
+  }
+  refreshingNewGame = false; render();
   openStartSettings();
 }
 function startGame() {
-  if (gamePhase !== 'setup' || editor) return;
+  if (gamePhase !== 'setup' || editor || refreshingNewGame) return;
   try {
     const next = prepareStartPosition(state, config, startingTeam());
     resetBotContext(); state = next; gamePhase = 'playing'; positionKind = classifyPosition(state, config);
@@ -2893,6 +2944,7 @@ document.addEventListener('visibilitychange', updateAttackReachPlayback);
 updateAttackReachPlayback();
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
 ready = true; render();
+if (freshNewGameRequested && gamePhase === 'setup' && previousGame) openStartSettings();
 if (presetUpdated) toast('Подготовлена расстановка с одним барабанщиком и одним знаменосцем. Нажмите «Начать», чтобы играть.');
 
 if (balanceUpdated) toast('Обновлена расстановка: новое поле, разведчик и усиленный знаменосец.');

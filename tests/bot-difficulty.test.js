@@ -12,7 +12,8 @@ const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
 function declaration(name) {
   const start = app.indexOf(`function ${name}(`), lineEnd = app.indexOf('\n', start);
   assert.ok(start >= 0);
-  return app.slice(start, app.slice(start, lineEnd).endsWith('}') ? lineEnd : app.indexOf('\n}', lineEnd) + 2);
+  const prefix = app.slice(start - 6, start) === 'async ' ? start - 6 : start;
+  return app.slice(prefix, app.slice(start, lineEnd).endsWith('}') ? lineEnd : app.indexOf('\n}', lineEnd) + 2);
 }
 function setup() {
   let saved, request, handler;
@@ -21,13 +22,14 @@ function setup() {
     config: clone(DEFAULT_CONFIG), state: clone(createGame(DEFAULT_CONFIG)), gamePhase: 'playing', editor: false,
     playMode: 'bot', humanTeam: 1, firstMove: 'south', history: [], log: [], lastTurn: null, previousGame: null, positionKind: 'default',
     STORAGE: 'test', BALANCE_REVISION: 5, PRESET_REVISION: 1, START_PREFS_REVISION: 1,
+    DEFAULT_CONFIG, validateConfig: clone, refreshingNewGame: false,
     localStorage: { setItem(key, value) { saved = JSON.parse(value); } },
     $: selector => nodes[selector], resetBotContext() {}, openStartSettings() {},
     archiveRecorder: { resume() {} }, readSnapshot: clone, readLastTurn: value => value,
     recentBotHistory: () => [], botRunner: { run(value) { request = value; } },
     render() { context.save(); }, currentSnapshot: () => clone({ config: context.config, state: context.state, log: context.log, positionKind: context.positionKind }) });
   vm.runInContext(app.match(/^let botDifficulty = .*$/m)[0], context);
-  for (const name of ['save', 'archiveGameMetadata', 'readPreviousGame', 'openNewGame', 'returnToGame', 'startBot']) vm.runInContext(declaration(name), context);
+  for (const name of ['save', 'archiveGameMetadata', 'readPreviousGame', 'resetNewGameDefaults', 'openNewGame', 'returnToGame', 'startBot']) vm.runInContext(declaration(name), context);
   vm.runInContext(app.split('\n').find(line => line.startsWith("$('#bot-difficulty').addEventListener")), context);
   return { context, run: code => vm.runInContext(code, context), saved: () => saved, request: () => request,
     change: value => handler({ target: { value } }) };
@@ -57,16 +59,66 @@ test('the setup selector controls Worker depth and archive metadata; changes are
   ui.context.playMode = 'local'; assert.equal(ui.run('archiveGameMetadata().botDepth'), undefined);
 });
 
-test('new-game preparation defaults to easy and returning restores the saved game difficulty, including after serialization', () => {
+test('new-game preparation defaults to easy and returning restores the saved game difficulty, including after serialization', async () => {
   const ui = setup(); ui.run("botDifficulty = 'hard'");
   ui.context.state.ply = 12; const original = clone(ui.context.state);
-  ui.run('openNewGame()');
+  await ui.run('openNewGame()');
   assert.equal(ui.run('botDifficulty'), 'easy'); assert.equal(ui.context.gamePhase, 'setup');
   assert.equal(ui.saved().previousGame.botDifficulty, 'hard');
   ui.context.previousGame = ui.run('readPreviousGame(JSON.parse(JSON.stringify(previousGame)))');
   ui.run('returnToGame()');
   assert.equal(ui.run('botDifficulty'), 'hard'); assert.equal(ui.context.gamePhase, 'playing');
   assert.deepEqual(clone(ui.context.state), original); assert.equal(ui.saved().botDifficulty, 'hard');
+});
+
+test('new game discards even older or custom characteristics and returning restores the entire previous game', async () => {
+  const ui = setup();
+  ui.context.config.size = 4; ui.context.config.stats.shield.damage = 4;
+  ui.context.config.stats.archer.damage = 2; ui.context.config.army.scoutLamps = 0;
+  ui.context.state = createGame(ui.context.config); ui.context.state.ply = 7;
+  ui.context.history = [{ config: clone(ui.context.config), state: clone(ui.context.state) }];
+  ui.context.log = [{ text: 'Старая партия', detail: '' }];
+  const before = ui.context.currentSnapshot(), oldHistory = clone(ui.context.history);
+  await ui.run('openNewGame()');
+  assert.deepEqual(clone(ui.context.config), DEFAULT_CONFIG);
+  assert.equal(ui.context.state.ply, 0);
+  assert.equal(ui.context.state.pieces.filter(p => p.type === 'scoutLamp').length, 2);
+  assert.deepEqual(clone(ui.saved().previousGame.snapshot), before);
+  ui.context.previousGame = ui.run('readPreviousGame(JSON.parse(JSON.stringify(previousGame)))');
+  ui.run('returnToGame()');
+  assert.deepEqual(ui.context.currentSnapshot(), before);
+  assert.deepEqual(clone(ui.context.history), oldHistory);
+});
+
+test('new game saves before refresh, locks duplicate requests and leaves setup usable when refresh fails', async () => {
+  const ui = setup(); let finishRefresh, called = 0;
+  ui.context.$ = selector => selector === '#bot-worker-source' ? {} : { close() {} };
+  ui.context.location = { protocol: 'https:' }; ui.context.navigator = { onLine: true };
+  ui.context.toast = () => {};
+  ui.context.refreshNewGamePage = () => {
+    called++; assert.ok(ui.saved().previousGame); assert.equal(ui.saved().gamePhase, 'setup');
+    return new Promise(resolve => { finishRefresh = resolve; });
+  };
+  const pending = ui.run('openNewGame()');
+  assert.equal(ui.context.refreshingNewGame, true);
+  await ui.run('openNewGame()'); assert.equal(called, 1);
+  finishRefresh(false); await pending;
+  assert.equal(ui.context.refreshingNewGame, false);
+  assert.equal(ui.context.gamePhase, 'setup');
+  assert.deepEqual(clone(ui.context.config), DEFAULT_CONFIG);
+  ui.run('returnToGame()'); assert.equal(ui.context.gamePhase, 'playing');
+});
+
+test('blocked game storage prevents navigation without discarding the in-memory backup', async () => {
+  const ui = setup(); let called = false;
+  ui.context.$ = () => ({ close() {} });
+  ui.context.location = { protocol: 'https:' }; ui.context.ready = true; ui.context.toast = () => {};
+  ui.context.localStorage.setItem = () => { throw new Error('storage blocked'); };
+  ui.context.refreshNewGamePage = () => { called = true; };
+  await ui.run('openNewGame()');
+  assert.equal(called, false); assert.ok(ui.context.previousGame);
+  assert.equal(ui.context.refreshingNewGame, false);
+  ui.run('returnToGame()'); assert.equal(ui.context.gamePhase, 'playing');
 });
 
 test('easy performs a shallower legal search; hard retains the former search settings', () => {
