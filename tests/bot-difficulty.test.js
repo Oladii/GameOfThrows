@@ -22,7 +22,7 @@ function setup() {
     config: clone(DEFAULT_CONFIG), state: clone(createGame(DEFAULT_CONFIG)), gamePhase: 'playing', editor: false,
     playMode: 'bot', humanTeam: 1, firstMove: 'south', history: [], log: [], lastTurn: null, previousGame: null, positionKind: 'default',
     STORAGE: 'test', BALANCE_REVISION: 5, PRESET_REVISION: 1, START_PREFS_REVISION: 1,
-    DEFAULT_CONFIG, upgradeSelectedBalancePreset, validateConfig: clone, refreshingNewGame: false,
+    DEFAULT_CONFIG, upgradeSelectedBalancePreset, validateConfig: clone, refreshingNewGame: false, movement: null, combat: null,
     localStorage: { setItem(key, value) { saved = JSON.parse(value); } },
     $: selector => nodes[selector], resetBotContext() {}, openStartSettings() {},
     archiveRecorder: { resume() {} }, readSnapshot: clone, readLastTurn: value => value,

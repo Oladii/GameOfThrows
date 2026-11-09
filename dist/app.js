@@ -4,9 +4,9 @@ import { consumeNewGameRefresh, refreshNewGamePage } from './new-game-refresh.js
 import { clone, key, cells, distance, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, isLethalDamage, auraReaches, reachable, movementPath, shieldCanRetreat, move, pass, resolve } from './engine.js';
 import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from './bot-client.js';
 import { classifyPosition, prepareStartPosition } from './start-position.js';
-import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION } from './move-animation.js';
+import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION, ATTACK_EFFECT_DURATION } from './move-animation.js';
 import { GameRecorder } from './game-archive.js';
-import { durabilityDisplay, attackCellsFor, unitStatParts, alliedBonusDetails, AURA_COLORS, auraKind, auraCircleMarkup, skullShape, renderDeathEffects, renderMovingToken, unitAppearance, attackMarkerRotation, attackReachPresentation } from './board-presentation.js';
+import { renderUnitBadges, lethalAttackPresentation, renderDamageArrows, attackCellsFor, unitStatParts, alliedBonusDetails, AURA_COLORS, auraKind, auraCircleMarkup, skullShape, renderDeathEffects, renderMovingToken, unitAppearance, attackMarkerRotation, attackReachPresentation } from './board-presentation.js';
 import { createMoveLesson, renderMoveLesson, renderMoveExamples, createCombatLesson, renderCombatExamples, lessonPoint } from './onboarding-examples.js';
 import { createUnitLesson, renderUnitExamples } from './onboarding-units.js';
 import { createShowcaseBattle, renderShowcaseBattle } from './onboarding-showcase.js';
@@ -57,13 +57,7 @@ const ICON_PATHS = {
   defenseLamp: '<path d="M4 22V3m0 2c5-4 10 4 16 0v11c-6 4-11-4-16 0"/><path d="m9 8 3-1 3 1v3c0 2-1.5 3-3 4-1.5-1-3-2-3-4Z"/>'
 };
 const icon = (type, piece = null) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${piece ? unitAppearance(piece, config, ICON_PATHS).icon : ICON_PATHS[type]}</svg>`;
-const attackBadge = info => `<g class="attack-indicator" data-attack="${info.damage}"><title>Урон атаки: ${info.damage}</title><circle class="attack-badge" cx="-13" cy="13" r="8.5"/><text class="attack-text" x="-13" y="13.4" style="font-size:${String(info.damage).length > 2 ? 7 : 10}px">${info.damage}</text></g>`;
-const survivalBadge = info => {
-  const status = durabilityDisplay(info);
-  return `<g class="survival-indicator ${status.threatened ? 'under-fire' : ''}" data-remaining="${status.value}"><title>${status.description}${status.dead ? ' · погибнет' : ''}</title>${status.dead ? fatalMark() : `<circle class="fort-badge" cx="13" cy="13" r="8.5"/><text class="fort-text" x="13" y="13.4">${status.value}</text>`}</g>`;
-};
-const unitBadges = info => `<g class="unit-badges">${attackBadge(info)}${survivalBadge(info)}</g>`;
-const fatalMark = () => `<g class="fatal-mark" transform="translate(5,5)" aria-hidden="true"><circle class="skull-badge" cx="8" cy="8" r="8.5"/>${skullShape()}</g>`;
+const unitBadges = renderUnitBadges;
 let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], log = [];
 let firstMove = 'south';
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
@@ -80,11 +74,17 @@ let presetUpdated = false, balanceUpdated = false;
 let refreshingNewGame = false;
 const freshNewGameRequested = consumeNewGameRefresh(location, window.history);
 let currentDeaths = [], deathEffectTimer;
-let movement = null;
+let movement = null, combat = null;
 const moveAnimator = new MovementAnimator(frame => {
   const token = $('#moving-token');
   if (token) { token.setAttribute('transform', `translate(${frame.x},${frame.y})`); token.dataset.progress = String(frame.progress); }
-}, () => { const completed = movement; movement = null; if (completed) render(completed.deaths); });
+}, () => { const completed = movement; movement = null; if (completed) presentKills(completed.before, completed.forecast, completed.deaths); });
+const combatAnimator = new CombatAnimator(phase => {
+  if (!combat) return;
+  if (phase === 'idle') combat = null;
+  else combat.phase = phase;
+  render();
+}, () => {});
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
 function currentSnapshot() { return clone({ config, state, log, positionKind }); }
 function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); if (history.length > 40) history.shift(); }
@@ -154,20 +154,30 @@ function resetNewGameDefaults() {
 if (freshNewGameRequested && gamePhase === 'setup' && previousGame) resetNewGameDefaults();
 function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
-function visibleState() { return movement ? movement.before.state : reviewingTurn && lastTurn ? lastTurn.before.state : state; }
+function visibleState() { return movement ? movement.before.state : combat ? combat.phase === 'attacks' ? combat.position : combat.survivors : reviewingTurn && lastTurn ? lastTurn.before.state : state; }
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
-function humanCanMove() { return gamePhase === 'playing' && !movement && !currentDeaths.length && !reviewingTurn && !isBotTurn() && state.winner === null; }
+function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !isBotTurn() && state.winner === null; }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
-function cancelMovement() { moveAnimator.cancel(); movement = null; }
+function cancelMovement() { moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
 function resetBotContext(clearLastTurn = true) { cancelBot(); cancelMovement(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function presentMove(before, action, deaths) {
   cancelMovement();
   const piece = action && !action.pass ? before.state.pieces.find(p => p.id === action.id) : null;
   const route = piece ? movementPath(piece, before.state, before.config, action.to) : [];
-  if (route.length < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) { render(deaths); return; }
+  const forecast = piece ? inspectCell(before.state, before.config, action.to, piece.id) : { position: before.state, report: analyze(before.state, before.config) };
+  if (route.length < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) { presentKills(before, forecast, deaths); return; }
   const plan = createMovementPlan(route.map(point));
-  movement = { before, piece, plan, route, deaths };
+  movement = { before, piece, plan, route, deaths, forecast };
   render(); moveAnimator.start(plan);
+}
+function presentKills(before, forecast, deaths) {
+  if (!deaths.length) { render(); return; }
+  const presentation = lethalAttackPresentation(forecast.position, forecast.report, deaths);
+  const survivors = { ...forecast.position, pieces: forecast.position.pieces.filter(p => !presentation.victims.has(p.id)) };
+  combat = { before, position: forecast.position, survivors, report: forecast.report, deaths, ...presentation, phase: 'attacks' };
+  // Reduced-motion users see the same static explanation for three seconds;
+  // the CSS motion preference suppresses the following death effect.
+  combatAnimator.start(null, true, false, ATTACK_EFFECT_DURATION);
 }
 function lastTurnFromHistory() { const entry = history.at(-1); return entry?.action ? readLastTurn({ before: entry, action: entry.action }) : null; }
 function recentBotHistory() {
@@ -180,8 +190,8 @@ function recentBotHistory() {
   return recent;
 }
 function queueBot() {
-  if (!ready || !isBotTurn() || movement || currentDeaths.length || reviewingTurn || botIssue || botSuspended || $('dialog[open]') || botRunner.active || botTimer !== null) return;
-  botTimer = setTimeout(() => { botTimer = null; if (isBotTurn() && !reviewingTurn && !$('dialog[open]')) startBot(); }, 420);
+  if (!ready || !isBotTurn() || movement || combat || currentDeaths.length || reviewingTurn || botIssue || botSuspended || $('dialog[open]') || botRunner.active || botTimer !== null) return;
+  botTimer = setTimeout(() => { botTimer = null; if (isBotTurn() && !movement && !combat && !reviewingTurn && !$('dialog[open]')) startBot(); }, 420);
 }
 function startBot() {
   const requestedState = state, requestedConfig = config, recent = recentBotHistory(), lastActions = new Map();
@@ -238,13 +248,14 @@ function boardMarkup() {
     if (p) {
       const info = report.get(p.id);
       const appearance = unitAppearance(p, config, ICON_PATHS);
-      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info)}</g>`;
+      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info)}</g>`;
     }
     return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/>${damageLabel}${token}</g>`;
   }).join('') + '<g id="aura-circles" clip-path="url(#aura-field-clip)" aria-hidden="true"></g><g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config)}</g>` + lastMoveTrace() + movingTokenMarkup();
   if (restoreFocus) $('#board [tabindex="0"]')?.focus({ preventScroll: true });
 }
 function paintAuras() {
+  if (combat) { $('#aura-circles').innerHTML = ''; $('#aura-legend').hidden = true; return; }
   const context = inspectionContext(), showAll = fieldView === 'auras';
   const position = !showAll && context.isPreview && context.piece?.id === selected ? context.position : visibleState();
   const sources = position.pieces.filter(p => (showAll || !fieldView && p.id === selected) && effective(p, position, config).aura > 0);
@@ -271,14 +282,15 @@ function lastMoveTrace() {
 function movingTokenMarkup() {
   if (!movement) return '';
   const p = movement.piece, frame = moveAnimator.active ? moveAnimator.frame : sampleMovement(movement.plan, 0);
-  return renderMovingToken(p, frame, ICON_PATHS, 'moving-token', config);
+  return renderMovingToken(p, frame, ICON_PATHS, 'moving-token', config, p.team, movement.forecast.report.get(p.id));
 }
 function inspectionContext() {
   const position = visibleState();
   return inspection || { piece: position.pieces.find(p => p.id === selected), position, report, isPreview: false };
 }
 function highlightSources() {
-  const context = inspectionContext(), target = context.piece;
+  if (combat) { $('#attack-lines').innerHTML = combat.phase === 'attacks' ? renderDamageArrows(combat.arrows, point, { pieces: combat.position.pieces, board: cells(config) }) : ''; return; }
+  const context = movement ? { ...movement.forecast, isPreview: false } : inspectionContext(), target = context.piece;
   const sourceIds = new Set(target ? context.report.get(target.id).attackers.map(a => a.id) : []);
   document.querySelectorAll('#board [data-piece-id]').forEach(element => {
     const id = element.dataset.pieceId;
@@ -288,7 +300,7 @@ function highlightSources() {
     element.classList.toggle('fatal', !previewOrigin && (info?.dead || false));
     element.classList.toggle('attacking-source', sourceIds.has(id));
     if (info) {
-      element.querySelector('.unit-badges').outerHTML = unitBadges(info);
+      element.querySelector('.unit-badges').outerHTML = unitBadges(info, { showIncoming: id === selected || id === target?.id });
     }
   });
   document.querySelectorAll('#board [data-cell]').forEach(element => element.classList.toggle('inspection-target', !!target && element.dataset.cell === key(target.q, target.r)));
@@ -297,17 +309,10 @@ function highlightSources() {
   if (!layer) return;
   if (!target) { layer.innerHTML = ''; return; }
   const end = point(target);
-  const lines = context.report.get(target.id).attackers.map(attack => {
-    // The source can itself die: take its coordinates before simultaneous removal.
-    const source = context.position.pieces.find(p => p.id === attack.id);
-    if (!source) return '';
-    const start = point(source), length = Math.hypot(end.x - start.x, end.y - start.y), shorten = Math.min(24, length / 3);
-    const dx = (end.x - start.x) / length, dy = (end.y - start.y) / length;
-    const label = { x: start.x + (end.x - start.x) * .55, y: start.y + (end.y - start.y) * .55 };
-    return `<g class="attack-ray" data-source="${source.id}"><line x1="${start.x + dx * shorten}" y1="${start.y + dy * shorten}" x2="${end.x - dx * shorten}" y2="${end.y - dy * shorten}" marker-end="url(#damage-arrow)"><title>${escape(LABELS[source.type])}: ${attack.damage} урона</title></line><g class="attack-ray-label"><circle cx="${label.x}" cy="${label.y}" r="9"/><text x="${label.x}" y="${label.y + .4}">${attack.damage}</text></g></g>`;
-  }).join('');
+  const arrows = context.report.get(target.id).attackers.map(attack => ({ source: context.position.pieces.find(p => p.id === attack.id), target, damage: attack.damage })).filter(attack => attack.source);
+  const lines = renderDamageArrows(arrows, point, { pieces: context.position.pieces, board: cells(config) });
   const targetInfo = context.report.get(target.id);
-  const ghost = context.isPreview ? `<g class="preview-ghost${unitAppearance(target, config, ICON_PATHS).veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})"><circle r="19"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${unitAppearance(target, config, ICON_PATHS).icon}</g>${unitBadges(targetInfo)}</g>` : '';
+  const ghost = context.isPreview ? `<g class="preview-ghost${unitAppearance(target, config, ICON_PATHS).veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})"><circle r="19"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${unitAppearance(target, config, ICON_PATHS).icon}</g>${unitBadges(targetInfo, { showIncoming: true })}</g>` : '';
   layer.innerHTML = lines + ghost;
 }
 function paintAttackReach(context) {
@@ -316,7 +321,7 @@ function paintAttackReach(context) {
   const visible = visibleState();
   const position = context.isPreview && context.piece?.id === selected ? context.position : visible;
   const piece = position.pieces.find(p => p.id === selected);
-  const {cells: attackCells, markup} = attackReachPresentation(piece, position, config, {point, polygonPoints: polygon({q:0,r:0}), visiblePosition: visible});
+  const {cells: attackCells, markup} = attackReachPresentation(piece, position, config, {point, polygonPoints: polygon({q:0,r:0}), visiblePosition: visible, friendlyTeam: playMode === 'bot' ? humanTeam : visible.turn});
   const targetKeys = new Set(attackCells.map(cell => key(cell.q, cell.r)));
   document.querySelectorAll('#board [data-cell]').forEach(element => element.classList.toggle('selected-attack-target', targetKeys.has(element.dataset.cell)));
   if (layer.attackReachMarkup !== markup) { layer.innerHTML = markup; layer.attackReachMarkup = markup; }
@@ -372,10 +377,18 @@ function unitReferenceMarkup(promotionOpen = false) {
   }).join('');
   return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th><th scope="col" title="Максимальный шаг">Шаг</th><th scope="col">Урон</th><th scope="col" title="Дальность атаки">Дал.</th><th scope="col" title="Стойкость">Стойк.</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
+function renderGameResult(position) {
+  const finished = position.winner !== null && gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn;
+  const victory = finished ? position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Севера' : 'Юга'}` : '';
+  $('#move-counter').textContent = gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${movement ? ' · движение' : combat ? ' · расчёт боя' : ''}${victory ? '. ' + victory : ''}`;
+  $('#play-again').hidden = !finished;
+}
 function render(deaths = []) {
-  const state = visibleState(), displayLog = movement ? movement.before.log : reviewingTurn && lastTurn ? lastTurn.before.log : log;
+  const state = visibleState(), displayLog = movement ? movement.before.log : combat ? combat.before.log : reviewingTurn && lastTurn ? lastTurn.before.log : log;
+  for (const view of ['attacks', 'auras']) $('#show-' + view).disabled = Boolean(movement || combat);
   for (const view of ['attacks', 'auras']) $('#show-' + view).setAttribute('aria-pressed', String(fieldView === view));
   clearTimeout(deathEffectTimer);
+  deaths = combat?.phase === 'deaths' ? combat.deaths : deaths;
   currentDeaths = Array.isArray(deaths) && !matchMedia('(prefers-reduced-motion: reduce)').matches ? deaths : [];
   $('#first-move').value = firstMove;
   $('#play-mode').value = playMode; $('#human-side').value = String(humanTeam);
@@ -383,46 +396,47 @@ function render(deaths = []) {
   $('#human-side-field').hidden = playMode !== 'bot'; $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
   $('#start-setup').hidden = gamePhase !== 'setup' || editor;
   $('#start-setup').disabled = refreshingNewGame;
-  $('#settings-open').disabled = refreshingNewGame;
+  $('#settings-open').disabled = refreshingNewGame || Boolean(movement || combat);
+  $('#new-game').disabled = Boolean(movement || combat);
   $('#new-game').hidden = gamePhase !== 'playing';
   $('#cancel-new-game').hidden = !previousGame;
   $('#position-kind').value = positionKind;
   $('#configure-position').disabled = positionKind !== 'custom';
   $('#configure-position').hidden = positionKind !== 'custom';
   $('#mode-caption').textContent = playMode === 'bot' ? `Против бота · ${BOT_DIFFICULTIES[botDifficulty].label.toLowerCase()}` : '2 игрока на одном экране';
-  hover = null; inspection = null; report = analyze(state, config);
+  hover = null; inspection = null; report = combat?.phase === 'attacks' ? combat.report : analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
   boardMarkup(); paintAuras(); highlightSources();
-  $('#board').setAttribute('aria-busy', String(Boolean(movement)));
-  $('#move-counter').textContent = gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${state.ply + 1}${movement ? ' · движение' : ''}`;
+  $('#board').setAttribute('aria-busy', String(Boolean(movement || combat)));
+  $('#board').setAttribute('data-combat-phase', combat?.phase || 'idle');
+  renderGameResult(state);
   $('#scoreboard').innerHTML = [0, 1].map(team => {
     const pieces = state.pieces.filter(p => p.team === team), n = pieces.length;
-    const active = gamePhase === 'playing' && state.turn === team && state.winner === null && !editor && !currentDeaths.length;
+    const active = gamePhase === 'playing' && state.turn === team && state.winner === null && !editor && !combat && !currentDeaths.length;
     const roster = TYPES.map(type => {
       const count = pieces.filter(p => p.type === type).length, label = `${LABELS[type]}: ${count}`;
       return `<li class="team-unit ${count ? '' : 'empty'}" data-unit-type="${type}" title="${label}" aria-label="${label}">${icon(type)}<span aria-hidden="true">${count}</span></li>`;
     }).join('');
-    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div><span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${playMode === 'bot' ? `<span class="team-role">${team === humanTeam ? 'Вы' : 'Бот'}</span>` : ''}</span><div class="turn-tag">${gamePhase === 'setup' ? 'РАССТАНОВКА' : currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : 'ВАШ ХОД' : ' '}</div></div><span class="team-count">${n} ${plural(n, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
+    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div><span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${playMode === 'bot' ? `<span class="team-role">${team === humanTeam ? 'Вы' : 'Бот'}</span>` : ''}</span><div class="turn-tag">${gamePhase === 'setup' ? 'РАССТАНОВКА' : combat ? 'РАСЧЁТ БОЯ' : currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : 'ВАШ ХОД' : ' '}</div></div><span class="team-count">${n} ${plural(n, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
   }).join('');
   $('#unit-reference').innerHTML = unitReferenceMarkup(Boolean($('#unit-reference [data-shield-promotion]')?.open));
-  $('#config-summary').innerHTML = `<div class="summary-row"><span>Групп на игрока</span><strong>${config.army.groups}</strong></div><div class="summary-row"><span>Состав группы</span><strong>${config.army.shields} ${plural(config.army.shields, ['броненосец', 'броненосца', 'броненосцев'])} + ${config.army.archers} ${plural(config.army.archers, ['лукарь', 'лукаря', 'лукарей'])}</strong></div><div class="summary-row"><span>Барабанщики / знаменосцы / разведчики</span><strong>${config.army.attackLamps} / ${config.army.defenseLamps} / ${config.army.scoutLamps}</strong></div><div class="summary-row"><span>Стрельба</span><strong>${config.geometry === 'hex' ? '6 лучей через грани' : config.experiments.squareDiagonals ? '8 направлений' : '4 направления'}</strong></div>`;
+  $('#config-summary').innerHTML = `<div class="summary-row"><span>Групп на игрока</span><strong>${config.army.groups}</strong></div><div class="summary-row"><span>Состав группы</span><strong>${config.army.shields} ${plural(config.army.shields, ['броненосец', 'броненосца', 'броненосцев'])} + ${config.army.archers} ${plural(config.army.archers, ['лукарь', 'лукаря', 'лукарей'])}</strong></div><div class="summary-row"><span>Барабанщики / знаменосцы / разведчики</span><strong>${config.army.attackLamps} / ${config.army.defenseLamps} / ${config.army.scoutLamps}</strong></div><div class="summary-row"><span>Дополнительно в центре</span><strong>${config.army.centralShields ?? 0} броненосцев / ${config.army.rearArchers ?? 0} лукарей</strong></div><div class="summary-row"><span>Стрельба</span><strong>${config.geometry === 'hex' ? '6 лучей через грани' : config.experiments.squareDiagonals ? '8 направлений' : '4 направления'}</strong></div>`;
   $('#editor-controls').hidden = !editor;
   $('#pass-turn').hidden = !config.experiments.allowPass || gamePhase !== 'playing';
   $('#pass-turn').disabled = !humanCanMove();
-  $('#undo').disabled = !history.length || reviewingTurn || (gamePhase === 'setup' && !editor);
+  $('#undo').disabled = Boolean(movement || combat) || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor);
   $('#undo').title = playMode === 'bot' && !editor ? 'Отменить свой ход и ответ бота' : 'Отменить последнее действие';
-  $('#review-previous').disabled = !lastTurn || gamePhase !== 'playing' || reviewingTurn;
+  $('#review-previous').disabled = Boolean(movement || combat) || !lastTurn || gamePhase !== 'playing' || reviewingTurn;
   $('#review-previous').setAttribute('aria-pressed', String(reviewingTurn));
   $('#review-current').disabled = !reviewingTurn;
   $('#resume-bot').hidden = !isBotTurn() || reviewingTurn || editor || (!botIssue && !botSuspended);
+  $('#resume-bot').disabled = Boolean(movement || combat);
   $('#resume-bot').textContent = botIssue ? 'Повторить ход бота' : 'Ход бота';
   const lastAction = lastTurn?.action;
   const lastPiece = lastAction && !lastAction.pass ? lastTurn.before.state.pieces.find(p => p.id === lastAction.id) : null;
   const lastMoveText = lastAction ? lastAction.pass ? `Последний ход: ${TEAM_NAMES[lastTurn.before.state.turn]} · пропуск.` : `Последний ход: ${TEAM_NAMES[lastTurn.before.state.turn]} · ${LABELS[lastPiece?.type] || 'Фигура'} · ${positionText(lastAction.from)} → ${positionText(lastAction.to)}.` : 'Сделайте ход. Стрелки рядом с «Отменить» позволяют посмотреть предыдущую позицию.';
-  $('#bot-status').textContent = movement ? `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]} перемещается…` : currentDeaths.length ? 'Расчёт боя…' : editor ? 'Бот не ходит в редакторе.' : reviewingTurn ? lastMoveText : botIssue || (isBotTurn() ? botSuspended ? 'Ход бота приостановлен. Нажмите «Ход бота», чтобы продолжить.' : $('dialog[open]') ? 'Бот ждёт закрытия окна.' : 'Бот выбирает ход…' : lastMoveText);
-  $('#result-banner').hidden = state.winner === null || gamePhase !== 'playing' || Boolean(movement) || Boolean(currentDeaths.length);
-  $('#result-banner').textContent = state.winner === 'draw' ? config.victoryCondition === 'combat-units' ? 'Ничья · у обеих сторон не осталось броненосцев и лукарей' : 'Ничья · все фигуры уничтожены' : state.winner !== null ? `Победа команды «${TEAM_NAMES[state.winner]}»` : '';
+  $('#bot-status').textContent = combat ? 'Расчёт боя…' : movement ? `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]} перемещается…` : currentDeaths.length ? 'Расчёт боя…' : editor ? 'Бот не ходит в редакторе.' : reviewingTurn ? lastMoveText : botIssue || (isBotTurn() ? botSuspended ? 'Ход бота приостановлен. Нажмите «Ход бота», чтобы продолжить.' : $('dialog[open]') ? 'Бот ждёт закрытия окна.' : 'Бот выбирает ход…' : lastMoveText);
   let hint = editor ? 'Выберите фигуру в палитре и нажмите на пустую клетку. Для удаления выберите ластик.' : selected && p?.team === state.turn ? 'Подсвечены пустые клетки, до которых можно пройти. Наведите на клетку для прогноза.' : 'Выберите свою фигуру, затем подсвеченную клетку.';
   if (!editor && selected && p?.team === state.turn && p.type === 'shield') hint = shieldCanRetreat(p, config) ? `Край достигнут: ход во все стороны, постоянные +${config.shieldPromotion.damageBonus} к урону и +${config.shieldPromotion.defenseBonus} к стойкости, дальность до ${config.shieldPromotion.maxRange}; аура атаки и защиты — ${(config.shieldPromotion.allies ?? config.shieldPromotion).aura} ${plural((config.shieldPromotion.allies ?? config.shieldPromotion).aura, ['клетка', 'клетки', 'клеток'])}.` : 'Броненосец ходит вперёд и вбок. Достигнув противоположного края поля, навсегда получает ход назад.';
   if (!editor && state.winner === null && !state.pieces.filter(p => p.team === state.turn).some(p => reachable(p, state, config).length)) hint = 'У команды нет доступных ходов. Исследуйте позицию в редакторе или разрешите пропуск в настройках.';
@@ -434,6 +448,7 @@ function render(deaths = []) {
   if (reviewingTurn) hint = `Просмотр перед последним ходом. ${lastMoveText} Нажмите →, чтобы вернуться к партии.`;
   if (currentDeaths.length) hint = 'Расчёт боя: погибшие фигуры удаляются одновременно.';
   if (movement) hint = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(lastAction.from)} → ${positionText(lastAction.to)}. Движение…`;
+  if (combat) hint = combat.phase === 'attacks' ? 'Атакующие и погибающие выделены цветом. Стрелки показывают вклад в смертельный урон.' : 'Погибшие удаляются одновременно. Затем ход перейдёт другой стороне.';
   $('#board-hint').textContent = hint;
   $('#board-hint').hidden = !hint;
   $('#log-count').textContent = `${state.ply} ${plural(state.ply, ['ход', 'хода', 'ходов'])}`;
@@ -442,17 +457,17 @@ function render(deaths = []) {
   $('#erase-tool').classList.toggle('selected-tool', tool === 'erase');
   $('#piece-palette').innerHTML = TYPES.map(type => `<button class="palette-item ${tool === type ? 'active' : ''}" data-tool="${type}">${icon(type)}<span>${LABELS[type]}</span></button>`).join('');
   save();
-  if (currentDeaths.length) deathEffectTimer = setTimeout(() => { currentDeaths = []; render(); }, DEATH_EFFECT_DURATION);
+  if (currentDeaths.length && !combat) deathEffectTimer = setTimeout(() => { currentDeaths = []; render(); }, DEATH_EFFECT_DURATION);
   queueBot();
 }
 function deathDetail(deaths) { return deaths.length ? 'Погибли: ' + [0, 1].map(team => { const n = deaths.filter(p => p.team === team).length; return n ? `${TEAM_NAMES[team]} — ${n}` : ''; }).filter(Boolean).join(', ') : 'Все фигуры держатся.'; }
 function clearSelection() {
-  if (!selected || movement || currentDeaths.length) return;
+  if (!selected || movement || combat || currentDeaths.length) return;
   selected = null; render();
 }
 function onCell(q, r) {
   const occupant = visibleState().pieces.find(p => p.q === q && p.r === r);
-  if (!editor && occupant && !movement && !currentDeaths.length) { fieldView = null; selected = selected === occupant.id ? null : occupant.id; render(); return; }
+  if (!editor && occupant && !movement && !combat && !currentDeaths.length) { fieldView = null; selected = selected === occupant.id ? null : occupant.id; render(); return; }
   if (!editor && !humanCanMove()) { clearSelection(); return; }
   if (editor) {
     if (tool === 'erase') { if (occupant) { checkpoint(); state.pieces = state.pieces.filter(p => p !== occupant); selected = null; state.winner = null; render(); } return; }
@@ -489,7 +504,7 @@ $('#board').addEventListener('keydown', event => {
   }
 });
 function hoverCell(event) {
-  if (fieldView) return;
+  if (fieldView || combat || movement) return;
   const c = event.target.closest('[data-cell]'), k = c?.dataset.cell;
   if (!k || k === hover) return; hover = k;
   const [q, r] = k.split(',').map(Number);
@@ -503,7 +518,7 @@ $('#board').addEventListener('pointerleave', clearHover);
 $('#board').addEventListener('focusout', event => { if (!$('#board').contains(event.relatedTarget)) clearHover(); });
 for (const view of ['attacks', 'auras']) $('#show-' + view).addEventListener('click', () => { fieldView = fieldView === view ? null : view; selected = null; render(); });
 $('#undo').addEventListener('click', () => {
-  if (!history.length || reviewingTurn || (gamePhase === 'setup' && !editor)) return;
+  if (movement || combat || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor)) return;
   let previous = history.pop();
   if (playMode === 'bot' && !editor && previous.actor === 'bot' && history.at(-1)?.actor === 'human' && history.at(-1).state.ply === previous.state.ply - 1) previous = history.pop();
   resetBotContext(); config = previous.config; state = previous.state; log = previous.log; positionKind = previous.positionKind; selected = null;
@@ -520,7 +535,7 @@ function dismissDialog(dialog) {
   dialog.close();
 }
 async function openNewGame() {
-  if (gamePhase !== 'playing' || refreshingNewGame) return;
+  if (gamePhase !== 'playing' || refreshingNewGame || movement || combat) return;
   const backup = { snapshot: currentSnapshot(), history: clone(history), lastTurn: clone(lastTurn), playMode, humanTeam, firstMove, botDifficulty };
   resetBotContext(); previousGame = backup; gamePhase = 'setup'; editor = false;
   playMode = 'bot'; humanTeam = 1; firstMove = 'south'; botDifficulty = DEFAULT_BOT_DIFFICULTY;
@@ -546,6 +561,7 @@ function startGame() {
 }
 $('#start-setup').addEventListener('click', openStartSettings);
 $('#new-game').addEventListener('click', openNewGame);
+$('#play-again').addEventListener('click', openNewGame);
 $('#start-game').addEventListener('click', startGame);
 function returnToGame() {
   if (!previousGame || gamePhase !== 'setup') return;
@@ -578,7 +594,7 @@ $('#editor-done').addEventListener('click', () => {
   try { state = validateState(state, config); positionKind = classifyPosition(state, config); editor = false; history = []; log = []; selected = null; render(); openStartSettings(); }
   catch (error) { toast(error.message); }
 });
-$('#review-previous').addEventListener('click', () => { if (!lastTurn || gamePhase !== 'playing' || reviewingTurn) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
+$('#review-previous').addEventListener('click', () => { if (!lastTurn || gamePhase !== 'playing' || reviewingTurn || movement || combat) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
 $('#review-current').addEventListener('click', () => { if (!reviewingTurn) return; reviewingTurn = false; selected = null; render(); });
 $('#resume-bot').addEventListener('click', () => { botIssue = ''; botSuspended = false; render(); });
 document.querySelector('.team-select').addEventListener('click', event => { const b = event.target.closest('[data-team]'); if (b) { editorTeam = Number(b.dataset.team); selected = null; render(); } });
@@ -586,16 +602,16 @@ $('#piece-palette').addEventListener('click', event => { const b = event.target.
 $('#erase-tool').addEventListener('click', () => { tool = 'erase'; selected = null; render(); });
 $('#clear-board').addEventListener('click', () => { if (!editor) return; resetBotContext(); checkpoint(); state = { pieces: [], turn: 0, ply: 0, winner: null }; log = []; selected = null; render(); });
 $('#resolve-position').addEventListener('click', () => { if (!editor) return; resetBotContext(); checkpoint(); const result = resolve(state, config); state = result.state; state.ply = 0; state.winner = null; log.push({ text: 'Расчёт позиции без перемещения', detail: deathDetail(result.deaths) }); selected = null; render(result.deaths); toast(deathDetail(result.deaths)); });
-$('#pass-turn').addEventListener('click', () => { if (!humanCanMove()) return; try { const result = pass(state, config), before = currentSnapshot(), action = { pass: true }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; log.push({ text: `${TEAM_NAMES[state.turn]} · пропуск хода`, detail: deathDetail(result.deaths) }); state = result.state; recordGameAction('pass', { action, deaths: result.deaths, actor: 'human' }); selected = null; render(result.deaths); } catch (e) { toast(e.message); } });
+$('#pass-turn').addEventListener('click', () => { if (!humanCanMove()) return; try { const result = pass(state, config), before = currentSnapshot(), action = { pass: true }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; log.push({ text: `${TEAM_NAMES[state.turn]} · пропуск хода`, detail: deathDetail(result.deaths) }); state = result.state; recordGameAction('pass', { action, deaths: result.deaths, actor: 'human' }); selected = null; presentMove(before, action, result.deaths); } catch (e) { toast(e.message); } });
 
 const statFields = [['move', 'Шаг'], ['damage', 'Урон'], ['range', 'Дальность поражения'], ['fortitude', 'Стойкость'], ['aura', 'Радиус ауры'], ['damageBonus', 'Бонус урона'], ['rangeBonus', 'Бонус дальности'], ['defenseBonus', 'Бонус стойкости']];
 const promotionFields = [['damageBonus', 'Личный бонус урона'], ['rangeBonus', 'Личный бонус дальности'], ['defenseBonus', 'Личный бонус стойкости'], ['maxRange', 'Предел дальности броненосца']];
 const promotionAllyFields = [['aura', 'Радиус ауры'], ['damageBonus', 'Союзникам: бонус урона'], ['rangeBonus', 'Союзникам: бонус дальности'], ['defenseBonus', 'Союзникам: бонус стойкости']];
-const armyFields = [['groups', 'Групп на игрока'], ['shields', 'Броненосцев в группе'], ['archers', 'Лукарей в группе'], ['attackLamps', 'Барабанщиков'], ['defenseLamps', 'Знаменосцев'], ['scoutLamps', 'Разведчиков']];
+const armyFields = [['groups', 'Групп на игрока'], ['shields', 'Броненосцев в группе'], ['archers', 'Лукарей в группе'], ['attackLamps', 'Барабанщиков'], ['defenseLamps', 'Знаменосцев'], ['scoutLamps', 'Разведчиков'], ['centralShields', 'Броненосцев в центре'], ['rearArchers', 'Доп. лукарей в центре']];
 const experimentFields = [['squareDiagonals', 'На квадратах диагональ считается одним шагом; атака по 8 направлениям'], ['lampShieldBlocking', 'Вражеские щиты перекрывают поражение барабанщика'], ['allyShotsPass', 'Союзные фигуры пропускают атаки своей команды'], ['aurasThroughShields', 'Ауры поддержки проходят сквозь щиты'], ['allowPass', 'Разрешить пропуск хода с обычным расчётом боя']];
 function fillSettings(c) {
   const form = $('#settings-form'); form.elements.geometry.value = c.geometry; form.elements.size.value = c.size; form.elements.auraDefenseCap.value = c.auraDefenseCap ?? -1; form.elements.victoryCondition.value = c.victoryCondition ?? 'all-units'; form.elements.deploymentOffset.value = c.deploymentOffset ?? 0;
-  $('#army-inputs').innerHTML = armyFields.map(([name, label]) => `<label>${label}<input type="number" name="army.${name}" value="${c.army[name]}" min="0" max="${name === 'groups' ? 6 : 12}" required></label>`).join('');
+  $('#army-inputs').innerHTML = armyFields.map(([name, label]) => `<label>${label}<input type="number" name="army.${name}" value="${c.army[name] ?? 0}" min="0" max="${name === 'groups' ? 6 : 12}" required></label>`).join('');
   $('#stats-table').innerHTML = `<thead><tr><th>Параметр</th>${TYPES.map(t => `<th>${LABELS[t]}</th>`).join('')}</tr></thead><tbody>${statFields.map(([field, label]) => `<tr><td>${label}</td>${TYPES.map(type => { const na = (type === 'scoutLamp' && ['damage','range','damageBonus','defenseBonus'].includes(field)) || (type === 'attackLamp' && field === 'rangeBonus') || (type === 'defenseLamp' && ['damage', 'range'].includes(field)) || (type === 'archer' && ['rangeBonus', 'defenseBonus'].includes(field)) || (type === 'shield' && ['damageBonus', 'rangeBonus'].includes(field)) || (type === 'attackLamp' && field === 'defenseBonus') || (type === 'defenseLamp' && ['damageBonus', 'rangeBonus'].includes(field)); return `<td>${na ? '<span class="na">—</span>' : `<input aria-label="${LABELS[type]}: ${label}" name="stats.${type}.${field}" type="number" min="${field === 'move' ? 1 : 0}" max="${field === 'move' ? 6 : 20}" value="${c.stats[type][field]}" required>`}</td>`; }).join('')}</tr>`).join('')}</tbody>`;
   $('#promotion-inputs').innerHTML = promotionFields.map(([name, label]) => `<label>${label}<input aria-label="Броненосец после края: ${label}" type="number" name="shieldPromotion.${name}" value="${c.shieldPromotion[name]}" min="0" max="20" required></label>`).join('');
   const allies = c.shieldPromotion.allies ?? c.shieldPromotion;
@@ -664,7 +680,7 @@ function renderOnboarding() {
   }
   if (onboardingStep === 3) content = heading('Вы двигаете — армия атакует', 'После каждого хода обе армии атакуют автоматически. Попробуй уйти из-под обстрела, сложить урон и обменяться ударами.') + renderCombatExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
   if (onboardingStep === 4) content = heading('Теперь можно попробовать партию', 'Для начала достаточно одного решения: куда передвинуть фигуру, чтобы сохранить поддержку и достать противника.') +
-    `<ol class="onboarding-checklist">${(editor ? ['Закончите расстановку кнопкой «Готово».', 'В подготовке выберите режим и нажмите «Начать».', 'Выберите свою фигуру, посмотрите подсветку и сделайте ход.'] : gamePhase === 'setup' ? ['Выберите режим: против бота или вдвоём. Для первой партии оставьте позицию «Стандартная».', 'Выберите первый ход и свою сторону, если играете против бота. Нажмите «Начать».', 'Нажмите на свою фигуру, затем на доступную пустую клетку.'] : ['Продолжайте текущую партию: окно знакомства её не сбрасывает.', 'Выберите свою фигуру и посмотрите доступные клетки.', 'Передвиньте фигуру. Если сейчас ход бота, дождитесь его ответа.']).map(text => `<li>${text}</li>`).join('')}</ol><div class="onboarding-note"><strong>Подсказки всегда рядом.</strong> Снизу слева — сила атаки, справа — стойкость после потенциального урона или череп. Выбор фигуры показывает её дальность значками меча или стрелы. «Ауры» показывает поддержку, «Атаки» — угрозы. Стрелки ← и → позволяют посмотреть последний ход; «Отменить» возвращает позицию.</div>`;
+    `<ol class="onboarding-checklist">${(editor ? ['Закончите расстановку кнопкой «Готово».', 'В подготовке выберите режим и нажмите «Начать».', 'Выберите свою фигуру, посмотрите подсветку и сделайте ход.'] : gamePhase === 'setup' ? ['Выберите режим: против бота или вдвоём. Для первой партии оставьте позицию «Стандартная».', 'Выберите первый ход и свою сторону, если играете против бота. Нажмите «Начать».', 'Нажмите на свою фигуру, затем на доступную пустую клетку.'] : ['Продолжайте текущую партию: окно знакомства её не сбрасывает.', 'Выберите свою фигуру и посмотрите доступные клетки.', 'Передвиньте фигуру. Если сейчас ход бота, дождитесь его ответа.']).map(text => `<li>${text}</li>`).join('')}</ol><div class="onboarding-note"><strong>Подсказки всегда рядом.</strong> Снизу слева — сила атаки, справа — полная стойкость. Сверху — входящий урон со знаком минус или череп при смертельной угрозе. Выбор фигуры показывает её дальность значками меча или стрелы. «Ауры» показывает поддержку, «Атаки» — угрозы. Стрелки ← и → позволяют посмотреть последний ход; «Отменить» возвращает позицию.</div>`;
   $('#onboarding-body').innerHTML = content;
   $('#onboarding-body').scrollTop = 0;
   $('#onboarding-back').disabled = onboardingStep === 0;
@@ -907,7 +923,7 @@ document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('clic
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
-matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const deaths = movement.deaths; cancelMovement(); render(deaths); } if (event.matches && onboardingAnimation) onboardingAnimation.animator.finish(); });
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; presentKills(completed.before, completed.forecast, completed.deaths); } if (event.matches && onboardingAnimation) onboardingAnimation.animator.finish(); });
 let attackReachInView = true;
 function updateAttackReachPlayback() {
   $('#board').classList.toggle('attack-reach-paused', document.hidden || !attackReachInView);
@@ -923,4 +939,4 @@ ready = true; render();
 if (freshNewGameRequested && gamePhase === 'setup' && previousGame) openStartSettings();
 if (presetUpdated) toast('Подготовлена расстановка с одним барабанщиком и одним знаменосцем. Нажмите «Начать», чтобы играть.');
 
-if (balanceUpdated) toast('Обновлена расстановка: новое поле, разведчик и усиленный знаменосец.');
+if (balanceUpdated) toast('Обновлена расстановка: броненосец в центре, два новых лукаря; флаг и барабанщик отодвинуты назад.');

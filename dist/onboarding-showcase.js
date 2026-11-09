@@ -1,5 +1,5 @@
 import { DEFAULT_CONFIG, LABELS, TEAM_NAMES } from './rules.js';
-import { clone, cells, analyze, movementPath, move } from './engine.js';
+import { clone, cells, analyze, inspectCell, movementPath, move } from './engine.js';
 import { lessonPolygonPoints } from './onboarding-examples.js';
 import { unitAppearance, renderDeathEffects, renderMovingToken } from './board-presentation.js';
 
@@ -52,14 +52,15 @@ export function createShowcaseBattle(step = 0) {
 export function renderShowcaseBattle(step, icons, renderBadges = () => '', animation = null) {
   const battle = createShowcaseBattle(step), phase = animation?.phase || 'idle', busy = phase !== 'idle';
   const position = phase === 'movement' ? battle.before : battle.position;
-  const report = phase === 'movement' ? battle.beforeReport : battle.displayReport;
+  const forecast = phase === 'movement' ? inspectCell(battle.before, battle.config, battle.action.to, battle.moverId) : null;
+  const report = forecast?.report || battle.displayReport;
   const tiles = cells(battle.config).map(cell => `<g class="lesson-tile${battle.action && battle.action.to.q === cell.q && battle.action.to.r === cell.r ? ' showcase-arrival' : ''}"><polygon points="${lessonPolygonPoints(showcasePoint(cell), -30)}"/></g>`).join('');
   const pieces = position.pieces.map(piece => {
     const p = showcasePoint(piece), info = report.get(piece.id), appearance = unitAppearance(piece, battle.config, icons);
-    return `<g class="piece ${piece.team ? 'south' : 'north'}${appearance.veteran ? ' veteran' : ''}${info.dead ? ' fatal' : ''}${phase === 'movement' && piece.id === battle.moverId ? ' moving-origin' : ''}" data-showcase-piece="${piece.id}" transform="translate(${p.x},${p.y})"><title>${TEAM_NAMES[piece.team]}: ${LABELS[piece.type]}</title><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g>${renderBadges(info)}</g>`;
+    return `<g class="piece ${piece.team ? 'south' : 'north'}${appearance.veteran ? ' veteran' : ''}${info.dead ? ' fatal' : ''}${phase === 'movement' && piece.id === battle.moverId ? ' moving-origin' : ''}" data-showcase-piece="${piece.id}" transform="translate(${p.x},${p.y})"><title>${TEAM_NAMES[piece.team]}: ${LABELS[piece.type]}</title><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g>${renderBadges(info, { showIncoming: busy })}</g>`;
   }).join('');
   const movingPiece = phase === 'movement' ? battle.before.pieces.find(piece => piece.id === battle.moverId) : null;
-  const moving = movingPiece ? renderMovingToken(movingPiece, animation.frame || { ...showcasePoint(movingPiece), progress: 0 }, icons, 'lesson-moving-token-showcase', battle.config) : '';
+  const moving = movingPiece ? renderMovingToken(movingPiece, animation.frame || { ...showcasePoint(movingPiece), progress: 0 }, icons, 'lesson-moving-token-showcase', battle.config, movingPiece.team, report.get(movingPiece.id)) : '';
   const deaths = phase === 'deaths' ? `<g class="death-effects" aria-hidden="true">${renderDeathEffects(battle.deaths, showcasePoint, lessonPolygonPoints({ x: 0, y: 0 }, -30), icons, battle.config)}</g>` : '';
   const commentTeam = battle.action?.team ?? battle.position.turn;
   const counts = [0, 1].map(team => battle.position.pieces.filter(piece => piece.team === team).length);

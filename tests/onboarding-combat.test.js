@@ -9,7 +9,7 @@ test('escape is vertical, red while threatened and safe to the side with a real 
   assert.ok(Math.abs(initial.point(blue).x - initial.point(enemy).x) < 1e-10);
   assert.ok(initial.point(enemy).y < initial.point(blue).y);
   assert.equal(initial.report.get('blue').incoming, 8);
-  assert.match(initial.description, /подсвечивается красным/);
+  assert.match(initial.description, /сверху появляется входящий урон/);
   const safe = createCombatLesson(0, { advanced: true, destination: { q: 1, r: 0 } });
   assert.equal(safe.report.get('blue').incoming, 0);
   assert.equal(safe.report.get('blue').fortitude, 15);

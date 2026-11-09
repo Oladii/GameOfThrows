@@ -118,7 +118,7 @@ export function renderMoveLesson(lesson, icons, renderBadges = () => '', animati
   const polygon = cell => lessonPolygonPoints(point(cell), lesson.rotation || 0);
   const phase = animation?.phase || 'idle', busy = phase !== 'idle';
   const position = phase === 'movement' ? lesson.before : lesson.position;
-  const displayReport = phase === 'movement' ? lesson.beforeReport : lesson.displayReport;
+  const displayReport = phase === 'movement' ? lesson.report : lesson.displayReport;
   const visiblePath = !busy && index === 0 && !lesson.completed ? lesson.path : [];
   const path = new Map(visiblePath.slice(1).map((c, i) => [key(c.q, c.r), i + 1]));
   const available = new Map((busy ? [] : lesson.available).map(c => [key(c.q, c.r), c.steps]));
@@ -134,16 +134,16 @@ export function renderMoveLesson(lesson, icons, renderBadges = () => '', animati
   }).join('');
   const projected = lesson.previewPosition;
   const attackSource = lesson.unitType && selectedUnit ? projected.pieces.find(piece => piece.id === selectedId) : null;
-  const attackMarkup = attackReachPresentation(attackSource, projected, config, {point, polygonPoints: lessonPolygonPoints({x:0,y:0}, lesson.rotation || 0), visiblePosition: position, displayTeam: attackSource && lessonDisplayTeam(attackSource)}).markup;
+  const attackMarkup = attackReachPresentation(attackSource, projected, config, {point, polygonPoints: lessonPolygonPoints({x:0,y:0}, lesson.rotation || 0), visiblePosition: position, displayTeam: attackSource && lessonDisplayTeam(attackSource), friendlyTeam: 0}).markup;
   const routeLine = visiblePath.length > 1 ? `<polyline class="lesson-path" points="${visiblePath.map(c => { const p = point(c); return `${p.x},${p.y}`; }).join(' ')}"/>` : '';
   const pieces = position.pieces.map(piece => {
     const p = point(piece), info = displayReport.get(piece.id), fatal = info.dead, appearance = unitAppearance(piece, config, icons, lessonDisplayTeam(piece));
     const selected = piece === selectedUnit, unitControl = !busy && (lesson.selectableIds || [lesson.moverId]).includes(piece.id);
     const unitLabel = LABELS[piece.type] + (appearance.veteran ? '-ветеран' : '');
-    return `<g class="lesson-piece${appearance.veteran ? ' veteran' : ''}${phase === 'movement' && piece.id === lesson.moverId ? ' moving-origin' : ''} ${piece.team ? 'lesson-enemy' : 'lesson-friendly'}${fatal ? ' lesson-fatal' : ''}${selected ? ' lesson-unit-selected' : ''}${unitControl ? ' lesson-unit-control' : ''}${lesson.isPreview && piece.id === lesson.moverId ? ' lesson-preview-origin' : ''}" data-lesson-piece="${piece.id}"${selected ? ` data-lesson-selected-unit="${piece.id}"` : ''}${unitControl ? ` data-lesson-unit="${piece.id}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${selected ? 'Выбран: ' + unitLabel + '. Нажми, чтобы снять выбор' : 'Выбрать: ' + unitLabel}"` : ''} transform="translate(${p.x},${p.y})">${selected ? '<g class="lesson-selection-ring"><circle r="24"/></g>' : ''}<title>${piece.team ? 'Враг' : 'Союзник'}: ${LABELS[piece.type]}${appearance.veteran ? '-ветеран' : ''}${fatal ? ', погибнет при расчёте' : ''}</title><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${appearance.icon}</g><g class="lesson-unit-badges">${renderBadges(info)}</g></g>`;
+    return `<g class="lesson-piece${appearance.veteran ? ' veteran' : ''}${phase === 'movement' && piece.id === lesson.moverId ? ' moving-origin' : ''} ${piece.team ? 'lesson-enemy' : 'lesson-friendly'}${fatal ? ' lesson-fatal' : ''}${selected ? ' lesson-unit-selected' : ''}${unitControl ? ' lesson-unit-control' : ''}${lesson.isPreview && piece.id === lesson.moverId ? ' lesson-preview-origin' : ''}" data-lesson-piece="${piece.id}"${selected ? ` data-lesson-selected-unit="${piece.id}"` : ''}${unitControl ? ` data-lesson-unit="${piece.id}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${selected ? 'Выбран: ' + unitLabel + '. Нажми, чтобы снять выбор' : 'Выбрать: ' + unitLabel}"` : ''} transform="translate(${p.x},${p.y})">${selected ? '<g class="lesson-selection-ring"><circle r="24"/></g>' : ''}<title>${piece.team ? 'Враг' : 'Союзник'}: ${LABELS[piece.type]}${appearance.veteran ? '-ветеран' : ''}${fatal ? ', погибнет при расчёте' : ''}</title><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${appearance.icon}</g><g class="lesson-unit-badges">${renderBadges(info, { showIncoming: Boolean(busy || lesson.selected || lesson.isPreview) })}</g></g>`;
   }).join('');
   const projectedMover = projected.pieces.find(piece => piece.id === lesson.moverId), projectedPoint = projectedMover && point(projectedMover);
-  const ghost = lesson.isPreview ? `<g class="lesson-preview-piece${unitAppearance(projectedMover, config, icons, lessonDisplayTeam(projectedMover)).veteran ? ' veteran' : ''}" transform="translate(${projectedPoint.x},${projectedPoint.y})"><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${unitAppearance(projectedMover, config, icons, lessonDisplayTeam(projectedMover)).icon}</g><g class="lesson-unit-badges">${renderBadges(lesson.report.get(projectedMover.id))}</g></g>` : '';
+  const ghost = lesson.isPreview ? `<g class="lesson-preview-piece${unitAppearance(projectedMover, config, icons, lessonDisplayTeam(projectedMover)).veteran ? ' veteran' : ''}" transform="translate(${projectedPoint.x},${projectedPoint.y})"><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${unitAppearance(projectedMover, config, icons, lessonDisplayTeam(projectedMover)).icon}</g><g class="lesson-unit-badges">${renderBadges(lesson.report.get(projectedMover.id), { showIncoming: true })}</g></g>` : '';
   const numbers = visiblePath.slice(1).map((cell, i) => {
     const p = point(cell), occupied = projected.pieces.some(piece => piece.q === cell.q && piece.r === cell.r);
     return `<g class="lesson-path-number" transform="translate(${p.x + (occupied ? 19 : 0)},${p.y + (occupied ? -20 : 0)})"><circle r="11"/><text y=".35em">${i + 1}</text></g>`;
@@ -151,7 +151,7 @@ export function renderMoveLesson(lesson, icons, renderBadges = () => '', animati
 
   const movingPiece = phase === 'movement' ? lesson.before.pieces.find(piece => piece.id === lesson.moverId) : null;
   const effects = phase === 'deaths' ? `<g class="death-effects" aria-hidden="true">${renderDeathEffects(lesson.deaths, point, lessonPolygonPoints({ x: 0, y: 0 }, lesson.rotation || 0), icons, config, lessonDisplayTeam)}</g>` : '';
-  const movingToken = movingPiece ? renderMovingToken(movingPiece, animation.frame || { ...point(movingPiece), progress: 0 }, icons, `lesson-moving-token-${sceneKey}`, config, lessonDisplayTeam(movingPiece)) : '';
+  const movingToken = movingPiece ? renderMovingToken(movingPiece, animation.frame || { ...point(movingPiece), progress: 0 }, icons, `lesson-moving-token-${sceneKey}`, config, lessonDisplayTeam(movingPiece), lesson.report.get(movingPiece.id)) : '';
   const feedback = phase === 'movement' ? 'Фигура движется по выбранному маршруту.' : phase === 'deaths' ? 'Расчёт боя: погибшие фигуры удаляются одновременно.' : lesson.feedback;
   const stateLabel = phase === 'movement' ? 'ДВИЖЕНИЕ' : phase === 'deaths' ? 'РАСЧЁТ БОЯ' : lesson.completed ? 'ПОСЛЕ РАСЧЁТА БОЯ' : lesson.isPreview ? 'ПРОГНОЗ · НАЖМИ НА КЛЕТКУ' : lesson.selected ? showAura ? 'АУРА ВЫДЕЛЕННОЙ ФИГУРЫ' : 'НАВЕДИ НА КЛЕТКУ' : index === 2 ? 'ЩИТ НА ПУТИ' : 'ВЫБЕРИ ФИГУРУ';
   const controls = (lesson.extraControls || '') + (index === 2 && !lesson.completed ? '<button class="button primary" data-lesson-action="remove-shield">Убрать щитовика</button>' : '') +
@@ -203,13 +203,12 @@ export function createCombatLesson(index, options = {}) {
   if (index !== 1) Object.assign(lesson, { point: verticalLessonPoint, rotation: 0, viewBox: '70 10 420 390' });
   const current = lesson.report.get('blue'), target = lesson.report.get('enemy');
   if (index === 0) {
-    const initial = lesson.beforeReport.get('blue'), oldValue = initial.fortitude - initial.incoming;
-    const value = current.fortitude - current.incoming;
+    const initial = lesson.beforeReport.get('blue');
     lesson.title = 'Выйди из-под обстрела';
-    lesson.description = `Лукарь впереди держит броненосца под огнём. Бейдж стойкости справа подсвечивается красным: ${initial.fortitude} − ${initial.incoming} = ${oldValue}.\nВыбери броненосца и уведи его с линии выстрела. Наведи на доступную клетку, сравни прогноз и сделай ход нажатием.`;
-    lesson.facts = [['Стойкость броненосца', String(current.fortitude)], ['Урон от лукаря', String(current.incoming)], ['Бейдж справа', value === oldValue ? String(value) : `${oldValue} → ${value}`]];
-    lesson.feedback = current.incoming ? `Здесь лукарь достаёт: на бейдже ${value}. Отойди в сторону от линии выстрела.` : `Здесь лукарь не достаёт: бейдж показывает ${value} и больше не подсвечивается красным.`;
-    lesson.hint = 'Число справа — стойкость за вычетом ожидаемого урона. После каждого хода оно считается заново; прошлый урон не сохраняется.';
+    lesson.description = `Лукарь впереди держит броненосца под огнём. Справа — полная стойкость ${initial.fortitude}; при выборе сверху появляется входящий урон −${initial.incoming}.\nВыбери броненосца и уведи его с линии выстрела. Наведи на доступную клетку, сравни прогноз и сделай ход нажатием.`;
+    lesson.facts = [['Стойкость броненосца', String(current.fortitude)], ['Урон от лукаря', String(current.incoming)], ['Стойкость справа', String(current.fortitude)]];
+    lesson.feedback = current.incoming ? `Здесь лукарь достаёт: сверху −${current.incoming}. Отойди в сторону от линии выстрела.` : `Здесь лукарь не достаёт: верхний бейдж урона исчезает. Справа по-прежнему ${current.fortitude}.`;
+    lesson.hint = 'Число справа — полная стойкость с усилениями. Сверху — входящий урон или череп при смертельной угрозе. Прошлый урон не сохраняется.';
   } else if (index === 1) {
     lesson.title = 'Урон складывается';
     lesson.description = 'До врага достаёт только лукарь справа. Его урона не хватает.\nВыбери лукаря слева и найди клетку, с которой он тоже достанет броненосца. Сделай ход — обе стрелы полетят автоматически.';

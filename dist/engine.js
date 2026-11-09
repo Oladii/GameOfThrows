@@ -41,6 +41,7 @@ export function validateConfig(input) {
   config.army.scoutLamps ??= 0;
   config.stats.scoutLamp ??= clone(PREVIOUS_SCOUT_CONFIG.stats.scoutLamp);
   for (const field of ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps', 'scoutLamps']) number(config.army[field], 0, field === 'groups' ? 6 : 12, 'Состав армии');
+  for (const field of ['centralShields', 'rearArchers']) if (config.army[field] !== undefined) number(config.army[field], 0, 12, 'Фигуры в центре');
   for (const type of TYPES) {
     const stats = config.stats[type];
     if (!stats) throw new Error('В настройках отсутствует тип фигуры.');
@@ -266,7 +267,8 @@ export function pass(state, config) {
 function mirror(c, config) { return config.geometry === 'hex' ? { q: -c.q, r: -c.r } : { q: config.size - 1 - c.q, r: config.size - 1 - c.r }; }
 export function createGame(input) {
   const config = validateConfig(input), board = cells(config), pieces = [];
-  const army = config.army, total = army.groups * (army.shields + army.archers) + army.attackLamps + army.defenseLamps + army.scoutLamps;
+  const army = config.army, centralShields = army.centralShields ?? 0, rearArchers = army.rearArchers ?? 0;
+  const total = army.groups * (army.shields + army.archers) + army.attackLamps + army.defenseLamps + army.scoutLamps + centralShields + rearArchers;
   if (!total) throw new Error('Добавьте хотя бы одну фигуру в армию.');
   const side = board.filter(c => config.geometry === 'hex' ? c.r < 0 : c.r < Math.floor(config.size / 2));
   if (total > side.length) throw new Error(`Армия из ${total} фигур не помещается на своей половине (${side.length} клеток). Увеличьте поле или уменьшите состав.`);
@@ -289,6 +291,22 @@ export function createGame(input) {
     for (let n = 0; n < army.shields; n++) place('shield', group, { r: rowTarget, x: x + (n - (army.shields - 1) / 2) });
     for (let n = 0; n < army.archers; n++) place('archer', group, { r: rowTarget - 1, x: x + n });
   }
+  if (rearArchers) {
+    // Keep the wings and scout fixed. Support retreats by one adjacent cell;
+    // the two rearward hex directions let it flank the scout without overlap.
+    const supports = pieces.filter(p => p.team === 0 && ['attackLamp', 'defenseLamp'].includes(p.type));
+    for (const p of supports) occupied.delete(key(p.q, p.r));
+    const rearSteps = config.geometry === 'hex' ? [0, 1] : config.experiments.squareDiagonals ? [0, -1, 1] : [0];
+    for (const p of supports) {
+      const cell = rearSteps.map(dq => ({ q: p.q + dq, r: p.r - 1 })).find(c => side.some(s => s.q === c.q && s.r === c.r) && !occupied.has(key(c.q, c.r)));
+      if (!cell) throw new Error('Поддержку нельзя сдвинуть назад на одну клетку. Увеличьте поле или уменьшите состав.');
+      occupied.add(key(cell.q, cell.r));
+      const reflected = pieces[pieces.indexOf(p) + 1];
+      Object.assign(p, cell); Object.assign(reflected, mirror(cell, config));
+    }
+  }
+  for (let n = 0; n < centralShields; n++) place('shield', null, { r: rowTarget, x: n - (centralShields - 1) / 2 });
+  for (let n = 0; n < rearArchers; n++) place('archer', null, { r: rowTarget - 1, x: n - (rearArchers - 1) / 2 });
   const offset = config.deploymentOffset ?? 0, boardKeys = new Set(board.map(c => key(c.q, c.r))), deployed = new Set();
   for (const piece of pieces) {
     piece.r += piece.team === 0 ? -offset : offset;

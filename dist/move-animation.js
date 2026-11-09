@@ -1,4 +1,5 @@
 export const DEATH_EFFECT_DURATION = 400;
+export const ATTACK_EFFECT_DURATION = 3000;
 
 export function createMovementPlan(points) {
   if (!Array.isArray(points) || points.length < 2 || points.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) throw new Error('Нужен маршрут перемещения.');
@@ -60,7 +61,7 @@ export class CombatAnimator {
     this.setTimer = clock.setTimer || ((callback, delay) => setTimeout(callback, delay));
     this.clearTimer = clock.clearTimer || (handle => clearTimeout(handle));
     this.timer = null; this.serial = 0; this.phase = 'idle';
-    this.movement = new MovementAnimator(onFrame, () => this.showDeaths(), clock);
+    this.movement = new MovementAnimator(onFrame, () => this.showAttacks(), clock);
   }
   cancel() {
     this.serial++; this.movement.cancel();
@@ -68,17 +69,25 @@ export class CombatAnimator {
     this.timer = null; this.phase = 'idle';
   }
   finish() { this.cancel(); this.onPhase('idle'); }
+  showAttacks() {
+    if (!this.hasDeaths || !this.attackDuration) { this.showDeaths(); return; }
+    const serial = this.serial;
+    this.phase = 'attacks'; this.onPhase('attacks');
+    if (this.serial !== serial) return;
+    this.timer = this.setTimer(() => { if (this.serial === serial) this.showDeaths(); }, this.attackDuration);
+  }
   showDeaths() {
     if (!this.hasDeaths) { this.finish(); return; }
-    this.phase = 'deaths'; this.onPhase('deaths');
     const serial = this.serial;
+    this.phase = 'deaths'; this.onPhase('deaths');
+    if (this.serial !== serial) return;
     this.timer = this.setTimer(() => { if (this.serial === serial) this.finish(); }, DEATH_EFFECT_DURATION);
   }
-  start(plan, hasDeaths, reducedMotion = false) {
-    this.cancel(); this.hasDeaths = hasDeaths;
+  start(plan, hasDeaths, reducedMotion = false, attackDuration = 0) {
+    this.cancel(); this.hasDeaths = hasDeaths; this.attackDuration = attackDuration;
     if (reducedMotion) { this.finish(); return; }
     if (plan) {
       this.phase = 'movement'; this.onPhase('movement'); this.movement.start(plan);
-    } else this.showDeaths();
+    } else this.showAttacks();
   }
 }

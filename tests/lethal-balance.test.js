@@ -16,7 +16,7 @@ const actions = (s, c) => s.pieces.filter(p => p.team === s.turn)
 
 test('new default opening has no lethal threats and no first move can kill an enemy', () => {
   const c = clone(DEFAULT_CONFIG), start = createGame(c);
-  assert.equal(start.pieces.length, 22);
+  assert.equal(start.pieces.length, 28);
   for (const team of [0, 1]) {
     const s = { ...clone(start), turn: team }, report = analyze(s, c);
     assert.equal([...report.values()].filter(i => i.dead).length, 0);
@@ -30,7 +30,7 @@ test('new default opening has no lethal threats and no first move can kill an en
 
 test('one-time migration fixes revision-three defaults, keeps custom values and never changes explicit imports', () => {
   const old = oldConfig(), before = clone(old), next = updateSavedBalance(old, 3);
-  assert.equal(BALANCE_REVISION, 8);
+  assert.equal(BALANCE_REVISION, 9);
   assert.deepEqual(next, DEFAULT_CONFIG);
   assert.deepEqual(old, before);
   assert.deepEqual(updateSavedBalance(next, BALANCE_REVISION), next);

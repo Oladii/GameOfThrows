@@ -12,7 +12,7 @@ const piece = (id,type,team,q=0,r=0)=>({id,type,team,q,r});
 function setup(pieces) {
   const config=clone(DEFAULT_CONFIG), state={pieces,turn:0,ply:0,winner:null};
   const layer={innerHTML:''},legend={innerHTML:'',hidden:true};
-  const context=vm.createContext({config,TEAM_NAMES,effective,shieldCanRetreat,AURA_COLORS,auraKind,auraCircleMarkup,selected:null,fieldView:null,preview:null,
+  const context=vm.createContext({ combat: null,config,TEAM_NAMES,effective,shieldCanRetreat,AURA_COLORS,auraKind,auraCircleMarkup,selected:null,fieldView:null,preview:null,
     visibleState:()=>state,$:selector=>selector==='#aura-circles'?layer:legend});
   context.inspectionContext=()=>context.preview||{position:state,isPreview:false};
   vm.runInContext(app.split('\n').find(line=>line.startsWith('function point(')),context);

@@ -4,13 +4,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
-import { analyze, inspectCell, resolve, isLethalDamage, move, effective, key } from '../dist/engine.js';
-import { durabilityDisplay, attackCellsFor, unitStatParts, alliedBonusDetails, unitAppearance, VETERAN_SHIELD_ICON, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape, attackReachPresentation } from '../dist/board-presentation.js';
+import { analyze, inspectCell, resolve, isLethalDamage, move, effective, key, movementPath } from '../dist/engine.js';
+import { durabilityDisplay, renderUnitBadges, attackCellsFor, unitStatParts, alliedBonusDetails, unitAppearance, VETERAN_SHIELD_ICON, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape, attackReachPresentation } from '../dist/board-presentation.js';
 import { LABELS } from '../dist/rules.js';
 const piece = (id, type, team, q, r) => ({id, type, team, q, r});
 const position = pieces => ({pieces, turn:0, ply:0, winner:null});
 
-test('durability displays full defense without threats, a remainder under fire, and equality is lethal', () => {
+test('durability displays full defense without threats, full defense under fire, and equality is lethal', () => {
   const c = structuredClone(REVISION_FOUR_CONFIG);
   assert.equal(c.stats.shield.fortitude, 4);
   const target = piece('target','shield',0,0,0), enemy = piece('enemy','archer',1,1,0);
@@ -18,7 +18,7 @@ test('durability displays full defense without threats, a remainder under fire, 
   for (const [incoming, remaining, dead] of [[0,4,false],[2,2,false],[3,1,false],[4,0,true],[5,-1,true]]) {
     c.stats.archer.damage = incoming;
     const info = analyze(s,c).get('target'), view = durabilityDisplay(info);
-    assert.equal(view.value,remaining); assert.equal(view.dead,dead);
+    assert.equal(view.value,4); assert.equal(view.dead,dead);
     assert.equal(view.threatened,incoming>0);
     assert.equal(resolve(s,c).deaths.some(p=>p.id==='target'),dead);
   }
@@ -36,6 +36,33 @@ test('attack markers respect blockers and allies without concealing attackable e
     assert.equal(marked().has('4,2'),true);assert.equal(marked().has('5,2'),false);
     c.experiments.allyShotsPass=false;
     assert.equal(marked().has('4,2'),false);
+  }
+});
+
+test('right badge remains full while upper threats appear only for interaction or lethal danger', () => {
+  for (const incoming of [0, 8, 14, 15, 21]) {
+    const info = { damage: 12, fortitude: 15, incoming, dead: incoming >= 15 };
+    for (const showIncoming of [false, true]) {
+      const html = renderUnitBadges(info, { showIncoming });
+      assert.match(html, /data-fortitude="15"/);
+      assert.match(html, /class="fort-text"[^>]*>15</);
+      assert.equal(html.includes('incoming-indicator'), info.dead || incoming > 0);
+      assert.equal(html.includes('under-fire-target'), incoming > 0 && !info.dead && !showIncoming);
+      assert.ok(html.includes(`data-attack="${info.damage}"`));
+      assert.equal(html.includes('fatal-mark'), info.dead);
+      if (!info.dead && showIncoming && incoming > 0) assert.ok(html.includes(`>−${incoming}</text>`));
+      assert.ok(!html.includes('survival-indicator under-fire'));
+    }
+  }
+});
+
+test('friendly target colors follow the viewing side; enemy markers retain their native team class', () => {
+  const config = structuredClone(DEFAULT_CONFIG);
+  for (const team of [0, 1]) for (const friendlyTeam of [0, 1]) {
+    const source = piece('s', 'archer', team, 0, 0), state = position([source]);
+    const html = attackReachPresentation(source, state, config, { point: c => ({ x: c.q, y: c.r }), polygonPoints: '', friendlyTeam }).markup;
+    assert.ok(html.includes(`attack-target-weapon ${team ? 'south' : 'north'}`));
+    assert.equal(html.includes('friendly-target'), team === friendlyTeam);
   }
 });
 test('movement preview updates attack markers and returns the same ally bonuses as combat', () => {
@@ -80,9 +107,27 @@ test('a promoted shield gets veteran armor and keeps it after retreat, during mo
 });
 
 const appSource = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
+test('the moving token keeps the destination threat before simultaneous deaths are removed', () => {
+  const config = structuredClone(DEFAULT_CONFIG), source = piece('s','archer',0,0,0);
+  const before = { config, state: position([source,piece('e','archer',1,1,1)]) };
+  const action = { id: 's', to: { q: 0, r: 1 } }, outcome = move(before.state,config,source.id,action.to);
+  assert.equal(analyze(before.state,config).get('s').incoming, 0);
+  assert.equal(outcome.report.get('s').dead, true);
+  const context = vm.createContext({ config, movement: null, inspectCell, movementPath, renderMovingToken,
+    ICON_PATHS: {}, point: c => ({ x: c.q, y: c.r }), createMovementPlan: points => ({ points }),
+    cancelMovement() {}, matchMedia: () => ({ matches: false }), render() {},
+    sampleMovement: () => ({ x: 0, y: 0, progress: .2 }), moveAnimator: { active: false, start() {} } });
+  vm.runInContext(appSource.slice(appSource.indexOf('function presentMove('),appSource.indexOf('function lastTurnFromHistory(')),context);
+  vm.runInContext(appSource.slice(appSource.indexOf('function movingTokenMarkup('),appSource.indexOf('function inspectionContext(')),context);
+  context.presentMove(before, action, outcome.deaths);
+  assert.equal(context.movement.forecast.report.get('s').incoming, outcome.report.get('s').incoming);
+  const html = context.movingTokenMarkup();
+  assert.match(html, /data-fortitude="6"/);
+  assert.match(html, /incoming-indicator lethal/);
+});
 function reachPainter(config, state, selected) {
   let writes = 0, html = ''; const layer = { get innerHTML() { return html; }, set innerHTML(value) { writes++; html = value; } };
-  const context = vm.createContext({ config, selected, attackReachPresentation, attackCellsFor, effective, isLethalDamage, attackMarkerRotation, key, LABELS, skullShape,
+  const context = vm.createContext({ config, selected, playMode: 'local', humanTeam: 1, attackReachPresentation, attackCellsFor, effective, isLethalDamage, attackMarkerRotation, key, LABELS, skullShape,
     visibleState: () => state, $: () => layer, document: { querySelectorAll: () => [] } });
   vm.runInContext(appSource.split('\n').find(line => line.startsWith('function point(')), context);
   vm.runInContext(appSource.split('\n').find(line => line.startsWith('function polygon(')), context);
@@ -96,7 +141,7 @@ test('empty attack cells show directional arrows for archers and swords for othe
     config.experiments.allyShotsPass=true;config.stats[type].range=3;config.shieldPromotion.maxRange=3;config.stats.archer.fortitude=1000;
     const center=geometry==='hex'?0:5,source=piece('s',type,team,center,center);
     const ally=piece('a','archer',team,center+1,center),enemy=piece('e','archer',1-team,center+2,center);
-    const state=position([source,ally,enemy]),painter=reachPainter(config,state,source.id);
+    const state=position([source,ally,enemy]);state.turn=team;const painter=reachPainter(config,state,source.id);
     const html=painter.render({position:state,piece:source,isPreview:false});
     assert.ok(html.includes('attack-target-outline'));
     assert.ok(html.includes(`class="attack-target-fill ${team?'south':'north'}" data-threat-cell="${enemy.q},${enemy.r}"`));
@@ -115,16 +160,16 @@ test('empty attack cells show directional arrows for archers and swords for othe
     assert.ok(!/reach-flight|reach-icon|attack-streams|data-attack-kind="(?:arrow|sword)"/.test(html));
   }
 });
-test('lethal attacks retain upright skulls above the enemy cell fill', () => {
-  for(const type of ['archer','shield']) {
-    const config=structuredClone(DEFAULT_CONFIG),source=piece('s',type,0,0,0),state=position([source,piece('e','archer',1,-1,0)]);
-    const painter=reachPainter(config,state,source.id),html=painter.render({position:state,piece:source,isPreview:false});
-    assert.ok(html.includes('data-attack-kind="skull"'));assert.ok(html.includes('class="reach-skull"'));
-    assert.ok(html.indexOf('attack-target-fill')<html.indexOf('class="reach-skull"'));
-    const skull=html.match(/<g class="attack-reach [\s\S]*?<\/g><\/g>/)[0];
-    assert.ok(!skull.includes('rotate('));
-  }
+test('lethal enemies use the upper token badge instead of a skull over their weapon icon', () => {
+  const config=structuredClone(DEFAULT_CONFIG),source=piece('s','archer',0,0,0),state=position([source,piece('e','archer',1,-1,0)]);
+  const html=reachPainter(config,state,source.id).render({position:state,piece:source,isPreview:false});
+  assert.ok(html.includes('attack-target-fill'));
+  assert.ok(!html.includes('reach-skull'));
+  const badge=renderUnitBadges(analyze(state,config).get('e'));
+  assert.ok(badge.includes('incoming-indicator lethal'));
+  assert.ok(badge.includes('translate(-8,-28)'));
 });
+
 test('movement preview leaves the visible source and every allied figure unmarked',()=>{
   for(const geometry of ['hex','square']) for(const team of [0,1]) {
     const config=structuredClone(DEFAULT_CONFIG);config.geometry=geometry;config.size=11;

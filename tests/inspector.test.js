@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG, LABELS, TYPES } from '../dist/rules.js';
-import { effective, shieldCanRetreat, validateConfig } from '../dist/engine.js';
-import { unitStatParts, alliedBonusDetails } from '../dist/board-presentation.js';
+import { effective, shieldCanRetreat, validateConfig, analyze, inspectCell, cells } from '../dist/engine.js';
+import { unitStatParts, alliedBonusDetails, renderUnitBadges, renderDamageArrows, unitAppearance } from '../dist/board-presentation.js';
 
 test('the left panel alternates between the reference and selected figure, preserving scroll for previews', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   const nodes = { '#inspector': { innerHTML: '', dataset: {} }, '#reference-panel': { hidden: false }, '#selection-panel': { hidden: true }, '.left-panel': { scrollTop: 180 } };
   const state = { pieces: [{ id: 'own', type: 'shield', team: 1, q: 0, r: 1 }, { id: 'ally', type: 'defenseLamp', team: 1, q: 1, r: 1 }], turn: 1, ply: 0, winner: null };
-  const context = vm.createContext({ $: selector => nodes[selector], selected: null, config: structuredClone(DEFAULT_CONFIG), visibleState: () => state,
+  const context = vm.createContext({ $: selector => nodes[selector], selected: null, movement: null, combat: null, config: structuredClone(DEFAULT_CONFIG), visibleState: () => state,
     effective, shieldCanRetreat, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg></svg>', plural: () => 'клетка' });
   vm.runInContext(app.slice(app.indexOf('function renderInspector('), app.indexOf('function shieldPromotionDescription(')), context);
   context.renderInspector({});
@@ -41,6 +41,30 @@ test('the left panel alternates between the reference and selected figure, prese
   assert.equal(badge.outerHTML, '<g class="unit-badges">updated</g>');
   assert.equal(nodes['#reference-panel'].hidden, false); assert.equal(nodes['#selection-panel'].hidden, true);
   assert.equal(nodes['#inspector'].innerHTML, '');
+});
+
+test('a movement aura forecast changes real bonuses without hovering every other piece', () => {
+  const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8'), config=structuredClone(DEFAULT_CONFIG);
+  const state={pieces:[{id:'moving',type:'archer',team:0,q:0,r:0},{id:'ally',type:'shield',team:0,q:1,r:0},{id:'enemy',type:'archer',team:1,q:3,r:0}],turn:0,ply:0,winner:null};
+  const report=analyze(state,config), preview=inspectCell(state,config,{q:-1,r:1},'moving',report);
+  assert.equal(preview.isPreview,true);
+  assert.equal(report.get('ally').damage,19);
+  assert.equal(preview.report.get('ally').damage,15);
+  assert.equal(preview.report.get('ally').incoming,8);
+  const badges=new Map(state.pieces.map(p=>[p.id,{outerHTML:''}])),layer={innerHTML:''};
+  const tokens=state.pieces.map(p=>({dataset:{pieceId:p.id},classList:{toggle(){}},querySelector:()=>badges.get(p.id)}));
+  const context=vm.createContext({config,cells,combat:null,movement:null,selected:'moving',report,ICON_PATHS:{},unitAppearance,
+    unitBadges:renderUnitBadges,renderDamageArrows,key:(q,r)=>`${q},${r}`,point:p=>({x:p.q*50,y:p.r*50}),
+    inspectionContext:()=>preview,paintAttackReach(){},renderInspector(){},$:()=>layer,
+    document:{querySelectorAll:selector=>selector.endsWith('[data-piece-id]')?tokens:[]}});
+  vm.runInContext(app.slice(app.indexOf('function highlightSources()'),app.indexOf('function paintAttackReach(')),context);
+  context.highlightSources();
+  assert.match(badges.get('ally').outerHTML,/data-attack="15"/);
+  assert.match(badges.get('ally').outerHTML,/under-fire-target/);
+  assert.ok(!badges.get('ally').outerHTML.includes('>−8</text>'));
+  context.inspectionContext=()=>inspectCell(state,config,{q:1,r:0},'moving',report);
+  context.highlightSources();
+  assert.ok(badges.get('ally').outerHTML.includes('>−8</text>'));
 });
 
 

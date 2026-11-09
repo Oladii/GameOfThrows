@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG, PREVIOUS_AREA_CONFIG, PREVIOUS_SCOUT_CONFIG, BALANCE_REVISION, updateSavedBalance, upgradeSelectedBalancePreset } from '../dist/rules.js';
+import { DEFAULT_CONFIG, PREVIOUS_CENTERLESS_CONFIG, PREVIOUS_AREA_CONFIG, PREVIOUS_SCOUT_CONFIG, BALANCE_REVISION, updateSavedBalance, upgradeSelectedBalancePreset } from '../dist/rules.js';
 import { analyze, auraReaches, clone, createGame, effective, isCombatUnit, move, pass, resolve, validateConfig, validateState, winnerForPieces } from '../dist/engine.js';
 import { prepareStartPosition } from '../dist/start-position.js';
 
@@ -18,14 +18,14 @@ test('revision eight retains selected combat rules and restores all 22 legacy co
   expected.deploymentOffset = 0;
   delete expected.labVeteran;
   delete expected.labVictoryCondition;
-  assert.equal(BALANCE_REVISION, 8);
-  assert.deepEqual(DEFAULT_CONFIG, expected);
-  assert.deepEqual(createGame(DEFAULT_CONFIG), createGame(PREVIOUS_SCOUT_CONFIG));
-  assert.deepEqual(clone(createGame({ ...DEFAULT_CONFIG, deploymentOffset: 1 })), manifest.initialState);
+  assert.equal(BALANCE_REVISION, 9);
+  assert.deepEqual(PREVIOUS_CENTERLESS_CONFIG, expected);
+  assert.deepEqual(createGame(PREVIOUS_CENTERLESS_CONFIG), createGame(PREVIOUS_SCOUT_CONFIG));
+  assert.deepEqual(clone(createGame({ ...PREVIOUS_CENTERLESS_CONFIG, deploymentOffset: 1 })), manifest.initialState);
   assert.equal(DEFAULT_CONFIG.stats.shield.move, 1);
   assert.equal(DEFAULT_CONFIG.stats.shield.defenseBonus, 6);
   assert.equal(DEFAULT_CONFIG.stats.scoutLamp.rangeBonus, 1);
-  assert.ok([...analyze(createGame(DEFAULT_CONFIG), DEFAULT_CONFIG).values()].every(value => !value.dead));
+  assert.ok([...analyze(createGame(PREVIOUS_CENTERLESS_CONFIG), DEFAULT_CONFIG).values()].every(value => !value.dead));
 });
 
 test('veterans retain personal 24/24/3 and give allies only +3 damage, +6 defense, +1 range', () => {
@@ -112,7 +112,7 @@ test('start preparation requires combat units in the new mode and preserves lega
   config.victoryCondition = 'all-units';
   assert.equal(prepareStartPosition(supportOnly, config, 1).winner, null);
   const combatConfig = clone(DEFAULT_CONFIG);
-  Object.assign(combatConfig.army, { groups: 0, shields: 0, archers: 0 });
+  Object.assign(combatConfig.army, { groups: 0, shields: 0, archers: 0, centralShields: 0, rearArchers: 0 });
   assert.equal(createGame(combatConfig).winner, 'draw');
 });
 
@@ -156,14 +156,14 @@ test('only the full revision seven preset upgrades and the migration never mutat
 });
 
 test('deployment offset preserves exact IDs and groups and fails clearly when the old formation cannot retreat', () => {
-  const legacy = createGame(PREVIOUS_SCOUT_CONFIG), current = createGame({ ...DEFAULT_CONFIG, deploymentOffset: 1 });
-  assert.deepEqual(createGame(DEFAULT_CONFIG).pieces, legacy.pieces);
+  const legacy = createGame(PREVIOUS_SCOUT_CONFIG), current = createGame({ ...PREVIOUS_CENTERLESS_CONFIG, deploymentOffset: 1 });
+  assert.deepEqual(createGame(PREVIOUS_CENTERLESS_CONFIG).pieces, legacy.pieces);
   assert.deepEqual(current.pieces, legacy.pieces.map(p => ({ ...p, r: p.r + (p.team === 0 ? -1 : 1) })));
-  const zero = clone(DEFAULT_CONFIG); zero.deploymentOffset = 0;
+  const zero = clone(PREVIOUS_CENTERLESS_CONFIG); zero.deploymentOffset = 0;
   assert.deepEqual(createGame(zero).pieces, legacy.pieces);
   delete zero.deploymentOffset;
   assert.deepEqual(createGame(zero).pieces, legacy.pieces);
-  const tooSmall = clone(DEFAULT_CONFIG); tooSmall.deploymentOffset = 1; tooSmall.size = 4;
+  const tooSmall = clone(PREVIOUS_CENTERLESS_CONFIG); tooSmall.deploymentOffset = 1; tooSmall.size = 4;
   assert.throws(() => createGame(tooSmall), /отступом не помещается/);
   tooSmall.geometry = 'square'; tooSmall.size = 8;
   assert.throws(() => createGame(tooSmall), /отступом не помещается/);

@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DEFAULT_CONFIG, PREVIOUS_AREA_CONFIG, PREVIOUS_SCOUT_CONFIG, upgradeScoutFieldPreset, updateSavedBalance} from '../dist/rules.js';
+import {DEFAULT_CONFIG, PREVIOUS_CENTERLESS_CONFIG, PREVIOUS_AREA_CONFIG, PREVIOUS_SCOUT_CONFIG, upgradeScoutFieldPreset, updateSavedBalance} from '../dist/rules.js';
 import {clone,cells,createGame,validateConfig,analyze,effective,move} from '../dist/engine.js';
 import {alliedBonusDetails} from '../dist/board-presentation.js';
 import {createUnitLesson} from '../dist/onboarding-units.js';
 const p=(id,type,team,q,r)=>({id,type,team,q,r}),s=pieces=>({pieces,turn:0,ply:0,winner:null});
-test('the standard start preserves the old fighting wings and central rear scouts without retreat',()=>{
- const game=createGame(DEFAULT_CONFIG),old=createGame(PREVIOUS_AREA_CONFIG);
+test('the historical scout start preserves the old fighting wings and central rear scouts without retreat',()=>{
+ const game=createGame(PREVIOUS_CENTERLESS_CONFIG),old=createGame(PREVIOUS_AREA_CONFIG);
  assert.equal(cells(DEFAULT_CONFIG).length,91);assert.equal(game.pieces.length,22);
  const sig=x=>[x.type,x.team,x.q,x.r,x.group].join(':');
  assert.deepEqual(game.pieces.filter(p=>p.type!=='scoutLamp').map(sig).sort(),old.pieces.map(sig).sort());

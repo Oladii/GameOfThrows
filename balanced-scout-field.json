@@ -12,7 +12,9 @@
       "archers": 2,
       "attackLamps": 1,
       "defenseLamps": 1,
-      "scoutLamps": 1
+      "scoutLamps": 1,
+      "centralShields": 1,
+      "rearArchers": 2
     },
     "shieldPromotion": {
       "aura": 1,
@@ -96,7 +98,7 @@
         "type": "attackLamp",
         "team": 0,
         "q": 1,
-        "r": -3,
+        "r": -4,
         "group": null
       },
       {
@@ -104,23 +106,23 @@
         "type": "attackLamp",
         "team": 1,
         "q": -1,
-        "r": 3,
+        "r": 4,
         "group": null
       },
       {
         "id": "p3",
         "type": "defenseLamp",
         "team": 0,
-        "q": 2,
-        "r": -3,
+        "q": 3,
+        "r": -4,
         "group": null
       },
       {
         "id": "p4",
         "type": "defenseLamp",
         "team": 1,
-        "q": -2,
-        "r": 3,
+        "q": -3,
+        "r": 4,
         "group": null
       },
       {
@@ -266,6 +268,54 @@
         "q": -4,
         "r": 3,
         "group": 2
+      },
+      {
+        "id": "p23",
+        "type": "shield",
+        "team": 0,
+        "q": 1,
+        "r": -2,
+        "group": null
+      },
+      {
+        "id": "p24",
+        "type": "shield",
+        "team": 1,
+        "q": -1,
+        "r": 2,
+        "group": null
+      },
+      {
+        "id": "p25",
+        "type": "archer",
+        "team": 0,
+        "q": 1,
+        "r": -3,
+        "group": null
+      },
+      {
+        "id": "p26",
+        "type": "archer",
+        "team": 1,
+        "q": -1,
+        "r": 3,
+        "group": null
+      },
+      {
+        "id": "p27",
+        "type": "archer",
+        "team": 0,
+        "q": 2,
+        "r": -3,
+        "group": null
+      },
+      {
+        "id": "p28",
+        "type": "archer",
+        "team": 1,
+        "q": -2,
+        "r": 3,
+        "group": null
       }
     ],
     "turn": 0,

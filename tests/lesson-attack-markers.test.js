@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {TYPES} from '../dist/rules.js';
-import {attackCellsFor} from '../dist/board-presentation.js';
+import {attackCellsFor, renderUnitBadges} from '../dist/board-presentation.js';
 import {createUnitLesson} from '../dist/onboarding-units.js';
 import {renderMoveLesson} from '../dist/onboarding-examples.js';
 const keys=html=>[...html.matchAll(/data-threat-cell="([^"]+)"/g)].map(x=>x[1]).sort();
@@ -18,8 +18,8 @@ test('unit markers match real attacks for selection and projected movement, leav
   if(expected.length)assert.match(html,/attack-target-(?:weapon|fill|outline) south/);
   if(['scoutLamp','attackLamp','defenseLamp'].includes(type))assert.equal(expected.length,0,'unarmed support has no weapon markers');
  }
- const lethal=renderMoveLesson(createUnitLesson('shield',{selected:true,destination:{q:0,r:2}}),{});
- assert.match(lethal,/data-attack-kind="skull"/);
+ const lethal=renderMoveLesson(createUnitLesson('shield',{selected:true,destination:{q:0,r:2}}),{},renderUnitBadges);
+ assert.match(lethal,/incoming-indicator lethal/);
  assert.deepEqual(keys(renderMoveLesson(createUnitLesson('shield'),{})),[]);
 });
 test('unit objectives specify the chosen figure and a concrete outcome; shield example has no flag',()=>{

@@ -14,7 +14,7 @@ test('badge explanations use actual attack, threat and death values from the gam
   assert.equal(lethal.info.incoming, 16); assert.equal(lethal.info.dead, true);
   const html = renderUnitExamples({}, {});
   assert.ok(html.indexOf('Значения на бейджах') < html.indexOf('data-lesson-scene="unit-shield"'));
-  assert.match(html, /Под огнём бейдж красный/);
+  assert.match(html, /Справа — полная стойкость/);
   assert.equal((html.match(/data-lesson-scene="unit-/g) || []).length, 5);
   assert.ok(!html.includes('lesson-unit-selected'));
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
