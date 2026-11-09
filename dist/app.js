@@ -1,6 +1,6 @@
 import { boardNavigationTarget } from './board-navigation.js';
 import { DEFAULT_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance, upgradeSelectedBalancePreset } from './rules.js';
-import { consumeNewGameRefresh, refreshNewGamePage } from './new-game-refresh.js';
+import { consumeNewGameRefresh, refreshNewGamePage, hasNewerGameVersion, needsNewGame, latestGameVersion } from './new-game-refresh.js';
 import { clone, key, cells, distance, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, isLethalDamage, auraReaches, reachable, movementPath, shieldCanRetreat, move, pass, resolve } from './engine.js';
 import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from './bot-client.js';
 import { classifyPosition, prepareStartPosition } from './start-position.js';
@@ -11,6 +11,7 @@ import { createMoveLesson, renderMoveLesson, renderMoveExamples, createCombatLes
 import { createUnitLesson, renderUnitExamples } from './onboarding-units.js';
 import { createShowcaseBattle, renderShowcaseBattle } from './onboarding-showcase.js';
 const $ = selector => document.querySelector(selector);
+const CURRENT_GAME_VERSION = $('#version-number').textContent.replace(/^v/, '');
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
 const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
@@ -59,6 +60,7 @@ const ICON_PATHS = {
 const icon = (type, piece = null) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${piece ? unitAppearance(piece, config, ICON_PATHS).icon : ICON_PATHS[type]}</svg>`;
 const unitBadges = renderUnitBadges;
 let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], log = [];
+let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, versionCheckPending = false;
 let firstMove = 'south';
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
@@ -86,7 +88,7 @@ const combatAnimator = new CombatAnimator(phase => {
   render();
 }, () => {});
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
-function currentSnapshot() { return clone({ config, state, log, positionKind }); }
+function currentSnapshot() { return clone({ config, state, log, positionKind, gameVersion }); }
 function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); if (history.length > 40) history.shift(); }
 function save() { try { localStorage.setItem(STORAGE, JSON.stringify({ ...currentSnapshot(), history, firstMove, playMode, humanTeam, botDifficulty, lastTurn, gamePhase, editor, previousGame, balanceRevision: BALANCE_REVISION, presetRevision: PRESET_REVISION, startPrefsRevision: START_PREFS_REVISION })); return true; } catch { if (ready) toast('Не удалось сохранить позицию в браузере.'); return false; } }
 function normalizeUnitNames(value) {
@@ -96,7 +98,7 @@ function normalizeUnitNames(value) {
   return names.reduce((text, [oldName, newName]) => text.replaceAll(oldName, newName), value);
 }
 function normalizeLog(value) { return Array.isArray(value) ? value.slice(-100).filter(x => x && typeof x.text === 'string' && x.text.length < 600 && typeof x.detail === 'string' && x.detail.length < 1000).map(x => ({ text: normalizeUnitNames(x.text), detail: normalizeUnitNames(x.detail) })) : []; }
-function readSnapshot(value) { const c = validateConfig(value.config), s = validateState(value.state, c); return { config: c, state: s, log: normalizeLog(value.log), positionKind: ['default', 'custom'].includes(value.positionKind) ? value.positionKind : classifyPosition(s, c), actor: ['human', 'bot'].includes(value.actor) ? value.actor : 'other', action: readAction(value.action) }; }
+function readSnapshot(value) { const c = validateConfig(value.config), s = validateState(value.state, c); return { config: c, state: s, log: normalizeLog(value.log), positionKind: ['default', 'custom'].includes(value.positionKind) ? value.positionKind : classifyPosition(s, c), gameVersion: typeof value.gameVersion === 'string' ? value.gameVersion : null, actor: ['human', 'bot'].includes(value.actor) ? value.actor : 'other', action: readAction(value.action) }; }
 function readAction(value) {
   if (!value || typeof value !== 'object') return null;
   if (value.pass === true) return { pass: true };
@@ -126,7 +128,7 @@ try {
     if (['local', 'bot'].includes(saved.playMode)) playMode = saved.playMode;
     if ([0, 1].includes(saved.humanTeam)) humanTeam = saved.humanTeam;
     botDifficulty = readBotDifficulty(saved.botDifficulty);
-    config = restored.config; state = restored.state; log = restored.log;
+    config = restored.config; state = restored.state; log = restored.log; gameVersion = restored.gameVersion;
     positionKind = restored.positionKind;
     gamePhase = saved.gamePhase === 'playing' || (saved.gamePhase === undefined && (state.ply > 0 || state.winner !== null)) ? 'playing' : 'setup';
     if (gamePhase === 'setup' && saved.startPrefsRevision !== START_PREFS_REVISION) { playMode = 'bot'; humanTeam = 1; firstMove = 'south'; }
@@ -142,11 +144,13 @@ try {
     const updatedBalance = gamePhase === 'setup' && positionKind === 'default' && !editor ? updateSavedBalance(config, saved.balanceRevision) : config;
     if (JSON.stringify(updatedBalance) !== JSON.stringify(config)) {
       checkpoint(); config = validateConfig(updatedBalance); state = createGame(config); log = []; lastTurn = null; balanceUpdated = true;
+      gameVersion = CURRENT_GAME_VERSION;
     }
   }
 } catch { toast('Сохранённая позиция не прошла проверку. Загружена исходная расстановка.'); }
 function resetNewGameDefaults() {
   config = validateConfig(upgradeSelectedBalancePreset(DEFAULT_CONFIG)); state = createGame(config);
+  gameVersion = CURRENT_GAME_VERSION;
   positionKind = 'default'; history = []; log = []; lastTurn = null; selected = null;
 }
 // Use the defaults of the newly loaded release, rather than the release
@@ -383,7 +387,20 @@ function renderGameResult(position) {
   $('#move-counter').textContent = gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${movement ? ' · движение' : combat ? ' · расчёт боя' : ''}${victory ? '. ' + victory : ''}`;
   $('#play-again').hidden = !finished;
 }
+function renderUpdateNotice() {
+  $('#update-notice').hidden = !needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentVersion: CURRENT_GAME_VERSION, latestVersion });
+}
+async function checkGameVersion() {
+  if (versionCheckPending || document.visibilityState === 'hidden') return;
+  versionCheckPending = true;
+  try {
+    const found = await latestGameVersion({ location, online: navigator.onLine !== false });
+    if (hasNewerGameVersion(CURRENT_GAME_VERSION, found)) latestVersion = found;
+    renderUpdateNotice();
+  } finally { versionCheckPending = false; }
+}
 function render(deaths = []) {
+  renderUpdateNotice();
   const state = visibleState(), displayLog = movement ? movement.before.log : combat ? combat.before.log : reviewingTurn && lastTurn ? lastTurn.before.log : log;
   for (const view of ['attacks', 'auras']) $('#show-' + view).disabled = Boolean(movement || combat);
   for (const view of ['attacks', 'auras']) $('#show-' + view).setAttribute('aria-pressed', String(fieldView === view));
@@ -521,7 +538,7 @@ $('#undo').addEventListener('click', () => {
   if (movement || combat || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor)) return;
   let previous = history.pop();
   if (playMode === 'bot' && !editor && previous.actor === 'bot' && history.at(-1)?.actor === 'human' && history.at(-1).state.ply === previous.state.ply - 1) previous = history.pop();
-  resetBotContext(); config = previous.config; state = previous.state; log = previous.log; positionKind = previous.positionKind; selected = null;
+  resetBotContext(); config = previous.config; state = previous.state; log = previous.log; positionKind = previous.positionKind; gameVersion = previous.gameVersion ?? null; selected = null;
   if (gamePhase === 'playing' && !editor) archiveRecorder.record('undo', { config, state });
   lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn(); render();
 });
@@ -554,19 +571,28 @@ function startGame() {
   if (gamePhase !== 'setup' || editor || refreshingNewGame) return;
   try {
     const next = prepareStartPosition(state, config, startingTeam());
-    resetBotContext(); state = next; gamePhase = 'playing'; positionKind = classifyPosition(state, config);
+    resetBotContext(); state = next; gamePhase = 'playing'; positionKind = classifyPosition(state, config); gameVersion = CURRENT_GAME_VERSION;
     archiveRecorder.start(archiveGameMetadata());
     history = []; log = []; previousGame = null; selected = null; $('#start-dialog').close(); render();
   } catch (error) { toast(error.message); }
 }
-$('#start-setup').addEventListener('click', openStartSettings);
+$('#start-setup').addEventListener('click', async () => {
+  if (gamePhase !== 'setup' || refreshingNewGame || editor) return;
+  if (hasNewerGameVersion(CURRENT_GAME_VERSION, latestVersion) && $('#bot-worker-source')) {
+    refreshingNewGame = true; render();
+    if (save() && await refreshNewGamePage({ location, online: navigator.onLine !== false })) return;
+    refreshingNewGame = false; render();
+    toast('Обновление недоступно. Можно продолжить в текущей версии.');
+  }
+  openStartSettings();
+});
 $('#new-game').addEventListener('click', openNewGame);
 $('#play-again').addEventListener('click', openNewGame);
 $('#start-game').addEventListener('click', startGame);
 function returnToGame() {
   if (!previousGame || gamePhase !== 'setup') return;
   const backup = previousGame; resetBotContext();
-  config = backup.snapshot.config; state = backup.snapshot.state; log = backup.snapshot.log; positionKind = backup.snapshot.positionKind;
+  config = backup.snapshot.config; state = backup.snapshot.state; log = backup.snapshot.log; positionKind = backup.snapshot.positionKind; gameVersion = backup.snapshot.gameVersion ?? null;
   history = backup.history; lastTurn = backup.lastTurn; playMode = backup.playMode; humanTeam = backup.humanTeam; firstMove = backup.firstMove; botDifficulty = readBotDifficulty(backup.botDifficulty);
   previousGame = null; gamePhase = 'playing'; editor = false; selected = null; $('#start-dialog').close(); render();
   archiveRecorder.resume(archiveGameMetadata());
@@ -936,6 +962,10 @@ document.addEventListener('visibilitychange', updateAttackReachPlayback);
 updateAttackReachPlayback();
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
 ready = true; render();
+void checkGameVersion();
+setInterval(() => { void checkGameVersion(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkGameVersion(); });
+addEventListener('online', () => { void checkGameVersion(); });
 if (freshNewGameRequested && gamePhase === 'setup' && previousGame) openStartSettings();
 if (presetUpdated) toast('Подготовлена расстановка с одним барабанщиком и одним знаменосцем. Нажмите «Начать», чтобы играть.');
 

@@ -21,13 +21,13 @@ function setup() {
   const context = vm.createContext({ DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty, clone, createGame, classifyPosition,
     config: clone(DEFAULT_CONFIG), state: clone(createGame(DEFAULT_CONFIG)), gamePhase: 'playing', editor: false,
     playMode: 'bot', humanTeam: 1, firstMove: 'south', history: [], log: [], lastTurn: null, previousGame: null, positionKind: 'default',
-    STORAGE: 'test', BALANCE_REVISION: 5, PRESET_REVISION: 1, START_PREFS_REVISION: 1,
+    STORAGE: 'test', BALANCE_REVISION: 5, PRESET_REVISION: 1, START_PREFS_REVISION: 1, CURRENT_GAME_VERSION: '0.1.20', gameVersion: '0.1.19',
     DEFAULT_CONFIG, upgradeSelectedBalancePreset, validateConfig: clone, refreshingNewGame: false, movement: null, combat: null,
     localStorage: { setItem(key, value) { saved = JSON.parse(value); } },
     $: selector => nodes[selector], resetBotContext() {}, openStartSettings() {},
     archiveRecorder: { resume() {} }, readSnapshot: clone, readLastTurn: value => value,
     recentBotHistory: () => [], botRunner: { run(value) { request = value; } },
-    render() { context.save(); }, currentSnapshot: () => clone({ config: context.config, state: context.state, log: context.log, positionKind: context.positionKind }) });
+    render() { context.save(); }, currentSnapshot: () => clone({ config: context.config, state: context.state, log: context.log, positionKind: context.positionKind, gameVersion: context.gameVersion }) });
   vm.runInContext(app.match(/^let botDifficulty = .*$/m)[0], context);
   for (const name of ['save', 'archiveGameMetadata', 'readPreviousGame', 'resetNewGameDefaults', 'openNewGame', 'returnToGame', 'startBot']) vm.runInContext(declaration(name), context);
   vm.runInContext(app.split('\n').find(line => line.startsWith("$('#bot-difficulty').addEventListener")), context);
@@ -81,6 +81,7 @@ test('new game discards even older or custom characteristics and returning resto
   const before = ui.context.currentSnapshot(), oldHistory = clone(ui.context.history);
   await ui.run('openNewGame()');
   assert.deepEqual(clone(ui.context.config), DEFAULT_CONFIG);
+  assert.equal(ui.saved().gameVersion, '0.1.20');
   assert.equal(ui.context.state.ply, 0);
   assert.equal(ui.context.state.pieces.filter(p => p.type === 'scoutLamp').length, 2);
   assert.deepEqual(clone(ui.saved().previousGame.snapshot), before);

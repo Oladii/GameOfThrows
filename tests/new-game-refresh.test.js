@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { freshNewGameUrl, consumeNewGameRefresh, refreshNewGamePage } from '../dist/new-game-refresh.js';
+import { freshNewGameUrl, consumeNewGameRefresh, refreshNewGamePage, hasNewerGameVersion, needsNewGame, latestGameVersion } from '../dist/new-game-refresh.js';
 
 const gameHtml = '<span id="version-number">v0.1.8</span><script id="bot-worker-source" type="application/json"></script>';
 const response = (html = gameHtml, ok = true) => ({ ok, text: async () => html });
@@ -52,4 +52,34 @@ test('a stalled update times out and does not navigate', async () => {
     signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
   }) });
   assert.equal(result, false); assert.equal(location.replaced, undefined);
+});
+
+test('an old or legacy match warns until a new match is prepared, even after saving and reloading', () => {
+  for (const savedVersion of [null, undefined, '0.1.19']) {
+    const stored=JSON.parse(JSON.stringify({gameVersion:savedVersion}));
+    assert.equal(needsNewGame({phase:'playing',savedVersion:stored.gameVersion,currentVersion:'0.1.20'}),true);
+  }
+  assert.equal(needsNewGame({phase:'playing',savedVersion:'0.1.20',currentVersion:'0.1.20'}),false);
+  assert.equal(needsNewGame({phase:'setup',savedVersion:null,currentVersion:'0.1.20'}),false);
+  assert.equal(needsNewGame({phase:'playing',savedVersion:'0.1.20',currentVersion:'0.1.20',latestVersion:'0.1.21'}),true);
+  assert.equal(needsNewGame({phase:'setup',savedVersion:'0.1.20',currentVersion:'0.1.20',latestVersion:'0.1.21'}),true);
+  assert.equal(hasNewerGameVersion('0.1.9','0.1.20'),true);
+  for(const value of ['0.1.19','0.1.20',null,'invalid'])assert.equal(hasNewerGameVersion('0.1.20',value),false);
+});
+test('checking the latest release bypasses caches without navigation or new-game intent', async () => {
+  const location=page('https://oladii.github.io/GameOfThrows/?_newGame=1&_fresh=old#board');
+  const found=await latestGameVersion({location,fetchPage:async (href,options)=>{
+    const url=new URL(href);assert.equal(url.pathname,'/GameOfThrows/');
+    assert.equal(url.searchParams.has('_newGame'),false);assert.equal(url.searchParams.has('_fresh'),false);
+    assert.ok(url.searchParams.get('_versionCheck'));assert.equal(options.cache,'no-store');
+    return response('<span id="version-number">v0.1.20</span>');
+  }});
+  assert.equal(found,'0.1.20');assert.equal(location.replaced,undefined);
+});
+test('failed update checks keep the current match and do not invent an available update', async () => {
+  for(const fetchPage of [async()=>response('',false),async()=>response('<html>unrelated</html>'),async()=>{throw new Error('offline');}]) {
+    assert.equal(await latestGameVersion({location:page(),fetchPage}),null);
+  }
+  assert.equal(await latestGameVersion({location:page('file:///tmp/Lamps.html'),fetchPage(){assert.fail('must not fetch');}}),null);
+  assert.equal(await latestGameVersion({location:page(),online:false,fetchPage(){assert.fail('must not fetch');}}),null);
 });

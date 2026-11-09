@@ -32,3 +32,28 @@ export async function refreshNewGamePage({ location, fetchPage = fetch, online =
   } catch { return false; }
   finally { clearTimeout(timeout); }
 }
+
+function versionParts(value) { return typeof value === 'string' && /^\d+\.\d+\.\d+$/.test(value) ? value.split('.').map(Number) : null; }
+export function hasNewerGameVersion(current, candidate) {
+  const a = versionParts(current), b = versionParts(candidate);
+  if (!a || !b) return false;
+  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return b[i] > a[i];
+  return false;
+}
+export function needsNewGame({ phase, savedVersion, currentVersion, latestVersion }) {
+  return hasNewerGameVersion(currentVersion, latestVersion) || (phase === 'playing' && (!versionParts(savedVersion) || hasNewerGameVersion(savedVersion, currentVersion)));
+}
+export async function latestGameVersion({ location, fetchPage = fetch, online = true, timeoutMs = 4000 }) {
+  const url = new URL(location.href);
+  if (!online || !['http:', 'https:'].includes(url.protocol)) return null;
+  url.searchParams.delete('_newGame'); url.searchParams.delete('_fresh');
+  url.searchParams.set('_versionCheck', String(Date.now()));
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchPage(url.href, { cache: 'no-store', signal: controller.signal });
+    if (!response.ok) return null;
+    const match = (await response.text()).match(/id=["']version-number["'][^>]*>\s*v?(\d+\.\d+\.\d+)\s*</);
+    return match?.[1] || null;
+  } catch { return null; }
+  finally { clearTimeout(timer); }
+}

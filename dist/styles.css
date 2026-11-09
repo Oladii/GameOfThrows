@@ -338,3 +338,5 @@ body:has(#rules-dialog[open]){overflow:hidden}
 
 /* Keep both team headers still when the active turn or combat phase changes. */
 .turn-tag{min-height:10px;line-height:10px}
+
+.update-notice{background:#fff1bd;color:#684b13;border-bottom:1px solid #d8bd71;padding:10px 24px;font-size:13px;line-height:1.5;text-align:center;flex-shrink:0}
