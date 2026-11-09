@@ -328,7 +328,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.9</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-08T23:45:02.339Z">Сборка 09.11.2026, 02:45:02 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.10</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-09T07:29:05.701Z">Сборка 09.11.2026, 10:29:05 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <main>
     <div class="workspace">
@@ -340,6 +340,8 @@ body:has(#rules-dialog[open]){overflow:hidden}
         <div class="config-summary" id="config-summary" hidden></div>
         <div class="board-hint" id="board-hint" aria-live="polite" hidden></div>
         <p class="archive-status" id="archive-status" role="status" hidden></p>
+        <button class="button subtle" id="archive-retry" type="button" hidden>Повторить сохранение</button>
+        <details class="archive-status" id="archive-details" hidden><summary>Сведения об ошибке сохранения</summary><p id="archive-errors"></p></details>
         <div id="bot-controls" class="bot-controls" hidden><div class="bot-review-actions"><button id="resume-bot" class="button subtle" hidden>Ход бота</button></div><p id="bot-status" class="muted tiny" role="status"></p></div>
         <div id="editor-controls" hidden>
           <div class="divider"></div><div class="section-label">РАССТАНОВКА</div>
@@ -1083,6 +1085,11 @@ const ArchiveEventTypes = new Set(['move', 'pass', 'config', 'undo', 'restore', 
 const ArchivePayloadFields = ['config', 'state', 'action', 'deaths', 'actor', 'reason', 'outcome'];
 const ArchiveSnapshot = value => JSON.parse(JSON.stringify(value));
 const ArchiveBytes = value => new TextEncoder().encode(JSON.stringify(value)).byteLength;
+// Reconsider only refusals saved by clients that could not distinguish schema
+// updates and temporary write conflicts. This changes queue metadata, never wire data.
+const ArchiveRecoveryRevision = 1;
+const ArchiveErrorCodes = new Set(['invalid_request', 'unauthorized', 'origin_forbidden', 'preflight_forbidden', 'unsupported_media_type', 'payload_too_large', 'game_size_limit', 'archive_capacity_limit', 'rate_limited', 'write_conflict', 'player_id_conflict', 'sequence_conflict', 'sequence_gap', 'storage_unavailable']);
+const ArchivePending = game => !game.created || game.events.length > 0;
 // Version 1 wire fields mirror rules.js / engine.js and the intake validator.
 // Keep this projection separate from game validation: imported annotations are
 // permitted by the game, but must never enter archive requests.
@@ -1221,6 +1228,7 @@ class GameRecorder {
   #autoFlush;
   #operations = Promise.resolve();
   #flushPromise = null;
+  #retryPromise = null;
   #activeId = null;
   #tabId = null;
   #status;
@@ -1245,7 +1253,7 @@ class GameRecorder {
     this.#autoFlush = options.autoFlush !== false;
     this.#retryBaseMs = options.retryBaseMs ?? 1500;
     this.#onStatus = options.onStatus;
-    this.#status = { state: this.#enabled ? 'pending' : 'disabled', pending: 0, failed: 0, gameId: null, gameStatus: null, message: '' };
+    this.#status = { state: this.#enabled ? 'pending' : 'disabled', pending: 0, failed: 0, failures: [], gameId: null, gameStatus: null, message: '' };
     if (!this.#enabled) return;
     this.#storage = options.storage || new ArchiveIndexedDBStorage(options.indexedDB || globalThis.indexedDB);
     this.#playerStorage = options.playerStorage || this.#storage;
@@ -1257,7 +1265,7 @@ class GameRecorder {
     if (this.#autoFlush) this.#kick();
   }
 
-  get status() { return { ...this.#status }; }
+  get status() { return { ...this.#status, failures: this.#status.failures.map(failure => ({ ...failure })) }; }
   get onStatus() { return this.#onStatus; }
   set onStatus(listener) { this.#onStatus = listener; this.#emit(); }
 
@@ -1294,6 +1302,7 @@ class GameRecorder {
       if (collision) { this.#tabId = this.#uuid(); this.#activeId = null; }
     }
     this.#saveSession();
+    await this.#recoverFailures(false);
     await this.#refreshStatus();
   }
 
@@ -1319,12 +1328,55 @@ class GameRecorder {
     const active = games.find(game => game.id === this.#activeId);
     const pending = games.reduce((count, game) => count + game.events.length + (game.created ? 0 : 1), 0);
     const failed = games.filter(game => game.blocked);
+    const failures = new Map();
+    for (const game of games) {
+      const detail = game.blocked || (ArchivePending(game) ? game.lastFailure : null);
+      if (!detail) continue;
+      const httpStatus = Number.isInteger(detail.httpStatus) && detail.httpStatus >= 400 && detail.httpStatus <= 599 ? detail.httpStatus : undefined;
+      const code = ArchiveErrorCodes.has(detail.code) ? detail.code : undefined;
+      const key = `${httpStatus ?? ''}:${code ?? ''}`;
+      const summary = failures.get(key) || { ...(httpStatus ? { httpStatus } : {}), ...(code ? { code } : {}), count: 0 };
+      summary.count++; failures.set(key, summary);
+    }
     const failure = this.#lastError || (this.#identityError ? 'storage' : '') || failed[0]?.blocked.message || games.find(game => game.lastFailure && (!game.created || game.events.length))?.lastFailure.message || '';
     this.#status = {
       state: failure ? 'error' : syncing ? 'syncing' : pending ? 'pending' : 'saved',
-      pending, failed: failed.length, gameId: active?.id || null, gameStatus: active?.gameStatus || null, message: failure
+      pending, failed: failed.length, failures: [...failures.values()], gameId: active?.id || null, gameStatus: active?.gameStatus || null, message: failure
     };
     this.#emit();
+  }
+  async #recoverFailures(manual) {
+    for (const candidate of await this.#storage.list()) {
+      if (!candidate.blocked) continue;
+      await this.#update(candidate.id, game => {
+        if (!game?.blocked) return null;
+        // Another tab may already have acknowledged the entire queue before a
+        // slower refusal was persisted. Its ACK remains authoritative.
+        if (!ArchivePending(game)) { delete game.blocked; delete game.lastFailure; return game; }
+        const legacy = (game.recoveryRevision ?? 0) < ArchiveRecoveryRevision && [400, 409].includes(game.blocked.httpStatus);
+        if (!manual && !legacy) return null;
+        game.recoveryRevision = ArchiveRecoveryRevision;
+        delete game.blocked; delete game.lastFailure;
+        return game;
+      });
+    }
+  }
+  retryFailed() {
+    if (!this.#enabled || this.#closed) return Promise.resolve(this.status);
+    if (this.#retryPromise) return this.#retryPromise;
+    this.#retryPromise = (async () => {
+      // Do not unblock a row underneath the request that is about to re-block
+      // it. Repeated clicks share this operation and its resulting flush.
+      if (this.#flushPromise) await this.#flushPromise;
+      await this.#enqueue(async () => {
+        await this.#recoverFailures(true);
+        this.#lastError = null; await this.#refreshStatus(true);
+      });
+      // An automatic flush may have started while metadata was being updated.
+      if (this.#flushPromise) await this.#flushPromise;
+      return this.flush();
+    })().finally(() => { this.#retryPromise = null; });
+    return this.#retryPromise;
   }
   async #newRecord(input, reason) {
     if (!this.#playerId) {
@@ -1430,10 +1482,15 @@ class GameRecorder {
       });
     } catch { throw Object.assign(new Error('offline'), { retryable: true }); }
     finally { clearTimeout(timeout); }
-    if (!response.ok) throw Object.assign(new Error(response.status >= 500 || response.status === 429 ? 'service_unavailable' : 'request_rejected'), {
-      retryable: response.status >= 500 || response.status === 429, httpStatus: response.status,
-      permanent: response.status >= 400 && response.status < 500 && response.status !== 429
-    });
+    if (!response.ok) {
+      let code;
+      try { const value = await response.json(); if (ArchiveErrorCodes.has(value?.code)) code = value.code; } catch { /* A proxy may return a non-JSON error. */ }
+      const retryable = response.status >= 500 || response.status === 429 || response.status === 409 && code === 'write_conflict';
+      throw Object.assign(new Error(retryable ? 'service_unavailable' : 'request_rejected'), {
+        retryable, httpStatus: response.status, ...(code ? { code } : {}),
+        permanent: response.status >= 400 && response.status < 500 && !retryable
+      });
+    }
     try { return await response.json(); } catch { throw Object.assign(new Error('invalid_ack'), { retryable: true }); }
   }
   async #ack(id, response, sentThrough, created) {
@@ -1446,6 +1503,7 @@ class GameRecorder {
         game.ackedThrough = Math.max(game.ackedThrough, acknowledged);
         game.events = game.events.filter(event => event.seq > game.ackedThrough);
         delete game.lastFailure;
+        if (!ArchivePending(game)) delete game.blocked;
         return game;
       }));
     });
@@ -1495,9 +1553,11 @@ class GameRecorder {
       } catch (error) {
         const permanent = error.permanent || error.message === 'sequence_conflict';
         if (!permanent && !error.retryable) throw error;
-        const failure = { message: error.message, at: this.#now(), ...(error.httpStatus ? { httpStatus: error.httpStatus } : {}) };
+        const failure = { message: error.message, at: this.#now(), ...(error.httpStatus ? { httpStatus: error.httpStatus } : {}), ...(ArchiveErrorCodes.has(error.code) ? { code: error.code } : {}) };
         const updated = await this.#enqueue(() => this.#update(candidate.id, game => {
           if (!game) return null;
+          if (!ArchivePending(game)) { delete game.blocked; delete game.lastFailure; return game; }
+          game.recoveryRevision = ArchiveRecoveryRevision;
           if (permanent) { game.blocked = failure; delete game.lastFailure; }
           else game.lastFailure = failure;
           return game;
@@ -2113,10 +2173,17 @@ const $ = selector => document.querySelector(selector);
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
 const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
+let archiveRetrying = false;
 function renderArchiveStatus(info) {
   const text = { disabled: '', pending: 'Записи партий ожидают отправки в архив.', syncing: 'Сохраняем партию в общем архиве…', saved: 'Партия сохранена в общем архиве.', error: 'Не удалось сохранить запись в общем архиве. Игра продолжается.' };
-  $('#archive-status').textContent = info.failed > 0 ? 'Часть записей не отправлена в архив. Остальные партии продолжают сохраняться.' : !info.gameId && !info.pending && !['disabled', 'error'].includes(info.state) ? 'Партии автоматически записываются для анализа баланса.' : text[info.state] || '';
+  $('#archive-status').textContent = archiveRetrying ? 'Повторяем сохранение записей в архив…' : info.failed > 0 ? 'Часть партий ещё не сохранена в архиве. Записи остаются в этом браузере; можно повторить отправку.' : !info.gameId && !info.pending && !['disabled', 'error'].includes(info.state) ? 'Партии автоматически записываются для анализа баланса.' : text[info.state] || '';
   $('#archive-status').hidden = !$('#archive-status').textContent;
+  $('#archive-retry').hidden = !archiveRetrying && info.failed === 0 && info.state !== 'error';
+  $('#archive-retry').disabled = archiveRetrying || info.state === 'syncing';
+  $('#archive-retry').textContent = archiveRetrying ? 'Сохраняем…' : 'Повторить сохранение';
+  const failures = info.failures || [];
+  $('#archive-details').hidden = !info.failed || !failures.length;
+  $('#archive-errors').textContent = failures.map(failure => [failure.httpStatus, failure.code, `записей: ${failure.count}`].filter(value => value !== undefined && value !== '').join(' · ')).join('\n');
 }
 const archiveRecorder = new GameRecorder({
   endpoint: archiveEndpoint, enabled: archiveIsSite && Boolean(archiveEndpoint),
@@ -2124,6 +2191,14 @@ const archiveRecorder = new GameRecorder({
   onStatus: renderArchiveStatus
 });
 renderArchiveStatus(archiveRecorder.status);
+async function retryArchive() {
+  if (archiveRetrying) return;
+  archiveRetrying = true; renderArchiveStatus(archiveRecorder.status);
+  try { await archiveRecorder.retryFailed(); }
+  catch { toast('Не удалось повторить сохранение. Записи остаются в этом браузере.'); }
+  finally { archiveRetrying = false; renderArchiveStatus(archiveRecorder.status); }
+}
+$('#archive-retry').addEventListener('click', retryArchive);
 function archiveGameMetadata() { return { config, state, mode: playMode, humanTeam, firstMove, botDepth: playMode === 'bot' ? BOT_DIFFICULTIES[botDifficulty].depth : undefined }; }
 function recordGameAction(type, details = {}) {
   archiveRecorder.record(type, { config, state, ...details, ...(details.action ? { action: readAction(details.action) } : {}) });

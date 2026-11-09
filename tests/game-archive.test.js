@@ -652,3 +652,154 @@ test('identity storage is never accessed by a drainer or a resumed legacy game',
   drainer.close();
   resumed.close();
 });
+
+test('a temporary write conflict retries automatically without another move and keeps its safe code', async () => {
+  const server = archiveServer(); let conflict = true, attempts = 0;
+  const statuses = [];
+  const harness = archiveHarness({ autoFlush: true, retryBaseMs: 5, onStatus: status => statuses.push(status), fetch: async (url, request) => {
+    attempts++;
+    if (conflict) { conflict = false; return { ok: false, status: 409, json: async () => ({ code: 'write_conflict', error: 'private server text' }) }; }
+    return server.fetch(url, request);
+  } });
+  const recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture()); await recorder.record('move', archiveFixture(1));
+  await archiveWaitFor(() => recorder.status.state === 'saved' && recorder.status.pending === 0);
+  const id = recorder.status.gameId, stored = await harness.storage.get(id);
+  assert.ok(attempts >= 3);
+  assert.equal(stored.blocked, undefined); assert.equal(stored.lastFailure, undefined);
+  assert.equal(server.games.get(id).events.length, 1);
+  assert.ok(statuses.some(status => status.state === 'error' && status.failed === 0 && status.failures.some(f => f.httpStatus === 409 && f.code === 'write_conflict')));
+  assert.equal(JSON.stringify(statuses).includes('private server text'), false);
+  recorder.close();
+});
+
+test('real sequence and identity conflicts stay blocked; unknown response details never reach status', async () => {
+  for (const code of ['sequence_conflict', 'sequence_gap', 'player_id_conflict', 'private unknown code']) {
+    let attempts = 0;
+    const harness = archiveHarness({ fetch: async () => { attempts++; return { ok: false, status: 409, json: async () => ({ code, error: 'secret details', writeKey: 'never show' }) }; } });
+    let recorder = new GameRecorder(harness.options);
+    await recorder.start(archiveFixture()); await recorder.flush();
+    const expected = { httpStatus: 409, ...(code === 'private unknown code' ? {} : { code }), count: 1 };
+    assert.deepEqual(recorder.status.failures, [expected]);
+    const detached = recorder.status; detached.failures[0].count = 99;
+    assert.deepEqual(recorder.status.failures, [expected]);
+    assert.equal(JSON.stringify(recorder.status).includes('secret details'), false);
+    assert.equal(JSON.stringify(recorder.status).includes('private unknown code'), false);
+    assert.equal(JSON.stringify(recorder.status).includes('never show'), false);
+    recorder.close(); recorder = new GameRecorder(harness.options);
+    await recorder.flush(); assert.equal(attempts, 1); assert.equal(recorder.status.failed, 1);
+    recorder.close();
+  }
+});
+
+test('old blocked schema and conflict requests recover once using exact original bytes and credentials', async () => {
+  for (const status of [400, 409]) for (const created of [false, true]) {
+    const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+    const first = new GameRecorder(harness.options), initial = archiveFixture();
+    delete initial.config.victoryCondition; delete initial.config.deploymentOffset; delete initial.config.shieldPromotion.allies;
+    await first.start(initial); await first.record('move', { ...initial, state: archiveFixture(1).state });
+    const id = first.status.gameId, legacy = await harness.storage.get(id); first.close();
+    delete legacy.create.playerId;
+    const createBytes = JSON.stringify(legacy.create), eventBytes = JSON.stringify({ events: legacy.events });
+    const authorization = `Bearer ${legacy.writeKey}`;
+    if (created) {
+      await server.fetch('https://archive.example.test/api/games', { body: createBytes, headers: { Authorization: authorization } });
+      // The previous response could have been lost after the server committed.
+      await server.fetch(`https://archive.example.test/api/games/${id}/events`, { body: eventBytes, headers: { Authorization: authorization } });
+    }
+    legacy.created = created; legacy.blocked = { message: 'request_rejected', httpStatus: status, at: '2026-11-01T00:00:00.000Z' };
+    await harness.storage.put(legacy); server.requests.length = 0;
+    const reloaded = new GameRecorder({ ...harness.options, autoFlush: true });
+    await archiveWaitFor(() => reloaded.status.state === 'saved' && reloaded.status.pending === 0);
+    const recovered = await harness.storage.get(id);
+    assert.equal(recovered.created, true); assert.equal(recovered.blocked, undefined); assert.equal(recovered.ackedThrough, 1);
+    assert.equal(recovered.recoveryRevision, 1);
+    assert.equal(recovered.id, legacy.id); assert.equal(recovered.writeKey, legacy.writeKey); assert.equal(recovered.nextSeq, legacy.nextSeq);
+    assert.equal(JSON.stringify(recovered.create), createBytes);
+    assert.deepEqual(server.requests.filter(r => r.url.endsWith('/api/games')).map(r => r.rawBody), created ? [] : [createBytes]);
+    assert.deepEqual(server.requests.filter(r => r.url.endsWith('/events')).map(r => r.rawBody), [eventBytes]);
+    assert.ok(server.requests.every(request => request.authorization === authorization));
+    assert.equal(server.games.get(id).events.length, 1);
+    assert.deepEqual(reloaded.status.failures, []);
+    reloaded.close();
+  }
+});
+
+test('an old permanent refusal gets one automatic attempt across reloads and can later recover manually', async () => {
+  const server = archiveServer(); let denied = true, attempts = 0, release, entered = false;
+  const harness = archiveHarness({ fetch: async (url, request) => {
+    attempts++;
+    if (denied) return { ok: false, status: 400, json: async () => ({ code: 'invalid_request' }) };
+    if (!entered) { entered = true; await new Promise(resolve => { release = resolve; }); }
+    return server.fetch(url, request);
+  } });
+  let recorder = new GameRecorder(harness.options);
+  await recorder.start(archiveFixture()); await recorder.record('move', archiveFixture(1));
+  const id = recorder.status.gameId, legacy = await harness.storage.get(id); recorder.close();
+  legacy.blocked = { message: 'request_rejected', httpStatus: 400 };
+  await harness.storage.put(legacy);
+  recorder = new GameRecorder({ ...harness.options, autoFlush: true, retryBaseMs: 5 });
+  await archiveWaitFor(() => recorder.status.failed === 1);
+  assert.equal(attempts, 1); assert.equal(recorder.status.pending, 2); recorder.close();
+  recorder = new GameRecorder(harness.options); await recorder.flush();
+  assert.equal(attempts, 1); assert.equal(recorder.status.failed, 1);
+  denied = false;
+  const retry = recorder.retryFailed(), duplicate = recorder.retryFailed();
+  assert.equal(retry, duplicate);
+  await archiveWaitFor(() => entered);
+  assert.notEqual(recorder.status.state, 'saved'); assert.equal(recorder.status.pending, 2);
+  await recorder.record('pass', archiveFixture(2));
+  release(); await retry;
+  assert.equal(recorder.status.state, 'saved'); assert.equal(recorder.status.pending, 0); assert.equal(recorder.status.failed, 0);
+  assert.deepEqual(server.games.get(id).events.map(e => [e.seq, e.type]), [[1, 'move'], [2, 'pass']]);
+  assert.deepEqual(server.games.get(id).create, legacy.create);
+  recorder.close();
+});
+
+test('old authorization and quota refusals are preserved without automatic retry', async () => {
+  for (const httpStatus of [401, 403, 413]) {
+    let attempts = 0;
+    const harness = archiveHarness({ fetch: async () => { attempts++; throw new Error('should not send'); } });
+    const first = new GameRecorder(harness.options); await first.start(archiveFixture()); await first.record('move', archiveFixture(1));
+    const id = first.status.gameId, legacy = await harness.storage.get(id); first.close();
+    legacy.blocked = { message: 'request_rejected', httpStatus }; await harness.storage.put(legacy);
+    const reloaded = new GameRecorder(harness.options); await reloaded.flush();
+    assert.equal(attempts, 0); assert.equal(reloaded.status.failed, 1); assert.equal(reloaded.status.pending, 2);
+    assert.deepEqual(await harness.storage.get(id), legacy);
+    reloaded.close();
+  }
+});
+
+test('manual retry waits for the active flush, including its refusal, then sends the pending queue once', async () => {
+  const server = archiveServer(); let release, entered = false, attempts = 0;
+  const harness = archiveHarness({ fetch: async (url, request) => {
+    attempts++;
+    if (!entered) { entered = true; await new Promise(resolve => { release = resolve; }); return { ok: false, status: 409, json: async () => ({ code: 'sequence_conflict' }) }; }
+    return server.fetch(url, request);
+  } });
+  const recorder = new GameRecorder(harness.options); await recorder.start(archiveFixture()); await recorder.record('move', archiveFixture(1));
+  const sending = recorder.flush(); await archiveWaitFor(() => entered);
+  const retry = recorder.retryFailed(), duplicate = recorder.retryFailed(); assert.equal(retry, duplicate);
+  await recorder.record('pass', archiveFixture(2));
+  release(); await Promise.all([sending, retry]);
+  assert.equal(attempts, 3);
+  assert.equal(recorder.status.failed, 0); assert.equal(recorder.status.pending, 0);
+  assert.deepEqual([...server.games.values()][0].events.map(e => e.seq), [1, 2]);
+  recorder.close();
+});
+
+test('a late refusal from one drainer cannot block a queue fully acknowledged by another', async () => {
+  const server = archiveServer(), harness = archiveHarness({ fetch: server.fetch });
+  const owner = new GameRecorder(harness.options); await owner.start(archiveFixture()); await owner.record('move', archiveFixture(1));
+  let entered = false, release;
+  const slow = new GameRecorder({ ...harness.options, sessionStorage: new ArchiveTestSession(), fetch: async () => {
+    entered = true; await new Promise(resolve => { release = resolve; });
+    return { ok: false, status: 400, json: async () => ({ code: 'invalid_request' }) };
+  } });
+  const pending = slow.flush(); await archiveWaitFor(() => entered);
+  await owner.flush(); assert.equal(owner.status.pending, 0);
+  release(); await pending;
+  assert.equal(slow.status.failed, 0); assert.equal(slow.status.state, 'saved');
+  assert.equal((await harness.storage.get(owner.status.gameId)).blocked, undefined);
+  owner.close(); slow.close();
+});

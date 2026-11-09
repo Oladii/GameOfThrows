@@ -7,6 +7,11 @@ const ArchiveEventTypes = new Set(['move', 'pass', 'config', 'undo', 'restore', 
 const ArchivePayloadFields = ['config', 'state', 'action', 'deaths', 'actor', 'reason', 'outcome'];
 const ArchiveSnapshot = value => JSON.parse(JSON.stringify(value));
 const ArchiveBytes = value => new TextEncoder().encode(JSON.stringify(value)).byteLength;
+// Reconsider only refusals saved by clients that could not distinguish schema
+// updates and temporary write conflicts. This changes queue metadata, never wire data.
+const ArchiveRecoveryRevision = 1;
+const ArchiveErrorCodes = new Set(['invalid_request', 'unauthorized', 'origin_forbidden', 'preflight_forbidden', 'unsupported_media_type', 'payload_too_large', 'game_size_limit', 'archive_capacity_limit', 'rate_limited', 'write_conflict', 'player_id_conflict', 'sequence_conflict', 'sequence_gap', 'storage_unavailable']);
+const ArchivePending = game => !game.created || game.events.length > 0;
 // Version 1 wire fields mirror rules.js / engine.js and the intake validator.
 // Keep this projection separate from game validation: imported annotations are
 // permitted by the game, but must never enter archive requests.
@@ -145,6 +150,7 @@ export class GameRecorder {
   #autoFlush;
   #operations = Promise.resolve();
   #flushPromise = null;
+  #retryPromise = null;
   #activeId = null;
   #tabId = null;
   #status;
@@ -169,7 +175,7 @@ export class GameRecorder {
     this.#autoFlush = options.autoFlush !== false;
     this.#retryBaseMs = options.retryBaseMs ?? 1500;
     this.#onStatus = options.onStatus;
-    this.#status = { state: this.#enabled ? 'pending' : 'disabled', pending: 0, failed: 0, gameId: null, gameStatus: null, message: '' };
+    this.#status = { state: this.#enabled ? 'pending' : 'disabled', pending: 0, failed: 0, failures: [], gameId: null, gameStatus: null, message: '' };
     if (!this.#enabled) return;
     this.#storage = options.storage || new ArchiveIndexedDBStorage(options.indexedDB || globalThis.indexedDB);
     this.#playerStorage = options.playerStorage || this.#storage;
@@ -181,7 +187,7 @@ export class GameRecorder {
     if (this.#autoFlush) this.#kick();
   }
 
-  get status() { return { ...this.#status }; }
+  get status() { return { ...this.#status, failures: this.#status.failures.map(failure => ({ ...failure })) }; }
   get onStatus() { return this.#onStatus; }
   set onStatus(listener) { this.#onStatus = listener; this.#emit(); }
 
@@ -218,6 +224,7 @@ export class GameRecorder {
       if (collision) { this.#tabId = this.#uuid(); this.#activeId = null; }
     }
     this.#saveSession();
+    await this.#recoverFailures(false);
     await this.#refreshStatus();
   }
 
@@ -243,12 +250,55 @@ export class GameRecorder {
     const active = games.find(game => game.id === this.#activeId);
     const pending = games.reduce((count, game) => count + game.events.length + (game.created ? 0 : 1), 0);
     const failed = games.filter(game => game.blocked);
+    const failures = new Map();
+    for (const game of games) {
+      const detail = game.blocked || (ArchivePending(game) ? game.lastFailure : null);
+      if (!detail) continue;
+      const httpStatus = Number.isInteger(detail.httpStatus) && detail.httpStatus >= 400 && detail.httpStatus <= 599 ? detail.httpStatus : undefined;
+      const code = ArchiveErrorCodes.has(detail.code) ? detail.code : undefined;
+      const key = `${httpStatus ?? ''}:${code ?? ''}`;
+      const summary = failures.get(key) || { ...(httpStatus ? { httpStatus } : {}), ...(code ? { code } : {}), count: 0 };
+      summary.count++; failures.set(key, summary);
+    }
     const failure = this.#lastError || (this.#identityError ? 'storage' : '') || failed[0]?.blocked.message || games.find(game => game.lastFailure && (!game.created || game.events.length))?.lastFailure.message || '';
     this.#status = {
       state: failure ? 'error' : syncing ? 'syncing' : pending ? 'pending' : 'saved',
-      pending, failed: failed.length, gameId: active?.id || null, gameStatus: active?.gameStatus || null, message: failure
+      pending, failed: failed.length, failures: [...failures.values()], gameId: active?.id || null, gameStatus: active?.gameStatus || null, message: failure
     };
     this.#emit();
+  }
+  async #recoverFailures(manual) {
+    for (const candidate of await this.#storage.list()) {
+      if (!candidate.blocked) continue;
+      await this.#update(candidate.id, game => {
+        if (!game?.blocked) return null;
+        // Another tab may already have acknowledged the entire queue before a
+        // slower refusal was persisted. Its ACK remains authoritative.
+        if (!ArchivePending(game)) { delete game.blocked; delete game.lastFailure; return game; }
+        const legacy = (game.recoveryRevision ?? 0) < ArchiveRecoveryRevision && [400, 409].includes(game.blocked.httpStatus);
+        if (!manual && !legacy) return null;
+        game.recoveryRevision = ArchiveRecoveryRevision;
+        delete game.blocked; delete game.lastFailure;
+        return game;
+      });
+    }
+  }
+  retryFailed() {
+    if (!this.#enabled || this.#closed) return Promise.resolve(this.status);
+    if (this.#retryPromise) return this.#retryPromise;
+    this.#retryPromise = (async () => {
+      // Do not unblock a row underneath the request that is about to re-block
+      // it. Repeated clicks share this operation and its resulting flush.
+      if (this.#flushPromise) await this.#flushPromise;
+      await this.#enqueue(async () => {
+        await this.#recoverFailures(true);
+        this.#lastError = null; await this.#refreshStatus(true);
+      });
+      // An automatic flush may have started while metadata was being updated.
+      if (this.#flushPromise) await this.#flushPromise;
+      return this.flush();
+    })().finally(() => { this.#retryPromise = null; });
+    return this.#retryPromise;
   }
   async #newRecord(input, reason) {
     if (!this.#playerId) {
@@ -354,10 +404,15 @@ export class GameRecorder {
       });
     } catch { throw Object.assign(new Error('offline'), { retryable: true }); }
     finally { clearTimeout(timeout); }
-    if (!response.ok) throw Object.assign(new Error(response.status >= 500 || response.status === 429 ? 'service_unavailable' : 'request_rejected'), {
-      retryable: response.status >= 500 || response.status === 429, httpStatus: response.status,
-      permanent: response.status >= 400 && response.status < 500 && response.status !== 429
-    });
+    if (!response.ok) {
+      let code;
+      try { const value = await response.json(); if (ArchiveErrorCodes.has(value?.code)) code = value.code; } catch { /* A proxy may return a non-JSON error. */ }
+      const retryable = response.status >= 500 || response.status === 429 || response.status === 409 && code === 'write_conflict';
+      throw Object.assign(new Error(retryable ? 'service_unavailable' : 'request_rejected'), {
+        retryable, httpStatus: response.status, ...(code ? { code } : {}),
+        permanent: response.status >= 400 && response.status < 500 && !retryable
+      });
+    }
     try { return await response.json(); } catch { throw Object.assign(new Error('invalid_ack'), { retryable: true }); }
   }
   async #ack(id, response, sentThrough, created) {
@@ -370,6 +425,7 @@ export class GameRecorder {
         game.ackedThrough = Math.max(game.ackedThrough, acknowledged);
         game.events = game.events.filter(event => event.seq > game.ackedThrough);
         delete game.lastFailure;
+        if (!ArchivePending(game)) delete game.blocked;
         return game;
       }));
     });
@@ -419,9 +475,11 @@ export class GameRecorder {
       } catch (error) {
         const permanent = error.permanent || error.message === 'sequence_conflict';
         if (!permanent && !error.retryable) throw error;
-        const failure = { message: error.message, at: this.#now(), ...(error.httpStatus ? { httpStatus: error.httpStatus } : {}) };
+        const failure = { message: error.message, at: this.#now(), ...(error.httpStatus ? { httpStatus: error.httpStatus } : {}), ...(ArchiveErrorCodes.has(error.code) ? { code: error.code } : {}) };
         const updated = await this.#enqueue(() => this.#update(candidate.id, game => {
           if (!game) return null;
+          if (!ArchivePending(game)) { delete game.blocked; delete game.lastFailure; return game; }
+          game.recoveryRevision = ArchiveRecoveryRevision;
           if (permanent) { game.blocked = failure; delete game.lastFailure; }
           else game.lastFailure = failure;
           return game;

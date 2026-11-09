@@ -14,10 +14,17 @@ const $ = selector => document.querySelector(selector);
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
 const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
+let archiveRetrying = false;
 function renderArchiveStatus(info) {
   const text = { disabled: '', pending: 'Записи партий ожидают отправки в архив.', syncing: 'Сохраняем партию в общем архиве…', saved: 'Партия сохранена в общем архиве.', error: 'Не удалось сохранить запись в общем архиве. Игра продолжается.' };
-  $('#archive-status').textContent = info.failed > 0 ? 'Часть записей не отправлена в архив. Остальные партии продолжают сохраняться.' : !info.gameId && !info.pending && !['disabled', 'error'].includes(info.state) ? 'Партии автоматически записываются для анализа баланса.' : text[info.state] || '';
+  $('#archive-status').textContent = archiveRetrying ? 'Повторяем сохранение записей в архив…' : info.failed > 0 ? 'Часть партий ещё не сохранена в архиве. Записи остаются в этом браузере; можно повторить отправку.' : !info.gameId && !info.pending && !['disabled', 'error'].includes(info.state) ? 'Партии автоматически записываются для анализа баланса.' : text[info.state] || '';
   $('#archive-status').hidden = !$('#archive-status').textContent;
+  $('#archive-retry').hidden = !archiveRetrying && info.failed === 0 && info.state !== 'error';
+  $('#archive-retry').disabled = archiveRetrying || info.state === 'syncing';
+  $('#archive-retry').textContent = archiveRetrying ? 'Сохраняем…' : 'Повторить сохранение';
+  const failures = info.failures || [];
+  $('#archive-details').hidden = !info.failed || !failures.length;
+  $('#archive-errors').textContent = failures.map(failure => [failure.httpStatus, failure.code, `записей: ${failure.count}`].filter(value => value !== undefined && value !== '').join(' · ')).join('\n');
 }
 const archiveRecorder = new GameRecorder({
   endpoint: archiveEndpoint, enabled: archiveIsSite && Boolean(archiveEndpoint),
@@ -25,6 +32,14 @@ const archiveRecorder = new GameRecorder({
   onStatus: renderArchiveStatus
 });
 renderArchiveStatus(archiveRecorder.status);
+async function retryArchive() {
+  if (archiveRetrying) return;
+  archiveRetrying = true; renderArchiveStatus(archiveRecorder.status);
+  try { await archiveRecorder.retryFailed(); }
+  catch { toast('Не удалось повторить сохранение. Записи остаются в этом браузере.'); }
+  finally { archiveRetrying = false; renderArchiveStatus(archiveRecorder.status); }
+}
+$('#archive-retry').addEventListener('click', retryArchive);
 function archiveGameMetadata() { return { config, state, mode: playMode, humanTeam, firstMove, botDepth: playMode === 'bot' ? BOT_DIFFICULTIES[botDifficulty].depth : undefined }; }
 function recordGameAction(type, details = {}) {
   archiveRecorder.record(type, { config, state, ...details, ...(details.action ? { action: readAction(details.action) } : {}) });
