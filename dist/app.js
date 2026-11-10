@@ -4,7 +4,7 @@ import { consumeNewGameRefresh, refreshNewGamePage, hasNewerGameVersion, needsNe
 import { clone, key, cells, distance, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, isLethalDamage, auraReaches, reachable, movementPath, shieldCanRetreat, move, pass, resolve } from './engine.js';
 import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from './bot-client.js';
 import { classifyPosition, prepareStartPosition } from './start-position.js';
-import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION, ATTACK_EFFECT_DURATION } from './move-animation.js';
+import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION } from './move-animation.js';
 import { GameRecorder } from './game-archive.js';
 import { renderUnitBadges, lethalAttackPresentation, renderDamageArrows, attackCellsFor, unitStatParts, alliedBonusDetails, AURA_COLORS, auraKind, auraCircleMarkup, skullShape, renderDeathEffects, renderMovingToken, unitAppearance, attackMarkerRotation, attackReachPresentation } from './board-presentation.js';
 import { createMoveLesson, renderMoveLesson, renderMoveExamples, createCombatLesson, renderCombatExamples, lessonPoint } from './onboarding-examples.js';
@@ -81,10 +81,20 @@ const moveAnimator = new MovementAnimator(frame => {
   const token = $('#moving-token');
   if (token) { token.setAttribute('transform', `translate(${frame.x},${frame.y})`); token.dataset.progress = String(frame.progress); }
 }, () => { const completed = movement; movement = null; if (completed) presentKills(completed.before, completed.forecast, completed.deaths); });
-const combatAnimator = new CombatAnimator(phase => {
+const combatAnimator = new CombatAnimator((phase, frame) => {
   if (!combat) return;
+  const previousPhase = combat.phase;
   if (phase === 'idle') combat = null;
-  else combat.phase = phase;
+  else {
+    combat.phase = phase;
+    combat.groupIndex = frame.groupIndex; combat.arrowCount = frame.arrowCount;
+    if (phase === 'deaths') {
+      combat.activeDeaths = combat.groups[frame.groupIndex].deaths;
+      const removed = new Set(combat.activeDeaths.map(p => p.id));
+      combat.visiblePosition = { ...combat.visiblePosition, pieces: combat.visiblePosition.pieces.filter(p => !removed.has(p.id)) };
+    } else combat.activeDeaths = [];
+  }
+  if (phase === 'attacks' && previousPhase === 'attacks') { highlightSources(); return; }
   render();
 }, () => {});
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
@@ -158,7 +168,7 @@ function resetNewGameDefaults() {
 if (freshNewGameRequested && gamePhase === 'setup' && previousGame) resetNewGameDefaults();
 function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
-function visibleState() { return movement ? movement.before.state : combat ? combat.phase === 'attacks' ? combat.position : combat.survivors : reviewingTurn && lastTurn ? lastTurn.before.state : state; }
+function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && lastTurn ? lastTurn.before.state : state; }
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
 function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !isBotTurn() && state.winner === null; }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
@@ -177,11 +187,25 @@ function presentMove(before, action, deaths) {
 function presentKills(before, forecast, deaths) {
   if (!deaths.length) { render(); return; }
   const presentation = lethalAttackPresentation(forecast.position, forecast.report, deaths);
-  const survivors = { ...forecast.position, pieces: forecast.position.pieces.filter(p => !presentation.victims.has(p.id)) };
-  combat = { before, position: forecast.position, survivors, report: forecast.report, deaths, ...presentation, phase: 'attacks' };
-  // Reduced-motion users see the same static explanation for three seconds;
-  // the CSS motion preference suppresses the following death effect.
-  combatAnimator.start(null, true, false, ATTACK_EFFECT_DURATION);
+  combat = { before, position: forecast.position, visiblePosition: forecast.position, report: forecast.report, deaths,
+    ...presentation, activeDeaths: [], groupIndex: 0, arrowCount: 0, phase: 'dimming' };
+  // Reduced motion keeps the explanation and timing; CSS removes the spatial
+  // death effect and fades while each contribution still appears in order.
+  combatAnimator.startSequence(presentation.groups);
+}
+function canReplayLastCombat() {
+  return Boolean(lastTurn && gamePhase === 'playing' && !editor && !reviewingTurn && !movement && !combat && !currentDeaths.length
+    && lastTurn.before.state.pieces.length > state.pieces.length);
+}
+function replayLastCombat() {
+  if (!canReplayLastCombat()) return;
+  const { before, action } = lastTurn;
+  const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
+    : inspectCell(before.state, before.config, action.to, action.id);
+  const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
+  if (!deaths.length) return;
+  cancelBot(); selected = null; fieldView = null;
+  presentKills(before, forecast, deaths);
 }
 function lastTurnFromHistory() { const entry = history.at(-1); return entry?.action ? readLastTurn({ before: entry, action: entry.action }) : null; }
 function recentBotHistory() {
@@ -293,7 +317,7 @@ function inspectionContext() {
   return inspection || { piece: position.pieces.find(p => p.id === selected), position, report, isPreview: false };
 }
 function highlightSources() {
-  if (combat) { $('#attack-lines').innerHTML = combat.phase === 'attacks' ? renderDamageArrows(combat.arrows, point, { pieces: combat.position.pieces, board: cells(config) }) : ''; return; }
+  if (combat) { $('#attack-lines').innerHTML = combat.phase === 'attacks' ? renderDamageArrows(combat.groups[combat.groupIndex].arrows, point, { pieces: combat.visiblePosition.pieces, board: cells(config), visibleCount: combat.arrowCount }) : ''; return; }
   const context = movement ? { ...movement.forecast, isPreview: false } : inspectionContext(), target = context.piece;
   const sourceIds = new Set(target ? context.report.get(target.id).attackers.map(a => a.id) : []);
   document.querySelectorAll('#board [data-piece-id]').forEach(element => {
@@ -405,7 +429,7 @@ function render(deaths = []) {
   for (const view of ['attacks', 'auras']) $('#show-' + view).disabled = Boolean(movement || combat);
   for (const view of ['attacks', 'auras']) $('#show-' + view).setAttribute('aria-pressed', String(fieldView === view));
   clearTimeout(deathEffectTimer);
-  deaths = combat?.phase === 'deaths' ? combat.deaths : deaths;
+  deaths = combat?.phase === 'deaths' ? combat.activeDeaths : deaths;
   currentDeaths = Array.isArray(deaths) && !matchMedia('(prefers-reduced-motion: reduce)').matches ? deaths : [];
   $('#first-move').value = firstMove;
   $('#play-mode').value = playMode; $('#human-side').value = String(humanTeam);
@@ -421,7 +445,7 @@ function render(deaths = []) {
   $('#configure-position').disabled = positionKind !== 'custom';
   $('#configure-position').hidden = positionKind !== 'custom';
   $('#mode-caption').textContent = playMode === 'bot' ? `Против бота · ${BOT_DIFFICULTIES[botDifficulty].label.toLowerCase()}` : '2 игрока на одном экране';
-  hover = null; inspection = null; report = combat?.phase === 'attacks' ? combat.report : analyze(state, config);
+  hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
   boardMarkup(); paintAuras(); highlightSources();
@@ -444,6 +468,7 @@ function render(deaths = []) {
   $('#pass-turn').disabled = !humanCanMove();
   $('#undo').disabled = Boolean(movement || combat) || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor);
   $('#undo').title = playMode === 'bot' && !editor ? 'Отменить свой ход и ответ бота' : 'Отменить последнее действие';
+  $('#replay-combat').disabled = !canReplayLastCombat();
   $('#review-previous').disabled = Boolean(movement || combat) || !lastTurn || gamePhase !== 'playing' || reviewingTurn;
   $('#review-previous').setAttribute('aria-pressed', String(reviewingTurn));
   $('#review-current').disabled = !reviewingTurn;
@@ -465,7 +490,7 @@ function render(deaths = []) {
   if (reviewingTurn) hint = `Просмотр перед последним ходом. ${lastMoveText} Нажмите →, чтобы вернуться к партии.`;
   if (currentDeaths.length) hint = 'Расчёт боя: погибшие фигуры удаляются одновременно.';
   if (movement) hint = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(lastAction.from)} → ${positionText(lastAction.to)}. Движение…`;
-  if (combat) hint = combat.phase === 'attacks' ? 'Атакующие и погибающие выделены цветом. Стрелки показывают вклад в смертельный урон.' : 'Погибшие удаляются одновременно. Затем ход перейдёт другой стороне.';
+  if (combat) hint = combat.phase === 'dimming' ? 'Выделяем участников расчёта боя.' : combat.phase === 'attacks' ? 'Стрелки по очереди показывают вклад в смертельный урон каждой цели.' : 'Показ гибели. Ход перейдёт другой стороне после завершения расчёта.';
   $('#board-hint').textContent = hint;
   $('#board-hint').hidden = !hint;
   $('#log-count').textContent = `${state.ply} ${plural(state.ply, ['ход', 'хода', 'ходов'])}`;
@@ -620,6 +645,7 @@ $('#editor-done').addEventListener('click', () => {
   try { state = validateState(state, config); positionKind = classifyPosition(state, config); editor = false; history = []; log = []; selected = null; render(); openStartSettings(); }
   catch (error) { toast(error.message); }
 });
+$('#replay-combat').addEventListener('click', replayLastCombat);
 $('#review-previous').addEventListener('click', () => { if (!lastTurn || gamePhase !== 'playing' || reviewingTurn || movement || combat) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
 $('#review-current').addEventListener('click', () => { if (!reviewingTurn) return; reviewingTurn = false; selected = null; render(); });
 $('#resume-bot').addEventListener('click', () => { botIssue = ''; botSuspended = false; render(); });

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
-import { analyze, inspectCell, move } from '../dist/engine.js';
-import { CombatAnimator, ATTACK_EFFECT_DURATION, DEATH_EFFECT_DURATION } from '../dist/move-animation.js';
+import { analyze, inspectCell, move, pass } from '../dist/engine.js';
+import { CombatAnimator, COMBAT_DIM_DURATION, ARROW_REVEAL_INTERVAL, ATTACK_HOLD_DURATION, DEATH_EFFECT_DURATION } from '../dist/move-animation.js';
 import { lethalAttackPresentation, renderDamageArrows, renderUnitBadges } from '../dist/board-presentation.js';
 
 const piece = (id,type,team,q,r) => ({id,type,team,q,r});
@@ -59,35 +59,151 @@ function presentationHarness(mode='local') {
   const config=structuredClone(DEFAULT_CONFIG), before={config,log:[],state:position([piece('mover','archer',0,0,0),piece('enemy','archer',1,1,1),piece('spectator','shield',1,-4,2),piece('ally-spectator','shield',0,4,-2)])};
   const action={id:'mover',to:{q:0,r:1}}, result=move(before.state,config,action.id,action.to);
   const forecast=inspectCell(before.state,config,action.to,action.id), time=clock(), snapshots=[];
-  let botStarts=0;
+  let botStarts=0,botCancels=0;const notices=[];
   const context=vm.createContext({config,state:result.state,combat:null,movement:null,currentDeaths:[],reviewingTurn:false,lastTurn:null,gamePhase:'playing',editor:false,playMode:mode,humanTeam:0,
-    ready:true,botIssue:'',botSuspended:false,botTimer:null,botRunner:{active:false},$:()=>null,lethalAttackPresentation,ATTACK_EFFECT_DURATION,
-    setTimeout:(fn,ms)=>time.setTimer(fn,ms),moveAnimator:{cancel(){}},startBot(){botStarts++;},
+    ready:true,botIssue:'',botSuspended:false,botTimer:null,botRunner:{active:false},$:()=>null,lethalAttackPresentation,analyze,inspectCell,selected:null,fieldView:null,
+    toast(message){notices.push(message);},cancelBot(){botCancels++;time.clearTimer(context.botTimer);context.botTimer=null;},
+    setTimeout:(fn,ms)=>time.setTimer(fn,ms),highlightSources(){},moveAnimator:{cancel(){}},startBot(){botStarts++;},
     CombatAnimator:class extends CombatAnimator{constructor(onPhase,onFrame){super(onPhase,onFrame,time);}},
     render(){snapshots.push({phase:context.combat?.phase||'idle',state:structuredClone(context.visibleState())});context.queueBot();}});
-  for(const name of ['visibleState','isBotTurn','humanCanMove','queueBot','presentKills','cancelMovement'])vm.runInContext(declaration(name),context);
+  for(const name of ['visibleState','isBotTurn','humanCanMove','queueBot','presentKills','canReplayLastCombat','replayLastCombat','cancelMovement'])vm.runInContext(declaration(name),context);
   const start=source.indexOf('const combatAnimator = new CombatAnimator('),end=source.indexOf('function toast(',start);
   vm.runInContext(source.slice(start,end),context);
-  return {context,time,before,result,forecast,snapshots,start(){context.presentKills(before,forecast,result.deaths);},botStarts:()=>botStarts};
+  return {context,time,before,result,forecast,snapshots,start(){context.presentKills(before,forecast,result.deaths);},botStarts:()=>botStarts,botCancels:()=>botCancels,notices,action};
 }
 
-test('arrows last exactly three seconds, then deaths play, colors and the next turn return only afterwards', () => {
+test('combat dims for 300ms, reveals mutual arrows 300ms apart, holds the last for 1s and then kills together', () => {
   const ui=presentationHarness();ui.start();
-  assert.equal(ui.context.combat.phase,'attacks');assert.equal(ui.context.visibleState().pieces.length,4);
+  assert.equal(ui.context.combat.phase,'dimming');assert.equal(ui.context.combat.arrowCount,0);
+  assert.equal(ui.context.visibleState().pieces.length,4);
   assert.equal(ui.context.visibleState().turn,0);assert.equal(ui.context.humanCanMove(),false);
-  ui.time.advance(ATTACK_EFFECT_DURATION-1);assert.equal(ui.context.combat.phase,'attacks');
+  ui.time.advance(COMBAT_DIM_DURATION-1);assert.equal(ui.context.combat.phase,'dimming');
+  ui.time.advance(1);assert.equal(ui.context.combat.phase,'attacks');assert.equal(ui.context.combat.arrowCount,1);
+  ui.time.advance(ARROW_REVEAL_INTERVAL-1);assert.equal(ui.context.combat.arrowCount,1);
+  ui.time.advance(1);assert.equal(ui.context.combat.arrowCount,2);
+  ui.time.advance(ATTACK_HOLD_DURATION-1);assert.equal(ui.context.combat.phase,'attacks');
   ui.time.advance(1);assert.equal(ui.context.combat.phase,'deaths');
+  assert.equal(ui.context.combat.activeDeaths.length,2);
   assert.equal(ui.context.visibleState().turn,0);assert.equal(ui.context.visibleState().pieces.length,2);
   ui.time.advance(DEATH_EFFECT_DURATION-1);assert.ok(ui.context.combat);
   ui.time.advance(1);assert.equal(ui.context.combat,null);assert.equal(ui.context.visibleState().turn,1);
   assert.equal(ui.context.humanCanMove(),true);assert.deepEqual(ui.context.visibleState(),ui.result.state);
 });
 
-test('bot replies wait for the entire combat and stale timers cannot end a replacement presentation', () => {
+test('bot replies wait for every group and stale timers cannot end a replacement presentation', () => {
   const ui=presentationHarness('bot');ui.start();
-  ui.time.advance(ATTACK_EFFECT_DURATION+DEATH_EFFECT_DURATION-1);assert.equal(ui.botStarts(),0);
+  const duration=COMBAT_DIM_DURATION+ARROW_REVEAL_INTERVAL+ATTACK_HOLD_DURATION+DEATH_EFFECT_DURATION;
+  ui.time.advance(duration-1);assert.equal(ui.botStarts(),0);
   ui.time.advance(1);assert.equal(ui.botStarts(),0);ui.time.advance(420);assert.equal(ui.botStarts(),1);
-  const cancelled=presentationHarness();cancelled.start();const stale=[...cancelled.time.timers.values()][0].fn;
-  cancelled.context.cancelMovement();const renders=cancelled.snapshots.length;
-  stale();cancelled.time.advance(10000);assert.equal(cancelled.snapshots.length,renders);assert.equal(cancelled.context.combat,null);
+  for (const elapsed of [0,COMBAT_DIM_DURATION,COMBAT_DIM_DURATION+ARROW_REVEAL_INTERVAL+ATTACK_HOLD_DURATION]) {
+    const cancelled=presentationHarness();cancelled.start();cancelled.time.advance(elapsed);
+    const stale=[...cancelled.time.timers.values()][0].fn;
+    cancelled.context.cancelMovement();const renders=cancelled.snapshots.length;
+    stale();cancelled.time.advance(10000);assert.equal(cancelled.snapshots.length,renders);assert.equal(cancelled.context.combat,null);
+  }
+  const replaced=presentationHarness();replaced.start();const stale=[...replaced.time.timers.values()][0].fn;
+  replaced.start();stale();assert.equal(replaced.context.combat.phase,'dimming');
+  replaced.time.advance(COMBAT_DIM_DURATION);assert.equal(replaced.context.combat.arrowCount,1);
+});
+
+// A directed damage graph makes ordering independent of board geometry and
+// covers dependencies that ordinary reciprocal pairs cannot exercise.
+function graphPresentation(edges, victimIds) {
+  const ids=[...new Set(edges.flat().concat(victimIds))],pieces=ids.map((id,i)=>piece(id,'archer',i%2,i,0));
+  const report=new Map(ids.map(id=>[id,{attackers:edges.filter(e=>e[1]===id).map(([id])=>({id,damage:8}))}]));
+  return lethalAttackPresentation(position(pieces),report,victimIds.map(id=>pieces.find(p=>p.id===id)));
+}
+
+test('non-contributing victims resolve individually before mutually damaging victims, with arrows grouped by target', () => {
+  const view=graphPresentation([['a','b'],['c','b'],['a','lamp1'],['b','lamp2'],['b','a'],['c','a']],['a','lamp1','b','lamp2']);
+  assert.deepEqual(view.groups.map(g=>g.deaths.map(p=>p.id)),[['lamp1'],['lamp2'],['a','b']]);
+  assert.deepEqual(view.groups.at(-1).arrows.map(a=>a.target.id),['a','a','b','b']);
+  const chain=graphPresentation([['survivor','a'],['a','b'],['b','c']],['a','b','c']);
+  assert.deepEqual(chain.groups.map(g=>g.deaths.map(p=>p.id)),[['c'],['b'],['a']]);
+});
+
+test('each single victim loses only its own arrows and token before the remaining group starts', () => {
+  const ui=presentationHarness(), view=graphPresentation([['a','b'],['b','a'],['a','lamp1'],['b','lamp2']],['a','lamp1','b','lamp2']);
+  ui.forecast.position=position([...new Map(view.arrows.flatMap(a=>[a.source,a.target]).map(p=>[p.id,p])).values()]);
+  ui.forecast.report=new Map(ui.forecast.position.pieces.map(p=>[p.id,{attackers:view.arrows.filter(a=>a.target.id===p.id).map(a=>({id:a.source.id,damage:a.damage}))}]));
+  const deaths=view.groups.flatMap(g=>g.deaths);
+  ui.context.presentKills(ui.before,ui.forecast,deaths);
+  ui.time.advance(COMBAT_DIM_DURATION);assert.equal(ui.context.combat.arrowCount,1);
+  ui.time.advance(ATTACK_HOLD_DURATION);assert.deepEqual(Array.from(ui.context.combat.activeDeaths,p=>p.id),['lamp1']);
+  assert.deepEqual(Array.from(ui.context.visibleState().pieces,p=>p.id).sort(),['a','b','lamp2']);
+  ui.time.advance(DEATH_EFFECT_DURATION);assert.equal(ui.context.combat.phase,'attacks');assert.equal(ui.context.combat.groupIndex,1);
+  ui.time.advance(ATTACK_HOLD_DURATION);assert.deepEqual(Array.from(ui.context.combat.activeDeaths,p=>p.id),['lamp2']);
+  ui.time.advance(DEATH_EFFECT_DURATION);assert.equal(ui.context.combat.groupIndex,2);assert.equal(ui.context.combat.arrowCount,1);
+  assert.deepEqual(Array.from(ui.context.visibleState().pieces,p=>p.id).sort(),['a','b']);
+  ui.time.advance(ARROW_REVEAL_INTERVAL+ATTACK_HOLD_DURATION);assert.equal(ui.context.combat.activeDeaths.length,2);
+  assert.equal(ui.context.visibleState().pieces.length,0);assert.equal(ui.context.humanCanMove(),false);
+  ui.time.advance(DEATH_EFFECT_DURATION);assert.equal(ui.context.combat,null);
+});
+
+test('progressive rendering preserves reveal order and arrow geometry, including reciprocal lanes', () => {
+  const view=graphPresentation([['z','a'],['a','z'],['m','z']],['z','a']);
+  const arrows=view.groups[0].arrows,point=p=>({x:p.q*70,y:p.r*70});
+  const full=renderDamageArrows(arrows,point);
+  for(let count=1;count<=arrows.length;count++) {
+    const html=renderDamageArrows(arrows,point,{visibleCount:count});
+    assert.equal((html.match(/class="attack-ray"/g)||[]).length,count);
+    assert.equal((html.match(/data-revealing="true"/g)||[]).length,2,'only the latest shaft and its badge animate');
+    const latest=arrows[count-1];
+    assert.ok(html.includes(`data-source="${latest.source.id}" data-target="${latest.target.id}" data-revealing="true"`));
+    for(const path of html.matchAll(/d="(M[^"]+)"/g)) assert.ok(full.includes(path[0]),'existing paths never jump');
+  }
+});
+
+
+test('replaying the last calculation restores its victims temporarily and leaves the committed game and history intact', () => {
+  const ui=presentationHarness();
+  ui.context.lastTurn={before:ui.before,action:ui.action};
+  ui.context.history=[structuredClone(ui.before)];ui.context.log=[{text:'Committed move',detail:'Two deaths'}];
+  const actualState=ui.context.state, persisted=JSON.stringify({state:actualState,before:ui.before,log:ui.context.log,history:ui.context.history,lastTurn:ui.context.lastTurn});
+  for(let repeat=0;repeat<2;repeat++) {
+    ui.context.replayLastCombat();assert.equal(ui.context.combat.phase,'dimming');
+    assert.equal(ui.context.visibleState().pieces.length,4);assert.equal(ui.context.humanCanMove(),false);
+    assert.equal(ui.context.combat.position.pieces.find(p=>p.id==='mover').r,1,'replay starts after movement');
+    ui.time.advance(COMBAT_DIM_DURATION+ARROW_REVEAL_INTERVAL+ATTACK_HOLD_DURATION+DEATH_EFFECT_DURATION);
+    assert.equal(ui.context.combat,null);assert.equal(ui.context.visibleState(),actualState);
+    assert.equal(JSON.stringify({state:ui.context.state,before:ui.before,log:ui.context.log,history:ui.context.history,lastTurn:ui.context.lastTurn}),persisted);
+  }
+  assert.equal(ui.botCancels(),2);
+});
+
+test('replay blocks duplicate clicks and postpones the pending bot until the presentation is finished', () => {
+  const ui=presentationHarness('bot');ui.context.lastTurn={before:ui.before,action:ui.action};
+  ui.context.queueBot();assert.notEqual(ui.context.botTimer,null);
+  ui.context.replayLastCombat();const presentation=ui.context.combat;
+  ui.context.replayLastCombat();assert.equal(ui.context.combat,presentation);assert.equal(ui.botCancels(),1);
+  ui.time.advance(420);assert.equal(ui.botStarts(),0);
+  ui.time.advance(10000);assert.equal(ui.botStarts(),1);
+});
+
+test('replay supports a saved pass calculation and disables its button when nobody died', () => {
+  const ui=presentationHarness();ui.before.state=ui.forecast.position;ui.before.config.experiments.allowPass=true;
+  ui.context.state=pass(ui.before.state,ui.before.config).state;
+  ui.context.lastTurn=JSON.parse(JSON.stringify({before:ui.before,action:{pass:true}}));
+  ui.context.replayLastCombat();assert.equal(ui.context.combat.deaths.length,2);
+  ui.time.advance(10000);assert.equal(ui.context.combat,null);
+  const peaceful=presentationHarness();peaceful.before.config.experiments.allowPass=true;
+  peaceful.context.state=pass(peaceful.before.state,peaceful.before.config).state;
+  peaceful.context.lastTurn={before:peaceful.before,action:{pass:true}};
+  // The unchanged pre-move geometry has no lethal attack.
+  peaceful.context.replayLastCombat();assert.equal(peaceful.context.combat,null);
+  assert.deepEqual(peaceful.notices,[]);assert.equal(peaceful.botCancels(),0);
+  const button={disabled:false};peaceful.context.$=()=>button;
+  vm.runInContext(source.match(/  \$\('#replay-combat'\)\.disabled = [^\n]+/)[0],peaceful.context);
+  assert.equal(button.disabled,true);
+  const readyButton={disabled:true};ui.context.$=()=>readyButton;
+  vm.runInContext(source.match(/  \$\('#replay-combat'\)\.disabled = [^\n]+/)[0],ui.context);
+  assert.equal(readyButton.disabled,false);
+});
+
+test('replay is unavailable before a move, during setup, editing, history review, movement and death effects', () => {
+  const fresh=presentationHarness();fresh.context.replayLastCombat();assert.equal(fresh.context.combat,null);
+  for(const [field,value] of [['gamePhase','setup'],['editor',true],['reviewingTurn',true],['movement',{}],['currentDeaths',[{}]]]) {
+    const ui=presentationHarness();ui.context.lastTurn={before:ui.before,action:ui.action};ui.context[field]=value;
+    ui.context.replayLastCombat();assert.equal(ui.context.combat,null);assert.equal(ui.botCancels(),0);
+  }
 });

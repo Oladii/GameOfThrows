@@ -29,6 +29,7 @@
 .play-mode-field .field-label{margin-top:13px}.play-mode-field p{line-height:1.6;margin:7px 0 0}.bot-controls{border-top:1px solid var(--line);padding:12px 0}.bot-review-actions{display:flex;gap:8px;flex-wrap:wrap}.bot-controls p{line-height:1.6;margin:8px 0 0}.bot-controls .button{white-space:normal;text-align:left}.position-review{background:#f8edcb;border:1px solid #ddc78b;color:#72551e;border-radius:7px;padding:10px 12px;margin-top:12px;font-size:11px;line-height:1.5}.bot-move-trace{pointer-events:none}.bot-move-trace line{stroke:#9b7325;stroke-width:3;stroke-dasharray:5 3}.bot-move-trace circle{fill:none;stroke:#9b7325;stroke-width:2.5;stroke-dasharray:4 3}.team-role{font-size:9px;font-weight:400;color:var(--muted);margin-left:6px}
 @media(max-width:700px){.left-panel>.play-mode-field{grid-column:1/-1;margin-bottom:6px}.bot-review-actions{display:grid;grid-template-columns:1fr}.bot-review-actions .button{justify-content:center}.team-role{display:block;margin:4px 0 0 14px}}
 .turn-actions .history-arrow{width:32px;min-width:32px;padding:8px 0;font-size:18px}.history-arrow[aria-pressed="true"]{background:#e2e9d6}.right-panel .log-heading{margin-top:0}
+.turn-actions .combat-replay svg{width:18px;height:18px;display:block}
 @media(max-width:1000px){.right-panel{display:block}}
 .heading-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}.settings-gear{width:39px;height:39px;min-height:39px;flex:0 0 39px;padding:0;line-height:1}.settings-gear svg{display:block;width:20px;height:20px;flex-shrink:0}.start-settings{margin-top:18px}.start-settings>.section-label{margin-bottom:8px}.start-settings .field-label{margin-top:13px}.about-stats{width:100%;border-collapse:collapse;font-size:12px}.about-stats th,.about-stats td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center}.about-stats th:first-child,.about-stats td:first-child{text-align:left}.about-stats th{font-size:10px;color:var(--muted);font-weight:550}.rules-content h3{font-size:16px}.rules-content ul{padding-left:22px}
 @media(max-width:700px){.heading-actions{margin-top:17px}.page-heading .heading-actions .button{margin-top:0}.left-panel>#start-setup{grid-column:1/-1}.left-panel>#new-game{grid-column:1/-1}.left-panel .config-summary{grid-column:1/-1}.start-settings .button.full{margin-top:8px}}
@@ -318,9 +319,11 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .incoming-indicator .target-icon{fill:none;stroke:#795a1e;stroke-width:1.2}.incoming-indicator .target-icon circle:last-of-type{fill:#795a1e;stroke:none}
 .attack-ray-label .ray-badge{fill:#fff9e8;stroke:#b98227;stroke-width:1.2}
 #board .piece.combat-muted{filter:grayscale(1);opacity:.45}
-#board[data-combat-phase="attacks"] .attack-ray{animation:combat-arrow-appear 180ms ease-out both}
+#board[data-combat-phase="dimming"] .piece.combat-muted{animation:combat-dim 300ms ease-out both}
+#board[data-combat-phase="attacks"] [data-revealing="true"]{animation:combat-arrow-appear 180ms ease-out both}
+@keyframes combat-dim{from{filter:grayscale(0);opacity:1}to{filter:grayscale(1);opacity:.45}}
 @keyframes combat-arrow-appear{from{opacity:0}to{opacity:1}}
-@media(prefers-reduced-motion:reduce){#board[data-combat-phase="attacks"] .attack-ray{animation:none}}
+@media(prefers-reduced-motion:reduce){#board[data-combat-phase="attacks"] [data-revealing="true"],#board[data-combat-phase="dimming"] .piece.combat-muted{animation:none}}
 .attack-target-outline.friendly-target{fill:#e0ebcc;stroke:#9bb187;stroke-width:1.2;opacity:1}
 .attack-target-weapon.friendly-target{stroke:#68865e;opacity:1}
 

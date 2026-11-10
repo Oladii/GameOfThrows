@@ -99,11 +99,23 @@ export function lethalAttackPresentation(position, report, deaths) {
       participants.add(source.id); arrows.push({ source, target, damage: attack.damage });
     }
   }
-  return { participants, victims, arrows };
+  // Resolve victims with no outgoing lethal contribution first, one at a
+  // time. Removing a sink can expose another; cycles remain together so no
+  // attacker disappears before its own contribution has been explained.
+  const remaining = new Set(victims), groups = [];
+  while (remaining.size) {
+    const sink = deaths.find(p => remaining.has(p.id) && !arrows.some(a => a.source.id === p.id && remaining.has(a.target.id)));
+    if (!sink) break;
+    groups.push({ deaths: [sink], arrows: arrows.filter(a => a.target.id === sink.id) });
+    remaining.delete(sink.id);
+  }
+  if (remaining.size) groups.push({ deaths: deaths.filter(p => remaining.has(p.id)),
+    arrows: deaths.filter(p => remaining.has(p.id)).flatMap(p => arrows.filter(a => a.target.id === p.id)) });
+  return { participants, victims, arrows, groups };
 }
 
 export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null } = {}) {
-  const edges = arrows.map(arrow => {
+  const edges = arrows.map((arrow, order) => {
     const { source, target } = arrow;
     const start = point(source), end = point(target), length = Math.hypot(end.x - start.x, end.y - start.y);
     if (!length) return null;
@@ -113,7 +125,7 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null }
     const ux = dx * sign, uy = dy * sign;
     const lineKey = `${ux.toFixed(5)},${uy.toFixed(5)},${(ux * start.y - uy * start.x).toFixed(3)}`;
     const a = ux * start.x + uy * start.y, b = ux * end.x + uy * end.y;
-    return { ...arrow, start, end, dx, dy, ux, uy, shorten, lineKey, low: Math.min(a,b), high: Math.max(a,b) };
+    return { ...arrow, order, start, end, dx, dy, ux, uy, shorten, lineKey, low: Math.min(a,b), high: Math.max(a,b) };
   }).filter(Boolean).sort((a,b) => `${a.source.id}:${a.target.id}`.localeCompare(`${b.source.id}:${b.target.id}`));
   const groups = new Map();
   for (const edge of edges) {
@@ -171,12 +183,15 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null }
   return edges;
 }
 
-export function renderDamageArrows(arrows, point, { pieces = [], board = [] } = {}) {
+export function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null } = {}) {
   const points = board.map(point), bounds = points.length ? { left:Math.min(...points.map(p=>p.x))-32,right:Math.max(...points.map(p=>p.x))+32,top:Math.min(...points.map(p=>p.y))-32,bottom:Math.max(...points.map(p=>p.y))+32 } : null;
-  const edges = layoutDamageArrows(arrows,point,{pieces,bounds});
-  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}"><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}" marker-end="url(#damage-arrow)"><title>${e.damage} урона</title></path></g>`).join('');
+  // Lay out the complete group before revealing it so existing arrows and
+  // their labels stay in place when the next contribution appears.
+  const edges = layoutDamageArrows(arrows,point,{pieces,bounds}).filter(e => visibleCount === null || e.order < visibleCount);
+  const reveal = e => visibleCount !== null && e.order === visibleCount - 1 ? ' data-revealing="true"' : '';
+  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}" marker-end="url(#damage-arrow)"><title>${e.damage} урона</title></path></g>`).join('');
   // Labels go above every shaft, so a later arrow cannot paint over a number.
-  const labels = edges.map(e => `<g class="attack-ray-label" data-source="${e.source.id}" data-target="${e.target.id}">${numberBadge(e.damage,e.label.x,e.label.y,'ray',9)}</g>`).join('');
+  const labels = edges.map(e => `<g class="attack-ray-label" data-source="${e.source.id}" data-target="${e.target.id}"${reveal(e)}>${numberBadge(e.damage,e.label.x,e.label.y,'ray',9)}</g>`).join('');
   return rays+labels;
 }
 export function attackCellsFor(piece, position, config) {
