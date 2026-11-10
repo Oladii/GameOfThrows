@@ -238,18 +238,17 @@ export function attackReachPresentation(piece, position, config, {point, polygon
   const friendlyCells = new Set([...visiblePosition.pieces, ...position.pieces].filter(p => p.team === piece.team).map(p => key(p.q, p.r)));
   const attackCells = attackCellsFor(piece, position, config).filter(cell => !friendlyCells.has(key(cell.q, cell.r)));
   const outlines = [], markers = [];
-  const targetHex = Array.from({ length: 6 }, (_, i) => `${12 * Math.cos((60 * i - 30) * Math.PI / 180)},${12 * Math.sin((60 * i - 30) * Math.PI / 180)}`).join(' ');
   for (const cell of attackCells) {
     const { x, y } = point(cell);
     const target = position.pieces.find(p => p.q === cell.q && p.r === cell.r);
     const friendly = piece.team === friendlyTeam ? ' friendly-target' : '';
-    outlines.push(`<polygon class="${target ? 'attack-target-fill' : 'attack-target-outline'} ${displayTeam ? 'south' : 'north'}${target ? '' : friendly}" data-threat-cell="${key(cell.q, cell.r)}" transform="translate(${x},${y})" points="${target ? polygonPoints : targetHex}"/>`);
+    if (target) outlines.push(`<polygon class="attack-target-fill ${displayTeam ? 'south' : 'north'}" data-threat-cell="${key(cell.q, cell.r)}" transform="translate(${x},${y})" points="${polygonPoints}"/>`);
     if (!target) {
       const kind = piece.type === 'archer' ? 'arrow' : 'sword';
       const glyph = kind === 'arrow'
         ? '<path d="M3 21 18 6M13 5l8-2-2 8Z"/><path d="M3 15l5 1 1 5M6 12l5 1 1 5"/>'
         : '<path d="m5 19 9-9M10 8l6-6 6-1-1 6-6 6M6 12l6 6M3 21l3-3"/>';
-      markers.push(`<g class="attack-target-weapon ${displayTeam ? 'south' : 'north'}${friendly}" data-weapon-cell="${key(cell.q, cell.r)}" data-weapon-kind="${kind}" transform="translate(${x},${y}) rotate(${attackMarkerRotation(point(piece), { x, y })})"><g transform="translate(-5.04,-5.04) scale(.42)">${glyph}</g></g>`);
+      markers.push(`<g class="attack-target-weapon ${displayTeam ? 'south' : 'north'}${friendly}" data-weapon-cell="${key(cell.q, cell.r)}" data-weapon-kind="${kind}" transform="translate(${x},${y}) rotate(${attackMarkerRotation(point(piece), { x, y })})" data-threat-cell="${key(cell.q, cell.r)}"><g transform="translate(-6.24,-6.24) scale(.52)">${glyph}</g></g>`);
     }
   }
   const markup = outlines.join('') + markers.join('');

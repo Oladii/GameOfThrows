@@ -125,7 +125,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 #board .attack-reach .reach-icon{stroke:#80827a;stroke-width:2.1}
 #board .attack-reach.occupied .reach-icon{stroke:#6c6e66;filter:none}
 .attack-target-weapon{fill:none;stroke:var(--blue);stroke-width:2.7;stroke-linecap:round;stroke-linejoin:round;opacity:.75;pointer-events:none}.attack-target-weapon.south{stroke:var(--rust)}
-.attack-target-outline,.attack-target-fill{fill:var(--blue);stroke:none;opacity:.3;pointer-events:none}.attack-target-outline.south,.attack-target-fill.south{fill:var(--rust)}
+.attack-target-fill{fill:var(--blue);stroke:none;opacity:.3;pointer-events:none}.attack-target-fill.south{fill:var(--rust)}
 
 .stat-grid .stat-box .stat-calculation{display:block;font-size:11px;line-height:1.4;margin:3px 0 0;overflow-wrap:anywhere}
 
@@ -324,7 +324,6 @@ body:has(#rules-dialog[open]){overflow:hidden}
 @keyframes combat-dim{from{filter:grayscale(0);opacity:1}to{filter:grayscale(1);opacity:.45}}
 @keyframes combat-arrow-appear{from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){#board[data-combat-phase="attacks"] [data-revealing="true"],#board[data-combat-phase="dimming"] .piece.combat-muted{animation:none}}
-.attack-target-outline.friendly-target{fill:#e0ebcc;stroke:#9bb187;stroke-width:1.2;opacity:1}
 .attack-target-weapon.friendly-target{stroke:#68865e;opacity:1}
 
 #board .cell.selected:hover .tile{stroke:#68865e}

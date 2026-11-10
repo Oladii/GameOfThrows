@@ -143,7 +143,7 @@ test('empty attack cells show directional arrows for archers and swords for othe
     const ally=piece('a','archer',team,center+1,center),enemy=piece('e','archer',1-team,center+2,center);
     const state=position([source,ally,enemy]);state.turn=team;const painter=reachPainter(config,state,source.id);
     const html=painter.render({position:state,piece:source,isPreview:false});
-    assert.ok(html.includes('attack-target-outline'));
+    assert.ok(!html.includes('attack-target-outline'));
     assert.ok(html.includes(`class="attack-target-fill ${team?'south':'north'}" data-threat-cell="${enemy.q},${enemy.r}"`));
     assert.ok(!html.includes(`data-threat-cell="${source.q},${source.r}"`));
     assert.ok(!html.includes(`data-threat-cell="${ally.q},${ally.r}"`));
