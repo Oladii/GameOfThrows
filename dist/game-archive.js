@@ -22,7 +22,7 @@ const ArchivePick = (value, fields) => {
   return Object.fromEntries(fields.filter(field => Object.hasOwn(value, field)).map(field => [field, value[field]]));
 };
 const ArchiveConfig = value => {
-  const config = ArchivePick(value, ['version', 'geometry', 'size', 'army', 'stats', 'experiments', 'shieldPromotion', 'auraDefenseCap', 'victoryCondition', 'deploymentOffset']);
+  const config = ArchivePick(value, ['version', 'geometry', 'size', 'army', 'stats', 'experiments', 'shieldPromotion', 'auraDefenseCap', 'victoryCondition', 'deploymentOffset', 'shieldDefenseOnly']);
   if (!config || typeof config !== 'object' || Array.isArray(config)) return config;
   if (Object.hasOwn(config, 'army')) config.army = ArchivePick(config.army, ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps', 'scoutLamps', 'centralShields', 'rearArchers']);
   if (Object.hasOwn(config, 'stats')) {

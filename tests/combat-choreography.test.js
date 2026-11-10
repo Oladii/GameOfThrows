@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { PREVIOUS_FORMATION_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
 import { analyze, inspectCell, move, pass } from '../dist/engine.js';
 import { CombatAnimator, COMBAT_DIM_DURATION, ARROW_REVEAL_INTERVAL, ATTACK_HOLD_DURATION, DEATH_EFFECT_DURATION } from '../dist/move-animation.js';
 import { lethalAttackPresentation, renderDamageArrows, renderUnitBadges } from '../dist/board-presentation.js';
@@ -36,6 +36,37 @@ test('combined kills keep every contributor and victim colored, including mutual
   assert.equal((html.match(/class="attack-ray"/g)||[]).length,2);
   const labelXs=[...html.matchAll(/class="ray-text" x="([^"]+)"/g)].map(m=>+m[1]);
   assert.notEqual(labelXs[0],labelXs[1]);
+});
+
+test('overkill is removed before layout, keeping the smallest lethal set and full damage values', () => {
+  const victim=piece('victim','shield',1,0,0),sources=['weak','strong-b','strong-a','tiny'].map((id,i)=>piece(id,'archer',0,i+1,-1));
+  const state=position([victim,...sources]),attackers=sources.map((p,i)=>({id:p.id,damage:[2,4,4,1][i]}));
+  const report=new Map([['victim',{fortitude:7,incoming:11,dead:true,attackers}]]),snapshot=structuredClone(report);
+  const view=lethalAttackPresentation(state,report,[victim]);
+  assert.deepEqual(view.arrows.map(a=>[a.source.id,a.damage]),[['strong-a',4],['strong-b',4]]);
+  assert.deepEqual([...view.participants].sort(),['strong-a','strong-b','victim']);
+  assert.deepEqual(report,snapshot,'the full combat report is unchanged');
+  const reordered=lethalAttackPresentation(position([...state.pieces].reverse()),new Map([['victim',{...report.get('victim'),attackers:[...attackers].reverse()}]]),[victim]);
+  assert.deepEqual(reordered.arrows,view.arrows,'equal damage has a stable tie-break');
+  const point=p=>({x:p.q*57,y:p.r*49.5}),full=renderDamageArrows(view.arrows,point,{pieces:state.pieces});
+  for(let count=1;count<=view.arrows.length;count++) {
+    const html=renderDamageArrows(view.arrows,point,{pieces:state.pieces,visibleCount:count});
+    assert.equal((html.match(/class="attack-ray"/g)||[]).length,count);
+    assert.ok(!html.includes('data-source="weak"')&&!html.includes('data-source="tiny"'));
+    for(const path of html.matchAll(/d="(M[^"]+)"/g))assert.ok(full.includes(path[0]),'remaining paths stay fixed while revealed');
+  }
+  const single=lethalAttackPresentation(state,new Map([['victim',{fortitude:3,attackers}]]),[victim]);
+  assert.deepEqual(single.arrows.map(a=>a.damage),[4],'a single sufficient attack is not clipped to fortitude');
+});
+
+test('hidden overkill keeps mutual deaths together and a dying attacker still contributes', () => {
+  const a=piece('a','shield',0,0,0),b=piece('b','shield',1,0,1),survivor=piece('survivor','archer',0,1,0);
+  const state=position([a,b,survivor]);
+  const report=new Map([['a',{fortitude:4,attackers:[{id:'b',damage:4}]}],
+    ['b',{fortitude:4,attackers:[{id:'a',damage:1},{id:'survivor',damage:4}]}]]);
+  const view=lethalAttackPresentation(state,report,[a,b]);
+  assert.deepEqual(view.arrows.map(e=>[e.source.id,e.target.id,e.damage]),[['b','a',4],['survivor','b',4]]);
+  assert.deepEqual(view.groups.map(g=>g.deaths.map(p=>p.id)),[['a','b']]);
 });
 
 test('numeric badges grow horizontally and keep the target at the top until hover reveals damage', () => {

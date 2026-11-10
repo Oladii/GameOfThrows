@@ -8,10 +8,10 @@ import { createPositionLesson, renderMoveLesson } from '../dist/onboarding-examp
 
 test('badge explanations use actual attack, threat and death values from the game engine', () => {
   const [safe, threatened, lethal] = badgeExamples();
-  assert.equal(safe.info.damage, 15); assert.equal(safe.info.fortitude, 15); assert.equal(safe.info.incoming, 0);
-  assert.equal(threatened.info.fortitude - threatened.info.incoming, 7);
-  assert.equal(threatened.info.incoming, 8); assert.equal(threatened.info.dead, false);
-  assert.equal(lethal.info.incoming, 16); assert.equal(lethal.info.dead, true);
+  assert.equal(safe.info.damage, 4); assert.equal(safe.info.fortitude, 5); assert.equal(safe.info.incoming, 0);
+  assert.equal(threatened.info.fortitude - threatened.info.incoming, 3);
+  assert.equal(threatened.info.incoming, 2); assert.equal(threatened.info.dead, false);
+  assert.equal(lethal.info.incoming, 6); assert.equal(lethal.info.dead, true);
   const html = renderUnitExamples({}, {});
   assert.ok(html.indexOf('Значения на бейджах') < html.indexOf('data-lesson-scene="unit-shield"'));
   assert.match(html, /Справа — полная стойкость/);
@@ -26,7 +26,7 @@ test('every figure has a safe strong move and an actual dangerous alternative wi
     ['shield', { q: 0, r: 2 }, { q: 1, r: 1 }, 'blue'],
     ['archer', { q: -1, r: 1 }, { q: 0, r: -1 }, 'blue'],
     ['attackLamp', { q: 1, r: -2 }, { q: 3, r: -1 }, 'support'],
-    ['scoutLamp', { q: 1, r: -2 }, { q: 3, r: -1 }, 'support'],
+    ['scoutLamp', { q: 0, r: -2 }, { q: 2, r: -1 }, 'support'],
     ['defenseLamp', { q: -1, r: 0 }, { q: -3, r: 0 }, 'blue']
   ];
   for (const [type, good, bad, victim] of cases) {
@@ -35,7 +35,7 @@ test('every figure has a safe strong move and an actual dangerous alternative wi
     assert.deepEqual(initial.available, []); assert.deepEqual(initial.auraCells, []);
     const selected = createUnitLesson(type, { selected: true });
     assert.deepEqual(selected.available, reachable(initial.before.pieces.find(p => p.id === initial.moverId), initial.before, initial.config));
-    assert.ok(selected.auraCells.length > 0);
+    assert.equal(selected.auraCells.length > 0, type !== 'archer');
     const preview = createUnitLesson(type, { selected: true, destination: good });
     assert.equal(preview.report.get('enemy').dead, true);
     assert.deepEqual(preview.position, initial.position);
@@ -59,8 +59,8 @@ test('one step to a free edge cell promotes a shield beside a veteran with separ
   assert.equal(shieldCanRetreat(preview.previewPosition.pieces.find(p => p.id === 'blue'), preview.config), true);
   const completed = createPositionLesson(pieces, 'blue', { advanced: true, destination: { q: -2, r: 3 } });
   assert.equal(completed.position.pieces.find(p => p.id === 'blue').reachedFarEdge, true);
-  assert.equal(completed.report.get('blue').damage, 27);
-  assert.equal(completed.report.get('veteran').damage, 27);
+  assert.equal(completed.report.get('blue').damage, 7);
+  assert.equal(completed.report.get('veteran').damage, 7);
 });
 
 test('support figures do not attack without a veteran and their own aura does not protect them', () => {
@@ -77,21 +77,22 @@ test('the veteran starts on the far edge and both shields gain protection only w
   const initial = createUnitLesson('shield'), veteran = initial.before.pieces.find(piece => piece.id === 'veteran');
   assert.equal(veteran.r, initial.config.size);
   assert.equal(shieldCanRetreat(veteran, initial.config), true);
-  assert.equal(initial.report.get('blue').fortitude, 15);
-  assert.equal(initial.report.get('veteran').fortitude, 24);
+  assert.equal(initial.report.get('blue').fortitude, 5);
+  assert.equal(initial.report.get('veteran').fortitude, 6);
   const close = createUnitLesson('shield', { selected: true, destination: { q: 0, r: 2 } });
-  assert.equal(close.report.get('blue').fortitude, 21);
-  assert.equal(close.report.get('blue').damage, 18);
-  assert.equal(close.report.get('veteran').fortitude, 30);
+  assert.equal(close.report.get('blue').fortitude, 6);
+  assert.equal(close.report.get('blue').damage, 5);
+  assert.equal(close.report.get('veteran').fortitude, 7);
   assert.ok(close.report.get('blue').sources.includes('veteran'));
   assert.ok(close.report.get('veteran').sources.includes('blue'));
   const withoutVeteran = analyze({ ...close.combatPosition, pieces: close.combatPosition.pieces.filter(piece => piece.id !== 'veteran') }, close.config);
-  assert.equal(withoutVeteran.get('blue').fortitude, 15);
-  assert.equal(withoutVeteran.get('blue').dead, true);
+  assert.equal(withoutVeteran.get('blue').fortitude, 5);
+  assert.equal(withoutVeteran.get('blue').dead, false);
+  assert.equal(withoutVeteran.get('enemy').dead, false, 'the ordinary shield needs the veteran attack bonus to finish the enemy');
   assert.equal(close.report.get('blue').dead, false);
   const apart = createUnitLesson('shield', { selected: true, destination: { q: 1, r: 1 } });
-  assert.equal(apart.report.get('blue').fortitude, 15);
-  assert.equal(apart.report.get('veteran').fortitude, 24);
+  assert.equal(apart.report.get('blue').fortitude, 5);
+  assert.equal(apart.report.get('veteran').fortitude, 6);
 });
 
 test('selecting the veteran uses his actual aura and forecasts his support while he moves', () => {
@@ -105,10 +106,10 @@ test('selecting the veteran uses his actual aura and forecasts his support while
   assert.ok(html.includes('data-aura-origin="-1,3"'));
   const preview = createUnitLesson('shield', { selected: true, selectedId: 'veteran', destination: { q: -1, r: 2 } });
   assert.deepEqual(preview.position, initial.position);
-  assert.equal(preview.report.get('blue').damage, 18); assert.equal(preview.report.get('blue').fortitude, 21);
-  assert.equal(preview.report.get('veteran').fortitude, 30);
-  assert.ok(preview.facts.some(([label, value]) => label === 'Атака броненосца' && value === '15 → 18'));
-  assert.ok(preview.facts.some(([label, value]) => label === 'Стойкость ветерана' && value === '24 → 30'));
+  assert.equal(preview.report.get('blue').damage, 5); assert.equal(preview.report.get('blue').fortitude, 6);
+  assert.equal(preview.report.get('veteran').fortitude, 7);
+  assert.ok(preview.facts.some(([label, value]) => label === 'Атака броненосца' && value === '4 → 5'));
+  assert.ok(preview.facts.some(([label, value]) => label === 'Стойкость ветерана' && value === '6 → 7'));
   assert.ok(renderMoveLesson(preview, {}).includes('data-aura-origin="-1,2"'));
 });
 

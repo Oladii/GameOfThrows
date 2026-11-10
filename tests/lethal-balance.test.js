@@ -30,7 +30,7 @@ test('new default opening has no lethal threats and no first move can kill an en
 
 test('one-time migration fixes revision-three defaults, keeps custom values and never changes explicit imports', () => {
   const old = oldConfig(), before = clone(old), next = updateSavedBalance(old, 3);
-  assert.equal(BALANCE_REVISION, 9);
+  assert.equal(BALANCE_REVISION, 12);
   assert.deepEqual(next, DEFAULT_CONFIG);
   assert.deepEqual(old, before);
   assert.deepEqual(updateSavedBalance(next, BALANCE_REVISION), next);

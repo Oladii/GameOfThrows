@@ -5,10 +5,10 @@ import { DEFAULT_CONFIG, BALANCE_REVISION, updateSavedBalance, PREVIOUS_AREA_CON
 import { clone, createGame, validateConfig } from '../dist/engine.js';
 import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 
-const selected = JSON.parse(fs.readFileSync(new URL('../balanced-scout-field.json', import.meta.url), 'utf8'));
+const selected = JSON.parse(fs.readFileSync(new URL('../balanced-small-numbers.json', import.meta.url), 'utf8'));
 
 test('new local defaults match the selected balance preset and deployment', () => {
-  assert.equal(BALANCE_REVISION, 9);
+  assert.equal(BALANCE_REVISION, 12);
   assert.deepEqual(DEFAULT_CONFIG, selected.config);
   assert.deepEqual(clone(createGame(DEFAULT_CONFIG)), selected.state);
 });

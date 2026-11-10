@@ -34,6 +34,7 @@ export function validateConfig(input) {
   number(config.size, config.geometry === 'hex' ? 3 : 6, config.geometry === 'hex' ? 6 : 12, 'Размер поля');
   config.auraDefenseCap ??= -1;
   number(config.auraDefenseCap, -1, 20, 'Предел защиты от аур');
+  if (config.shieldDefenseOnly !== undefined && typeof config.shieldDefenseOnly !== 'boolean') throw new Error('Неверное правило защиты броненосцев.');
   if (config.victoryCondition !== undefined && !['all-units', 'combat-units'].includes(config.victoryCondition)) throw new Error('Неизвестное условие окончания партии.');
   if (config.deploymentOffset !== undefined) number(config.deploymentOffset, 0, 1, 'Отступ начальной расстановки');
   if (!config.army || !config.stats || !config.experiments) throw new Error('Неполные настройки.');
@@ -123,6 +124,8 @@ function blocked(a, b, state, config, aura = false) {
   return false;
 }
 export function auraReaches(source, target, state, config) {
+  // Empty cells still describe coverage; actual non-shield recipients get no ordinary shield aura.
+  if (config.shieldDefenseOnly && source.type === 'shield' && target.type && target.type !== 'shield' && !shieldCanRetreat(source, config)) return false;
   const radius = shieldCanRetreat(source, config) ? alliedPromotionStats(config).aura : config.stats[source.type].aura;
   const separation = distance(source, target, config);
   const areaAura = ['attackLamp', 'defenseLamp', 'scoutLamp'].includes(source.type);
@@ -145,7 +148,7 @@ export function effective(piece, state, config) {
       damageBonus += aura.damageBonus;
       if (piece.type !== 'shield') rangeBonus += aura.rangeBonus;
     }
-    if (['shield', 'defenseLamp'].includes(source.type) || veteranSource) defenseBonus += aura.defenseBonus;
+    if ((['shield', 'defenseLamp'].includes(source.type) || veteranSource) && (!config.shieldDefenseOnly || source.type !== 'shield' || piece.type === 'shield')) defenseBonus += aura.defenseBonus;
   }
   if ((config.auraDefenseCap ?? -1) >= 0) {
     const personal = veteran ? promotion.defenseBonus : 0;

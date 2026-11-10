@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { PREVIOUS_FORMATION_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
 import { analyze, inspectCell, resolve, isLethalDamage, move, effective, key, movementPath } from '../dist/engine.js';
 import { durabilityDisplay, renderUnitBadges, attackCellsFor, unitStatParts, alliedBonusDetails, unitAppearance, VETERAN_SHIELD_ICON, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape, attackReachPresentation } from '../dist/board-presentation.js';
 import { LABELS } from '../dist/rules.js';
@@ -51,7 +51,7 @@ test('right badge remains full while upper threats appear only for interaction o
       assert.ok(html.includes(`data-attack="${info.damage}"`));
       assert.equal(html.includes('fatal-mark'), info.dead);
       if (!info.dead && showIncoming && incoming > 0) assert.ok(html.includes(`>−${incoming}</text>`));
-      assert.ok(!html.includes('survival-indicator under-fire'));
+      assert.ok(!html.includes('survival-indicator under-fire')); 
     }
   }
 });

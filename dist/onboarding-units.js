@@ -1,15 +1,15 @@
 import { TYPES, LABELS, DEFAULT_CONFIG } from './rules.js';
 import { clone, analyze, cells, auraReaches, shieldCanRetreat } from './engine.js';
-import { createPositionLesson, renderMoveLesson } from './onboarding-examples.js';
+import { createPositionLesson, renderMoveLesson, supportLessonPieces } from './onboarding-examples.js';
 
 const unitPiece = (id, type, team, q, r) => ({ id, type, team, q, r });
 
 export function badgeExamples() {
   const config = clone(DEFAULT_CONFIG); config.geometry = 'hex'; config.size = 3;
   return [
-    { label: 'Без угрозы', enemies: [], explanation: '15 стойкости, входящего урона нет.' },
-    { label: 'Под огнём', enemies: [unitPiece('enemy', 'archer', 1, 0, 2)], explanation: 'В конце хода фишке предстоит выдержать 8 единиц урона от вражеского лукаря. Справа остаётся стойкость 15; сверху в отдельном кружке показано −8.' },
-    { label: 'Смертельный урон', enemies: [unitPiece('enemy', 'archer', 1, 0, 2), unitPiece('second', 'archer', 1, -2, 0)], explanation: 'Потенциальный урон равен стойкости или превышает её. Фигура погибнет в конце хода.' }
+    { label: 'Без угрозы', enemies: [], explanation: `${config.stats.shield.fortitude} стойкости, входящего урона нет.` },
+    { label: 'Под огнём', enemies: [unitPiece('enemy', 'archer', 1, 0, 2)], explanation: `Стойкость остаётся ${config.stats.shield.fortitude}; входящий урон ${config.stats.archer.damage} показан отдельно сверху. Прошлый урон не сохраняется.` },
+    { label: 'Смертельный урон', enemies: [unitPiece('enemy', 'archer', 1, 0, 2), unitPiece('second', 'shield', 1, 1, 0)], explanation: 'Потенциальный урон равен стойкости или превышает её. Фигура погибнет в конце хода.' }
   ].map(example => {
     const position = { pieces: [unitPiece('blue', 'shield', 0, 0, 0), ...example.enemies], turn: 0, ply: 0, winner: null };
     return { ...example, info: analyze(position, config).get('blue') };
@@ -20,13 +20,10 @@ export function createUnitLesson(type, options = {}) {
   if (!TYPES.includes(type)) throw new Error('Неизвестная фигура учебного примера.');
   const support = ['attackLamp','defenseLamp','scoutLamp'].includes(type);
   const pieces = type === 'shield'
-    ? [unitPiece('blue', type, 0, 0, 1), { ...unitPiece('veteran', 'shield', 0, -1, 3), reachedFarEdge: true }, unitPiece('enemy', 'shield', 1, 1, 2)]
+    ? [unitPiece('blue', type, 0, 0, 1), { ...unitPiece('veteran', 'shield', 0, -1, 3), reachedFarEdge: true }, unitPiece('enemy', 'shield', 1, 1, 2),unitPiece('sideBow','archer',1,1,-1)]
     : type === 'archer'
-      ? [unitPiece('blue', type, 0, -1, -1), unitPiece('enemy', 'defenseLamp', 1, 1, 1), unitPiece('wall', 'shield', 1, 1, -1)]
-      : type === 'scoutLamp'
-        ? [unitPiece('blue', 'archer', 0, -1, 0), unitPiece('support', type, 0, 3, -3), unitPiece('enemy', 'archer', 1, 3, 0)]
-        : type === 'attackLamp' ? [unitPiece('blue','archer',0,-1,0),unitPiece('support',type,0,3,-3),unitPiece('guard','shield',0,-2,0),unitPiece('enemy','archer',1,2,0),unitPiece('flag','defenseLamp',1,2,-1)]
-        : [unitPiece('blue', 'shield', 0, 0, 0), unitPiece('support', type, 0, -2, -1), unitPiece('enemy', 'shield', 1, 1, 0)];
+      ? [unitPiece('blue', type, 0, -1, -1), unitPiece('enemy', 'defenseLamp', 1, 1, 1), unitPiece('wall', 'shield', 1, 1, -1),unitPiece('drum','attackLamp',0,-2,1)]
+      : supportLessonPieces(type);
   const primaryId = support ? 'support' : 'blue';
   const selectableIds = type === 'shield' ? ['blue', 'veteran'] : [primaryId];
   const selectedId = options.selected && selectableIds.includes(options.selectedId) ? options.selectedId : primaryId;
@@ -44,7 +41,7 @@ export function createUnitLesson(type, options = {}) {
     const veteranStats = lesson.report.get('veteran'), together = hero.sources.includes('veteran');
     lesson.description = [
       `Ходит на ${stats.move} ${stats.move === 1 ? 'клетку' : 'клетки'} вперёд и вбок. Бьёт вблизи.`,
-      `Перекрывает вражеские стрелы. Аура даёт соседним союзникам +${stats.defenseBonus} стойкости.`,
+      `Перекрывает вражеские стрелы. Аура даёт соседним союзным броненосцам +${stats.defenseBonus} стойкости.`,
       'На противоположном краю становится ветераном: получает усиление и может ходить назад.'
     ].join('\n');
     const withoutVeteran = analyze({ ...lesson.combatPosition, pieces: lesson.combatPosition.pieces.filter(piece => piece.id !== 'veteran') }, lesson.config).get('blue');
@@ -57,7 +54,7 @@ export function createUnitLesson(type, options = {}) {
   } else if (type === 'archer') {
     lesson.description = [
       `Ходит до ${stats.move} клеток. Стреляет по прямой на ${stats.range} клетки.`,
-      `Аура даёт соседним союзникам +${stats.damageBonus} урона.`
+      stats.aura > 0 && stats.damageBonus > 0 ? `Аура даёт соседним союзникам +${stats.damageBonus} урона.` : 'Не даёт ауру. Для совместного огня нужны другие лукари или поддержка.'
     ].join('\n');
     lesson.facts = [['Урон по врагу', String(enemy.incoming)], ['Входящий урон по лукарю', String(hero.incoming)], ['Наш лукарь', hero.dead ? 'Погибнет' : 'Выживет']];
     lesson.feedback = hero.dead ? 'Здесь лукарь погибнет. Найди безопасную линию выстрела.' : enemy.dead ? 'Выстрел уничтожит врага. Лукарь выживет.' : 'Нет выстрела по цели. Попробуй другую клетку.';
@@ -86,8 +83,9 @@ export function createUnitLesson(type, options = {}) {
   } else if (!lesson.selected) lesson.feedback = type === 'shield' ? 'Выбери оранжевую фигуру <strong>со щитом.</strong> Подведи её к ветерану так, чтобы уничтожить врага и выжить. Наведи на клетку для прогноза, нажми — для хода.' : ({archer: 'Выбери оранжевую фигуру с луком. Найди клетку, с которой она уничтожит врага и выживет.', attackLamp: 'Выбери оранжевую фигуру с барабаном. Усиль союзника, чтобы его урона хватило для победы над врагом.', scoutLamp: 'Выбери оранжевую фигуру с биноклем. Увеличь дальность союзника, чтобы он достал врага.', defenseLamp: 'Выбери оранжевую фигуру с флагом. Прикрой союзника аурой, чтобы он пережил удар.'}[type]);
   if (type === 'shield' && lesson.selectedId === 'veteran') {
     const blueAlive = lesson.position.pieces.some(piece => piece.id === 'blue');
+    const allied = promotion.allies ?? promotion;
     lesson.feedback = !blueAlive ? 'Броненосец погиб. Сбрось пример, чтобы попробовать снова.' : hero.sources.includes('veteran')
-      ? `Поддержка действует: +${promotion.damageBonus} к урону и +${promotion.defenseBonus} к стойкости союзника.`
+      ? `Поддержка действует: +${allied.damageBonus} к урону и +${allied.defenseBonus} к стойкости союзного броненосца.`
       : 'Подведи ветерана ближе, чтобы усилить союзника.';
   }
   return lesson;

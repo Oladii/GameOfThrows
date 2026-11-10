@@ -86,17 +86,25 @@ export function numberBadge(value, x, y, kind, radius = 8.5) {
 }
 function damageBadgeWidth(value, radius) { return Math.max(radius * 2, 7 + String(value).length * 6.5); }
 
-// Every contributor to a lethal combined hit participates, including attackers
-// which die in the same simultaneous calculation.
+// Show the fewest contributions needed to explain each death. The report and
+// simultaneous combat dependencies still include every actual attacker.
 export function lethalAttackPresentation(position, report, deaths) {
-  const victims = new Set(deaths.map(p => p.id)), participants = new Set(victims), arrows = [];
+  const victims = new Set(deaths.map(p => p.id)), participants = new Set(victims), arrows = [], contributions = [];
   const pieces = new Map(position.pieces.map(p => [p.id, p]));
   for (const id of victims) {
-    const target = pieces.get(id);
+    const target = pieces.get(id), candidates = [];
     for (const attack of report.get(id)?.attackers || []) {
       const source = pieces.get(attack.id);
       if (!source || !target || attack.damage <= 0) continue;
-      participants.add(source.id); arrows.push({ source, target, damage: attack.damage });
+      candidates.push({ source, target, damage: attack.damage });
+    }
+    contributions.push(...candidates);
+    candidates.sort((a,b) => b.damage-a.damage || a.source.id.localeCompare(b.source.id));
+    let shownDamage = 0;
+    const fortitude = report.get(id)?.fortitude ?? deaths.find(p => p.id === id)?.fortitude ?? Infinity;
+    for (const arrow of candidates) {
+      if (shownDamage > 0 && shownDamage >= fortitude) break;
+      participants.add(arrow.source.id); arrows.push(arrow); shownDamage += arrow.damage;
     }
   }
   // Resolve victims with no outgoing lethal contribution first, one at a
@@ -104,7 +112,7 @@ export function lethalAttackPresentation(position, report, deaths) {
   // attacker disappears before its own contribution has been explained.
   const remaining = new Set(victims), groups = [];
   while (remaining.size) {
-    const sink = deaths.find(p => remaining.has(p.id) && !arrows.some(a => a.source.id === p.id && remaining.has(a.target.id)));
+    const sink = deaths.find(p => remaining.has(p.id) && !contributions.some(a => a.source.id === p.id && remaining.has(a.target.id)));
     if (!sink) break;
     groups.push({ deaths: [sink], arrows: arrows.filter(a => a.target.id === sink.id) });
     remaining.delete(sink.id);
@@ -113,6 +121,8 @@ export function lethalAttackPresentation(position, report, deaths) {
     arrows: deaths.filter(p => remaining.has(p.id)).flatMap(p => arrows.filter(a => a.target.id === p.id)) });
   return { participants, victims, arrows, groups };
 }
+
+export const MAX_DAMAGE_ARROW_BEND = 32;
 
 export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null } = {}) {
   const edges = arrows.map((arrow, order) => {
@@ -139,11 +149,11 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null }
     const c = point(p); return { id:p.id,left:c.x-32, right:c.x+32, top:c.y-30, bottom:c.y+24 };
   });
   const placed = [];
-  const intersects = (a,b) => a.left < b.right+3 && a.right > b.left-3 && a.top < b.bottom+3 && a.bottom > b.top-3;
-  const fits = (box,edge) => !placed.some(other => intersects(box,other)) && !obstacles.some(other => other.id !== edge.source.id && other.id !== edge.target.id && intersects(box,other));
+  const overlapArea = (a,b) => Math.max(0,Math.min(a.right,b.right+3)-Math.max(a.left,b.left-3))
+    * Math.max(0,Math.min(a.bottom,b.bottom+3)-Math.max(a.top,b.top-3));
   for (const edge of edges) {
     const group = groups.get(edge.lineKey), lanes = Math.max(...group.map(e => e.lane))+1;
-    const offset = (edge.lane-(lanes-1)/2)*Math.min(28,64/Math.max(1,lanes-1));
+    const offset = (edge.lane-(lanes-1)/2)*Math.min(28,MAX_DAMAGE_ARROW_BEND*2/Math.max(1,lanes-1));
     edge.from = { x:edge.start.x+edge.dx*edge.shorten, y:edge.start.y+edge.dy*edge.shorten };
     edge.to = { x:edge.end.x-edge.dx*edge.shorten, y:edge.end.y-edge.dy*edge.shorten };
     const width = damageBadgeWidth(edge.damage,9);
@@ -151,35 +161,73 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null }
     const controlAt = bend => ({x:middle.x-edge.uy*bend*2,y:middle.y+edge.ux*bend*2});
     const at = (t,control) => ({ x:(1-t)**2*edge.from.x+2*(1-t)*t*control.x+t*t*edge.to.x, y:(1-t)**2*edge.from.y+2*(1-t)*t*control.y+t*t*edge.to.y });
     const boxAt = (x,y) => ({ left:x-width/2,right:x+width/2,top:y-9,bottom:y+9,x,y,width });
-    let placement;
-    for (const extra of [0,24,-24,48,-48,72,-72,96,-96,120,-120]) {
-      const control=controlAt(offset+extra);
+    // Interleaved choices let a lane use either side of a crowded fight while
+    // overlapping attacks retain distinct curves, including reciprocal hits.
+    const slots = Math.max(15,lanes*4);
+    const bends = Array.from({length:slots},(_,i)=>i).filter(i=>i%lanes===edge.lane)
+      .map(i=>-MAX_DAMAGE_ARROW_BEND+i*MAX_DAMAGE_ARROW_BEND*2/(slots-1));
+    const candidates = [];
+    for (const bend of bends) {
+      const control=controlAt(bend);
       for (const t of [.55,.35,.75,.2,.85,.45,.65,.1,.9,.5]) {
         const p=at(t,control),label=boxAt(p.x,p.y);
-        const inside=!bounds||label.left>=bounds.left&&label.right<=bounds.right&&label.top>=bounds.top&&label.bottom<=bounds.bottom;
-        if (inside&&fits(label,edge)) {placement={label,control,t};break;}
+        const overflow = bounds ? Math.max(0,bounds.left-label.left)+Math.max(0,label.right-bounds.right)
+          +Math.max(0,bounds.top-label.top)+Math.max(0,label.bottom-bounds.bottom) : 0;
+        const pieceOverlap = obstacles.filter(other => other.id !== edge.source.id && other.id !== edge.target.id)
+          .reduce((sum,other) => sum+overlapArea(label,other),0);
+        candidates.push({label,control,t,clear:overflow===0&&pieceOverlap===0,
+          cost:overflow*100000+pieceOverlap*100+Math.abs(bend-offset)*.01+Math.abs(t-.55)});
       }
-      if (placement) break;
     }
-    const preferred = at(.55,controlAt(offset));
-    // If a dense fight exhausts the simple curves, route the arrow itself
-    // through a free point. Its number remains exactly on that same path.
-    if (!placement && bounds) {
-      const grid = [];
-      for (let y=bounds.top+9;y<=bounds.bottom-9;y+=12) for (let x=bounds.left+width/2;x<=bounds.right-width/2;x+=12) {
-        grid.push(boxAt(x,y));
-      }
-      grid.sort((a,b) => Math.hypot(a.x-preferred.x,a.y-preferred.y)-Math.hypot(b.x-preferred.x,b.y-preferred.y));
-      const label = grid.find(label=>fits(label,edge));
-      if (label) placement = {label,control:{x:2*label.x-middle.x,y:2*label.y-middle.y},t:.5};
-    }
-    // Always keep labels distinct, even in an unusually crowded imported scene.
-    for (let distance=110;!placement;distance+=22) {
-      const control=controlAt(offset+distance),p=at(.5,control),label=boxAt(p.x,p.y);
-      if (fits(label,edge)) placement={label,control,t:.5};
-    }
-    edge.label = placement.label; edge.control = placement.control; edge.labelT = placement.t; placed.push(edge.label);
+    // Never send a label across the board to make room. In an impossible
+    // imported scene, choose the least obstructed position within this bend.
+    edge.candidates = candidates;
+    const score = candidate => candidate.cost+placed.reduce((sum,other) => sum+overlapArea(candidate.label,other.label)*100000,0);
+    const placement = candidates.reduce((best,candidate) => score(candidate)<score(best) ? candidate : best);
+    edge.label = placement.label; edge.control = placement.control; edge.labelT = placement.t; placed.push(edge);
   }
+  // Solve the small local packing problem together: greedy placement alone can
+  // trap the last reciprocal hit between labels that could have moved aside.
+  const chosen = new Map();
+  let visits = 0;
+  function fitTogether(remaining) {
+    if (!remaining.length) return true;
+    if (++visits>2000) return false;
+    let next,available;
+    for (const edge of remaining) {
+      const options = edge.candidates.filter(candidate=>candidate.clear
+        && ![...chosen.values()].some(other=>overlapArea(candidate.label,other.label)>0));
+      if (!options.length) return false;
+      if (!available||options.length<available.length) {next=edge;available=options;}
+    }
+    available.sort((a,b)=>a.cost-b.cost);
+    for (const candidate of available) {
+      chosen.set(next,candidate);
+      if (fitTogether(remaining.filter(edge=>edge!==next))) return true;
+      chosen.delete(next);
+      if (visits>2000) break;
+    }
+    return false;
+  }
+  const fitted = fitTogether(edges);
+  if (fitted) for (const [edge,placement] of chosen) {
+    edge.label=placement.label;edge.control=placement.control;edge.labelT=placement.t;
+  }
+  // A later arrow can make an earlier choice crowded; allow local correction
+  // without expanding the bounded search or changing progressive reveal order.
+  for (let pass=0;!fitted&&pass<4;pass++) {
+    let changed = false;
+    for (const edge of edges) {
+      const score = candidate => candidate.cost+edges.reduce((sum,other) => sum+(other===edge ? 0 : overlapArea(candidate.label,other.label)*100000),0);
+      const current = edge.candidates.find(candidate => candidate.label===edge.label);
+      const placement = edge.candidates.reduce((best,candidate) => score(candidate)<score(best) ? candidate : best,current);
+      if (placement!==current) {
+        edge.label=placement.label;edge.control=placement.control;edge.labelT=placement.t;changed=true;
+      }
+    }
+    if (!changed) break;
+  }
+  for (const edge of edges) delete edge.candidates;
   return edges;
 }
 
@@ -221,7 +269,7 @@ export function alliedBonusDetails(piece, position, config) {
     const raw = {
       damage: offensive ? aura.damageBonus : 0,
       range: offensive && piece.type !== 'shield' ? aura.rangeBonus : 0,
-      fortitude: veteran || ['shield', 'defenseLamp'].includes(source.type) ? aura.defenseBonus : 0
+      fortitude: (veteran || ['shield', 'defenseLamp'].includes(source.type)) && (!config.shieldDefenseOnly || source.type !== 'shield' || piece.type === 'shield') ? aura.defenseBonus : 0
     };
     const bonuses = Object.fromEntries(Object.entries(raw).map(([field, value]) => {
       const applied = Math.min(value, remaining[field]);

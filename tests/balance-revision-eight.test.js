@@ -4,6 +4,7 @@ import { DEFAULT_CONFIG, PREVIOUS_CENTERLESS_CONFIG, PREVIOUS_AREA_CONFIG, PREVI
 import { analyze, auraReaches, clone, createGame, effective, isCombatUnit, move, pass, resolve, validateConfig, validateState, winnerForPieces } from '../dist/engine.js';
 import { prepareStartPosition } from '../dist/start-position.js';
 
+const REVISION_EIGHT_CONFIG = PREVIOUS_CENTERLESS_CONFIG;
 const piece = (id, type, team, q, r, extra = {}) => ({ id, type, team, q, r, ...extra });
 const state = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
 const veteran = (id = 'veteran', team = 0, q = 0, r = 0) => piece(id, 'shield', team, q, r, { reachedFarEdge: true });
@@ -18,34 +19,34 @@ test('revision eight retains selected combat rules and restores all 22 legacy co
   expected.deploymentOffset = 0;
   delete expected.labVeteran;
   delete expected.labVictoryCondition;
-  assert.equal(BALANCE_REVISION, 9);
+  assert.equal(BALANCE_REVISION, 12);
   assert.deepEqual(PREVIOUS_CENTERLESS_CONFIG, expected);
   assert.deepEqual(createGame(PREVIOUS_CENTERLESS_CONFIG), createGame(PREVIOUS_SCOUT_CONFIG));
   assert.deepEqual(clone(createGame({ ...PREVIOUS_CENTERLESS_CONFIG, deploymentOffset: 1 })), manifest.initialState);
-  assert.equal(DEFAULT_CONFIG.stats.shield.move, 1);
-  assert.equal(DEFAULT_CONFIG.stats.shield.defenseBonus, 6);
-  assert.equal(DEFAULT_CONFIG.stats.scoutLamp.rangeBonus, 1);
-  assert.ok([...analyze(createGame(PREVIOUS_CENTERLESS_CONFIG), DEFAULT_CONFIG).values()].every(value => !value.dead));
+  assert.equal(REVISION_EIGHT_CONFIG.stats.shield.move, 1);
+  assert.equal(REVISION_EIGHT_CONFIG.stats.shield.defenseBonus, 6);
+  assert.equal(REVISION_EIGHT_CONFIG.stats.scoutLamp.rangeBonus, 1);
+  assert.ok([...analyze(createGame(PREVIOUS_CENTERLESS_CONFIG), REVISION_EIGHT_CONFIG).values()].every(value => !value.dead));
 });
 
 test('veterans retain personal 24/24/3 and give allies only +3 damage, +6 defense, +1 range', () => {
   const v = veteran(), archer = piece('archer', 'archer', 0, 1, 0);
-  const alone = effective(v, state([v]), DEFAULT_CONFIG);
+  const alone = effective(v, state([v]), REVISION_EIGHT_CONFIG);
   assert.deepEqual([alone.damage, alone.fortitude, alone.range], [24, 24, 3]);
-  const recipient = effective(archer, state([v, archer]), DEFAULT_CONFIG);
+  const recipient = effective(archer, state([v, archer]), REVISION_EIGHT_CONFIG);
   assert.deepEqual([recipient.damage, recipient.fortitude, recipient.range], [11, 12, 4]);
   const shield = piece('shield', 'shield', 0, 1, 0), scout = piece('scout', 'scoutLamp', 0, 2, 0);
-  const shieldStats = effective(shield, state([v, shield, scout]), DEFAULT_CONFIG);
+  const shieldStats = effective(shield, state([v, shield, scout]), REVISION_EIGHT_CONFIG);
   assert.deepEqual([shieldStats.damage, shieldStats.fortitude, shieldStats.range], [18, 21, 1]);
   const otherVeteran = veteran('other', 0, 1, 0);
-  assert.equal(effective(v, state([v, otherVeteran, scout]), DEFAULT_CONFIG).range, 3);
-  const capped = clone(DEFAULT_CONFIG); capped.auraDefenseCap = 0;
+  assert.equal(effective(v, state([v, otherVeteran, scout]), REVISION_EIGHT_CONFIG).range, 3);
+  const capped = clone(REVISION_EIGHT_CONFIG); capped.auraDefenseCap = 0;
   assert.equal(effective(v, state([v, otherVeteran]), capped).fortitude, 24);
   assert.equal(effective(archer, state([v, archer]), capped).fortitude, 6);
 });
 
 test('the allied aura radius is independent of personal promotion fields', () => {
-  const config = clone(DEFAULT_CONFIG), v = veteran(), ally = piece('ally', 'archer', 0, 2, 0);
+  const config = clone(REVISION_EIGHT_CONFIG), v = veteran(), ally = piece('ally', 'archer', 0, 2, 0);
   config.shieldPromotion.aura = 3;
   assert.equal(auraReaches(v, ally, state([v, ally]), config), false);
   config.shieldPromotion.allies.aura = 2;
@@ -55,18 +56,18 @@ test('the allied aura radius is independent of personal promotion fields', () =>
 test('all three supports are armed by the veteran but never count as combat units', () => {
   for (const type of ['attackLamp', 'defenseLamp', 'scoutLamp']) {
     const v = veteran(), support = piece('support', type, 0, 1, 0), position = state([v, support]);
-    const stats = effective(support, position, DEFAULT_CONFIG);
+    const stats = effective(support, position, REVISION_EIGHT_CONFIG);
     assert.deepEqual([stats.damage, stats.range], [3, 1]);
     assert.equal(isCombatUnit(support), false);
     assert.equal(isCombatUnit(v), true);
-    assert.equal(winnerForPieces([support, piece('enemy', 'archer', 1, -3, 0)], DEFAULT_CONFIG), 1);
+    assert.equal(winnerForPieces([support, piece('enemy', 'archer', 1, -3, 0)], REVISION_EIGHT_CONFIG), 1);
   }
 });
 
 test('the last veteran can arm surviving support in the simultaneous snapshot and still lose', () => {
   const v = veteran(), support = piece('support', 'scoutLamp', 0, 1, 0);
   const position = state([v, support, piece('near', 'archer', 1, 0, -2), piece('mid', 'archer', 1, 0, -3), piece('reserve', 'archer', 1, -4, 0)]);
-  const result = resolve(position, DEFAULT_CONFIG);
+  const result = resolve(position, REVISION_EIGHT_CONFIG);
   assert.equal(result.report.get(v.id).incoming, 24);
   assert.equal(result.report.get(support.id).damage, 3);
   assert.equal(result.report.get(support.id).range, 1);
@@ -80,18 +81,18 @@ test('simultaneous loss of both final combat units is a draw even with support l
     piece('north', 'archer', 0, 0, 0), piece('south', 'archer', 1, 1, 0),
     piece('northSupport', 'attackLamp', 0, -2, -3), piece('southSupport', 'defenseLamp', 1, 2, 3)
   ]);
-  const result = resolve(position, DEFAULT_CONFIG);
+  const result = resolve(position, REVISION_EIGHT_CONFIG);
   assert.deepEqual(result.deaths.map(p => p.id), ['north', 'south']);
   assert.deepEqual(result.state.pieces.map(p => p.id), ['northSupport', 'southSupport']);
   assert.equal(result.state.winner, 'draw');
-  const legacy = clone(DEFAULT_CONFIG); delete legacy.victoryCondition;
+  const legacy = clone(REVISION_EIGHT_CONFIG); delete legacy.victoryCondition;
   assert.equal(resolve(position, legacy).state.winner, null);
   legacy.victoryCondition = 'all-units';
   assert.equal(resolve(position, legacy).state.winner, null);
 });
 
 test('validation and action guards recognize completed combat games with stale winner null', () => {
-  const config = clone(DEFAULT_CONFIG); config.experiments.allowPass = true;
+  const config = clone(REVISION_EIGHT_CONFIG); config.experiments.allowPass = true;
   const stale = state([piece('support', 'scoutLamp', 0, 0, 0), piece('enemy', 'archer', 1, 4, 0)]);
   assert.equal(validateState(stale, config).winner, 1);
   assert.equal(stale.winner, null, 'validation does not mutate a save');
@@ -105,13 +106,13 @@ test('validation and action guards recognize completed combat games with stale w
 
 test('start preparation requires combat units in the new mode and preserves legacy support-only starts', () => {
   const supportOnly = state([piece('north', 'scoutLamp', 0, 0, -2), piece('south', 'defenseLamp', 1, 0, 2)]);
-  assert.equal(validateState(supportOnly, DEFAULT_CONFIG).winner, 'draw');
-  assert.throws(() => prepareStartPosition(supportOnly, DEFAULT_CONFIG, 0), /броненосец или лукарь/);
-  const config = clone(DEFAULT_CONFIG); delete config.victoryCondition;
+  assert.equal(validateState(supportOnly, REVISION_EIGHT_CONFIG).winner, 'draw');
+  assert.throws(() => prepareStartPosition(supportOnly, REVISION_EIGHT_CONFIG, 0), /броненосец или лукарь/);
+  const config = clone(REVISION_EIGHT_CONFIG); delete config.victoryCondition;
   assert.equal(prepareStartPosition(supportOnly, config, 0).winner, null);
   config.victoryCondition = 'all-units';
   assert.equal(prepareStartPosition(supportOnly, config, 1).winner, null);
-  const combatConfig = clone(DEFAULT_CONFIG);
+  const combatConfig = clone(REVISION_EIGHT_CONFIG);
   Object.assign(combatConfig.army, { groups: 0, shields: 0, archers: 0, centralShields: 0, rearArchers: 0 });
   assert.equal(createGame(combatConfig).winner, 'draw');
 });
@@ -145,14 +146,14 @@ test('only the full revision seven preset upgrades and the migration never mutat
     c => { c.experiments.allowPass = true; }, c => { c.auraDefenseCap = 3; },
     c => { c.victoryCondition = 'all-units'; }, c => { c.victoryCondition = 'combat-units'; },
     c => { c.deploymentOffset = 0; }, c => { c.deploymentOffset = 1; },
-    c => { c.shieldPromotion.allies = clone(DEFAULT_CONFIG.shieldPromotion.allies); }
+    c => { c.shieldPromotion.allies = clone(REVISION_EIGHT_CONFIG.shieldPromotion.allies); }
   ]) {
     const custom = clone(before); change(custom);
     assert.deepEqual(upgradeSelectedBalancePreset(custom), custom);
     assert.deepEqual(updateSavedBalance(custom, 7), custom);
   }
   assert.deepEqual(updateSavedBalance(before, 8), before);
-  assert.deepEqual(updateSavedBalance(DEFAULT_CONFIG, 8), DEFAULT_CONFIG);
+  assert.deepEqual(updateSavedBalance(REVISION_EIGHT_CONFIG, 8), DEFAULT_CONFIG);
 });
 
 test('deployment offset preserves exact IDs and groups and fails clearly when the old formation cannot retreat', () => {
@@ -173,15 +174,15 @@ test('deployment offset preserves exact IDs and groups and fails clearly when th
 
 test('new optional rules reject malformed values while remaining optional for older configs', () => {
   for (const value of [null, 'support', 0]) {
-    const config = clone(DEFAULT_CONFIG); config.victoryCondition = value;
+    const config = clone(REVISION_EIGHT_CONFIG); config.victoryCondition = value;
     assert.throws(() => validateConfig(config), /условие окончания/);
   }
   for (const value of [null, -1, 2, 0.5, '1']) {
-    const config = clone(DEFAULT_CONFIG); config.deploymentOffset = value;
+    const config = clone(REVISION_EIGHT_CONFIG); config.deploymentOffset = value;
     assert.throws(() => validateConfig(config), /Отступ начальной/);
   }
   for (const value of [null, [], {}, { aura: 1, damageBonus: -1, defenseBonus: 6, rangeBonus: 1 }]) {
-    const config = clone(DEFAULT_CONFIG); config.shieldPromotion.allies = value;
+    const config = clone(REVISION_EIGHT_CONFIG); config.shieldPromotion.allies = value;
     assert.throws(() => validateConfig(config));
   }
   assert.doesNotThrow(() => validateConfig(PREVIOUS_SCOUT_CONFIG));

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { DEFAULT_CONFIG, LABELS, TYPES } from '../dist/rules.js';
+import { DEFAULT_CONFIG, PREVIOUS_FORMATION_CONFIG, LABELS, TYPES } from '../dist/rules.js';
 import { effective, shieldCanRetreat, validateConfig, analyze, inspectCell, cells } from '../dist/engine.js';
 import { unitStatParts, alliedBonusDetails, renderUnitBadges, renderDamageArrows, unitAppearance } from '../dist/board-presentation.js';
 
@@ -44,7 +44,7 @@ test('the left panel alternates between the reference and selected figure, prese
 });
 
 test('a movement aura forecast changes real bonuses without hovering every other piece', () => {
-  const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8'), config=structuredClone(DEFAULT_CONFIG);
+  const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8'), config=structuredClone(PREVIOUS_FORMATION_CONFIG);
   const state={pieces:[{id:'moving',type:'archer',team:0,q:0,r:0},{id:'ally',type:'shield',team:0,q:1,r:0},{id:'enemy',type:'archer',team:1,q:3,r:0}],turn:0,ply:0,winner:null};
   const report=analyze(state,config), preview=inspectCell(state,config,{q:-1,r:1},'moving',report);
   assert.equal(preview.isPreview,true);
@@ -73,10 +73,11 @@ test('the veteran reference separates permanent power and ally aura, including l
   const context = vm.createContext({ config: structuredClone(DEFAULT_CONFIG), plural: () => 'клетку' });
   vm.runInContext(app.slice(app.indexOf('function shieldPromotionDescription('), app.indexOf('function shieldDescriptionMarkup(')), context);
   const description = context.shieldPromotionDescription();
-  assert.match(description, /Урон: 24, дальность: 3, стойкость: 24/);
-  assert.match(description, /союзникам \+3 к урону, \+1 к дальности, \+6 к стойкости/);
+  assert.match(description, /Урон: 6, дальность: 3, стойкость: 6/);
+  assert.match(description, /союзникам \+1 к урону, \+1 к дальности и \+1 к стойкости только броненосцев/);
+  context.config = structuredClone(PREVIOUS_FORMATION_CONFIG);
   delete context.config.shieldPromotion.allies;
-  assert.match(context.shieldPromotionDescription(), /союзникам \+9 к урону, \+2 к дальности, \+9 к стойкости/);
+  assert.match(context.shieldPromotionDescription(), /союзникам \+9 к урону, \+2 к дальности и \+9 к стойкости/);
   vm.runInContext(app.slice(app.indexOf('function victoryDescription('), app.indexOf('function renderAbout(')), context);
   assert.match(context.victoryDescription(), /ни броненосцев, ни лукарей/);
   delete context.config.victoryCondition;
@@ -87,7 +88,7 @@ test('the veteran reference separates permanent power and ally aura, including l
 test('settings expose independent veteran bonuses and preserve legacy values when opened and saved', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   for (const legacy of [false, true]) {
-    const config = structuredClone(DEFAULT_CONFIG);
+    const config = structuredClone(legacy ? PREVIOUS_FORMATION_CONFIG : DEFAULT_CONFIG);
     if (legacy) { delete config.shieldPromotion.allies; delete config.victoryCondition; delete config.deploymentOffset; }
     const form = { elements: Object.fromEntries(['geometry', 'size', 'auraDefenseCap', 'victoryCondition', 'deploymentOffset'].map(name => [name, { value: '' }])) };
     const nodes = { '#settings-form': form, '#size-label': {}, '#settings-error': {} };
@@ -104,12 +105,12 @@ test('settings expose independent veteran bonuses and preserve legacy values whe
     context.fillSettings(config);
     assert.equal(String(form.elements.deploymentOffset.value), '0');
     assert.equal(form.elements.victoryCondition.value, legacy ? 'all-units' : 'combat-units');
-    assert.equal(form.elements['shieldPromotion.damageBonus'].value, '9');
-    assert.equal(form.elements['shieldPromotion.allies.damageBonus'].value, legacy ? '9' : '3');
+    assert.equal(form.elements['shieldPromotion.damageBonus'].value, legacy ? '9' : '2');
+    assert.equal(form.elements['shieldPromotion.allies.damageBonus'].value, legacy ? '9' : '1');
     const next = context.settingsFromForm();
-    assert.equal(next.shieldPromotion.damageBonus, 9);
-    assert.equal(next.shieldPromotion.allies.damageBonus, legacy ? 9 : 3);
-    assert.equal(next.shieldPromotion.allies.defenseBonus, legacy ? 9 : 6);
+    assert.equal(next.shieldPromotion.damageBonus, legacy ? 9 : 2);
+    assert.equal(next.shieldPromotion.allies.damageBonus, legacy ? 9 : 1);
+    assert.equal(next.shieldPromotion.allies.defenseBonus, legacy ? 9 : 1);
     assert.equal(next.victoryCondition, legacy ? 'all-units' : 'combat-units');
   }
 });

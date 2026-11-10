@@ -114,7 +114,7 @@ test('the shield removal button works without selection and reset restores the t
   ui.click('2', { lessonAction: 'remove-shield' });
   assert.equal(ui.state['2'].shieldRemoved, true);
   const removed = createMoveLesson(2, ui.state['2']);
-  assert.equal(removed.report.get('enemy').dead, true);
+  assert.equal(removed.report.get('enemy').dead, false);
   ui.click('2', { lessonUnit: 'blue' });
   ui.click('2', { lessonPiece: 'enemy' }, false);
   assert.equal(ui.state['2'].selected, false); assert.equal(ui.state['2'].shieldRemoved, true);
@@ -147,10 +147,10 @@ test('animated actions move before showing the shared death effect and then remo
   }
 });
 
-test('removing the blocker plays death directly, and reset cancels movement and stale death timers', () => {
+test('removing the blocker exposes a nonlethal shot and reset cancels movement timers', () => {
   const ui = setup({ reducedMotion: false });
   ui.click('2', { lessonAction: 'remove-shield' });
-  assert.equal(ui.phase(), 'deaths'); const timers = ui.staleTimers();
+  assert.equal(ui.phase(), 'idle'); const timers = ui.staleTimers();
   ui.click('2', { lessonAction: 'reset' });
   assert.equal(ui.phase(), 'idle'); assert.equal(ui.state['2'].shieldRemoved, false);
   const afterReset = ui.body.html; timers.forEach(callback => callback());
@@ -229,12 +229,12 @@ test('new unit and combat examples cancel selection on repeat and outside clicks
 test('removing a contributing archer resets the sum example without inventing a shoot action', () => {
   const ui = setup();
   ui.click('9', { lessonUnit: 'blue' }); ui.click('9', { lessonCell: '-2,0' });
-  assert.equal(createCombatLesson(1, ui.state['9']).report.get('enemy').incoming, 16);
+  assert.equal(createCombatLesson(1, ui.state['9']).report.get('enemy').incoming, 4);
   ui.click('9', { lessonAction: 'toggle-archer' });
   assert.equal(ui.state['9'].advanced, false);
   assert.equal(ui.state['9'].secondArcher, false);
   ui.click('9', { lessonUnit: 'blue' }); ui.click('9', { lessonCell: '-2,0' });
-  assert.equal(createCombatLesson(1, ui.state['9']).report.get('enemy').incoming, 8);
+  assert.equal(createCombatLesson(1, ui.state['9']).report.get('enemy').incoming, 2);
   ui.click('9', { lessonAction: 'reset' });
   assert.equal(ui.state['9'].secondArcher, true);
   assert.ok(!ui.body.html.includes('Выстрелить'));

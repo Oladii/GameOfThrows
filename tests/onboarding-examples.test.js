@@ -105,7 +105,7 @@ test('melee and shooting reach are explored by real cell moves instead of action
   assert.equal(blocked.report.get('blue').incoming, 0);
   assert.equal(blocked.report.get('wall').incoming, blocked.report.get('blue').damage);
   assert.equal(blocked.report.get('enemy').fortitude, DEFAULT_CONFIG.stats.archer.fortitude, 'shield does not add armor to the protected archer in this blocking example');
-  assert.equal(distance(blocked.position.pieces.find(piece => piece.id === 'wall'), blocked.position.pieces.find(piece => piece.id === 'enemy'), blocked.config), 2);
+  assert.equal(distance(blocked.position.pieces.find(piece => piece.id === 'wall'), blocked.position.pieces.find(piece => piece.id === 'enemy'), blocked.config), 3);
   const risky = createMoveLesson(2, { selected: true, destination: { q: -2, r: 0 } });
   assert.ok(risky.position.pieces.some(piece => piece.id === 'wall'), 'shield is never removed by a synthetic action');
   assert.equal(risky.report.get('blue').incoming, DEFAULT_CONFIG.stats.archer.damage + DEFAULT_CONFIG.stats.shield.damage, 'approaching the shield enters both its melee reach and the enemy archer range');
@@ -125,7 +125,7 @@ test('both auras improve allies while support stays unarmed without a veteran', 
       assert.equal(buffed.damage - initial.damage, DEFAULT_CONFIG.stats.attackLamp.damageBonus); assert.equal(buffed.range - initial.range, 0);
       assert.equal(before.report.get('enemy').dead, false); assert.equal(after.report.get('enemy').dead, true);
     } else {
-      assert.equal(buffed.fortitude - initial.fortitude, DEFAULT_CONFIG.stats.defenseLamp.defenseBonus); assert.equal(initial.incoming, DEFAULT_CONFIG.stats.shield.damage); assert.equal(buffed.incoming, initial.incoming);
+      assert.equal(buffed.fortitude - initial.fortitude, DEFAULT_CONFIG.stats.defenseLamp.defenseBonus); assert.equal(initial.incoming, DEFAULT_CONFIG.stats.shield.damage + DEFAULT_CONFIG.stats.archer.damage); assert.equal(buffed.incoming, initial.incoming);
       assert.equal(initial.dead, true); assert.equal(buffed.dead, false);
     }
   }
@@ -151,7 +151,7 @@ test('all examples appear on one page with unique SVG ids and independent states
 test('every figure receives the same effective combat report for its game-style badges', () => {
   const reports = [];
   const html = renderMoveExamples({}, icons, info => { reports.push(info); return `<g data-training-damage="${info.damage}" data-training-durability="${info.fortitude - info.incoming}"></g>`; });
-  assert.equal(reports.length, 19); assert.equal((html.match(/class="lesson-unit-badges"/g) || []).length, 19);
+  assert.equal(reports.length, 24); assert.equal((html.match(/class="lesson-unit-badges"/g) || []).length, 24);
   for (const info of reports) for (const field of ['damage', 'range', 'fortitude', 'incoming']) assert.equal(typeof info[field], 'number');
   assert.ok(html.includes('Ходим по кратчайшему пути.'));
   assert.ok(html.includes('За один ход лукарь может пройти до трёх шагов.'));
@@ -240,7 +240,7 @@ test('support hover forecasts combat without moving or removing any piece', () =
     const placement = aura === 'attack' ? { q: 1, r: -2 } : { q: -1, r: 0 };
     const hover = createMoveLesson(4, { aura, selected: true, previewPlacement: placement });
     assert.deepEqual(hover.position, hover.before); assert.equal(hover.isPreview, true);
-    assert.equal(hover.position.pieces.length, aura === 'attack' ? 5 : 3); assert.equal(hover.deaths.length, 0);
+    assert.equal(hover.position.pieces.length, aura === 'attack' ? 7 : 6); assert.equal(hover.deaths.length, 0);
     assert.equal(hover.previewPosition.pieces.find(piece => piece.id === 'support').q, placement.q);
     assert.ok(hover.report.get('blue').sources.includes('support'));
     const real = inspectCell(hover.before, hover.config, placement, 'support');
@@ -268,7 +268,7 @@ test('only the first example shows step numbers, and no example draws combat arr
 test('the fifth example lets the drummer enable a safe lethal shot against an enemy archer', () => {
   const initial = createMoveLesson(4, { aura: 'attack' });
   assert.equal(initial.position.pieces.find(piece => piece.id === 'enemy').type, 'archer');
-  assert.equal(initial.canHit, true); assert.equal(initial.report.get('enemy').incoming, DEFAULT_CONFIG.stats.archer.damage); assert.equal(initial.report.get('enemy').dead, false);
+  assert.equal(initial.canHit, true); assert.equal(initial.report.get('enemy').incoming, initial.report.get('blue').damage + initial.report.get('second').damage); assert.equal(initial.report.get('enemy').dead, false);
   const preview = createMoveLesson(4, { aura: 'attack', selected: true, previewPlacement: { q: 1, r: -2 } });
   assert.equal(preview.canHit, true); assert.equal(preview.report.get('enemy').dead, true);
   assert.equal(preview.report.get('blue').dead, false); assert.equal(preview.report.get('blue').incoming, DEFAULT_CONFIG.stats.archer.damage);
@@ -281,22 +281,22 @@ test('the fifth example lets the drummer enable a safe lethal shot against an en
   assert.ok(!resolved.state.pieces.some(piece => piece.id === 'enemy'));
 });
 
-test('removing the shield in example three exposes a lethal shot and reset can restore the blocker', () => {
+test('removing the shield in example three exposes a nonlethal shot and reset can restore the blocker', () => {
   const initial = createMoveLesson(2), removed = createMoveLesson(2, { shieldRemoved: true });
   assert.equal(initial.report.get('enemy').incoming, 0);
   assert.ok(renderMoveLesson(initial, icons).includes('data-lesson-action="remove-shield"'));
   assert.ok(!removed.position.pieces.some(piece => piece.id === 'wall'));
   assert.equal(removed.report.get('enemy').incoming, removed.report.get('blue').damage);
-  assert.equal(removed.report.get('enemy').dead, true); assert.equal(removed.report.get('blue').incoming, 0);
+  assert.equal(removed.report.get('enemy').dead, false); assert.equal(removed.report.get('blue').incoming, 0);
   const result = resolve(removed.position, removed.config);
-  assert.ok(!result.state.pieces.some(piece => piece.id === 'enemy'));
+  assert.ok(result.state.pieces.some(piece => piece.id === 'enemy'));
   assert.ok(result.state.pieces.some(piece => piece.id === 'blue'));
   const removedHtml = sceneHtml(renderMoveExamples({ '2': { shieldRemoved: true } }, icons)).get('2');
   assert.ok(!removedHtml.includes('data-lesson-piece="wall"'));
   assert.ok(!removedHtml.includes('data-lesson-action="remove-shield"'));
   assert.ok(removedHtml.includes('data-lesson-action="reset"'));
   assert.ok(removedHtml.includes('Расчёт завершён'));
-  assert.ok(!removedHtml.includes('data-lesson-piece="enemy"'));
+  assert.ok(removedHtml.includes('data-lesson-piece="enemy"'));
   assert.deepEqual(createMoveLesson(2, { shieldRemoved: false }).position, initial.position);
 });
 

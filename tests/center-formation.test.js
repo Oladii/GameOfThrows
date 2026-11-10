@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG, PREVIOUS_CENTERLESS_CONFIG, updateSavedBalance } from '../dist/rules.js';
+import { DEFAULT_CONFIG, PREVIOUS_FORMATION_CONFIG, PREVIOUS_CENTERLESS_CONFIG, updateSavedBalance } from '../dist/rules.js';
 import { createGame, clone, distance, analyze, validateState, validateConfig } from '../dist/engine.js';
 
 test('each side gains one front-centre shield and two archers in the former support cells', () => {
@@ -36,8 +36,8 @@ test('only the former complete standard preset migrates, keeping current combat 
   const old = clone(PREVIOUS_CENTERLESS_CONFIG), original = clone(old);
   assert.deepEqual(updateSavedBalance(old, 8), DEFAULT_CONFIG);
   assert.deepEqual(old, original);
-  assert.deepEqual(DEFAULT_CONFIG.stats, old.stats);
-  assert.deepEqual(DEFAULT_CONFIG.shieldPromotion, old.shieldPromotion);
+  assert.deepEqual(PREVIOUS_FORMATION_CONFIG.stats, old.stats);
+  assert.deepEqual(PREVIOUS_FORMATION_CONFIG.shieldPromotion, old.shieldPromotion);
   const custom = clone(old); custom.stats.shield.damage++;
   assert.deepEqual(updateSavedBalance(custom, 8), custom);
   assert.deepEqual(updateSavedBalance(old, 9), old);

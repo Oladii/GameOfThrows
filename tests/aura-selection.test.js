@@ -25,7 +25,8 @@ test('selected auras are circles with effect colors and a boundary just beyond t
     ui.context.selected='a';ui.paint();
     const promoted=type==='shield'&&veteran, radius=effective(source,ui.state,ui.config).aura;
     const circles=[...ui.layer.innerHTML.matchAll(/<circle[^>]*r="([^"]+)"[^>]*stroke="([^"]+)"/g)];
-    assert.equal(circles.length,1);
+    assert.equal(circles.length,radius>0?1:0);
+    if(radius===0){assert.equal(ui.legend.hidden,true);continue;}
     for(const c of circles){const lastCentre=radius*Math.sqrt(3)*33;assert.ok(Number(c[1])>lastCentre);assert.ok(Number(c[1])<lastCentre+10);}
     assert.ok(ui.layer.innerHTML.includes(`data-aura-origin="0,0"`));
     const kind=promoted?'combined':['shield','defenseLamp'].includes(type)?'defense':'attack';
@@ -44,7 +45,7 @@ test('circle centre follows the selected movement preview; unrelated hover and d
 });
 test('all-aura view shows both sources; attack view and zero radii hide rings',()=>{
   const ui=setup([piece('a','archer',0),piece('b','shield',1,2,0)]);ui.context.fieldView='auras';ui.paint();
-  assert.equal((ui.layer.innerHTML.match(/class="aura-circles"/g)||[]).length,2);
+  assert.equal((ui.layer.innerHTML.match(/class="aura-circles"/g)||[]).length,1);
   ui.context.fieldView='attacks';ui.context.selected='a';ui.paint();assert.equal(ui.layer.innerHTML,'');
   ui.context.fieldView=null;ui.config.stats.archer.aura=0;ui.paint();assert.equal(ui.layer.innerHTML,'');
 });
