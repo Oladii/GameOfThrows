@@ -1,4 +1,5 @@
 import { DEFAULT_CONFIG, LABELS } from './rules.js';
+import { renderTokenBody } from './token-presentation.js';
 import { clone, cells, key, distance, reachable, movementPath, analyze, auraReaches, attacks, inspectCell, move, resolve } from './engine.js';
 import { auraCircleMarkup, renderDeathEffects, renderMovingToken, unitAppearance, attackReachPresentation } from './board-presentation.js';
 
@@ -11,7 +12,7 @@ const lessonPosition = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
 export function supportLessonPieces(type) {
   if (type === 'attackLamp') return [lessonPiece('blue','archer',0,-1,0),lessonPiece('support',type,0,3,-3),lessonPiece('guard','shield',0,-2,0),lessonPiece('enemy','archer',1,2,0),lessonPiece('flag','defenseLamp',1,2,-1),lessonPiece('second','archer',0,-1,3),lessonPiece('wall','shield',1,3,0)];
   if (type === 'scoutLamp') return [lessonPiece('blue','archer',0,-2,0),lessonPiece('support',type,0,2,-2),lessonPiece('enemy','archer',1,3,0),lessonPiece('second','archer',0,0,3),lessonPiece('wall','shield',1,3,-1)];
-  return [lessonPiece('blue','shield',0,0,0),lessonPiece('support','defenseLamp',0,-2,-1),lessonPiece('enemy','shield',1,1,0),lessonPiece('enemyBow','archer',1,0,2),lessonPiece('second','archer',0,1,-2),lessonPiece('guard','shield',0,-1,1)];
+  return [lessonPiece('blue','shield',0,1,0),lessonPiece('support','defenseLamp',0,-2,-1),lessonPiece('enemy','shield',1,2,0),{...lessonPiece('enemyVeteran','shield',1,3,-1),reachedFarEdge:true},lessonPiece('second','archer',0,2,-2),lessonPiece('guard','shield',0,0,1)];
 }
 // Match the player's default view: the friendly army advances from bottom to top.
 export const lessonPoint = cell => ({ x: 280 + 45 * cell.q, y: 205 - Math.sqrt(3) * 30 * (cell.r + cell.q / 2) });
@@ -39,9 +40,9 @@ export function createMoveLesson(index = 0, { advanced = false, selected = false
     pieces = [lessonPiece('blue', 'shield', 0, 0, 0), lessonPiece('enemy', 'archer', 1, 0, 2)];
     lesson.title = 'Подойти, чтобы ударить';
     lesson.description = 'Выбери броненосца и наведи на доступную клетку. Найди позицию для удара вблизи, затем нажми на клетку, чтобы сделать ход.';
-    lesson.hint = 'Нужно занять пустую клетку рядом с врагом. Щит ходит вперёд и вбок; на клетку противника вставать нельзя.';
+    lesson.hint = 'Для удара нужно занять соседнюю с врагом клетку. Щит ходит вперёд и вбок; на клетку противника вставать нельзя.';
   } else if (index === 2) {
-    pieces = [lessonPiece('blue', 'archer', 0, -3, 0), lessonPiece('drummer', 'scoutLamp', 0, -3, 1), lessonPiece('wall', 'shield', 1, -1, 0), lessonPiece('enemy', 'archer', 1, 2, 0)];
+    pieces = [lessonPiece('blue', 'archer', 0, -3, 0), lessonPiece('drummer', 'scoutLamp', 0, -3, 1), lessonPiece('wall', 'shield', 1, 0, 0), lessonPiece('enemy', 'archer', 1, 2, 0)];
     lesson.title = 'Щит закрывает тех, кто за ним';
     if (shieldRemoved) pieces = pieces.filter(piece => piece.id !== 'wall');
     lesson.description = 'Щит закрывает вражеского лукаря. Убери щитовика кнопкой и посмотри, кому теперь достанется стрела.';
@@ -145,10 +146,11 @@ export function renderMoveLesson(lesson, icons, renderBadges = () => '', animati
     const p = point(piece), info = displayReport.get(piece.id), fatal = info.dead, appearance = unitAppearance(piece, config, icons, lessonDisplayTeam(piece));
     const selected = piece === selectedUnit, unitControl = !busy && (lesson.selectableIds || [lesson.moverId]).includes(piece.id);
     const unitLabel = LABELS[piece.type] + (appearance.veteran ? '-ветеран' : '');
-    return `<g class="lesson-piece${appearance.veteran ? ' veteran' : ''}${phase === 'movement' && piece.id === lesson.moverId ? ' moving-origin' : ''} ${piece.team ? 'lesson-enemy' : 'lesson-friendly'}${fatal ? ' lesson-fatal' : ''}${selected ? ' lesson-unit-selected' : ''}${unitControl ? ' lesson-unit-control' : ''}${lesson.isPreview && piece.id === lesson.moverId ? ' lesson-preview-origin' : ''}" data-lesson-piece="${piece.id}"${selected ? ` data-lesson-selected-unit="${piece.id}"` : ''}${unitControl ? ` data-lesson-unit="${piece.id}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${selected ? 'Выбран: ' + unitLabel + '. Нажми, чтобы снять выбор' : 'Выбрать: ' + unitLabel}"` : ''} transform="translate(${p.x},${p.y})">${selected ? '<g class="lesson-selection-ring"><circle r="24"/></g>' : ''}<title>${piece.team ? 'Враг' : 'Союзник'}: ${LABELS[piece.type]}${appearance.veteran ? '-ветеран' : ''}${fatal ? ', погибнет при расчёте' : ''}</title><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${appearance.icon}</g><g class="lesson-unit-badges">${renderBadges(info, { showIncoming: Boolean(busy || lesson.selected || lesson.isPreview) })}</g></g>`;
+    return `<g class="lesson-piece${appearance.veteran ? ' veteran' : ''}${phase === 'movement' && piece.id === lesson.moverId ? ' moving-origin' : ''} ${piece.team ? 'lesson-enemy' : 'lesson-friendly'}${fatal ? ' lesson-fatal' : ''}${selected ? ' lesson-unit-selected' : ''}${unitControl ? ' lesson-unit-control' : ''}${lesson.isPreview && piece.id === lesson.moverId ? ' lesson-preview-origin' : ''}" data-lesson-piece="${piece.id}"${selected ? ` data-lesson-selected-unit="${piece.id}"` : ''}${unitControl ? ` data-lesson-unit="${piece.id}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${selected ? 'Выбран: ' + unitLabel + '. Нажми, чтобы снять выбор' : 'Выбрать: ' + unitLabel}"` : ''} transform="translate(${p.x},${p.y})">${selected ? '<g class="lesson-selection-ring"><circle r="27"/></g>' : ''}<title>${piece.team ? 'Враг' : 'Союзник'}: ${LABELS[piece.type]}${appearance.veteran ? '-ветеран' : ''}${fatal ? ', погибнет при расчёте' : ''}</title>${renderTokenBody(appearance, lessonDisplayTeam(piece))}<g class="lesson-unit-badges">${renderBadges(info, { showIncoming: Boolean(busy || lesson.selected || lesson.isPreview), pieceType: piece.type, veteran: appearance.veteran })}</g></g>`;
   }).join('');
   const projectedMover = projected.pieces.find(piece => piece.id === lesson.moverId), projectedPoint = projectedMover && point(projectedMover);
-  const ghost = lesson.isPreview ? `<g class="lesson-preview-piece${unitAppearance(projectedMover, config, icons, lessonDisplayTeam(projectedMover)).veteran ? ' veteran' : ''}" transform="translate(${projectedPoint.x},${projectedPoint.y})"><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${unitAppearance(projectedMover, config, icons, lessonDisplayTeam(projectedMover)).icon}</g><g class="lesson-unit-badges">${renderBadges(lesson.report.get(projectedMover.id), { showIncoming: true })}</g></g>` : '';
+  const projectedAppearance = lesson.isPreview ? unitAppearance(projectedMover, config, icons, lessonDisplayTeam(projectedMover)) : null;
+  const ghost = lesson.isPreview ? `<g class="lesson-preview-piece${projectedAppearance.veteran ? ' veteran' : ''}" transform="translate(${projectedPoint.x},${projectedPoint.y})">${renderTokenBody(projectedAppearance, lessonDisplayTeam(projectedMover))}<g class="lesson-unit-badges">${renderBadges(lesson.report.get(projectedMover.id), { showIncoming: true, pieceType: projectedMover.type, veteran: projectedAppearance.veteran })}</g></g>` : '';
   const numbers = visiblePath.slice(1).map((cell, i) => {
     const p = point(cell), occupied = projected.pieces.some(piece => piece.q === cell.q && piece.r === cell.r);
     return `<g class="lesson-path-number" transform="translate(${p.x + (occupied ? 19 : 0)},${p.y + (occupied ? -20 : 0)})"><circle r="11"/><text y=".35em">${i + 1}</text></g>`;
@@ -199,7 +201,7 @@ export function createPositionLesson(pieces, moverId, options = {}) {
 
 export function createCombatLesson(index, options = {}) {
   const pieces = index === 0
-    ? [lessonPiece('blue', 'shield', 0, 0, 0), lessonPiece('enemy', 'archer', 1, 0, 2)]
+    ? [lessonPiece('blue', 'shield', 0, 0, 0), lessonPiece('enemy', 'archer', 1, 0, 3)]
     : index === 1
       ? [lessonPiece('blue', 'archer', 0, -2, -1), lessonPiece('enemy', 'archer', 1, 0, 0), ...(options.secondArcher === false ? [] : [lessonPiece('second', 'archer', 0, 0, -2)])]
       : [lessonPiece('blue', 'shield', 0, 0, 0), lessonPiece('enemy', 'shield', 1, 0, 2), lessonPiece('drum','attackLamp',0,-1,0), lessonPiece('enemyDrum','attackLamp',1,1,2)];
@@ -223,7 +225,7 @@ export function createCombatLesson(index, options = {}) {
     lesson.hint = 'Сравни ход с одним и двумя лукарями. Урон от нескольких врагов складывается в одном расчёте, но между ходами не накапливается.';
   } else {
     lesson.title = 'Атаки происходят одновременно';
-    lesson.description = 'Броненосцы стоят по вертикали, через пустую клетку. Каждый под барабаном: атака 5, стойкость 5.\nПододвинь своего броненосца к врагу и посмотри, как они обменяются ударами.';
+    lesson.description = `Броненосцы стоят по вертикали, между ними одна пустая клетка. Каждый под барабаном: атака ${lesson.beforeReport.get('blue').damage}, стойкость ${lesson.beforeReport.get('blue').fortitude}.\nПододвинь своего броненосца к врагу и посмотри, как они обменяются ударами.`;
     lesson.facts = [['Урон по нашему броненосцу', String(current.incoming)], ['Урон по врагу', String(target.incoming)], ['Итог расчёта', current.dead && target.dead ? 'Оба погибнут' : 'Оба выживут']];
     lesson.feedback = current.dead && target.dead ? 'Каждый наносит смертельный удар. Оба погибнут одновременно: гибель не отменяет ответную атаку.' : 'Пока они не достают друг друга. Займи пустую клетку рядом с врагом.';
     lesson.hint = 'Сначала все фигуры атакуют, затем погибшие удаляются одновременно. В этом расчёте они ещё успевают ударить и усилить союзников.';

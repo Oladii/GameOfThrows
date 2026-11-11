@@ -1,16 +1,14 @@
 import { cells, attacks, effective, shieldCanRetreat, key } from './engine.js';
+import { renderTokenBody, renderTokenBadges, renderDeathSkull } from './token-presentation.js';
 
 export const AURA_COLORS = { attack: '#c96060', defense: '#5d89bd', combined: '#9770be' };
 export function auraKind(source, config) {
   return shieldCanRetreat(source, config) ? 'combined' : ['shield', 'defenseLamp'].includes(source.type) ? 'defense' : 'attack';
 }
-// Reuse the former commander's helmet for promoted shields.
-export const VETERAN_SHIELD_ICON = '<path d="M3 9c0-4.3 4-7 9-7s9 2.7 9 7M6 9c0-2.5 2.7-4 6-4s6 1.5 6 4M12 2v3M6 4l2 2m10-2-2 2M12 6v3"/><path d="M6 14a6 5 0 0 1 12 0M5 14h14M6 14v6l4 2v-6m8-2v6l-4 2v-6"/>';
-
 export function unitAppearance(piece, config, icons, displayTeam = piece.team) {
   const veteran = config ? shieldCanRetreat(piece, config) : piece.type === 'shield' && piece.reachedFarEdge === true;
-  const glyph = veteran ? VETERAN_SHIELD_ICON : icons[piece.type];
-  return { veteran, icon: piece.type === 'archer' ? `<g transform="rotate(${displayTeam === 0 ? 90 : -90} 12 12)">${glyph || ''}</g>` : glyph };
+  const glyph = icons[piece.type];
+  return { veteran, type:piece.type, icon: piece.type === 'archer' ? `<g transform="rotate(${displayTeam === 0 ? 90 : -90} 12 12)">${glyph || ''}</g>` : glyph };
 }
 
 // Both weapon glyphs point up and right before rotation, at -45 degrees.
@@ -36,13 +34,13 @@ export function renderDeathEffects(deaths, point, polygonPoints, icons, config =
   return deaths.map(piece => {
     const { x, y } = point(piece);
     const displayTeam = displayTeamOf(piece), appearance = unitAppearance(piece, config, icons, displayTeam);
-    return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygonPoints}"/><circle class="death-pulse" r="22"/><g class="death-ghost${appearance.veteran ? ' veteran' : ''} ${displayTeam === 0 ? 'north' : 'south'}"><g class="death-token"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g></g><g class="death-skull"><g class="fatal-mark" transform="translate(-16,-17) scale(2)">${skullShape()}</g></g></g></g>`;
+    return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygonPoints}"/><circle class="death-pulse" r="25"/><g class="death-ghost${appearance.veteran ? ' veteran' : ''} ${displayTeam === 0 ? 'north' : 'south'}"><g class="death-token">${renderTokenBody(appearance, displayTeam)}</g><g class="death-skull">${renderDeathSkull()}</g></g></g>`;
   }).join('');
 }
 
 export function renderMovingToken(piece, frame, icons, id = 'moving-token', config = null, displayTeam = piece.team, info = null) {
   const appearance = unitAppearance(piece, config, icons, displayTeam);
-  return `<g id="${id}" class="moving-token${appearance.veteran ? ' veteran' : ''} ${displayTeam ? 'south' : 'north'}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g>${piece.group ? `<text class="group-text" x="0" y="16">${piece.group === 1 ? 'I' : piece.group === 2 ? 'II' : piece.group}</text>` : ''}${info ? renderUnitBadges(info, { showIncoming: true }) : ''}</g>`;
+  return `<g id="${id}" class="moving-token${appearance.veteran ? ' veteran' : ''} ${displayTeam ? 'south' : 'north'}${info?.dead ? ' fatal' : ''}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true">${renderTokenBody(appearance, displayTeam)}${piece.group ? `<text class="group-text" x="0" y="18">${piece.group === 1 ? 'I' : piece.group === 2 ? 'II' : piece.group}</text>` : ''}${info ? renderUnitBadges(info, { showIncoming: true, pieceType: piece.type, veteran: appearance.veteran }) : ''}</g>`;
 }
 
 // Both the board and onboarding use the same selected-aura palette and hatch.
@@ -66,16 +64,8 @@ export function durabilityDisplay(info) {
     description: `Стойкость: ${info.fortitude}` };
 }
 
-export function renderUnitBadges(info, { showIncoming = false } = {}) {
-  const defense = durabilityDisplay(info);
-  const attack = `<g class="attack-indicator" data-attack="${info.damage}"><title>Урон атаки: ${info.damage}</title>${numberBadge(info.damage, -13, 13, 'attack')}</g>`;
-  const fortitude = `<g class="survival-indicator" data-fortitude="${defense.value}"><title>${defense.description}</title>${numberBadge(defense.value, 13, 13, 'fort')}</g>`;
-  const incoming = info.dead || info.incoming > 0
-    ? `<g class="incoming-indicator${info.dead ? ' lethal' : ''}" data-incoming="${info.incoming}"><title>Входящий урон: ${info.incoming}${info.dead ? ' · погибнет при расчёте' : ''}</title>${info.dead
-      ? `<g class="fatal-mark" transform="translate(-8,-28)"><circle class="skull-badge" cx="8" cy="8" r="8.5"/>${skullShape()}</g>`
-      : showIncoming ? numberBadge(`−${info.incoming}`, 0, -20, 'incoming')
-      : `<g class="under-fire-target" aria-label="Под несмертельным огнём"><circle class="incoming-badge" cx="0" cy="-20" r="8.5"/><g class="target-icon" transform="translate(0,-20)"><circle r="4.5"/><circle r="1.4"/><path d="M0-7v2M0 5v2M-7 0h2M5 0h2"/></g></g>`}</g>` : '';
-  return `<g class="unit-badges">${attack}${fortitude}${incoming}</g>`;
+export function renderUnitBadges(info, options = {}) {
+  return renderTokenBadges(info, options);
 }
 
 export function numberBadge(value, x, y, kind, radius = 8.5) {

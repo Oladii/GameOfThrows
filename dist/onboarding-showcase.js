@@ -1,4 +1,5 @@
 import { DEFAULT_CONFIG, LABELS, TEAM_NAMES } from './rules.js';
+import { renderTokenBody } from './token-presentation.js';
 import { clone, cells, analyze, inspectCell, movementPath, move } from './engine.js';
 import { lessonPolygonPoints } from './onboarding-examples.js';
 import { unitAppearance, renderDeathEffects, renderMovingToken } from './board-presentation.js';
@@ -16,108 +17,84 @@ export const SHOWCASE_MOVES = [
     "comment": "Двумя лукарями соединяю выстрелы: 2 + 2 = 4. Вражеский лукарь погибает."
   },
   {
-    "id": "n-bow",
-    "to": {
-      "q": 2,
-      "r": 0
-    },
-    "comment": "Выдвигаю оставшегося лукаря на правый фланг."
-  },
-  {
-    "id": "s-right",
-    "to": {
-      "q": 1,
-      "r": 1
-    },
-    "comment": "Щит и лукарь вместе убирают второго вражеского стрелка."
-  },
-  {
-    "id": "n-right",
-    "to": {
-      "q": 2,
-      "r": -1
-    },
-    "comment": "Подвожу правый щит навстречу противнику."
-  },
-  {
-    "id": "s-right",
-    "to": {
-      "q": 1,
-      "r": 0
-    },
-    "comment": "Подключаю ближний удар к стрельбе: суммарного урона хватает против щита."
-  },
-  {
     "id": "n-shield",
     "to": {
       "q": 0,
       "r": -1
     },
-    "comment": "Последним центральным щитом подхожу к противнику."
+    "comment": "Выдвигаю центральный щит. До врага ещё надо подойти вплотную."
   },
   {
-    "id": "s-right",
+    "id": "s-shield",
     "to": {
-      "q": 1,
-      "r": -1
+      "q": -1,
+      "r": 1
     },
-    "comment": "Согласованный огонь и удар щита убирают центрального броненосца Севера."
+    "comment": "Смещаю центральный щит влево, готовлю встречу в центре."
+  },
+  {
+    "id": "n-shield",
+    "to": {
+      "q": 0,
+      "r": 0
+    },
+    "comment": "Врываюсь в центр: убираю лукаря и щит, но мой щит тоже погибает."
+  },
+  {
+    "id": "s-left",
+    "to": {
+      "q": -2,
+      "r": 1
+    },
+    "comment": "Подвожу левый щит к центру. Для удара нужна соседняя клетка."
+  },
+  {
+    "id": "n-bow",
+    "to": {
+      "q": 0,
+      "r": 0
+    },
+    "comment": "Вывожу последнего лукаря в центр, ищу линию для выстрела."
+  },
+  {
+    "id": "s-left",
+    "to": {
+      "q": -1,
+      "r": 0
+    },
+    "comment": "Щит подходит вплотную; вместе с лукарём убирает последнего стрелка Севера."
   },
   {
     "id": "n-left",
     "to": {
-      "q": 0,
-      "r": -2
+      "q": -1,
+      "r": -1
     },
-    "comment": "Перевожу последний щит в центр, ближе к лукарям Юга."
+    "comment": "Иду на размен: соседние щиты одновременно наносят по 5 и погибают."
   },
   {
     "id": "s-right",
     "to": {
       "q": 2,
+      "r": 1
+    },
+    "comment": "Остаётся правый щит. Веду его к последнему противнику."
+  },
+  {
+    "id": "n-right",
+    "to": {
+      "q": 3,
       "r": -1
     },
-    "comment": "Правый щит сохраняет строй. Лукари готовят следующий размен."
+    "comment": "Увожу последний щит вправо, готовлю новую линию атаки."
   },
   {
-    "id": "n-left",
+    "id": "s-right",
     "to": {
-      "q": 0,
-      "r": -1
-    },
-    "comment": "Последним щитом приближаюсь к линии лукарей."
-  },
-  {
-    "id": "s-archer",
-    "to": {
-      "q": 0,
-      "r": 3
-    },
-    "comment": "Отвожу лукаря к краю, сохраняя возможность перестроиться."
-  },
-  {
-    "id": "n-left",
-    "to": {
-      "q": 0,
+      "q": 3,
       "r": 0
     },
-    "comment": "Подвожу щит к противнику. Теперь он угрожает ближним ударом."
-  },
-  {
-    "id": "s-archer",
-    "to": {
-      "q": 1,
-      "r": 1
-    },
-    "comment": "Соединяю линии огня двух лукарей и щита."
-  },
-  {
-    "id": "n-left",
-    "to": {
-      "q": 0,
-      "r": 1
-    },
-    "comment": "Убираю двух лукарей, но мой последний щит тоже погибает. У Юга остались щиты — Юг победил."
+    "comment": "Последние щиты размениваются. Мой лукарь остаётся на поле — Юг победил."
   }
 ];
 let showcaseFrames = null;
@@ -158,7 +135,7 @@ export function renderShowcaseBattle(step, icons, renderBadges = () => '', anima
   const tiles = cells(battle.config).map(cell => `<g class="lesson-tile${battle.action && battle.action.to.q === cell.q && battle.action.to.r === cell.r ? ' showcase-arrival' : ''}"><polygon points="${lessonPolygonPoints(showcasePoint(cell), -30)}"/></g>`).join('');
   const pieces = position.pieces.map(piece => {
     const p = showcasePoint(piece), info = report.get(piece.id), appearance = unitAppearance(piece, battle.config, icons);
-    return `<g class="piece ${piece.team ? 'south' : 'north'}${appearance.veteran ? ' veteran' : ''}${info.dead ? ' fatal' : ''}${phase === 'movement' && piece.id === battle.moverId ? ' moving-origin' : ''}" data-showcase-piece="${piece.id}" transform="translate(${p.x},${p.y})"><title>${TEAM_NAMES[piece.team]}: ${LABELS[piece.type]}</title><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g>${renderBadges(info, { showIncoming: busy })}</g>`;
+    return `<g class="piece ${piece.team ? 'south' : 'north'}${appearance.veteran ? ' veteran' : ''}${info.dead ? ' fatal' : ''}${phase === 'movement' && piece.id === battle.moverId ? ' moving-origin' : ''}" data-showcase-piece="${piece.id}" transform="translate(${p.x},${p.y})"><title>${TEAM_NAMES[piece.team]}: ${LABELS[piece.type]}</title>${renderTokenBody(appearance, piece.team)}${renderBadges(info, { showIncoming: busy, pieceType: piece.type, veteran: appearance.veteran })}</g>`;
   }).join('');
   const movingPiece = phase === 'movement' ? battle.before.pieces.find(piece => piece.id === battle.moverId) : null;
   const moving = movingPiece ? renderMovingToken(movingPiece, animation.frame || { ...showcasePoint(movingPiece), progress: 0 }, icons, 'lesson-moving-token-showcase', battle.config, movingPiece.team, report.get(movingPiece.id)) : '';

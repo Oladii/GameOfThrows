@@ -19,7 +19,7 @@ test('revision eight retains selected combat rules and restores all 22 legacy co
   expected.deploymentOffset = 0;
   delete expected.labVeteran;
   delete expected.labVictoryCondition;
-  assert.equal(BALANCE_REVISION, 12);
+  assert.equal(BALANCE_REVISION, 16);
   assert.deepEqual(PREVIOUS_CENTERLESS_CONFIG, expected);
   assert.deepEqual(createGame(PREVIOUS_CENTERLESS_CONFIG), createGame(PREVIOUS_SCOUT_CONFIG));
   assert.deepEqual(clone(createGame({ ...PREVIOUS_CENTERLESS_CONFIG, deploymentOffset: 1 })), manifest.initialState);

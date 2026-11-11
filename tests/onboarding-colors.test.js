@@ -6,14 +6,14 @@ import { unitAppearance, renderMovingToken, renderDeathEffects } from '../dist/b
 
 test('training moves and death effects display the controlled army as the orange South', () => {
   const moving = renderMoveLesson(createMoveLesson(0), {}, () => '', { phase: 'movement' });
-  assert.ok(moving.includes('class="moving-token south"'));
-  assert.ok(moving.includes('rotate(-90 12 12)'));
+  assert.ok(/class="moving-token south(?: fatal)?"/.test(moving));
+  assert.ok(moving.includes('rotate(180 0 '));
   assert.ok(moving.includes('Ваши — Юг'));
   const defeat = createUnitLesson('archer', { advanced: true, destination: { q: 0, r: -1 } });
   const death = renderMoveLesson(defeat, {}, () => '', { phase: 'deaths' });
   assert.ok(death.includes('class="death-ghost south"'));
   assert.ok(!death.includes('class="death-ghost north"'));
-  assert.ok(death.includes('rotate(-90 12 12)'));
+  assert.ok(death.includes('rotate(180 0 '));
 });
 
 test('a display perspective does not change the real game teams, veteran status or default rendering', () => {

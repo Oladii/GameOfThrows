@@ -333,6 +333,36 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .incoming-indicator .fatal-mark .skull-head{fill:#795a1e}
 .incoming-indicator .fatal-mark .skull-eye,.incoming-indicator .fatal-mark .skull-nose{fill:#fff1bd}
 .incoming-indicator .fatal-mark .skull-teeth{stroke:#fff1bd}
+/* Approved Figma matrix. The board's existing hex fill, edges and spacing stay intact. */
+#board .cell .tile,.lesson-tile>polygon{fill:#f0ede3;stroke:#d9d9cb}
+#board .cell.reachable .tile{fill:#e0ebcc;stroke:#9bb187}
+#board .cell.selected .tile{fill:#d4e2c0;stroke:#68865e}
+.lesson-tile.lesson-available>polygon{fill:#e0ebcc}
+.lesson-tile.lesson-route>polygon,.lesson-tile.lesson-unit-cell>polygon,.lesson-available:hover>polygon,.lesson-available:focus-visible>polygon{fill:#d4e2c0}
+.token-body-paint{isolation:isolate;pointer-events:none}
+.token-team-tint{mix-blend-mode:color;fill:#af6a4b}
+.token-team-tint.north{opacity:0}
+.token-art,.token-digit,.token-number{pointer-events:none}
+.piece>.piece-circle,.moving-token>.piece-circle,.death-token>.piece-circle,.lesson-piece>.piece-circle,.preview-ghost>.piece-circle,.lesson-preview-piece>.piece-circle{fill:none;stroke:none;filter:none}
+.piece.north>.piece-circle,.piece.south>.piece-circle,.moving-token.north>.piece-circle,.moving-token.south>.piece-circle,.death-ghost .death-token>.piece-circle{fill:none}
+.piece .piece-icon,.moving-token .piece-icon,.death-token .piece-icon,.lesson-piece .piece-icon,.preview-ghost .piece-icon,.lesson-preview-piece .piece-icon{fill:none;stroke:#fffdf7;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.piece.veteran:not(.fatal)>.piece-circle,.moving-token.veteran>.piece-circle,.preview-ghost.veteran:not(.fatal)>.piece-circle,.lesson-piece.veteran:not(.lesson-fatal)>.piece-circle,.lesson-preview-piece.veteran>.piece-circle{stroke:none}
+.piece.fatal>.piece-circle,.moving-token.fatal>.piece-circle,.death-token>.piece-circle,.lesson-piece.lesson-fatal>.piece-circle,.preview-ghost.fatal>.piece-circle{fill:none;stroke:none}
+.piece.attacking-source>.piece-circle{stroke:#dba43d;stroke-width:1.87;filter:drop-shadow(0 0 1px #d7a13c88)}
+.preview-ghost .token-body-paint,.preview-ghost .piece-icon,.preview-ghost .token-veteran-wreath,.lesson-preview-piece .token-body-paint,.lesson-preview-piece .piece-icon,.lesson-preview-piece .token-veteran-wreath{opacity:.62}
+.lesson-preview-piece{opacity:1}
+.lesson-piece.lesson-preview-origin{opacity:.28}
+.preview-ghost .token-team-tint,.lesson-preview-piece .token-team-tint{opacity:1;fill:#517867}
+.preview-ghost>.piece-circle,.lesson-preview-piece>.piece-circle{fill:none;stroke:#416d5d;stroke-width:1.07;stroke-dasharray:2.67 1.87}
+.piece.combat-muted .unit-badges,.piece.combat-muted .group-text{display:none}
+.piece.preview-origin .unit-badges,.lesson-preview-origin .unit-badges{display:none}
+.group-text{font-size:3.73px;letter-spacing:0}
+.token-number .token-digit-text{font-family:"Token Belwe";font-weight:700;fill:#fff;stroke:#000;dominant-baseline:alphabetic;paint-order:stroke fill}
+.token-minus{fill:#fff;stroke:#000;paint-order:stroke fill}
+.token-type-color{fill:#fff;stroke:none}
+.death-pulse,.death-glow{display:none}
+.lesson-piece.lesson-unit-selected>.piece-circle{stroke:#68865e;stroke-width:1.6}
+.lesson-unit-control:focus-visible>.piece-circle{stroke:#547848;stroke-width:1.6}
 
 .attack-lines .damage-arrow-path{fill:none;stroke:#b98227;stroke-width:2.5;stroke-dasharray:5 3;opacity:.9}
 

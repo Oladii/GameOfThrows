@@ -69,21 +69,23 @@ test('hidden overkill keeps mutual deaths together and a dying attacker still co
   assert.deepEqual(view.groups.map(g=>g.deaths.map(p=>p.id)),[['a','b']]);
 });
 
-test('numeric badges grow horizontally and keep the target at the top until hover reveals damage', () => {
-  const widths=[];
-  for(const n of [8,88,888,8888]) {
+test('one- and two-digit token values keep their size and retain the target behind incoming damage', () => {
+  const statSizes=[],damageSizes=[];
+  for(const n of [8,88]) {
     const info={damage:n,fortitude:n+1,incoming:n,dead:false};
     const idle=renderUnitBadges(info), active=renderUnitBadges(info,{showIncoming:true});
-    assert.match(idle,/under-fire-target/);assert.match(idle,/translate\(0,-20\)/);
-    assert.match(idle,new RegExp(`data-attack="${n}"`));
-    assert.ok(!active.includes('under-fire-target'));assert.ok(active.includes(`>−${n}</text>`));
-    widths.push(+active.match(/class="incoming-badge"[^>]*width="([^"]+)"/)[1]);
-    assert.equal(+active.match(/class="incoming-badge"[^>]*height="([^"]+)"/)[1],17);
-    const left=active.match(/class="attack-badge" x="([^"]+)"[^>]*width="([^"]+)"/);
-    const right=active.match(/class="fort-badge" x="([^"]+)"/);
-    assert.ok(Number(left[1])+Number(left[2]) < Number(right[1]), 'corner badges must not overlap');
+    assert.ok(idle.includes('under-fire-target'));
+    assert.ok(idle.includes(`data-attack="${n}"`));
+    assert.ok(!active.includes('under-fire-target'));
+    assert.ok(active.includes(`data-value="−${n}"`));
+    assert.ok(active.includes('token-art incoming-badge'));
+    assert.match(idle,/data-artwork="bullseye"/);
+    assert.match(active,/data-artwork="target-ring"/);
+    statSizes.push(...[...active.matchAll(/class="(?:attack|fort)-text token-number"[^>]+data-font-size="([^"]+)"/g)].map(m=>Number(m[1])));
+    damageSizes.push(...[...active.matchAll(/class="incoming-text token-number"[^>]+data-font-size="([^"]+)"/g)].map(m=>Number(m[1])));
   }
-  assert.ok(widths.every((w,i)=>i===0||w>widths[i-1]));
+  assert.equal(statSizes.length,4);assert.ok(statSizes.every(n=>n===80));
+  assert.equal(damageSizes.length,2);assert.ok(damageSizes.every(n=>n===68));
 });
 
 function presentationHarness(mode='local') {

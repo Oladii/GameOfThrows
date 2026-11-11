@@ -41,7 +41,7 @@ test('vertical shield example starts apart and a real approach ends with both de
   assert.ok(!initial.description.includes('?'));
   const complete = createCombatLesson(2, { advanced: true, destination: { q: 0, r: 1 } });
   assert.equal(complete.deaths.length, 2); assert.equal(complete.position.pieces.length, 2);
-  assert.equal(complete.report.get('blue').incoming, 5); assert.equal(complete.report.get('enemy').incoming, 5);
+  assert.equal(complete.report.get('blue').incoming, 6); assert.equal(complete.report.get('enemy').incoming, 6);
   const html = renderCombatExamples({}, {});
   assert.equal((html.match(/data-lesson-unit=/g) || []).length, 3);
   assert.ok(!html.includes('Выстрелить')); assert.ok(!html.includes('Показать бой'));

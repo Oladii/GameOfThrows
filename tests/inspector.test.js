@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import { DEFAULT_CONFIG, PREVIOUS_FORMATION_CONFIG, LABELS, TYPES } from '../dist/rules.js';
 import { effective, shieldCanRetreat, validateConfig, analyze, inspectCell, cells } from '../dist/engine.js';
 import { unitStatParts, alliedBonusDetails, renderUnitBadges, renderDamageArrows, unitAppearance } from '../dist/board-presentation.js';
+import { renderTokenBody } from '../dist/token-presentation.js';
 
 test('the left panel alternates between the reference and selected figure, preserving scroll for previews', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
@@ -53,7 +54,7 @@ test('a movement aura forecast changes real bonuses without hovering every other
   assert.equal(preview.report.get('ally').incoming,8);
   const badges=new Map(state.pieces.map(p=>[p.id,{outerHTML:''}])),layer={innerHTML:''};
   const tokens=state.pieces.map(p=>({dataset:{pieceId:p.id},classList:{toggle(){}},querySelector:()=>badges.get(p.id)}));
-  const context=vm.createContext({config,cells,combat:null,movement:null,selected:'moving',report,ICON_PATHS:{},unitAppearance,
+  const context=vm.createContext({config,cells,combat:null,movement:null,selected:'moving',report,ICON_PATHS:{},unitAppearance,renderTokenBody,
     unitBadges:renderUnitBadges,renderDamageArrows,key:(q,r)=>`${q},${r}`,point:p=>({x:p.q*50,y:p.r*50}),
     inspectionContext:()=>preview,paintAttackReach(){},renderInspector(){},$:()=>layer,
     document:{querySelectorAll:selector=>selector.endsWith('[data-piece-id]')?tokens:[]}});
@@ -61,10 +62,10 @@ test('a movement aura forecast changes real bonuses without hovering every other
   context.highlightSources();
   assert.match(badges.get('ally').outerHTML,/data-attack="15"/);
   assert.match(badges.get('ally').outerHTML,/under-fire-target/);
-  assert.ok(!badges.get('ally').outerHTML.includes('>−8</text>'));
+  assert.ok(!badges.get('ally').outerHTML.includes('data-value="−8"'));
   context.inspectionContext=()=>inspectCell(state,config,{q:1,r:0},'moving',report);
   context.highlightSources();
-  assert.ok(badges.get('ally').outerHTML.includes('>−8</text>'));
+  assert.ok(badges.get('ally').outerHTML.includes('data-value="−8"'));
 });
 
 
@@ -105,10 +106,10 @@ test('settings expose independent veteran bonuses and preserve legacy values whe
     context.fillSettings(config);
     assert.equal(String(form.elements.deploymentOffset.value), '0');
     assert.equal(form.elements.victoryCondition.value, legacy ? 'all-units' : 'combat-units');
-    assert.equal(form.elements['shieldPromotion.damageBonus'].value, legacy ? '9' : '2');
+    assert.equal(form.elements['shieldPromotion.damageBonus'].value, legacy ? '9' : '1');
     assert.equal(form.elements['shieldPromotion.allies.damageBonus'].value, legacy ? '9' : '1');
     const next = context.settingsFromForm();
-    assert.equal(next.shieldPromotion.damageBonus, legacy ? 9 : 2);
+    assert.equal(next.shieldPromotion.damageBonus, legacy ? 9 : 1);
     assert.equal(next.shieldPromotion.allies.damageBonus, legacy ? 9 : 1);
     assert.equal(next.shieldPromotion.allies.defenseBonus, legacy ? 9 : 1);
     assert.equal(next.victoryCondition, legacy ? 'all-units' : 'combat-units');

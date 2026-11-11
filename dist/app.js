@@ -1,4 +1,5 @@
 import { boardNavigationTarget } from './board-navigation.js';
+import { renderTokenBody } from './token-presentation.js';
 import { DEFAULT_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance, upgradeSelectedBalancePreset } from './rules.js';
 import { consumeNewGameRefresh, refreshNewGamePage, hasNewerGameVersion, needsNewGame, latestGameVersion } from './new-game-refresh.js';
 import { clone, key, cells, distance, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, isLethalDamage, auraReaches, reachable, movementPath, shieldCanRetreat, move, pass, resolve } from './engine.js';
@@ -66,7 +67,7 @@ let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
 let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
 const botRunner = new BotRunner();
-let boardFocus = null;
+let boardFocus = null, restoringBoardFocus = false;
 let selected = null, editor = false, tool = 'shield', editorTeam = 0, hover = null, inspection = null, toastTimer, fieldView = null;
 let report = analyze(state, config), available = [], ready = false;
 const STORAGE = 'lamps-prototype-v1';
@@ -254,6 +255,7 @@ function boardMarkup() {
   const attackSources = showAttacks ? state.pieces.map(piece => ({ piece, stats: report.get(piece.id) })).filter(source => source.stats.damage > 0) : [];
   $('#attack-legend').hidden = !showAttacks;
   $('#attack-legend').innerHTML = `<span class="attack-team north">${TEAM_NAMES[0]}</span><span class="attack-team south">${TEAM_NAMES[1]}</span><span>${!attackSources.length ? 'Нет атакующих фигур' : showTeamDamage ? 'Суммарный урон каждой команды' : 'Зоны обеих команд · снимите выбор для чисел урона'}</span>`;
+  const tokens = [], damageLabels = [];
   $('#board').innerHTML = `<defs><clipPath id="aura-field-clip"><rect x="${minX}" y="${minY}" width="${maxX - minX}" height="${maxY - minY}"/></clipPath><linearGradient id="attack-overlap" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="50%" stop-color="#d6e6ef"/><stop offset="50%" stop-color="#f3d6c2"/></linearGradient><marker id="damage-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#b98227"/></marker></defs>` + board.map(c => {
     const k = key(c.q, c.r), p = occupied.get(k), { x, y } = point(c);
     const classes = ['cell'];
@@ -276,11 +278,20 @@ function boardMarkup() {
     if (p) {
       const info = report.get(p.id);
       const appearance = unitAppearance(p, config, ICON_PATHS);
-      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" transform="translate(${x},${y})"><circle class="piece-circle" r="21"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${appearance.icon}</g>${p.group ? `<text class="group-text" x="0" y="16">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info)}</g>`;
+      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" data-piece-type="${p.type}" data-veteran="${appearance.veteran}" transform="translate(${x},${y})">${renderTokenBody(appearance, p.team)}${p.group ? `<text class="group-text" x="0" y="18">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info, { pieceType: p.type, veteran: appearance.veteran })}</g>`;
     }
-    return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/>${damageLabel}${token}</g>`;
-  }).join('') + '<g id="aura-circles" clip-path="url(#aura-field-clip)" aria-hidden="true"></g><g id="selected-attack-reach" aria-hidden="true"></g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>' + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config)}</g>` + lastMoveTrace() + movingTokenMarkup();
-  if (restoreFocus) $('#board [tabindex="0"]')?.focus({ preventScroll: true });
+    tokens.push(token);
+    damageLabels.push(damageLabel);
+    const info = p && report.get(p.id);
+    const description = info ? `<desc id="cell-stats-${k}">Урон атаки: ${info.damage}. Броня: ${info.fortitude}. Входящий урон: ${info.incoming}.${info.dead ? ' Погибнет при расчёте.' : ''}</desc>` : '';
+    return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}" aria-describedby="cell-stats-${k}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/>${description}</g>`;
+  }).join('') + '<g id="aura-circles" clip-path="url(#aura-field-clip)" aria-hidden="true"></g><g id="selected-attack-reach" aria-hidden="true"></g>' + `<g id="board-damage-labels" pointer-events="none" aria-hidden="true">${damageLabels.join('')}</g><g id="board-pieces" pointer-events="none" aria-hidden="true">${tokens.join('')}</g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>` + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config)}</g>` + lastMoveTrace() + movingTokenMarkup();
+  if (restoreFocus) {
+    // Replacing cells preserves keyboard focus without starting a new forecast.
+    restoringBoardFocus = true;
+    try { $('#board [tabindex="0"]')?.focus({ preventScroll: true }); }
+    finally { restoringBoardFocus = false; }
+  }
 }
 function paintAuras() {
   if (combat) { $('#aura-circles').innerHTML = ''; $('#aura-legend').hidden = true; return; }
@@ -328,7 +339,7 @@ function highlightSources() {
     element.classList.toggle('fatal', !previewOrigin && (info?.dead || false));
     element.classList.toggle('attacking-source', sourceIds.has(id));
     if (info) {
-      element.querySelector('.unit-badges').outerHTML = unitBadges(info, { showIncoming: id === selected || id === target?.id });
+      element.querySelector('.unit-badges').outerHTML = unitBadges(info, { showIncoming: id === selected || id === target?.id, pieceType: element.dataset.pieceType, veteran: element.dataset.veteran === 'true' });
     }
   });
   document.querySelectorAll('#board [data-cell]').forEach(element => element.classList.toggle('inspection-target', !!target && element.dataset.cell === key(target.q, target.r)));
@@ -340,7 +351,8 @@ function highlightSources() {
   const arrows = context.report.get(target.id).attackers.map(attack => ({ source: context.position.pieces.find(p => p.id === attack.id), target, damage: attack.damage })).filter(attack => attack.source);
   const lines = renderDamageArrows(arrows, point, { pieces: context.position.pieces, board: cells(config) });
   const targetInfo = context.report.get(target.id);
-  const ghost = context.isPreview ? `<g class="preview-ghost${unitAppearance(target, config, ICON_PATHS).veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})"><circle r="19"/><g class="piece-icon" transform="translate(-11,-12) scale(.92)">${unitAppearance(target, config, ICON_PATHS).icon}</g>${unitBadges(targetInfo, { showIncoming: true })}</g>` : '';
+  const ghostAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS) : null;
+  const ghost = context.isPreview ? `<g class="preview-ghost ${target.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})">${renderTokenBody(ghostAppearance, target.team)}${unitBadges(targetInfo, { showIncoming: true, pieceType: target.type, veteran: ghostAppearance.veteran })}</g>` : '';
   layer.innerHTML = lines + ghost;
 }
 function paintAttackReach(context) {
@@ -546,7 +558,7 @@ $('#board').addEventListener('keydown', event => {
   }
 });
 function hoverCell(event) {
-  if (fieldView || combat || movement) return;
+  if (restoringBoardFocus || fieldView || combat || movement) return;
   const c = event.target.closest('[data-cell]'), k = c?.dataset.cell;
   if (!k || k === hover) return; hover = k;
   const [q, r] = k.split(',').map(Number);

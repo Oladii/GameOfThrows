@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+// Fixed revision-12 combat fixture for arrow placement.
+import { PREVIOUS_SUPPORT_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
 import { analyze } from '../dist/engine.js';
 import { lethalAttackPresentation, layoutDamageArrows, renderDamageArrows, MAX_DAMAGE_ARROW_BEND } from '../dist/board-presentation.js';
 

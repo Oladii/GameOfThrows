@@ -4,12 +4,13 @@ const root = fileURLToPath(new URL('./', import.meta.url));
 const read = name => fs.readFile(root + 'dist/' + name, 'utf8');
 const [sourceHtml, css, rules, engine, bot, worker, client, startPosition, moveAnimation, gameArchive, boardPresentation, onboardingExamples, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, app] = await Promise.all(['index.html', 'styles.css', 'rules.js', 'engine.js', 'bot.js', 'bot-worker.js', 'bot-client.js', 'start-position.js', 'move-animation.js', 'game-archive.js', 'board-presentation.js', 'onboarding-examples.js', 'onboarding-units.js', 'onboarding-showcase.js', 'board-navigation.js', 'new-game-refresh.js', 'app.js'].map(read));
 const { version } = JSON.parse(await fs.readFile(root + 'package.json', 'utf8'));
+const [tokenAssets, tokenPresentation] = await Promise.all(['token-assets.js','token-presentation.js'].map(read));
 const builtAt = new Date();
 const buildLabel = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(builtAt);
 const html = sourceHtml.replace(/(<span id="version-number">)[^<]*(<\/span>)/, (_, start, end) => `${start}v${version}${end}`).replace(/<span id="version-build"[^>]*>[^<]*<\/span>/, `<span id="version-build" data-built-at="${builtAt.toISOString()}">Сборка ${buildLabel} МСК</span>`);
 await fs.writeFile(root + 'dist/index.html', html);
 const strip = code => code.replace(/^import .*?;\n/gm, '').replace(/^export /gm, '');
-const script = [rules, engine, client, startPosition, moveAnimation, gameArchive, boardPresentation, onboardingExamples, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, app].map(strip).join('\n').replaceAll('</script', '<\\/script');
+const script = [rules, engine, client, startPosition, moveAnimation, gameArchive, tokenAssets, tokenPresentation, boardPresentation, onboardingExamples, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, app].map(strip).join('\n').replaceAll('</script', '<\\/script');
 const workerSource = JSON.stringify([rules, engine, bot, worker].map(strip).join('\n')).replaceAll('<', '\\u003c');
 let illustratedHtml = html;
 for (const name of ['stats.svg', 'overlays.svg', 'board.svg']) {

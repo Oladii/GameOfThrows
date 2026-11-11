@@ -1,4 +1,5 @@
 import { TYPES, LABELS, DEFAULT_CONFIG } from './rules.js';
+import { renderTokenBody } from './token-presentation.js';
 import { clone, analyze, cells, auraReaches, shieldCanRetreat } from './engine.js';
 import { createPositionLesson, renderMoveLesson, supportLessonPieces } from './onboarding-examples.js';
 
@@ -40,7 +41,7 @@ export function createUnitLesson(type, options = {}) {
     const veteran = shieldCanRetreat(lesson.combatPosition.pieces.find(piece => piece.id === 'blue'), lesson.config);
     const veteranStats = lesson.report.get('veteran'), together = hero.sources.includes('veteran');
     lesson.description = [
-      `Ходит на ${stats.move} ${stats.move === 1 ? 'клетку' : 'клетки'} вперёд и вбок. Бьёт вблизи.`,
+      `Ходит на ${stats.move} ${stats.move === 1 ? 'клетку' : 'клетки'} вперёд и вбок. Атакует по прямой. Дальность: ${stats.range}.`,
       `Перекрывает вражеские стрелы. Аура даёт соседним союзным броненосцам +${stats.defenseBonus} стойкости.`,
       'На противоположном краю становится ветераном: получает усиление и может ходить назад.'
     ].join('\n');
@@ -50,7 +51,7 @@ export function createUnitLesson(type, options = {}) {
     lesson.facts = [['Атака броненосца', comparison(withoutVeteran.damage, hero.damage)], ['Стойкость броненосца', comparison(withoutVeteran.fortitude, hero.fortitude)], ['Стойкость ветерана', comparison(withoutShield.fortitude, veteranStats.fortitude)], ['Урон по врагу', String(enemy.incoming)], ['Поддержка ветерана', together ? 'Действует' : 'Вне ауры']];
     lesson.feedback = hero.dead ? 'Здесь броненосец погибнет. Попробуй другую клетку.' : enemy.dead ? 'Броненосец переживёт удар и уничтожит врага.' : together ? 'Поддержка действует: атака и стойкость выросли.' : 'Подойди к ветерану и сравни силу атаки и стойкость.';
     if (veteran) lesson.feedback += ' Край достигнут — броненосец стал ветераном.';
-    lesson.hint = 'Фигура со шлемом — броненосец-ветеран. Её тоже можно выбрать.';
+    lesson.hint = 'Фигура в золотом венке — броненосец-ветеран. Её тоже можно выбрать.';
   } else if (type === 'archer') {
     lesson.description = [
       `Ходит до ${stats.move} клеток. Стреляет по прямой на ${stats.range} клетки.`,
@@ -92,7 +93,7 @@ export function createUnitLesson(type, options = {}) {
 }
 
 export function renderUnitExamples(states, icons, renderBadges = () => '', animation = null) {
-  const badges = `<section class="lesson-scene badge-guide" aria-labelledby="badge-guide-title"><div class="lesson-scene-heading"><h4 id="badge-guide-title">Значения на бейджах</h4><p><strong>Слева — сила атаки:</strong> сколько урона наносит фигура.<br><strong>Справа — полная стойкость:</strong> с усилениями союзников, без вычитания урона.<br><strong>Сверху — угроза:</strong> в покое мишень отмечает несмертельный обстрел; при выборе и наведении вместо неё показан входящий урон со знаком минус. Смертельная угроза всегда отмечена черепом сверху.</p></div><div class="badge-examples">${badgeExamples().map(example => `<figure><svg viewBox="-38 -32 76 70" role="img" aria-label="${example.label}: атака ${example.info.damage}, ${example.explanation}"><g class="lesson-piece lesson-friendly${example.info.dead ? ' lesson-fatal' : ''}"><circle r="20"/><g class="lesson-piece-icon" transform="translate(-12,-12)">${icons.shield}</g>${renderBadges(example.info, { showIncoming: true })}</g></svg><figcaption><strong>${example.label}</strong><span>${example.explanation}</span></figcaption></figure>`).join('')}</div><p class="badge-guide-note">Это прогноз, а не запас здоровья. После каждого хода стойкость и угрозы считаются заново: прошлый урон не накапливается.</p></section>`;
+  const badges = `<section class="lesson-scene badge-guide" aria-labelledby="badge-guide-title"><div class="lesson-scene-heading"><h4 id="badge-guide-title">Значения на бейджах</h4><p><strong>Слева — сила атаки:</strong> сколько урона наносит фигура.<br><strong>Справа — полная стойкость:</strong> с усилениями союзников, без вычитания урона.<br><strong>Сверху — угроза:</strong> в покое мишень отмечает несмертельный обстрел; при выборе и наведении вместо неё показан входящий урон со знаком минус. Смертельная угроза всегда отмечена черепом сверху.</p></div><div class="badge-examples">${badgeExamples().map(example => `<figure><svg viewBox="-38 -32 76 70" role="img" aria-label="${example.label}: атака ${example.info.damage}, ${example.explanation}"><g class="lesson-piece lesson-friendly${example.info.dead ? ' lesson-fatal' : ''}">${renderTokenBody({type:'shield',icon:icons.shield,veteran:false},1)}${renderBadges(example.info, { showIncoming: true })}</g></svg><figcaption><strong>${example.label}</strong><span>${example.explanation}</span></figcaption></figure>`).join('')}</div><p class="badge-guide-note">Это прогноз, а не запас здоровья. После каждого хода стойкость и угрозы считаются заново: прошлый урон не накапливается.</p></section>`;
   return '<div class="lesson-page">' + badges + TYPES.map(type => {
     const sceneKey = `unit-${type}`;
     return renderMoveLesson(createUnitLesson(type, states[sceneKey] || {}), icons, renderBadges, animation?.sceneKey === sceneKey ? animation : null);

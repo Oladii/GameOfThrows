@@ -1,14 +1,15 @@
+// Frozen revision12 regression; variantA has its own current-default checks.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {DEFAULT_CONFIG,PREVIOUS_ARCHER_CONFIG,updateSavedBalance} from '../dist/rules.js';
+import {PREVIOUS_SUPPORT_CONFIG as DEFAULT_CONFIG,DEFAULT_CONFIG as CURRENT_CONFIG,PREVIOUS_ARCHER_CONFIG,updateSavedBalance} from '../dist/rules.js';
 import {clone,analyze,validateConfig} from '../dist/engine.js';
 
 test('all three support types gain exactly one fortitude after the archer upgrade',()=>{
  const expected=clone(PREVIOUS_ARCHER_CONFIG);
  for(const type of ['attackLamp','defenseLamp','scoutLamp'])expected.stats[type].fortitude++;
  assert.deepEqual(DEFAULT_CONFIG,expected);
- assert.deepEqual(updateSavedBalance(PREVIOUS_ARCHER_CONFIG,11),DEFAULT_CONFIG);
+ assert.deepEqual(updateSavedBalance(PREVIOUS_ARCHER_CONFIG,11),CURRENT_CONFIG);
  assert.deepEqual(updateSavedBalance(PREVIOUS_ARCHER_CONFIG,12),PREVIOUS_ARCHER_CONFIG);
  assert.deepEqual(validateConfig(PREVIOUS_ARCHER_CONFIG),PREVIOUS_ARCHER_CONFIG);
 });

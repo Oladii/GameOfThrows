@@ -8,7 +8,7 @@ import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 const selected = JSON.parse(fs.readFileSync(new URL('../balanced-small-numbers.json', import.meta.url), 'utf8'));
 
 test('new local defaults match the selected balance preset and deployment', () => {
-  assert.equal(BALANCE_REVISION, 12);
+  assert.equal(BALANCE_REVISION, 16);
   assert.deepEqual(DEFAULT_CONFIG, selected.config);
   assert.deepEqual(clone(createGame(DEFAULT_CONFIG)), selected.state);
 });

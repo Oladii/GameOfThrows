@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { PREVIOUS_FORMATION_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
-import { analyze, inspectCell, resolve, isLethalDamage, move, effective, key, movementPath } from '../dist/engine.js';
-import { durabilityDisplay, renderUnitBadges, attackCellsFor, unitStatParts, alliedBonusDetails, unitAppearance, VETERAN_SHIELD_ICON, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape, attackReachPresentation } from '../dist/board-presentation.js';
+import { analyze, inspectCell, resolve, isLethalDamage, move, effective, key, movementPath, cells } from '../dist/engine.js';
+import { renderTokenBody, renderTokenNumber } from '../dist/token-presentation.js';
+import { durabilityDisplay, renderUnitBadges, attackCellsFor, unitStatParts, alliedBonusDetails, unitAppearance, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape, attackReachPresentation } from '../dist/board-presentation.js';
 import { LABELS } from '../dist/rules.js';
 const piece = (id, type, team, q, r) => ({id, type, team, q, r});
 const position = pieces => ({pieces, turn:0, ply:0, winner:null});
@@ -45,12 +46,12 @@ test('right badge remains full while upper threats appear only for interaction o
     for (const showIncoming of [false, true]) {
       const html = renderUnitBadges(info, { showIncoming });
       assert.match(html, /data-fortitude="15"/);
-      assert.match(html, /class="fort-text"[^>]*>15</);
+      assert.ok(html.includes('class="fort-text token-number" data-value="15"'));
       assert.equal(html.includes('incoming-indicator'), info.dead || incoming > 0);
       assert.equal(html.includes('under-fire-target'), incoming > 0 && !info.dead && !showIncoming);
       assert.ok(html.includes(`data-attack="${info.damage}"`));
       assert.equal(html.includes('fatal-mark'), info.dead);
-      if (!info.dead && showIncoming && incoming > 0) assert.ok(html.includes(`>−${incoming}</text>`));
+      if (!info.dead && showIncoming && incoming > 0) assert.ok(html.includes(`data-value="−${incoming}"`));
       assert.ok(!html.includes('survival-indicator under-fire')); 
     }
   }
@@ -63,6 +64,15 @@ test('friendly target colors follow the viewing side; enemy markers retain their
     const html = attackReachPresentation(source, state, config, { point: c => ({ x: c.q, y: c.r }), polygonPoints: '', friendlyTeam }).markup;
     assert.ok(html.includes(`attack-target-weapon ${team ? 'south' : 'north'}`));
     assert.equal(html.includes('friendly-target'), team === friendlyTeam);
+  }
+});
+test('all unit types and veterans use swords, including zero damage', () => {
+  const info={damage:0,fortitude:3,incoming:0,dead:false};
+  for(const [pieceType,veteran] of [['shield',false],['archer',false],['shield',true],['attackLamp',false],['defenseLamp',false],['scoutLamp',false]]) {
+    const html=renderUnitBadges(info,{pieceType,veteran});
+    assert.ok(html.includes('data-artwork="melee"'));
+    assert.ok(!html.includes('data-artwork="ranged"')&&!html.includes('data-artwork="veteran"'));
+    assert.ok(html.includes('data-attack="0"'));
   }
 });
 test('movement preview updates attack markers and returns the same ally bonuses as combat', () => {
@@ -94,7 +104,7 @@ test('a promoted shield gets veteran armor and keeps it after retreat, during mo
   const promoted = move(position([source, enemy]), config, source.id, { q: 0, r: 3 }).state;
   const veteran = promoted.pieces.find(p => p.id === source.id);
   assert.equal(unitAppearance(veteran, config, icons).veteran, true);
-  assert.equal(unitAppearance(veteran, config, icons).icon, VETERAN_SHIELD_ICON);
+  assert.equal(unitAppearance(veteran, config, icons).icon, icons.shield);
   promoted.turn = 0;
   const retreated = move(promoted, config, source.id, { q: 0, r: 2 }).state.pieces.find(p => p.id === source.id);
   assert.equal(unitAppearance(retreated, config, icons).veteran, true);
@@ -102,11 +112,66 @@ test('a promoted shield gets veteran armor and keeps it after retreat, during mo
   assert.equal(unitAppearance({ ...source, type: 'archer', reachedFarEdge: true }, config, icons).veteran, false);
   const moving = renderMovingToken(retreated, { x: 10, y: 20, progress: .5 }, icons, 'test-token', config);
   const dying = renderDeathEffects([retreated], () => ({ x: 0, y: 0 }), '', icons, config);
-  assert.ok(moving.includes('moving-token veteran')); assert.ok(moving.includes(VETERAN_SHIELD_ICON));
-  assert.ok(dying.includes('death-ghost veteran')); assert.ok(dying.includes(VETERAN_SHIELD_ICON));
+  assert.ok(moving.includes('moving-token veteran')); assert.ok(moving.includes('data-artwork="wreath"'));
+  assert.ok(dying.includes('death-ghost veteran')); assert.ok(dying.includes('data-artwork="wreath"'));
+  assert.ok(moving.includes('data-artwork="type-shield"'));
 });
 
 const appSource = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
+test('all terrain paints before tokens, with clickable accessible cells under the foreground', () => {
+  const config = structuredClone(DEFAULT_CONFIG), state = position([piece('s','shield',0,0,0),piece('a','archer',1,0,1)]);
+  const svg = { contains: () => false, setAttribute() {}, innerHTML: '' }, legend = {};
+  const context = vm.createContext({ config, visibleState:()=>state, cells, key, available:[], selected:null, boardFocus:null, fieldView:'', report:analyze(state,config),
+    ICON_PATHS:{}, unitAppearance, TEAM_NAMES:['Север','Юг'], LABELS, shieldCanRetreat:()=>false, unitBadges:renderUnitBadges, renderTokenBody,
+    combat:null,movement:null,currentDeaths:[],renderDeathEffects,lastMoveTrace:()=>'',movingTokenMarkup:()=>'',editor:false,document:{activeElement:null},$:selector=>selector==='#board'?svg:legend });
+  for (const name of ['point','polygon']) vm.runInContext(appSource.split('\n').find(line=>line.startsWith(`function ${name}(`)),context);
+  vm.runInContext(appSource.slice(appSource.indexOf('function boardMarkup('),appSource.indexOf('function paintAuras(')),context);
+  context.boardMarkup();
+  const html=svg.innerHTML;
+  assert.ok(html.lastIndexOf('class="tile"') < html.indexOf('data-piece-id='));
+  assert.ok(html.indexOf('id="aura-circles"') < html.indexOf('id="board-pieces"'));
+  assert.equal((html.match(/data-piece-id=/g)||[]).length,state.pieces.length);
+  assert.equal((html.match(/role="button"/g)||[]).length,cells(config).length);
+  assert.match(html,/id="board-pieces" pointer-events="none"/);
+  assert.match(html,/aria-describedby="cell-stats-0,0"/);
+  assert.match(html,/Броня: /);
+});
+test('Belwe numerals keep their size for one and two digits, with a smaller incoming value', () => {
+  const a=renderTokenNumber(8,0,0,'attack'), b=renderTokenNumber(88,0,0,'fort');
+  for(const html of [a,b]) {
+    assert.match(html,/data-font-size="80"/);
+    assert.match(html,/data-font="Belwe Bd BT Bold"/);
+    assert.match(html,/data-letter-spacing="-15%"/);
+    assert.match(html,/fill="#fff" stroke="#000"/);
+    assert.match(html,/stroke-width="10"/,'the outside outline is 5px at the design scale');
+  }
+  const incoming=renderTokenNumber('−12',0,0,'incoming');
+  assert.match(incoming,/data-font-size="68"/);
+  assert.match(incoming,/stroke-width="10"/);
+  assert.match(incoming,/class="token-minus"[^>]+width="18" height="4.5"/);
+  assert.ok(Math.abs(Number(incoming.match(/font-size="68" letter-spacing="([^"]+)"/)[1])+10.2)<1e-10);
+  assert.ok(!incoming.includes('>−12</text>'),'the minus is short artwork, not a long font glyph');
+});
+test('visible numeral ink and signed damage stay centred in their badge containers', () => {
+  const references=JSON.parse(fs.readFileSync(new URL('./fixtures/belwe-ink-bounds.json',import.meta.url),'utf8')).samples;
+  for(const [key,bounds] of Object.entries(references)){
+    const [size,value]=key.split(':'),kind=size==='68'?'incoming':'attack';
+    for(const signed of [false,...(kind==='incoming'?[true]:[])]){
+      const html=renderTokenNumber((signed?'−':'')+value,0,0,kind);
+      const attrs=html.match(/<text class="token-digit-text" x="([^"]+)" y="([^"]+)"/);
+      const x=+attrs[1],y=+attrs[2];let left=x+bounds[0],right=x+bounds[2];
+      assert.match(html,/text-anchor="start"/,'a negative trailing letter space must not change the anchor');
+      if(signed){const barX=+html.match(/class="token-minus" x="([^"]+)"/)[1];left=Math.min(left,barX);right=Math.max(right,barX+18);}
+      assert.ok(Math.abs((left+right)/2)<1e-8,key+' horizontal centre');
+      assert.ok(Math.abs(y+(bounds[1]+bounds[3])/2)<1e-8,key+' vertical centre');
+    }
+  }
+  const html=renderUnitBadges({damage:12,fortitude:10,incoming:2,dead:false},{showIncoming:true});
+  const positions=[...html.matchAll(/class="(attack|fort|incoming)-text token-number"[^>]+transform="translate\(([^,]+),([^\)]+)\)/g)];
+  assert.equal(positions.length,3);
+  const expected={attack:[-50*64/240,(128+47.83984375-120)*64/240],fort:[50*64/240,(128+47.83984375-120)*64/240],incoming:[0,(-1+44.4638671875-120)*64/240]};
+  for(const p of positions)for(const [i,coordinate] of [+p[2],+p[3]].entries())assert.ok(Math.abs(coordinate-expected[p[1]][i])<1e-8);
+});
 test('the moving token keeps the destination threat before simultaneous deaths are removed', () => {
   const config = structuredClone(DEFAULT_CONFIG), source = piece('s','archer',0,0,0);
   const before = { config, state: position([source,piece('e','archer',1,1,1)]) };
@@ -167,7 +232,8 @@ test('lethal enemies use the upper token badge instead of a skull over their wea
   assert.ok(!html.includes('reach-skull'));
   const badge=renderUnitBadges(analyze(state,config).get('e'));
   assert.ok(badge.includes('incoming-indicator lethal'));
-  assert.ok(badge.includes('translate(-8,-28)'));
+  assert.ok(badge.includes('token-art fatal-mark'));
+  assert.ok(badge.includes('data-artwork="skull"'));
 });
 
 test('movement preview leaves the visible source and every allied figure unmarked',()=>{
@@ -194,8 +260,10 @@ test('archer tokens face the enemy side during rest, movement and death',()=>{
   const config=structuredClone(DEFAULT_CONFIG),icons={archer:'<path data-arrow="right"/>'};
   for(const team of [0,1]){const archer=piece('a','archer',team,0,0),rotation=`rotate(${team===0?90:-90} 12 12)`;
     assert.ok(unitAppearance(archer,config,icons).icon.includes(rotation));
-    assert.ok(renderMovingToken(archer,{x:0,y:0,progress:0},icons,'moving',config).includes(rotation));
-    assert.ok(renderDeathEffects([archer],()=>({x:0,y:0}),'',icons,config).includes(rotation));
+    for(const html of [renderMovingToken(archer,{x:0,y:0,progress:0},icons,'moving',config),renderDeathEffects([archer],()=>({x:0,y:0}),'',icons,config)]){
+      assert.match(html,/data-artwork="type-archer"/);
+      assert.equal(html.includes('rotate(180 0 '),team===1,'the approved down-facing bitmap rotates only for the South');
+    }
   }
 });
 

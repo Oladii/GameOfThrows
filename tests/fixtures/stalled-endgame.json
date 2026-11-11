@@ -1,0 +1,109 @@
+{
+  "protocol": {
+    "config": {
+      "version": 1,
+      "geometry": "hex",
+      "size": 4,
+      "army": {
+        "groups": 2,
+        "shields": 2,
+        "archers": 2,
+        "attackLamps": 1,
+        "defenseLamps": 1
+      },
+      "shieldPromotion": {
+        "aura": 1,
+        "damageBonus": 1,
+        "rangeBonus": 1,
+        "defenseBonus": 1,
+        "maxRange": 2
+      },
+      "stats": {
+        "shield": {
+          "move": 1,
+          "damage": 3,
+          "range": 1,
+          "fortitude": 3,
+          "aura": 0,
+          "damageBonus": 0,
+          "rangeBonus": 0,
+          "defenseBonus": 0
+        },
+        "archer": {
+          "move": 2,
+          "damage": 1,
+          "range": 4,
+          "fortitude": 1,
+          "aura": 0,
+          "damageBonus": 0,
+          "rangeBonus": 0,
+          "defenseBonus": 0
+        },
+        "attackLamp": {
+          "move": 1,
+          "damage": 2,
+          "range": 3,
+          "fortitude": 2,
+          "aura": 2,
+          "damageBonus": 1,
+          "rangeBonus": 1,
+          "defenseBonus": 0
+        },
+        "defenseLamp": {
+          "move": 2,
+          "damage": 0,
+          "range": 0,
+          "fortitude": 2,
+          "aura": 2,
+          "damageBonus": 0,
+          "rangeBonus": 0,
+          "defenseBonus": 1
+        }
+      },
+      "experiments": {
+        "squareDiagonals": true,
+        "lampShieldBlocking": true,
+        "allyShotsPass": true,
+        "aurasThroughShields": true,
+        "allowPass": false
+      }
+    }
+  },
+  "matches": [
+    {
+      "match": 8,
+      "finalState": {
+        "pieces": [
+          {
+            "id": "p3",
+            "type": "defenseLamp",
+            "team": 0,
+            "q": 3,
+            "r": 1,
+            "group": null
+          },
+          {
+            "id": "p5",
+            "type": "shield",
+            "team": 0,
+            "q": 3,
+            "r": 0,
+            "group": 1,
+            "reachedFarEdge": true
+          },
+          {
+            "id": "p20",
+            "type": "archer",
+            "team": 1,
+            "q": 0,
+            "r": -1,
+            "group": 2
+          }
+        ],
+        "turn": 1,
+        "ply": 200,
+        "winner": null
+      }
+    }
+  ]
+}

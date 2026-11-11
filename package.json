@@ -1,6 +1,6 @@
 {
   "name": "lamps-tactics-prototype",
-  "version": "0.1.25",
+  "version": "0.1.32",
   "private": true,
   "type": "module",
   "scripts": {

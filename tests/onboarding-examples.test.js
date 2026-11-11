@@ -105,8 +105,8 @@ test('melee and shooting reach are explored by real cell moves instead of action
   assert.equal(blocked.report.get('blue').incoming, 0);
   assert.equal(blocked.report.get('wall').incoming, blocked.report.get('blue').damage);
   assert.equal(blocked.report.get('enemy').fortitude, DEFAULT_CONFIG.stats.archer.fortitude, 'shield does not add armor to the protected archer in this blocking example');
-  assert.equal(distance(blocked.position.pieces.find(piece => piece.id === 'wall'), blocked.position.pieces.find(piece => piece.id === 'enemy'), blocked.config), 3);
-  const risky = createMoveLesson(2, { selected: true, destination: { q: -2, r: 0 } });
+  assert.equal(distance(blocked.position.pieces.find(piece => piece.id === 'wall'), blocked.position.pieces.find(piece => piece.id === 'enemy'), blocked.config), 2);
+  const risky = createMoveLesson(2, { selected: true, destination: { q: -1, r: 0 } });
   assert.ok(risky.position.pieces.some(piece => piece.id === 'wall'), 'shield is never removed by a synthetic action');
   assert.equal(risky.report.get('blue').incoming, DEFAULT_CONFIG.stats.archer.damage + DEFAULT_CONFIG.stats.shield.damage, 'approaching the shield enters both its melee reach and the enemy archer range');
   const before = createMoveLesson(3), after = createMoveLesson(3, { advanced: true, destination: { q: -1, r: 0 } });
@@ -125,13 +125,15 @@ test('both auras improve allies while support stays unarmed without a veteran', 
       assert.equal(buffed.damage - initial.damage, DEFAULT_CONFIG.stats.attackLamp.damageBonus); assert.equal(buffed.range - initial.range, 0);
       assert.equal(before.report.get('enemy').dead, false); assert.equal(after.report.get('enemy').dead, true);
     } else {
-      assert.equal(buffed.fortitude - initial.fortitude, DEFAULT_CONFIG.stats.defenseLamp.defenseBonus); assert.equal(initial.incoming, DEFAULT_CONFIG.stats.shield.damage + DEFAULT_CONFIG.stats.archer.damage); assert.equal(buffed.incoming, initial.incoming);
+      assert.equal(buffed.fortitude - initial.fortitude, DEFAULT_CONFIG.stats.defenseLamp.defenseBonus); assert.equal(initial.incoming, DEFAULT_CONFIG.stats.shield.damage + DEFAULT_CONFIG.shieldPromotion.allies.damageBonus); assert.equal(buffed.incoming, initial.incoming);
       assert.equal(initial.dead, true); assert.equal(buffed.dead, false);
     }
   }
 });
 
 test('all examples appear on one page with unique SVG ids and independent states and resets', () => {
+  // Mask identifiers are opaque, unique per render; they do not represent lesson state.
+  const stable = html => html.replace(/token-(type|wreath|target)-\d+/g,'token-$1-ID');
   const initialHtml = renderMoveExamples({}, icons), initial = sceneHtml(initialHtml);
   assert.deepEqual([...initial.keys()], ['0', '1', '2', '3', '4-attack', '4-defense']);
   assert.deepEqual([...initialHtml.matchAll(/ПРИМЕР (\d+) ИЗ (\d+)/g)].map(match => `${match[1]}/${match[2]}`), ['1/6', '2/6', '3/6', '4/6', '5/6', '6/6']);
@@ -142,10 +144,10 @@ test('all examples appear on one page with unique SVG ids and independent states
   for (const ref of initialHtml.matchAll(/url\(#([^\)]+)\)/g)) assert.ok(ids.includes(ref[1]), ref[1]);
   const state = { '1': { advanced: true, destination: { q: 1, r: 0 } }, '4-defense': { selected: true, placement: { q: -1, r: 0 } } }, original = structuredClone(state);
   const modified = sceneHtml(renderMoveExamples(state, icons)); assert.deepEqual(state, original);
-  for (const key of ['0', '2', '3', '4-attack']) assert.equal(modified.get(key), initial.get(key));
+  for (const key of ['0', '2', '3', '4-attack']) assert.equal(stable(modified.get(key)), stable(initial.get(key)));
   assert.notEqual(modified.get('1'), initial.get('1')); assert.notEqual(modified.get('4-defense'), initial.get('4-defense'));
   const reset = sceneHtml(renderMoveExamples({ ...state, '1': { advanced: false } }, icons));
-  assert.equal(reset.get('1'), initial.get('1')); assert.equal(reset.get('4-defense'), modified.get('4-defense'));
+  assert.equal(stable(reset.get('1')), stable(initial.get('1'))); assert.equal(stable(reset.get('4-defense')), stable(modified.get('4-defense')));
 });
 
 test('every figure receives the same effective combat report for its game-style badges', () => {
