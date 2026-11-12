@@ -113,11 +113,13 @@ test('pending advice replaces left reference, animates dots and keeps the button
   vm.runInContext(declaration('renderHint'), context); context.renderHint();
   assert.equal(node('#show-hint').disabled, true);
   assert.equal(node('#show-hint').textContent, 'Попросить совет');
-  assert.match(node('#move-hint').innerHTML, /Думовую/);
+  assert.match(node('#move-hint').innerHTML, /<h2>Совет<\/h2>.*Думовую/);
   tick(); assert.equal(node('#hint-thinking-dots').textContent, '..');
   tick(); assert.equal(node('#hint-thinking-dots').textContent, '...');
   tick(); assert.equal(node('#hint-thinking-dots').textContent, '.');
   context.hint = { title: 'Спасаем фигуру', reasons: ['Уходим из-под атаки.'] }; context.renderHint();
+  assert.match(node('#move-hint').innerHTML, /<h2>Совет<\/h2><p>Уходим из-под атаки/);
+  assert.doesNotMatch(node('#move-hint').innerHTML, /Думовую|<h2>Спасаем/);
   assert.equal(node('#show-hint').disabled, true); assert.equal(cleared, true);
   context.hint = null; context.renderHint();
   assert.equal(node('#show-hint').disabled, false); assert.equal(node('#move-hint').hidden, true);

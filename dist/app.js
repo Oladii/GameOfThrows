@@ -100,8 +100,9 @@ function renderHint() {
   panel.hidden = !hint;
   panel.setAttribute('aria-busy', String(Boolean(hint?.pending)));
   if (!hint?.pending) { clearInterval(hintThinkingTimer); hintThinkingTimer = null; }
-  panel.innerHTML = !hint ? '' : hint.pending ? '<p class="hint-thinking">Думовую<span id="hint-thinking-dots">.</span></p>' :
-    `<h2>${escape(hint.title)}</h2>${hint.reasons.map(reason => `<p>${escape(reason)}</p>`).join('')}`;
+  panel.innerHTML = !hint ? '' : `<h2>Совет</h2>${hint.pending
+    ? '<p class="hint-thinking">Думовую<span id="hint-thinking-dots">.</span></p>'
+    : `${hint.title.startsWith('Не удалось') ? `<p>${escape(hint.title)}</p>` : ''}${hint.reasons.map(reason => `<p>${escape(reason)}</p>`).join('')}`}`;
   if (hint?.pending && hintThinkingTimer === null) {
     let dots = 1;
     hintThinkingTimer = setInterval(() => {
