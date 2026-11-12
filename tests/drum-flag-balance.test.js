@@ -41,7 +41,7 @@ test('losing the flag ends the game even with combat units alive, including expo
 
 test('new match requires one flag and combat units for each side; historical modes remain valid',()=>{
  const initial=createGame(DEFAULT_CONFIG);assert.equal(prepareStartPosition(initial,DEFAULT_CONFIG,1).turn,1);
- assert.throws(()=>prepareStartPosition(s(initial.pieces.filter(p=>p.type!=='defenseLamp')),DEFAULT_CONFIG,0),/знаменосец/);
+ assert.throws(()=>prepareStartPosition(s(initial.pieces.filter(p=>p.type!=='defenseLamp')),DEFAULT_CONFIG,0),/знамя/);
  assert.throws(()=>prepareStartPosition(s([...initial.pieces,p('extra','defenseLamp',0,-4,0)]),DEFAULT_CONFIG,0),/ровно один/);
  const old=clone(PREVIOUS_UNCAPPED_CONFIG);assert.doesNotThrow(()=>prepareStartPosition(s([p('a','archer',0,0,0),p('b','archer',1,1,0)]),old,0));
 });

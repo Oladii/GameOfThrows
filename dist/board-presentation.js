@@ -132,8 +132,10 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, 
   }).filter(Boolean).sort((a,b) => `${a.source.id}:${a.target.id}`.localeCompare(`${b.source.id}:${b.target.id}`));
   // Hover explains incoming damage; other unit badges may sit under the label.
   if (straight) return edges.map(edge => {
-    const from = { x: edge.start.x + edge.dx * edge.shorten, y: edge.start.y + edge.dy * edge.shorten };
-    const to = { x: edge.end.x - edge.dx * edge.shorten, y: edge.end.y - edge.dy * edge.shorten };
+    const reciprocal = edges.some(other => other.source.id === edge.target.id && other.target.id === edge.source.id);
+    const lane = reciprocal ? 12 : 0;
+    const from = { x: edge.start.x + edge.dx * edge.shorten - edge.dy * lane, y: edge.start.y + edge.dy * edge.shorten + edge.dx * lane };
+    const to = { x: edge.end.x - edge.dx * edge.shorten - edge.dy * lane, y: edge.end.y - edge.dy * edge.shorten + edge.dx * lane };
     const center = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
     const width = damageBadgeWidth(edge.damage, 9);
     return { ...edge, from, to, control: center, labelT: .5,
@@ -318,4 +320,20 @@ export function renderHintArrow(source, destination, point) {
   const edge = layoutDamageArrows([{ source, target: { ...destination, id: '__hint_destination' }, damage: 0 }], point, { straight: true })[0];
   if (!edge) return '';
   return `<g class="hint-trace" pointer-events="none" aria-hidden="true"><defs><marker id="hint-arrow-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#44834a"/></marker></defs><path class="damage-arrow-path" d="M${edge.from.x},${edge.from.y}L${edge.end.x},${edge.end.y}" marker-end="url(#hint-arrow-head)"><title>Рекомендуемый ход</title></path></g>`;
+}
+
+// Incoming inspection rays plus the selected friendly unit's outgoing attacks.
+export function inspectionDamageArrows(target, selectedId, position, report, friendlyTeam) {
+  const arrows = new Map();
+  const add = (source, target, damage) => {
+    if (source && target) arrows.set(`${source.id}:${target.id}`, { source, target, damage });
+  };
+  if (target) for (const attack of report.get(target.id)?.attackers ?? [])
+    add(position.pieces.find(piece => piece.id === attack.id), target, attack.damage);
+  const selectedPiece = position.pieces.find(piece => piece.id === selectedId && piece.team === friendlyTeam);
+  if (selectedPiece) for (const enemy of position.pieces.filter(piece => piece.team !== friendlyTeam)) {
+    const attack = report.get(enemy.id)?.attackers.find(attack => attack.id === selectedPiece.id);
+    if (attack) add(selectedPiece, enemy, attack.damage);
+  }
+  return [...arrows.values()];
 }

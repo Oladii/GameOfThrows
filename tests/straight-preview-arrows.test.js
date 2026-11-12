@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { layoutDamageArrows, renderDamageArrows } from '../dist/board-presentation.js';
+import { layoutDamageArrows, renderDamageArrows, inspectionDamageArrows } from '../dist/board-presentation.js';
 
 const point = p => ({ x: p.q, y: p.r });
 const target = { id: 'target', q: 0, r: 0, team: 0 };
@@ -38,11 +38,11 @@ test('inspection and movement forecasts activate straight arrows while combat ke
   const layer = { innerHTML: '' };
   const report = new Map([[target.id, { attackers: arrows.map(a => ({ id: a.source.id, damage: a.damage })), dead: false }]]);
   const forecast = { piece: target, position: { pieces: [...sources, target] }, report };
-  const context = vm.createContext({ combat: null, movement: null, selected: target.id, report,
+  const context = vm.createContext({ playMode: 'local', humanTeam: 0, combat: null, movement: null, selected: target.id, report,
     inspectionContext: () => ({ ...forecast, isPreview: true }),
     document: { querySelectorAll: () => [] }, paintAttackReach() {}, renderInspector() {}, $: () => layer,
     point, config: {}, cells: () => [], key: (q, r) => `${q},${r}`, ICON_PATHS: {},
-    unitAppearance: () => ({ veteran: false }), renderTokenBody: () => '', unitBadges: () => '', renderDamageArrows });
+    unitAppearance: () => ({ veteran: false }), renderTokenBody: () => '', unitBadges: () => '', renderDamageArrows, inspectionDamageArrows });
   vm.runInContext(app.slice(app.indexOf('function highlightSources()'), app.indexOf('function paintAttackReach(')), context);
   context.highlightSources();
   checkStraight(layer.innerHTML);

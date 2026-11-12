@@ -91,8 +91,8 @@ test('interactive training opens directly and production retains its original sa
   assert.match(openAbout, /renderOnboarding\(\)/);
   assert.match(html, /<div class="about-switch"/);
   assert.match(html, /id="onboarding-open"[^>]*>Обучение с примерами/);
-  assert.match(html, /<strong>Горнист<\/strong> усиливает урон союзников всех типов/);
-  assert.match(html, /<strong>Барабанщик<\/strong> добавляет союзникам всех типов шаг/);
+  assert.match(html, /<strong>Горн<\/strong> усиливает урон союзников всех типов/);
+  assert.match(html, /<strong>Барабан<\/strong> добавляет союзникам всех типов шаг/);
 });
 
 

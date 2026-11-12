@@ -39,7 +39,7 @@ export function validateConfig(input) {
   if (config.archerEdgeDamageBonus !== undefined) number(config.archerEdgeDamageBonus, 0, 20, 'Усиление лукаря за край');
   config.auraDefenseCap ??= -1;
   number(config.auraDefenseCap, -1, 20, 'Предел защиты от аур');
-  if (config.drumShieldMoveBonus !== undefined) number(config.drumShieldMoveBonus, 0, 6, 'Бонус шага от барабанщика');
+  if (config.drumShieldMoveBonus !== undefined) number(config.drumShieldMoveBonus, 0, 6, 'Бонус шага от барабана');
   if (config.drumMoveAllies !== undefined && typeof config.drumMoveAllies !== 'boolean') throw new Error('Неверное правило шага союзников.');
   if (config.centerArchers !== undefined && typeof config.centerArchers !== 'boolean') throw new Error('Неверная расстановка лукарей.');
   if (config.shieldDefenseOnly !== undefined && typeof config.shieldDefenseOnly !== 'boolean') throw new Error('Неверное правило защиты броненосцев.');
@@ -52,7 +52,7 @@ export function validateConfig(input) {
   for (const field of ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps', 'scoutLamps']) number(config.army[field], 0, field === 'groups' ? 6 : 12, 'Состав армии');
   for (const field of ['centralShields', 'rearArchers', 'rearShields']) if (config.army[field] !== undefined) number(config.army[field], 0, 12, 'Фигуры в центре');
   if (config.army.rearSupportOffset !== undefined) number(config.army.rearSupportOffset, 0, 1, 'Отступ поддержки');
-  if (config.army.horns !== undefined) number(config.army.horns, 0, 12, 'Горнисты');
+  if (config.army.horns !== undefined) number(config.army.horns, 0, 12, 'Горны');
   for (const type of TYPES) {
     // Old imported configurations may omit the horn schema when no horns are present.
     if (type === 'horn' && !config.stats.horn && !(config.army.horns > 0)) continue;
