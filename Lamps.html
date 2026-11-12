@@ -395,7 +395,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.44</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T21:19:13.197Z">Сборка 13.11.2026, 00:19:13 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.45</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T21:21:07.362Z">Сборка 13.11.2026, 00:21:07 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <div id="update-notice" class="update-notice" role="status" hidden>Доступны обновления. Начните новую игру, чтобы они вступили в силу.</div>
   <main>
@@ -2933,12 +2933,13 @@ const hintRunner = new BotRunner();
 let hint = null, hintThinkingTimer = null;
 function clearHint() { hintRunner.cancel(); clearInterval(hintThinkingTimer); hintThinkingTimer = null; hint = null; }
 function hintPositionKey() { return JSON.stringify({ state, config }); }
-function canRequestHint() { return humanCanMove() && !editor; }
+function canRequestHint() { return gamePhase === 'playing' && !editor && !reviewingTurn && !isBotTurn() && state.winner === null; }
 function requestHint() {
   if (!canRequestHint()) return;
   if (hint) { clearHint(); render(); return; }
   const positionKey = hintPositionKey(), recent = recentBotHistory(), lastActions = new Map();
   for (const entry of recent) if (entry.action?.id) lastActions.set(entry.action.id, entry.action);
+  selected = null; hover = null; inspection = null;
   hint = { positionKey, pending: true };
   hintRunner.run({ state, config, options: { depth: BOT_DIFFICULTIES.hard.depth, seed: 17001,
     previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
@@ -2978,7 +2979,7 @@ function dismissHintOnClick(event) {
   renderInspector(inspectionContext());
 }
 function hintTrace() {
-  if (!hint?.action || hint.action.pass || hint.pending) return '';
+  if (!hint?.action || hint.action.pass || hint.pending || movement || combat || currentDeaths.length) return '';
   const piece = state.pieces.find(p => p.id === hint.action.id);
   return piece ? renderHintArrow(piece, hint.action.to, point) : '';
 }
@@ -3389,6 +3390,7 @@ async function checkGameVersion() {
 }
 function render(deaths = []) {
   if (hint && (hint.positionKey !== hintPositionKey() || !canRequestHint())) clearHint();
+  if (hint) selected = null;
   renderHint();
   renderUpdateNotice();
   const state = visibleState(), displayLog = movement ? movement.before.log : combat ? combat.before.log : reviewingTurn && lastTurn ? lastTurn.before.log : log;

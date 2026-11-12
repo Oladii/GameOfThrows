@@ -62,9 +62,9 @@ function declaration(name) {
 }
 function setup() {
   let request, result, error, cancelled = 0;
-  const context = vm.createContext({ state: { pieces: [], turn: 0, ply: 0, winner: null }, config: {}, hint: null, hintThinkingTimer: null, clearInterval() {},
+  const context = vm.createContext({ state: { pieces: [], turn: 0, ply: 0, winner: null }, config: {}, selected: 'chosen', hover: {}, inspection: {}, hint: null, hintThinkingTimer: null, clearInterval() {},
     hintRunner: { cancel() { cancelled++; }, run(input, onResult, onError) { request = input; result = onResult; error = onError; } },
-    BOT_DIFFICULTIES: { hard: { depth: 4 } }, editor: false, humanCanMove: () => true,
+    BOT_DIFFICULTIES: { hard: { depth: 4 } }, editor: false, gamePhase: 'playing', reviewingTurn: false, isBotTurn: () => false, humanCanMove: () => true,
     recentBotHistory: () => [], render() {}, explainHint: () => ({ title: 'Ход', reasons: ['Причина'] }) });
   for (const name of ['clearHint', 'hintPositionKey', 'canRequestHint', 'requestHint']) vm.runInContext(declaration(name), context);
   return { context, get request() { return request; }, get cancelled() { return cancelled; }, finish(value) { result(value); }, fail() { error(new Error('timeout')); } };
@@ -75,6 +75,9 @@ test('hint always uses hard search and does not execute its result', () => {
   fixture.context.requestHint();
   assert.equal(fixture.request.options.depth, 4);
   assert.equal(fixture.context.hint.pending, true);
+  assert.equal(fixture.context.selected, null);
+  assert.equal(fixture.context.hover, null);
+  assert.equal(fixture.context.inspection, null);
   fixture.finish({ action: { pass: true } });
   assert.equal(fixture.context.hint.title, 'Ход');
   assert.equal(JSON.stringify(fixture.context.state), original);
@@ -134,4 +137,18 @@ test('any click dismisses advice without replacing the board or consuming the cl
   vm.runInContext(declaration('dismissHintOnClick'), context);
   context.dismissHintOnClick({ target: { closest: () => null } });
   assert.equal(context.hint, null); assert.equal(removed, true); assert.equal(restored, true);
+});
+
+
+test('advice can start at turn transition while animations still block movement', () => {
+  const fixture = setup();
+  fixture.context.humanCanMove = () => false;
+  fixture.context.movement = { active: true };
+  fixture.context.combat = { active: true };
+  fixture.context.requestHint();
+  assert.equal(fixture.request.options.depth, 4);
+  fixture.context.clearHint(); fixture.context.isBotTurn = () => true;
+  assert.equal(fixture.context.canRequestHint(), false);
+  fixture.context.isBotTurn = () => false; fixture.context.reviewingTurn = true;
+  assert.equal(fixture.context.canRequestHint(), false);
 });

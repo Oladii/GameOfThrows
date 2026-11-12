@@ -73,12 +73,13 @@ const hintRunner = new BotRunner();
 let hint = null, hintThinkingTimer = null;
 function clearHint() { hintRunner.cancel(); clearInterval(hintThinkingTimer); hintThinkingTimer = null; hint = null; }
 function hintPositionKey() { return JSON.stringify({ state, config }); }
-function canRequestHint() { return humanCanMove() && !editor; }
+function canRequestHint() { return gamePhase === 'playing' && !editor && !reviewingTurn && !isBotTurn() && state.winner === null; }
 function requestHint() {
   if (!canRequestHint()) return;
   if (hint) { clearHint(); render(); return; }
   const positionKey = hintPositionKey(), recent = recentBotHistory(), lastActions = new Map();
   for (const entry of recent) if (entry.action?.id) lastActions.set(entry.action.id, entry.action);
+  selected = null; hover = null; inspection = null;
   hint = { positionKey, pending: true };
   hintRunner.run({ state, config, options: { depth: BOT_DIFFICULTIES.hard.depth, seed: 17001,
     previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
@@ -118,7 +119,7 @@ function dismissHintOnClick(event) {
   renderInspector(inspectionContext());
 }
 function hintTrace() {
-  if (!hint?.action || hint.action.pass || hint.pending) return '';
+  if (!hint?.action || hint.action.pass || hint.pending || movement || combat || currentDeaths.length) return '';
   const piece = state.pieces.find(p => p.id === hint.action.id);
   return piece ? renderHintArrow(piece, hint.action.to, point) : '';
 }
@@ -529,6 +530,7 @@ async function checkGameVersion() {
 }
 function render(deaths = []) {
   if (hint && (hint.positionKey !== hintPositionKey() || !canRequestHint())) clearHint();
+  if (hint) selected = null;
   renderHint();
   renderUpdateNotice();
   const state = visibleState(), displayLog = movement ? movement.before.log : combat ? combat.before.log : reviewingTurn && lastTurn ? lastTurn.before.log : log;
