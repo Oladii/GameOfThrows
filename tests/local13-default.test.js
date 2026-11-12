@@ -13,9 +13,9 @@ const expected={pieces:north.flatMap(([type,q,r,group],index)=>[
   {id:`p${index*2+2}`,type,team:1,q:q===0?0:-q,r:-r,group}
 ]),turn:0,ply:0,winner:null};
 
-test('release defaults retain revision22 parameters and the exact approved 13-per-side formation',()=>{
-  assert.equal(BALANCE_REVISION,22);
-  assert.equal(createHash('sha256').update(JSON.stringify(DEFAULT_CONFIG)).digest('hex'),'6efda3c79a1b90ad44d103feca3ba67f61570ed2b17cb54ef2fc8992331e317d');
+test('release defaults retain revision23 parameters and the exact approved 13-per-side formation',()=>{
+  assert.equal(BALANCE_REVISION,23);
+  assert.equal(createHash('sha256').update(JSON.stringify(DEFAULT_CONFIG)).digest('hex'),'0b3c2cb65a96a63b203bfe8e52891df7ffee3535406c8274c536b3ffaaa4038a');
   const state=createGame(DEFAULT_CONFIG);assert.deepEqual(state,expected);assert.deepEqual(createScenario('start',DEFAULT_CONFIG),expected);
   assert.equal(new Set(state.pieces.map(p=>`${p.q},${p.r}`)).size,26);
   assert.deepEqual(validateState(state,DEFAULT_CONFIG),state);

@@ -12,7 +12,7 @@ test('variant A changes only shield attack, reach and the personal veteran attac
   expected.stats.shield.damage = 5;
   expected.stats.shield.range = 2;
   expected.shieldPromotion.damageBonus = 1;
-  assert.equal(BALANCE_REVISION, 22);
+  assert.equal(BALANCE_REVISION, 23);
   assert.deepEqual(DEFAULT_CONFIG, expected);
   assert.deepEqual(createGame(DEFAULT_CONFIG), createGame(PREVIOUS_SUPPORT_CONFIG));
   assert.equal(createGame(DEFAULT_CONFIG).pieces.length, 28);

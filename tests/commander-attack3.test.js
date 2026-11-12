@@ -11,7 +11,7 @@ const commander=()=>piece('commander','scoutLamp',0,0,0);
 
 test('commander defaults change only base attack3 and range2; validation permits the native attack',()=>{
  const expected=clone(legacyCommanderConfig);expected.stats.scoutLamp.damage=3;expected.stats.scoutLamp.range=2;
- assert.deepEqual(DEFAULT_CONFIG,expected);assert.deepEqual(validateConfig(DEFAULT_CONFIG),DEFAULT_CONFIG);assert.equal(BALANCE_REVISION,22);
+ assert.deepEqual(DEFAULT_CONFIG,expected);assert.deepEqual(validateConfig(DEFAULT_CONFIG),DEFAULT_CONFIG);assert.equal(BALANCE_REVISION,23);
 });
 
 test('without auras commander deals3 on a ray at distance1 or2, never at distance3 or through its own aura',()=>{

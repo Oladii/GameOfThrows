@@ -9,7 +9,7 @@ const position = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
 
 test('revision 14 extends only the flag radius and preserves the entire 28-unit deployment', () => {
   const expected = clone(PREVIOUS_MELEE_CONFIG); expected.stats.defenseLamp.aura = 3;
-  assert.equal(BALANCE_REVISION, 22);
+  assert.equal(BALANCE_REVISION, 23);
   assert.deepEqual(DEFAULT_CONFIG, expected);
   assert.deepEqual(createGame(DEFAULT_CONFIG), createGame(PREVIOUS_MELEE_CONFIG));
   assert.equal(createGame(DEFAULT_CONFIG).pieces.length, 28);

@@ -30,7 +30,7 @@ test('veteran personal fortitude and every external defense source add together;
 test('only the exact former standard setup migrates to uncapped defense; all numbers and deployment are preserved', () => {
   const old = clone(PREVIOUS_ADJACENT_CONFIG), expected = clone(old);
   expected.auraDefenseCap = -1;
-  assert.equal(BALANCE_REVISION, 22);
+  assert.equal(BALANCE_REVISION, 23);
   assert.deepEqual(DEFAULT_CONFIG, expected);
   assert.deepEqual(createGame(DEFAULT_CONFIG), createGame(old));
   assert.deepEqual(updateSavedBalance(old, 15), CURRENT_CONFIG);

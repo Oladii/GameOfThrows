@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { DEFAULT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
 import { clone, move, effective, validateState, inspectCell, reachable, movementPath, archerHasEdgeBonus, shieldCanRetreat } from '../dist/engine.js';
 import { unitAppearance, unitStatParts, renderMovingToken, renderDeathEffects } from '../dist/board-presentation.js';
 import { renderTokenBody } from '../dist/token-presentation.js';
@@ -11,9 +11,9 @@ const fixture = () => ({pieces:[{id:'a',type:'archer',team:0,q:0,r:4},{id:'e',ty
 const power = (s, id='a') => effective(s.pieces.find(p=>p.id===id),s,config);
 test('edge bonus is permanent, applied immediately and cannot stack',()=>{
  const s=fixture(),before=JSON.stringify(s); let next=move(s,config,'a',{q:0,r:5}).state;
- assert.equal(power(next).damage,4); assert.equal(next.pieces[0].archerReachedFarEdge,true);
- next=move({...next,turn:0},config,'a',{q:0,r:3}).state; assert.equal(power(next).damage,4);
- next=move({...next,turn:0},config,'a',{q:0,r:5}).state; assert.equal(power(next).damage,4);
+ assert.equal(power(next).damage,5); assert.equal(next.pieces[0].archerReachedFarEdge,true);
+ next=move({...next,turn:0},config,'a',{q:0,r:3}).state; assert.equal(power(next).damage,5);
+ next=move({...next,turn:0},config,'a',{q:0,r:5}).state; assert.equal(power(next).damage,5);
  assert.equal(JSON.stringify(s),before); assert.equal(shieldCanRetreat(next.pieces[0],config),false);
  assert.equal(power(next).aura,0); assert.equal(power(next).range,4); assert.equal(power(next).fortitude,3);
 });
@@ -33,10 +33,10 @@ test('legacy rules do not gain new powers or promotion flags',()=>{
 test('promotion combines with support but does not buff allies',()=>{
  const s=move(fixture(),config,'a',{q:0,r:5}).state;
  s.pieces.push({id:'horn',type:'horn',team:0,q:-1,r:4},{id:'friend',type:'archer',team:0,q:-2,r:4});
- assert.equal(power(s).damage,5); assert.equal(power(s,'friend').damage,3);
+ assert.equal(power(s).damage,6); assert.equal(power(s,'friend').damage,3);
  assert.deepEqual(power(s,'friend').sources,['horn']);
  const damage=unitStatParts(s.pieces[0],s,config).find(p=>p.field==='damage');
- assert.deepEqual(damage,{field:'damage',base:2,personal:2,allied:1,total:5});
+ assert.deepEqual(damage,{field:'damage',base:2,personal:3,allied:1,total:6});
 });
 test('wreath keeps the archer glyph in static, moving and death presentations',()=>{
  const s=move(fixture(),config,'a',{q:0,r:5}).state,p=s.pieces[0],icons={archer:'<path id="bow"/>'};
@@ -58,4 +58,16 @@ test('opposite edges work for both teams and square boards',()=>{
   const r=team===0?(geometry==='hex'?5:5):(geometry==='hex'?-5:0);
   assert.equal(archerHasEdgeBonus({type:'archer',team,q:0,r},c),true);
  }
+});
+
+
+test('revision23 grants veterans +3 and migrates only the previous complete standard preset', () => {
+ assert.equal(DEFAULT_CONFIG.archerEdgeDamageBonus,3);
+ assert.equal(BALANCE_REVISION,23);
+ const old={...clone(DEFAULT_CONFIG),archerEdgeDamageBonus:2};
+ assert.equal(updateSavedBalance(old,22).archerEdgeDamageBonus,3);
+ assert.equal(old.archerEdgeDamageBonus,2);
+ const custom=clone(old);custom.stats.archer.damage=4;
+ assert.equal(updateSavedBalance(custom,22).archerEdgeDamageBonus,2);
+ assert.equal(updateSavedBalance({...old,archerEdgeDamageBonus:0},22).archerEdgeDamageBonus,0);
 });
