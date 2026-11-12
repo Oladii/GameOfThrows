@@ -63,7 +63,7 @@ const icon = (type, piece = null) => `<svg viewBox="0 0 24 24" fill="none" strok
 const unitBadges = renderUnitBadges;
 let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], log = [];
 let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, versionCheckPending = false;
-let firstMove = 'south';
+let firstMove = 'random';
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
 let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
@@ -73,7 +73,7 @@ let selected = null, editor = false, tool = 'shield', editorTeam = 0, hover = nu
 let report = analyze(state, config), available = [], ready = false;
 const STORAGE = archiveIsSite ? 'lamps-prototype-v1' : 'lamps-local-playtest13-v1';
 const PRESET_REVISION = 1;
-const START_PREFS_REVISION = 1;
+const START_PREFS_REVISION = 2;
 let presetUpdated = false, balanceUpdated = false, commanderUpdated = false;
 let refreshingNewGame = false;
 const freshNewGameRequested = consumeNewGameRefresh(location, window.history);
@@ -150,7 +150,10 @@ try {
     config = restored.config; state = restored.state; log = restored.log; gameVersion = restored.gameVersion;
     positionKind = restored.positionKind;
     gamePhase = saved.gamePhase === 'playing' || (saved.gamePhase === undefined && (state.ply > 0 || state.winner !== null)) ? 'playing' : 'setup';
-    if (gamePhase === 'setup' && saved.startPrefsRevision !== START_PREFS_REVISION) { playMode = 'bot'; humanTeam = 1; firstMove = 'south'; }
+    if (gamePhase === 'setup' && (saved.startPrefsRevision ?? 0) < START_PREFS_REVISION) {
+      if ((saved.startPrefsRevision ?? 0) < 1) { playMode = 'bot'; humanTeam = 1; }
+      firstMove = 'random';
+    }
     editor = gamePhase === 'setup' && saved.editor === true;
     previousGame = gamePhase === 'setup' ? readPreviousGame(saved.previousGame) : null;
     history = (Array.isArray(saved.history) ? saved.history.slice(-40) : []).map(readSnapshot);
@@ -430,7 +433,8 @@ function unitReferenceMarkup(promotionOpen = false) {
 }
 function renderGameResult(position) {
   const finished = position.winner !== null && gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn;
-  const victory = finished ? position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Севера' : 'Юга'}` : '';
+  const flagDestroyed = finished && [0, 1].includes(position.winner) && config.victoryCondition === 'flag-or-combat' && !position.pieces.some(piece => piece.team === 1 - position.winner && piece.type === 'defenseLamp');
+  const victory = finished ? position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Севера' : 'Юга'}${flagDestroyed ? '. Флаг противника уничтожен' : ''}` : '';
   $('#move-counter').textContent = gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${movement ? ' · движение' : combat ? ' · расчёт боя' : ''}${victory ? '. ' + victory : ''}`;
   $('#play-again').hidden = !finished;
 }
@@ -603,7 +607,7 @@ async function openNewGame() {
   if (gamePhase !== 'playing' || refreshingNewGame || movement || combat) return;
   const backup = { snapshot: currentSnapshot(), history: clone(history), lastTurn: clone(lastTurn), playMode, humanTeam, firstMove, botDifficulty };
   resetBotContext(); previousGame = backup; gamePhase = 'setup'; editor = false;
-  playMode = 'bot'; humanTeam = 1; firstMove = 'south'; botDifficulty = DEFAULT_BOT_DIFFICULTY;
+  playMode = 'bot'; humanTeam = 1; firstMove = 'random'; botDifficulty = DEFAULT_BOT_DIFFICULTY;
   resetNewGameDefaults();
   const canRefresh = Boolean($('#bot-worker-source')) && ['http:', 'https:'].includes(location.protocol);
   refreshingNewGame = canRefresh; render();

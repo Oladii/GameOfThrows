@@ -64,10 +64,12 @@ test('new-game preparation defaults to easy and returning restores the saved gam
   ui.context.state.ply = 12; const original = clone(ui.context.state);
   await ui.run('openNewGame()');
   assert.equal(ui.run('botDifficulty'), 'easy'); assert.equal(ui.context.gamePhase, 'setup');
+  assert.equal(ui.context.firstMove, 'random'); assert.equal(ui.saved().previousGame.firstMove, 'south');
   assert.equal(ui.saved().previousGame.botDifficulty, 'hard');
   ui.context.previousGame = ui.run('readPreviousGame(JSON.parse(JSON.stringify(previousGame)))');
   ui.run('returnToGame()');
   assert.equal(ui.run('botDifficulty'), 'hard'); assert.equal(ui.context.gamePhase, 'playing');
+  assert.equal(ui.context.firstMove, 'south');
   assert.deepEqual(clone(ui.context.state), original); assert.equal(ui.saved().botDifficulty, 'hard');
 });
 
