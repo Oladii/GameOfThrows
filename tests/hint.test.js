@@ -62,7 +62,7 @@ function declaration(name) {
 }
 function setup() {
   let request, result, error, cancelled = 0;
-  const context = vm.createContext({ state: { pieces: [], turn: 0, ply: 0, winner: null }, config: {}, selected: 'chosen', hover: {}, inspection: {}, hint: null, hintThinkingTimer: null, clearInterval() {},
+  const context = vm.createContext({ state: { pieces: [], turn: 0, ply: 0, winner: null }, config: {}, crypto: { getRandomValues(value) { value[0] = 12345; return value; } }, selected: 'chosen', hover: {}, inspection: {}, hint: null, hintThinkingTimer: null, clearInterval() {},
     hintRunner: { cancel() { cancelled++; }, run(input, onResult, onError) { request = input; result = onResult; error = onError; } },
     BOT_DIFFICULTIES: { hard: { depth: 4 } }, editor: false, gamePhase: 'playing', reviewingTurn: false, isBotTurn: () => false, humanCanMove: () => true,
     recentBotHistory: () => [], render() {}, explainHint: () => ({ title: 'Ход', reasons: ['Причина'] }) });
@@ -74,6 +74,7 @@ test('hint always uses hard search and does not execute its result', () => {
   const fixture = setup(), original = JSON.stringify(fixture.context.state);
   fixture.context.requestHint();
   assert.equal(fixture.request.options.depth, 4);
+  assert.equal(fixture.request.options.adviceDiversity, true);
   assert.equal(fixture.context.hint.pending, true);
   assert.equal(fixture.context.selected, null);
   assert.equal(fixture.context.hover, null);

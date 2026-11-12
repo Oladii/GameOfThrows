@@ -228,9 +228,12 @@ function coordinationRoutes(state, config) {
  */
 function chooseBotAction(inputState, inputConfig, options = {}) {
   const started = performance.now(), config = validateConfig(inputConfig), state = validateState(inputState, config);
-  const depth = options.depth ?? 4, seed = options.seed ?? 17001;
+  const adviceDiversity = options.adviceDiversity === true;
+  const choiceSeed = options.seed ?? 17001;
+  // Randomness chooses from the shortlist; it never changes the search or its beam.
+  const depth = options.depth ?? 4, seed = adviceDiversity ? 17001 : choiceSeed;
   if (!Number.isInteger(depth) || depth < 2 || depth > 4) throw new Error('Глубина бота должна быть от 2 до 4 полуходов.');
-  if (!Number.isFinite(seed)) throw new Error('Неверное начальное значение бота.');
+  if (!Number.isFinite(choiceSeed)) throw new Error('Неверное начальное значение бота.');
   const seen = new Map(Array.isArray(options.seenPositions) ? options.seenPositions : []);
   const historicalCounts = new Map();
   for (const previous of Array.isArray(options.previousStates) ? options.previousStates : []) {
@@ -373,11 +376,13 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
       }).sort((a, b) => maximizing ? b.immediate - a.immediate : a.immediate - b.immediate).slice(0, REPLY_BEAM);
     }
   };
+  const adviceScores = new Map();
   let best = null, bestScore = -Infinity;
   for (const candidate of beam) {
     const node = { ...candidate, pathKeys: [botPositionKey(candidate.outcome.state, config)] };
-    const bonus = candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
-    const score = alphaBeta(node, searchDepth - 1, bestScore + candidate.penalty - bonus, Infinity, context) - candidate.penalty + bonus;
+    const bonus = adviceDiversity ? 0 : candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
+    const score = alphaBeta(node, searchDepth - 1, adviceDiversity ? -Infinity : bestScore + candidate.penalty - bonus, Infinity, context) - candidate.penalty + bonus;
+    if (adviceDiversity) adviceScores.set(candidate, score);
     if (score > bestScore) { best = candidate; bestScore = score; }
   }
   if (PLAN === 'formation') {
@@ -404,8 +409,9 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
         best = null; bestScore = -Infinity;
         for (const candidate of safe) {
           const node = { ...candidate, pathKeys: [botPositionKey(candidate.outcome.state, config)] };
-          const bonus = candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
-          const score = alphaBeta(node, searchDepth - 1, bestScore + candidate.penalty - bonus, Infinity, context) - candidate.penalty + bonus;
+          const bonus = adviceDiversity ? 0 : candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
+          const score = alphaBeta(node, searchDepth - 1, adviceDiversity ? -Infinity : bestScore + candidate.penalty - bonus, Infinity, context) - candidate.penalty + bonus;
+          if (adviceDiversity) adviceScores.set(candidate, score);
           if (score > bestScore) { best = candidate; bestScore = score; }
         }
         stats.defense.status = inspect(best).status;
@@ -416,6 +422,33 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
         // within one reply; it says nothing about deeper minimax play.
         stats.defense.status = 'no-safe-root';
       }
+    }
+    if (adviceDiversity) {
+      // Eight points is a small positional difference: the cheapest unit costs 300.
+      // Only exact full-window root scores can enter this comparison.
+      const maxGap = 8, pool = [];
+      if (Math.abs(bestScore) < 1e6 && stats.defense.status !== 'no-safe-root') {
+        for (const [candidate, score] of [...adviceScores].sort((a, b) => b[1] - a[1])) {
+          if (score > bestScore + 1e-8 || bestScore - score > maxGap) continue;
+          if (!inspect(candidate).safe) continue;
+          pool.push({ candidate, score });
+          if (pool.length === 4) break;
+        }
+      }
+      if (!pool.length) pool.push({ candidate: best, score: bestScore });
+      let random = (choiceSeed >>> 0) + 0x9e3779b9;
+      random = Math.imul(random ^ random >>> 16, 0x21f0aaad);
+      random = Math.imul(random ^ random >>> 15, 0x735a2d97);
+      random = (random ^ random >>> 15) >>> 0;
+      const selected = pool[Math.floor(random / 4294967296 * pool.length)];
+      stats.adviceDiversity = { candidates: pool.length, maxGap, bestScore,
+        selectedScore: selected.score, gap: bestScore - selected.score,
+        options: pool.map(item => ({ action: item.candidate.action.pass ? { pass: true } : { id: item.candidate.action.id, to: item.candidate.action.to }, score: item.score })) };
+      best = selected.candidate; bestScore = selected.score;
+      stats.defense.status = stats.defense.status === 'no-safe-root' ? 'no-safe-root' : inspect(best).status;
+      stats.defense.selectedSafeRank = ranked.indexOf(best) + 1;
+      stats.defense.selectedOutsideOldBeam = !beam.includes(best);
+      stats.defense.checked = checked.size;
     }
     stats.defense.nodes = stats.nodes - startNodes;
     stats.defense.replies = [...checked.values()].reduce((sum, result) => sum + result.replies, 0);

@@ -81,7 +81,7 @@ function requestHint() {
   for (const entry of recent) if (entry.action?.id) lastActions.set(entry.action.id, entry.action);
   selected = null; hover = null; inspection = null;
   hint = { positionKey, pending: true };
-  hintRunner.run({ state, config, options: { depth: BOT_DIFFICULTIES.hard.depth, seed: 17001,
+  hintRunner.run({ state, config, options: { depth: BOT_DIFFICULTIES.hard.depth, seed: crypto.getRandomValues(new Uint32Array(1))[0], adviceDiversity: true,
     previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
     if (hint?.positionKey !== positionKey || hintPositionKey() !== positionKey || !canRequestHint()) return;
     try { hint = { positionKey, ...explainHint(state, config, result?.action), action: result?.action }; }
