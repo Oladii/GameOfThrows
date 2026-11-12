@@ -592,7 +592,7 @@ function render(deaths = []) {
   const lastPiece = lastAction && !lastAction.pass ? lastTurn.before.state.pieces.find(p => p.id === lastAction.id) : null;
   const lastMoveText = lastAction ? lastAction.pass ? `Последний ход: ${TEAM_NAMES[lastTurn.before.state.turn]} · пропуск.` : `Последний ход: ${TEAM_NAMES[lastTurn.before.state.turn]} · ${LABELS[lastPiece?.type] || 'Фигура'} · ${positionText(lastAction.from)} → ${positionText(lastAction.to)}.` : 'Сделайте ход. Стрелки рядом с «Отменить» позволяют посмотреть предыдущую позицию.';
   $('#bot-status').textContent = combat ? 'Расчёт боя…' : movement ? `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]} перемещается…` : currentDeaths.length ? 'Расчёт боя…' : editor ? 'Бот не ходит в редакторе.' : reviewingTurn ? lastMoveText : botIssue || (isBotTurn() ? botSuspended ? 'Ход бота приостановлен. Нажмите «Ход бота», чтобы продолжить.' : $('dialog[open]') ? 'Бот ждёт закрытия окна.' : 'Бот выбирает ход…' : lastMoveText);
-  let boardMessage = editor ? 'Выберите фигуру в палитре и нажмите на пустую клетку. Для удаления выберите ластик.' : selected && p?.team === state.turn ? 'Подсвечены пустые клетки, до которых можно пройти. Наведите на клетку для прогноза.' : 'Выберите свою фигуру, затем подсвеченную клетку.';
+  let boardMessage = editor ? 'Выберите фигуру в палитре и нажмите на пустую клетку. Для удаления выберите фигуру и нажмите Backspace или используйте ластик.' : selected && p?.team === state.turn ? 'Подсвечены пустые клетки, до которых можно пройти. Наведите на клетку для прогноза.' : 'Выберите свою фигуру, затем подсвеченную клетку.';
   if (!editor && selected && p?.team === state.turn && p.type === 'shield') boardMessage = shieldCanRetreat(p, config) ? `Край достигнут: ход во все стороны, постоянные +${config.shieldPromotion.damageBonus} к урону и +${config.shieldPromotion.defenseBonus} к стойкости, дальность до ${config.shieldPromotion.maxRange}; аура атаки и защиты — ${(config.shieldPromotion.allies ?? config.shieldPromotion).aura} ${plural((config.shieldPromotion.allies ?? config.shieldPromotion).aura, ['клетка', 'клетки', 'клеток'])}.` : 'Броненосец ходит вперёд и вбок. Достигнув противоположного края поля, навсегда получает ход назад.';
   if (!editor && state.winner === null && !state.pieces.filter(p => p.team === state.turn).some(p => reachable(p, state, config).length)) boardMessage = 'У команды нет доступных ходов. Исследуйте позицию в редакторе или разрешите пропуск в настройках.';
   if (!editor && isBotTurn()) boardMessage = 'Сейчас ход бота. Можно рассматривать атаки и ауры или открыть настройки.';
@@ -621,6 +621,17 @@ function deathDetail(deaths) { return deaths.length ? 'Погибли: ' + [0, 1
 function clearSelection() {
   if (!selected || movement || combat || currentDeaths.length) return;
   selected = null; render();
+}
+function deleteEditorSelection(event) {
+  if (event.key !== 'Backspace' || !editor || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || $('dialog[open]')) return;
+  const focus = document.activeElement;
+  if (focus?.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(focus?.tagName)) return;
+  if (!state.pieces.some(piece => piece.id === selected)) return;
+  event.preventDefault();
+  checkpoint();
+  state.pieces = state.pieces.filter(piece => piece.id !== selected);
+  selected = null; inspection = null; hover = null; state.winner = null;
+  render();
 }
 function onCell(q, r) {
   const occupant = visibleState().pieces.find(p => p.q === q && p.r === r);
@@ -1097,7 +1108,7 @@ $('#rules-open').addEventListener('click', openAbout);
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { if (dialog.id === 'rules-dialog') cancelOnboardingAnimation(); render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
-document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
+document.addEventListener('keydown', event => { deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; presentKills(completed.before, completed.forecast, completed.deaths); } if (event.matches && onboardingAnimation) onboardingAnimation.animator.finish(); });
 let attackReachInView = true;
