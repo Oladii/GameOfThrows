@@ -391,3 +391,12 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .arena-top[data-result="loss"] .move-counter{color:#853d31}
 .arena-top[data-result="draw"]{background:#ecece2}
 #board:focus{outline:none}
+
+.left-panel>.version{display:flex;flex-direction:column;gap:4px;margin: auto 0 0;padding:16px 0 4px;border:0;border-radius:0;color:var(--muted);font-size:10px;line-height:1.4;letter-spacing:0;font-variant-numeric:tabular-nums;grid-column:1/-1}
+.arena-top{gap:8px}
+.turn-mode{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1}
+.turn-mode::before{content:'·';margin-right:8px}
+.arena-top[data-result="win"] .turn-mode{color:#365528}
+.arena-top[data-result="loss"] .turn-mode{color:#853d31}
+@media(min-width:1001px){.left-panel{display:flex;flex-direction:column;height:var(--game-height);min-height:490px}.left-panel>*{flex-shrink:0}}
+@media(max-width:700px){.left-panel>.version{padding-top:12px}}

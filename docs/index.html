@@ -402,13 +402,22 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .arena-top[data-result="draw"]{background:#ecece2}
 #board:focus{outline:none}
 
+.left-panel>.version{display:flex;flex-direction:column;gap:4px;margin: auto 0 0;padding:16px 0 4px;border:0;border-radius:0;color:var(--muted);font-size:10px;line-height:1.4;letter-spacing:0;font-variant-numeric:tabular-nums;grid-column:1/-1}
+.arena-top{gap:8px}
+.turn-mode{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1}
+.turn-mode::before{content:'·';margin-right:8px}
+.arena-top[data-result="win"] .turn-mode{color:#365528}
+.arena-top[data-result="loss"] .turn-mode{color:#853d31}
+@media(min-width:1001px){.left-panel{display:flex;flex-direction:column;height:var(--game-height);min-height:490px}.left-panel>*{flex-shrink:0}}
+@media(max-width:700px){.left-panel>.version{padding-top:12px}}
+
 </style>
 </head>
 <body>
   <div id="update-notice" class="update-notice" role="status" hidden>Обновлены правила игры. Они применятся в новой партии.</div>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.42">v0.1.57</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T23:16:37.555Z">Сборка 13.11.2026, 02:16:37 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Как играть</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="heading-actions"><button id="rules-open" class="button outline">Как играть</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <main>
     <div class="workspace">
@@ -433,9 +442,10 @@ body:has(#rules-dialog[open]){overflow:hidden}
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.42">v0.1.58</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T23:18:54.907Z">Сборка 13.11.2026, 02:18:54 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
-        <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span></div>
+        <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
         <div class="scoreboard" id="scoreboard"></div>
         <div class="board-wrap"><svg id="board" focusable="false" tabindex="-1" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Поле игры" aria-describedby="board-keyboard-help" xmlns="http://www.w3.org/2000/svg"></svg><p id="board-keyboard-help">Стрелки перемещают фокус по клеткам. Enter или пробел выбирает фигуру или делает ход. Tab выходит с поля.</p></div>
         <div class="board-footer"><div class="overlays" role="group" aria-label="Подсветка поля"><button id="show-attacks" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать атаки обеих команд">Атаки</button><button id="show-auras" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать ауры обеих команд">Ауры</button></div><div class="turn-actions"><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Попросить совет</button><button id="undo" class="button subtle" title="Отменить последнее действие">↶ Отменить</button><button id="replay-combat" class="button subtle history-arrow combat-replay" type="button" title="Повторить последний расчёт" aria-label="Повторить последний расчёт" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg></button><button id="review-previous" class="button subtle history-arrow" title="Показать позицию перед последним ходом" aria-label="Показать последний ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Вернуться к текущей позиции" aria-label="Вернуться к текущей позиции" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
