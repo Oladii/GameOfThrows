@@ -40,10 +40,13 @@ export function hasNewerGameVersion(current, candidate) {
   for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return b[i] > a[i];
   return false;
 }
-export function needsNewGame({ phase, savedVersion, currentVersion, latestVersion }) {
-  return hasNewerGameVersion(currentVersion, latestVersion) || (phase === 'playing' && (!versionParts(savedVersion) || hasNewerGameVersion(savedVersion, currentVersion)));
+// UI releases apply on reload; only a rules change requires a new match.
+export function needsNewGame({ phase, savedVersion, currentRulesVersion, latestRulesVersion }) {
+  return hasNewerGameVersion(currentRulesVersion, latestRulesVersion)
+    || (phase === 'playing' && versionParts(currentRulesVersion) !== null
+      && (!versionParts(savedVersion) || hasNewerGameVersion(savedVersion, currentRulesVersion)));
 }
-export async function latestGameVersion({ location, fetchPage = fetch, online = true, timeoutMs = 4000 }) {
+export async function latestGameVersion({ location, fetchPage = fetch, online = true, timeoutMs = 4000, includeRules = false }) {
   const url = new URL(location.href);
   if (!online || !['http:', 'https:'].includes(url.protocol)) return null;
   url.searchParams.delete('_newGame'); url.searchParams.delete('_fresh');
@@ -52,8 +55,12 @@ export async function latestGameVersion({ location, fetchPage = fetch, online = 
   try {
     const response = await fetchPage(url.href, { cache: 'no-store', signal: controller.signal });
     if (!response.ok) return null;
-    const match = (await response.text()).match(/id=["']version-number["'][^>]*>\s*v?(\d+\.\d+\.\d+)\s*</);
-    return match?.[1] || null;
+    const html = await response.text();
+    const match = html.match(/id=["']version-number["'][^>]*>\s*v?(\d+\.\d+\.\d+)\s*</);
+    if (!match) return null;
+    if (!includeRules) return match[1];
+    const rules = html.match(/id=["']version-number["'][^>]*data-rules-version=["'](\d+\.\d+\.\d+)["']/);
+    return { version: match[1], rulesVersion: rules?.[1] || null };
   } catch { return null; }
   finally { clearTimeout(timer); }
 }

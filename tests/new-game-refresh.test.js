@@ -57,12 +57,12 @@ test('a stalled update times out and does not navigate', async () => {
 test('an old or legacy match warns until a new match is prepared, even after saving and reloading', () => {
   for (const savedVersion of [null, undefined, '0.1.19']) {
     const stored=JSON.parse(JSON.stringify({gameVersion:savedVersion}));
-    assert.equal(needsNewGame({phase:'playing',savedVersion:stored.gameVersion,currentVersion:'0.1.20'}),true);
+    assert.equal(needsNewGame({phase:'playing',savedVersion:stored.gameVersion,currentRulesVersion:'0.1.20'}),true);
   }
-  assert.equal(needsNewGame({phase:'playing',savedVersion:'0.1.20',currentVersion:'0.1.20'}),false);
-  assert.equal(needsNewGame({phase:'setup',savedVersion:null,currentVersion:'0.1.20'}),false);
-  assert.equal(needsNewGame({phase:'playing',savedVersion:'0.1.20',currentVersion:'0.1.20',latestVersion:'0.1.21'}),true);
-  assert.equal(needsNewGame({phase:'setup',savedVersion:'0.1.20',currentVersion:'0.1.20',latestVersion:'0.1.21'}),true);
+  assert.equal(needsNewGame({phase:'playing',savedVersion:'0.1.20',currentRulesVersion:'0.1.20'}),false);
+  assert.equal(needsNewGame({phase:'setup',savedVersion:null,currentRulesVersion:'0.1.20'}),false);
+  assert.equal(needsNewGame({phase:'playing',savedVersion:'0.1.20',currentRulesVersion:'0.1.20',latestRulesVersion:'0.1.21'}),true);
+  assert.equal(needsNewGame({phase:'setup',savedVersion:'0.1.20',currentRulesVersion:'0.1.20',latestRulesVersion:'0.1.21'}),true);
   assert.equal(hasNewerGameVersion('0.1.9','0.1.20'),true);
   for(const value of ['0.1.19','0.1.20',null,'invalid'])assert.equal(hasNewerGameVersion('0.1.20',value),false);
 });
@@ -82,4 +82,16 @@ test('failed update checks keep the current match and do not invent an available
   }
   assert.equal(await latestGameVersion({location:page('file:///tmp/Lamps.html'),fetchPage(){assert.fail('must not fetch');}}),null);
   assert.equal(await latestGameVersion({location:page(),online:false,fetchPage(){assert.fail('must not fetch');}}),null);
+});
+
+
+test('UI releases do not require replacing a match; real rules changes do', async () => {
+  assert.equal(needsNewGame({ phase: 'playing', savedVersion: '0.1.42', currentVersion: '0.1.56', latestVersion: '0.1.57', currentRulesVersion: '0.1.42', latestRulesVersion: '0.1.42' }), false);
+  assert.equal(needsNewGame({ phase: 'playing', savedVersion: '0.1.55', currentRulesVersion: '0.1.42', latestRulesVersion: '0.1.60' }), true);
+  assert.equal(needsNewGame({ phase: 'playing', savedVersion: '0.1.41', currentRulesVersion: '0.1.42' }), true);
+  const release = await latestGameVersion({ location: page(), includeRules: true, fetchPage: async () => response('<span id="version-number" data-rules-version="0.1.42">v0.1.56</span>') });
+  assert.deepEqual(release, { version: '0.1.56', rulesVersion: '0.1.42' });
+  const unmarked = await latestGameVersion({ location: page(), includeRules: true, fetchPage: async () => response('<span id="version-number">v0.1.99</span>') });
+  assert.equal(unmarked.rulesVersion, null);
+  assert.equal(needsNewGame({ phase: 'playing', savedVersion: '0.1.42', currentRulesVersion: '0.1.42', latestRulesVersion: unmarked.rulesVersion }), false);
 });

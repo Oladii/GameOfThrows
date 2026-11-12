@@ -14,6 +14,7 @@ import { createUnitLesson, renderUnitExamples } from './onboarding-units.js';
 import { createShowcaseBattle, renderShowcaseBattle } from './onboarding-showcase.js';
 const $ = selector => document.querySelector(selector);
 const CURRENT_GAME_VERSION = $('#version-number').textContent.replace(/^v/, '');
+const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
 const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
@@ -63,7 +64,7 @@ const ICON_PATHS = {
 const icon = (type, piece = null) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${piece ? unitAppearance(piece, config, ICON_PATHS).icon : ICON_PATHS[type]}</svg>`;
 const unitBadges = renderUnitBadges;
 let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], log = [];
-let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, versionCheckPending = false;
+let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, latestRulesVersion = null, versionCheckPending = false;
 let firstMove = 'random';
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
@@ -522,14 +523,15 @@ function renderGameResult(position) {
   $('.arena-top').dataset.result = !finished ? '' : position.winner === 'draw' ? 'draw' : playMode === 'bot' && position.winner !== humanTeam ? 'loss' : 'win';
 }
 function renderUpdateNotice() {
-  $('#update-notice').hidden = !needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentVersion: CURRENT_GAME_VERSION, latestVersion });
+  $('#update-notice').hidden = !needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentRulesVersion: CURRENT_RULES_VERSION, latestRulesVersion });
 }
 async function checkGameVersion() {
   if (versionCheckPending || document.visibilityState === 'hidden') return;
   versionCheckPending = true;
   try {
-    const found = await latestGameVersion({ location, online: navigator.onLine !== false });
-    if (hasNewerGameVersion(CURRENT_GAME_VERSION, found)) latestVersion = found;
+    const found = await latestGameVersion({ location, online: navigator.onLine !== false, includeRules: true });
+    if (hasNewerGameVersion(CURRENT_GAME_VERSION, found?.version)) latestVersion = found.version;
+    latestRulesVersion = found?.rulesVersion ?? latestRulesVersion;
     renderUpdateNotice();
   } finally { versionCheckPending = false; }
 }

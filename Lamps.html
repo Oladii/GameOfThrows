@@ -405,10 +405,10 @@ body:has(#rules-dialog[open]){overflow:hidden}
 </style>
 </head>
 <body>
-  <div id="update-notice" class="update-notice" role="status" hidden>Доступны обновления. Начните новую игру, чтобы они вступили в силу.</div>
+  <div id="update-notice" class="update-notice" role="status" hidden>Обновлены правила игры. Они применятся в новой партии.</div>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.55</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T22:58:17.934Z">Сборка 13.11.2026, 01:58:17 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Как играть</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.42">v0.1.56</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T23:00:47.770Z">Сборка 13.11.2026, 02:00:47 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Как играть</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <main>
     <div class="workspace">
@@ -2797,10 +2797,13 @@ function hasNewerGameVersion(current, candidate) {
   for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return b[i] > a[i];
   return false;
 }
-function needsNewGame({ phase, savedVersion, currentVersion, latestVersion }) {
-  return hasNewerGameVersion(currentVersion, latestVersion) || (phase === 'playing' && (!versionParts(savedVersion) || hasNewerGameVersion(savedVersion, currentVersion)));
+// UI releases apply on reload; only a rules change requires a new match.
+function needsNewGame({ phase, savedVersion, currentRulesVersion, latestRulesVersion }) {
+  return hasNewerGameVersion(currentRulesVersion, latestRulesVersion)
+    || (phase === 'playing' && versionParts(currentRulesVersion) !== null
+      && (!versionParts(savedVersion) || hasNewerGameVersion(savedVersion, currentRulesVersion)));
 }
-async function latestGameVersion({ location, fetchPage = fetch, online = true, timeoutMs = 4000 }) {
+async function latestGameVersion({ location, fetchPage = fetch, online = true, timeoutMs = 4000, includeRules = false }) {
   const url = new URL(location.href);
   if (!online || !['http:', 'https:'].includes(url.protocol)) return null;
   url.searchParams.delete('_newGame'); url.searchParams.delete('_fresh');
@@ -2809,8 +2812,12 @@ async function latestGameVersion({ location, fetchPage = fetch, online = true, t
   try {
     const response = await fetchPage(url.href, { cache: 'no-store', signal: controller.signal });
     if (!response.ok) return null;
-    const match = (await response.text()).match(/id=["']version-number["'][^>]*>\s*v?(\d+\.\d+\.\d+)\s*</);
-    return match?.[1] || null;
+    const html = await response.text();
+    const match = html.match(/id=["']version-number["'][^>]*>\s*v?(\d+\.\d+\.\d+)\s*</);
+    if (!match) return null;
+    if (!includeRules) return match[1];
+    const rules = html.match(/id=["']version-number["'][^>]*data-rules-version=["'](\d+\.\d+\.\d+)["']/);
+    return { version: match[1], rulesVersion: rules?.[1] || null };
   } catch { return null; }
   finally { clearTimeout(timer); }
 }
@@ -2901,6 +2908,7 @@ function explainHint(state, config, action) {
 
 const $ = selector => document.querySelector(selector);
 const CURRENT_GAME_VERSION = $('#version-number').textContent.replace(/^v/, '');
+const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
 const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
@@ -2950,7 +2958,7 @@ const ICON_PATHS = {
 const icon = (type, piece = null) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${piece ? unitAppearance(piece, config, ICON_PATHS).icon : ICON_PATHS[type]}</svg>`;
 const unitBadges = renderUnitBadges;
 let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], log = [];
-let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, versionCheckPending = false;
+let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, latestRulesVersion = null, versionCheckPending = false;
 let firstMove = 'random';
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
@@ -3409,14 +3417,15 @@ function renderGameResult(position) {
   $('.arena-top').dataset.result = !finished ? '' : position.winner === 'draw' ? 'draw' : playMode === 'bot' && position.winner !== humanTeam ? 'loss' : 'win';
 }
 function renderUpdateNotice() {
-  $('#update-notice').hidden = !needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentVersion: CURRENT_GAME_VERSION, latestVersion });
+  $('#update-notice').hidden = !needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentRulesVersion: CURRENT_RULES_VERSION, latestRulesVersion });
 }
 async function checkGameVersion() {
   if (versionCheckPending || document.visibilityState === 'hidden') return;
   versionCheckPending = true;
   try {
-    const found = await latestGameVersion({ location, online: navigator.onLine !== false });
-    if (hasNewerGameVersion(CURRENT_GAME_VERSION, found)) latestVersion = found;
+    const found = await latestGameVersion({ location, online: navigator.onLine !== false, includeRules: true });
+    if (hasNewerGameVersion(CURRENT_GAME_VERSION, found?.version)) latestVersion = found.version;
+    latestRulesVersion = found?.rulesVersion ?? latestRulesVersion;
     renderUpdateNotice();
   } finally { versionCheckPending = false; }
 }

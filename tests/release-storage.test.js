@@ -30,7 +30,7 @@ function setup(overrides={}){
 test('release39 selects existing production saves while localhost and standalone keep the local profile',()=>{
   const declaration=app.match(/^const archiveIsSite = .*;$/m)[0]+'\n'+app.match(/^const STORAGE = .*;$/m)[0]+'\nSTORAGE';
   for(const [origin,pathname,expected]of [['https://oladii.github.io','/GameOfThrows/','lamps-prototype-v1'],['http://127.0.0.1:35810','/','lamps-local-playtest13-v1'],['null','/Lamps.html','lamps-local-playtest13-v1']])assert.equal(vm.runInNewContext(declaration,{location:{origin,pathname}}),expected);
-  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.55');
+  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.56');
 });
 
 test('a fully known production revision16 standard pending setup upgrades to current13',()=>{
@@ -48,7 +48,7 @@ test('production revision16 active games, editors, custom settings and custom po
     assert.equal(ui.context.gameVersion,'0.1.36');
     ui.reset();assert.deepEqual(plain(ui.context.config),DEFAULT_CONFIG);assert.deepEqual(plain(ui.context.state),createGame(DEFAULT_CONFIG));assert.equal(ui.context.state.pieces.length,26);assert.equal(ui.context.gameVersion,'0.1.39');
   }
-  assert.equal(needsNewGame({phase:'playing',savedVersion:'0.1.36',currentVersion:'0.1.39',latestVersion:null}),true);
+  assert.equal(needsNewGame({phase:'playing',savedVersion:'0.1.36',currentRulesVersion:'0.1.39',latestRulesVersion:null}),true);
 });
 
 test('fresh preparation defaults to random, and revision1 setup changes only the first-move preference',()=>{
