@@ -117,7 +117,7 @@ export function lethalAttackPresentation(position, report, deaths) {
 
 export const MAX_DAMAGE_ARROW_BEND = 32;
 
-export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report = null, straight = false } = {}) {
+export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report = null, straight = false, maxBend = MAX_DAMAGE_ARROW_BEND } = {}) {
   const edges = arrows.map((arrow, order) => {
     const { source, target } = arrow;
     const start = point(source), end = point(target), length = Math.hypot(end.x - start.x, end.y - start.y);
@@ -163,7 +163,7 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, 
     * Math.max(0,Math.min(a.bottom,b.bottom+3)-Math.max(a.top,b.top-3));
   for (const edge of edges) {
     const group = groups.get(edge.lineKey), lanes = Math.max(...group.map(e => e.lane))+1;
-    const offset = (edge.lane-(lanes-1)/2)*Math.min(28,MAX_DAMAGE_ARROW_BEND*2/Math.max(1,lanes-1));
+    const offset = (edge.lane-(lanes-1)/2)*Math.min(28,maxBend*2/Math.max(1,lanes-1));
     edge.from = { x:edge.start.x+edge.dx*edge.shorten, y:edge.start.y+edge.dy*edge.shorten };
     edge.to = { x:edge.end.x-edge.dx*edge.shorten, y:edge.end.y-edge.dy*edge.shorten };
     const width = damageBadgeWidth(edge.damage,9);
@@ -175,7 +175,7 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, 
     // overlapping attacks retain distinct curves, including reciprocal hits.
     const slots = Math.max(15,lanes*4);
     const bends = Array.from({length:slots},(_,i)=>i).filter(i=>i%lanes===edge.lane)
-      .map(i=>-MAX_DAMAGE_ARROW_BEND+i*MAX_DAMAGE_ARROW_BEND*2/(slots-1));
+      .map(i=>-maxBend+i*maxBend*2/(slots-1));
     const candidates = [];
     for (const bend of bends) {
       const control=controlAt(bend);
@@ -242,11 +242,11 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, 
   return edges;
 }
 
-export function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false } = {}) {
+export function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false, maxBend = MAX_DAMAGE_ARROW_BEND } = {}) {
   const points = board.map(point), bounds = points.length ? { left:Math.min(...points.map(p=>p.x))-32,right:Math.max(...points.map(p=>p.x))+32,top:Math.min(...points.map(p=>p.y))-32,bottom:Math.max(...points.map(p=>p.y))+32 } : null;
   // Lay out the complete group before revealing it so existing arrows and
   // their labels stay in place when the next contribution appears.
-  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight}).filter(e => visibleCount === null || e.order < visibleCount);
+  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight,maxBend}).filter(e => visibleCount === null || e.order < visibleCount);
   const reveal = e => visibleCount !== null && e.order === visibleCount - 1 ? ' data-revealing="true"' : '';
   const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"><title>${e.damage} урона</title></path></g>`).join('');
   // Labels go above every shaft, so a later arrow cannot paint over a number.

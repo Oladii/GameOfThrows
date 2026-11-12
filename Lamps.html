@@ -395,7 +395,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.47</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T21:58:09.183Z">Сборка 13.11.2026, 00:58:09 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.48</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T22:06:28.121Z">Сборка 13.11.2026, 01:06:28 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <div id="update-notice" class="update-notice" role="status" hidden>Доступны обновления. Начните новую игру, чтобы они вступили в силу.</div>
   <main>
@@ -2214,7 +2214,7 @@ function lethalAttackPresentation(position, report, deaths) {
 
 const MAX_DAMAGE_ARROW_BEND = 32;
 
-function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report = null, straight = false } = {}) {
+function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report = null, straight = false, maxBend = MAX_DAMAGE_ARROW_BEND } = {}) {
   const edges = arrows.map((arrow, order) => {
     const { source, target } = arrow;
     const start = point(source), end = point(target), length = Math.hypot(end.x - start.x, end.y - start.y);
@@ -2260,7 +2260,7 @@ function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report 
     * Math.max(0,Math.min(a.bottom,b.bottom+3)-Math.max(a.top,b.top-3));
   for (const edge of edges) {
     const group = groups.get(edge.lineKey), lanes = Math.max(...group.map(e => e.lane))+1;
-    const offset = (edge.lane-(lanes-1)/2)*Math.min(28,MAX_DAMAGE_ARROW_BEND*2/Math.max(1,lanes-1));
+    const offset = (edge.lane-(lanes-1)/2)*Math.min(28,maxBend*2/Math.max(1,lanes-1));
     edge.from = { x:edge.start.x+edge.dx*edge.shorten, y:edge.start.y+edge.dy*edge.shorten };
     edge.to = { x:edge.end.x-edge.dx*edge.shorten, y:edge.end.y-edge.dy*edge.shorten };
     const width = damageBadgeWidth(edge.damage,9);
@@ -2272,7 +2272,7 @@ function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report 
     // overlapping attacks retain distinct curves, including reciprocal hits.
     const slots = Math.max(15,lanes*4);
     const bends = Array.from({length:slots},(_,i)=>i).filter(i=>i%lanes===edge.lane)
-      .map(i=>-MAX_DAMAGE_ARROW_BEND+i*MAX_DAMAGE_ARROW_BEND*2/(slots-1));
+      .map(i=>-maxBend+i*maxBend*2/(slots-1));
     const candidates = [];
     for (const bend of bends) {
       const control=controlAt(bend);
@@ -2339,11 +2339,11 @@ function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report 
   return edges;
 }
 
-function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false } = {}) {
+function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false, maxBend = MAX_DAMAGE_ARROW_BEND } = {}) {
   const points = board.map(point), bounds = points.length ? { left:Math.min(...points.map(p=>p.x))-32,right:Math.max(...points.map(p=>p.x))+32,top:Math.min(...points.map(p=>p.y))-32,bottom:Math.max(...points.map(p=>p.y))+32 } : null;
   // Lay out the complete group before revealing it so existing arrows and
   // their labels stay in place when the next contribution appears.
-  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight}).filter(e => visibleCount === null || e.order < visibleCount);
+  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight,maxBend}).filter(e => visibleCount === null || e.order < visibleCount);
   const reveal = e => visibleCount !== null && e.order === visibleCount - 1 ? ' data-revealing="true"' : '';
   const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"><title>${e.damage} урона</title></path></g>`).join('');
   // Labels go above every shaft, so a later arrow cannot paint over a number.
@@ -3276,6 +3276,10 @@ function inspectionContext() {
 function highlightSources() {
   if (combat) { $('#attack-lines').innerHTML = combat.phase === 'attacks' ? renderDamageArrows(combat.groups[combat.groupIndex].arrows, point, { pieces: combat.visiblePosition.pieces, board: cells(config), visibleCount: combat.arrowCount, report: combat.report }) : ''; return; }
   const context = movement ? { ...movement.forecast, isPreview: false } : inspectionContext(), target = context.piece;
+  const potentialDamage = new Map();
+  for (const attack of (target || selected) ? inspectionDamageArrows(target, selected, context.position, context.report, playMode === 'bot' ? humanTeam : context.position.turn) : []) {
+    if (attack.source.id === selected) potentialDamage.set(attack.target.id, attack.damage);
+  }
   const sourceIds = new Set(target ? context.report.get(target.id).attackers.map(a => a.id) : []);
   document.querySelectorAll('#board [data-piece-id]').forEach(element => {
     const id = element.dataset.pieceId;
@@ -3285,7 +3289,7 @@ function highlightSources() {
     element.classList.toggle('fatal', !previewOrigin && (info?.dead || false));
     element.classList.toggle('attacking-source', sourceIds.has(id));
     if (info) {
-      element.querySelector('.unit-badges').outerHTML = unitBadges(info, { showIncoming: id === selected || id === target?.id, pieceType: element.dataset.pieceType, veteran: element.dataset.veteran === 'true' });
+      element.querySelector('.unit-badges').outerHTML = unitBadges({ ...info, dead: potentialDamage.has(id) ? false : info.dead, incoming: potentialDamage.get(id) ?? info.incoming }, { showIncoming: !previewOrigin && (potentialDamage.has(id) || id === selected || id === target?.id), pieceType: element.dataset.pieceType, veteran: element.dataset.veteran === 'true' });
     }
   });
   document.querySelectorAll('#board [data-cell]').forEach(element => element.classList.toggle('inspection-target', !!target && element.dataset.cell === key(target.q, target.r)));
@@ -3294,11 +3298,12 @@ function highlightSources() {
   if (!layer) return;
   if (!target) { layer.innerHTML = ''; return; }
   const end = point(target);
-  const arrows = inspectionDamageArrows(target, selected, context.position, context.report, playMode === 'bot' ? humanTeam : context.position.turn);
   const targetInfo = context.report.get(target.id);
   const ghostAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS) : null;
   const ghost = context.isPreview ? `<g class="preview-ghost ${target.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})">${renderTokenBody(ghostAppearance, target.team)}${unitBadges(targetInfo, { showIncoming: true, pieceType: target.type, veteran: ghostAppearance.veteran })}</g>` : '';
-  layer.innerHTML = renderDamageArrows(arrows, point, { pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, straight: true });
+  const arrowTarget = context.position.pieces.find(piece => piece.id === selected && piece.team === (playMode === 'bot' ? humanTeam : context.position.turn)) || target;
+  const incoming = (context.report.get(arrowTarget.id)?.attackers || []).map(attack => ({ source: context.position.pieces.find(piece => piece.id === attack.id), target: arrowTarget, damage: attack.damage })).filter(attack => attack.source);
+  layer.innerHTML = renderDamageArrows(incoming, point, { pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, maxBend: 18 });
 }
 function paintAttackReach(context) {
   const layer = $('#selected-attack-reach');

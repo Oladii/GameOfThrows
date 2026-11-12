@@ -398,6 +398,10 @@ function inspectionContext() {
 function highlightSources() {
   if (combat) { $('#attack-lines').innerHTML = combat.phase === 'attacks' ? renderDamageArrows(combat.groups[combat.groupIndex].arrows, point, { pieces: combat.visiblePosition.pieces, board: cells(config), visibleCount: combat.arrowCount, report: combat.report }) : ''; return; }
   const context = movement ? { ...movement.forecast, isPreview: false } : inspectionContext(), target = context.piece;
+  const potentialDamage = new Map();
+  for (const attack of (target || selected) ? inspectionDamageArrows(target, selected, context.position, context.report, playMode === 'bot' ? humanTeam : context.position.turn) : []) {
+    if (attack.source.id === selected) potentialDamage.set(attack.target.id, attack.damage);
+  }
   const sourceIds = new Set(target ? context.report.get(target.id).attackers.map(a => a.id) : []);
   document.querySelectorAll('#board [data-piece-id]').forEach(element => {
     const id = element.dataset.pieceId;
@@ -407,7 +411,7 @@ function highlightSources() {
     element.classList.toggle('fatal', !previewOrigin && (info?.dead || false));
     element.classList.toggle('attacking-source', sourceIds.has(id));
     if (info) {
-      element.querySelector('.unit-badges').outerHTML = unitBadges(info, { showIncoming: id === selected || id === target?.id, pieceType: element.dataset.pieceType, veteran: element.dataset.veteran === 'true' });
+      element.querySelector('.unit-badges').outerHTML = unitBadges({ ...info, dead: potentialDamage.has(id) ? false : info.dead, incoming: potentialDamage.get(id) ?? info.incoming }, { showIncoming: !previewOrigin && (potentialDamage.has(id) || id === selected || id === target?.id), pieceType: element.dataset.pieceType, veteran: element.dataset.veteran === 'true' });
     }
   });
   document.querySelectorAll('#board [data-cell]').forEach(element => element.classList.toggle('inspection-target', !!target && element.dataset.cell === key(target.q, target.r)));
@@ -416,11 +420,12 @@ function highlightSources() {
   if (!layer) return;
   if (!target) { layer.innerHTML = ''; return; }
   const end = point(target);
-  const arrows = inspectionDamageArrows(target, selected, context.position, context.report, playMode === 'bot' ? humanTeam : context.position.turn);
   const targetInfo = context.report.get(target.id);
   const ghostAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS) : null;
   const ghost = context.isPreview ? `<g class="preview-ghost ${target.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})">${renderTokenBody(ghostAppearance, target.team)}${unitBadges(targetInfo, { showIncoming: true, pieceType: target.type, veteran: ghostAppearance.veteran })}</g>` : '';
-  layer.innerHTML = renderDamageArrows(arrows, point, { pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, straight: true });
+  const arrowTarget = context.position.pieces.find(piece => piece.id === selected && piece.team === (playMode === 'bot' ? humanTeam : context.position.turn)) || target;
+  const incoming = (context.report.get(arrowTarget.id)?.attackers || []).map(attack => ({ source: context.position.pieces.find(piece => piece.id === attack.id), target: arrowTarget, damage: attack.damage })).filter(attack => attack.source);
+  layer.innerHTML = renderDamageArrows(incoming, point, { pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, maxBend: 18 });
 }
 function paintAttackReach(context) {
   const layer = $('#selected-attack-reach');
