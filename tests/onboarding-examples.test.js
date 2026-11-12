@@ -132,8 +132,8 @@ test('both auras improve allies while support stays unarmed without a veteran', 
 });
 
 test('all examples appear on one page with unique SVG ids and independent states and resets', () => {
-  // Mask identifiers are opaque, unique per render; they do not represent lesson state.
-  const stable = html => html.replace(/token-(type|wreath|target)-\d+/g,'token-$1-ID');
+  // Mask and gradient identifiers are opaque, unique per render; they do not represent lesson state.
+  const stable = html => html.replace(/token-(type|wreath|target|surface)-\d+/g,'token-$1-ID');
   const initialHtml = renderMoveExamples({}, icons), initial = sceneHtml(initialHtml);
   assert.deepEqual([...initial.keys()], ['0', '1', '2', '3', '4-attack', '4-defense']);
   assert.deepEqual([...initialHtml.matchAll(/ПРИМЕР (\d+) ИЗ (\d+)/g)].map(match => `${match[1]}/${match[2]}`), ['1/6', '2/6', '3/6', '4/6', '5/6', '6/6']);
