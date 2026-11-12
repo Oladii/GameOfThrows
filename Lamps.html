@@ -377,7 +377,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .attack-lines .damage-arrow-path{fill:none;stroke:var(--attack-color,#b98227);stroke-width:2.5;stroke-dasharray:5 3;opacity:.9}
 .attack-lines .attack-ray{filter:url(#damage-arrow-outline)}
 
-.play-again{display:flex;margin:4px auto 16px;min-width:190px;justify-content:center}
+
 
 /* Keep both team headers still when the active turn or combat phase changes. */
 .turn-tag{min-height:10px;line-height:10px}
@@ -393,12 +393,21 @@ body:has(#rules-dialog[open]){overflow:hidden}
 /* Selected-unit damage stays readable even when the full combat forecast is lethal. */
 .piece.fatal .unit-badges.potential-damage .incoming-badge,.piece.fatal .unit-badges.potential-damage .incoming-text{visibility:visible}
 
+.arena-top{height:30px;min-height:30px;flex-shrink:0;min-width:0;border-radius:6px;padding:0 10px}
+.arena-top .move-counter{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arena-top[data-result="win"]{background:#dcebc9}
+.arena-top[data-result="win"] .move-counter{color:#365528}
+.arena-top[data-result="loss"]{background:#f4d8d2}
+.arena-top[data-result="loss"] .move-counter{color:#853d31}
+.arena-top[data-result="draw"]{background:#ecece2}
+#board:focus{outline:none}
+
 </style>
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.51</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T22:39:56.877Z">Сборка 13.11.2026, 01:39:56 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.52</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T22:51:04.766Z">Сборка 13.11.2026, 01:51:04 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <div id="update-notice" class="update-notice" role="status" hidden>Доступны обновления. Начните новую игру, чтобы они вступили в силу.</div>
   <main>
@@ -428,8 +437,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span></div>
         <div class="scoreboard" id="scoreboard"></div>
-        <div class="board-wrap"><svg id="board" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Поле игры" aria-describedby="board-keyboard-help" xmlns="http://www.w3.org/2000/svg"></svg><p id="board-keyboard-help">Стрелки перемещают фокус по клеткам. Enter или пробел выбирает фигуру или делает ход. Tab выходит с поля.</p></div>
-        <button id="play-again" class="button primary play-again" type="button" hidden>Сыграть ещё раз</button>
+        <div class="board-wrap"><svg id="board" focusable="false" tabindex="-1" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Поле игры" aria-describedby="board-keyboard-help" xmlns="http://www.w3.org/2000/svg"></svg><p id="board-keyboard-help">Стрелки перемещают фокус по клеткам. Enter или пробел выбирает фигуру или делает ход. Tab выходит с поля.</p></div>
         <div class="board-footer"><div class="overlays" role="group" aria-label="Подсветка поля"><button id="show-attacks" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать атаки обеих команд">Атаки</button><button id="show-auras" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать ауры обеих команд">Ауры</button></div><div class="turn-actions"><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Попросить совет</button><button id="undo" class="button subtle" title="Отменить последнее действие">↶ Отменить</button><button id="replay-combat" class="button subtle history-arrow combat-replay" type="button" title="Повторить последний расчёт" aria-label="Повторить последний расчёт" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg></button><button id="review-previous" class="button subtle history-arrow" title="Показать позицию перед последним ходом" aria-label="Показать последний ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Вернуться к текущей позиции" aria-label="Вернуться к текущей позиции" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
         <div class="board-legend-slot">
         <div id="attack-legend" class="attack-legend" hidden></div>
@@ -3400,7 +3408,7 @@ function renderGameResult(position) {
   }
   const victory = finished ? `${position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Севера' : 'Юга'}`}${reason ? '. ' + reason : ''}` : '';
   $('#move-counter').textContent = gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${movement ? ' · движение' : combat ? ' · расчёт боя' : ''}${victory ? '. ' + victory : ''}`;
-  $('#play-again').hidden = !finished;
+  $('.arena-top').dataset.result = !finished ? '' : position.winner === 'draw' ? 'draw' : playMode === 'bot' && position.winner !== humanTeam ? 'loss' : 'win';
 }
 function renderUpdateNotice() {
   $('#update-notice').hidden = !needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentVersion: CURRENT_GAME_VERSION, latestVersion });
@@ -3540,6 +3548,7 @@ $('.board-wrap').addEventListener('click', event => {
   if (cell) { focusBoardCell(cell.dataset.cell); onCell(...cell.dataset.cell.split(',').map(Number)); }
   else clearSelection();
 });
+$('#board').addEventListener('mousedown', event => { if (event.target === $('#board')) event.preventDefault(); });
 $('#board').addEventListener('keydown', event => {
   const cell = event.target.closest('[data-cell]');
   if (!cell) return;
@@ -3621,7 +3630,6 @@ $('#start-setup').addEventListener('click', async () => {
   openStartSettings();
 });
 $('#new-game').addEventListener('click', openNewGame);
-$('#play-again').addEventListener('click', openNewGame);
 $('#start-game').addEventListener('click', startGame);
 function returnToGame() {
   if (!previousGame || gamePhase !== 'setup') return;

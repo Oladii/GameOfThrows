@@ -367,7 +367,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .attack-lines .damage-arrow-path{fill:none;stroke:var(--attack-color,#b98227);stroke-width:2.5;stroke-dasharray:5 3;opacity:.9}
 .attack-lines .attack-ray{filter:url(#damage-arrow-outline)}
 
-.play-again{display:flex;margin:4px auto 16px;min-width:190px;justify-content:center}
+
 
 /* Keep both team headers still when the active turn or combat phase changes. */
 .turn-tag{min-height:10px;line-height:10px}
@@ -382,3 +382,12 @@ body:has(#rules-dialog[open]){overflow:hidden}
 
 /* Selected-unit damage stays readable even when the full combat forecast is lethal. */
 .piece.fatal .unit-badges.potential-damage .incoming-badge,.piece.fatal .unit-badges.potential-damage .incoming-text{visibility:visible}
+
+.arena-top{height:30px;min-height:30px;flex-shrink:0;min-width:0;border-radius:6px;padding:0 10px}
+.arena-top .move-counter{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arena-top[data-result="win"]{background:#dcebc9}
+.arena-top[data-result="win"] .move-counter{color:#365528}
+.arena-top[data-result="loss"]{background:#f4d8d2}
+.arena-top[data-result="loss"] .move-counter{color:#853d31}
+.arena-top[data-result="draw"]{background:#ecece2}
+#board:focus{outline:none}

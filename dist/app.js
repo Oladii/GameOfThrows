@@ -519,7 +519,7 @@ function renderGameResult(position) {
   }
   const victory = finished ? `${position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Севера' : 'Юга'}`}${reason ? '. ' + reason : ''}` : '';
   $('#move-counter').textContent = gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${movement ? ' · движение' : combat ? ' · расчёт боя' : ''}${victory ? '. ' + victory : ''}`;
-  $('#play-again').hidden = !finished;
+  $('.arena-top').dataset.result = !finished ? '' : position.winner === 'draw' ? 'draw' : playMode === 'bot' && position.winner !== humanTeam ? 'loss' : 'win';
 }
 function renderUpdateNotice() {
   $('#update-notice').hidden = !needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentVersion: CURRENT_GAME_VERSION, latestVersion });
@@ -659,6 +659,7 @@ $('.board-wrap').addEventListener('click', event => {
   if (cell) { focusBoardCell(cell.dataset.cell); onCell(...cell.dataset.cell.split(',').map(Number)); }
   else clearSelection();
 });
+$('#board').addEventListener('mousedown', event => { if (event.target === $('#board')) event.preventDefault(); });
 $('#board').addEventListener('keydown', event => {
   const cell = event.target.closest('[data-cell]');
   if (!cell) return;
@@ -740,7 +741,6 @@ $('#start-setup').addEventListener('click', async () => {
   openStartSettings();
 });
 $('#new-game').addEventListener('click', openNewGame);
-$('#play-again').addEventListener('click', openNewGame);
 $('#start-game').addEventListener('click', startGame);
 function returnToGame() {
   if (!previousGame || gamePhase !== 'setup') return;

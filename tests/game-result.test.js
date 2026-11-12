@@ -6,23 +6,23 @@ import { winnerForPieces } from '../dist/engine.js';
 
 const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
 function setup(victoryCondition = 'all-units') {
-  const nodes={'#move-counter':{textContent:''},'#play-again':{hidden:true}};
-  const context=vm.createContext({config:{victoryCondition},gamePhase:'playing',editor:false,movement:null,combat:null,currentDeaths:[],reviewingTurn:false,$:s=>nodes[s]});
+  const nodes={'#move-counter':{textContent:''},'.arena-top':{dataset:{}}};
+  const context=vm.createContext({config:{victoryCondition},gamePhase:'playing',editor:false,playMode:'bot',humanTeam:1,movement:null,combat:null,currentDeaths:[],reviewingTurn:false,$:s=>nodes[s]});
   vm.runInContext(app.slice(app.indexOf('function renderGameResult('),app.indexOf('function render(deaths')),context);
   return {context,nodes,render:(winner,pieces=[])=>context.renderGameResult({ply:65,winner,pieces})};
 }
-test('victory is written beside the turn counter and the rematch button appears below the field',()=>{
+test('victory is written beside the turn counter with an inline result background',()=>{
   const ui=setup();
   for(const [winner,label] of [[0,'Ход 66. Победа Севера'],[1,'Ход 66. Победа Юга'],['draw','Ход 66. Ничья']]) {
-    ui.render(winner);assert.equal(ui.nodes['#move-counter'].textContent,label);assert.equal(ui.nodes['#play-again'].hidden,false);
+    ui.render(winner);assert.equal(ui.nodes['#move-counter'].textContent,label);assert.equal(Boolean(ui.nodes['.arena-top'].dataset.result),true);
   }
-  ui.render(null);assert.equal(ui.nodes['#move-counter'].textContent,'Ход 66');assert.equal(ui.nodes['#play-again'].hidden,true);
+  ui.render(null);assert.equal(ui.nodes['#move-counter'].textContent,'Ход 66');assert.equal(ui.nodes['.arena-top'].dataset.result,'');
 });
-test('the result and rematch remain hidden through movement, combat, removal, setup and history review',()=>{
+test('the result stays neutral through movement, combat, removal, setup and history review',()=>{
   for(const [field,value] of [['movement',{}],['combat',{phase:'attacks'}],['combat',{phase:'deaths'}],['currentDeaths',[{}]],['gamePhase','setup'],['reviewingTurn',true]]) {
     const ui=setup();ui.context[field]=value;ui.render(0);
     assert.ok(!ui.nodes['#move-counter'].textContent.includes('Победа'));
-    assert.equal(ui.nodes['#play-again'].hidden,true);
+    assert.equal(ui.nodes['.arena-top'].dataset.result,'');
   }
 });
 
@@ -32,7 +32,7 @@ test('flag victories name the destroyed opposing flag for either winning team',(
     const ui=setup('flag-or-combat');
     ui.render(winner,[{type:'defenseLamp',team:winner}]);
     assert.equal(ui.nodes['#move-counter'].textContent,`Ход 66. Победа ${label}. Флаг противника уничтожен`);
-    assert.equal(ui.nodes['#play-again'].hidden,false);
+    assert.equal(Boolean(ui.nodes['.arena-top'].dataset.result),true);
   }
 });
 
@@ -54,7 +54,7 @@ test('a missing flag never reveals the reason before the final result is visible
   for(const [field,value] of [['movement',{}],['combat',{phase:'attacks'}],['combat',{phase:'deaths'}],['currentDeaths',[{}]],['gamePhase','setup'],['reviewingTurn',true]]) {
     const ui=setup('flag-or-combat');ui.context[field]=value;ui.render(0,[]);
     assert.ok(!ui.nodes['#move-counter'].textContent.includes('Флаг противника уничтожен'));
-    assert.equal(ui.nodes['#play-again'].hidden,true);
+    assert.equal(ui.nodes['.arena-top'].dataset.result,'');
   }
   const active=setup('flag-or-combat');active.render(null,[]);
   assert.equal(active.nodes['#move-counter'].textContent,'Ход 66');
@@ -70,7 +70,7 @@ function checkEnding(condition, north, south, winner, reason) {
   ui.render(result, pieces);
   const label = winner === 'draw' ? 'Ничья' : `Победа ${winner === 0 ? 'Севера' : 'Юга'}`;
   assert.equal(ui.nodes['#move-counter'].textContent, `Ход 66. ${label}. ${reason}`);
-  assert.equal(ui.nodes['#play-again'].hidden, false);
+  assert.equal(Boolean(ui.nodes['.arena-top'].dataset.result), true);
 }
 const aliveArmy = ['defenseLamp', 'shield'];
 test('either winner explains an opposing lone flag, without treating it as destroyed', () => {
@@ -101,8 +101,20 @@ test('only-flag reasons stay hidden in every transient state and during active g
     const ui = setup('flag-or-combat'); ui.context[field] = value;
     ui.render('draw', [...army(0, ['defenseLamp']), ...army(1, ['defenseLamp'])]);
     assert.doesNotMatch(ui.nodes['#move-counter'].textContent, /Ничья|флаг|броненосцев/);
-    assert.equal(ui.nodes['#play-again'].hidden, true);
+    assert.equal(ui.nodes['.arena-top'].dataset.result, '');
   }
   const ui = setup('flag-or-combat'); ui.render(null, [...army(0, ['defenseLamp']), ...army(1, ['defenseLamp'])]);
   assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 66');
+});
+
+
+test('result background reflects the human side and leaves no extra rematch control', () => {
+  const ui = setup();
+  ui.render(0); assert.equal(ui.nodes['.arena-top'].dataset.result, 'loss');
+  ui.render(1); assert.equal(ui.nodes['.arena-top'].dataset.result, 'win');
+  ui.render('draw'); assert.equal(ui.nodes['.arena-top'].dataset.result, 'draw');
+  ui.render(null); assert.equal(ui.nodes['.arena-top'].dataset.result, '');
+  const html = fs.readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
+  assert.ok(!html.includes('id="play-again"'));
+  assert.match(html, /id="board" focusable="false" tabindex="-1"/);
 });
