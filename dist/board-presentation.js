@@ -117,7 +117,7 @@ export function lethalAttackPresentation(position, report, deaths) {
 
 export const MAX_DAMAGE_ARROW_BEND = 32;
 
-export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report = null } = {}) {
+export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report = null, straight = false } = {}) {
   const edges = arrows.map((arrow, order) => {
     const { source, target } = arrow;
     const start = point(source), end = point(target), length = Math.hypot(end.x - start.x, end.y - start.y);
@@ -130,6 +130,15 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, 
     const a = ux * start.x + uy * start.y, b = ux * end.x + uy * end.y;
     return { ...arrow, order, start, end, dx, dy, ux, uy, shorten, lineKey, low: Math.min(a,b), high: Math.max(a,b) };
   }).filter(Boolean).sort((a,b) => `${a.source.id}:${a.target.id}`.localeCompare(`${b.source.id}:${b.target.id}`));
+  // Hover explains incoming damage; other unit badges may sit under the label.
+  if (straight) return edges.map(edge => {
+    const from = { x: edge.start.x + edge.dx * edge.shorten, y: edge.start.y + edge.dy * edge.shorten };
+    const to = { x: edge.end.x - edge.dx * edge.shorten, y: edge.end.y - edge.dy * edge.shorten };
+    const center = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+    const width = damageBadgeWidth(edge.damage, 9);
+    return { ...edge, from, to, control: center, labelT: .5,
+      label: { ...center, width, left: center.x - width / 2, right: center.x + width / 2, top: center.y - 9, bottom: center.y + 9 } };
+  });
   const groups = new Map();
   for (const edge of edges) {
     if (!groups.has(edge.lineKey)) groups.set(edge.lineKey, []);
@@ -231,13 +240,13 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, 
   return edges;
 }
 
-export function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '' } = {}) {
+export function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false } = {}) {
   const points = board.map(point), bounds = points.length ? { left:Math.min(...points.map(p=>p.x))-32,right:Math.max(...points.map(p=>p.x))+32,top:Math.min(...points.map(p=>p.y))-32,bottom:Math.max(...points.map(p=>p.y))+32 } : null;
   // Lay out the complete group before revealing it so existing arrows and
   // their labels stay in place when the next contribution appears.
-  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report}).filter(e => visibleCount === null || e.order < visibleCount);
+  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight}).filter(e => visibleCount === null || e.order < visibleCount);
   const reveal = e => visibleCount !== null && e.order === visibleCount - 1 ? ' data-revealing="true"' : '';
-  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"><title>${e.damage} урона</title></path></g>`).join('');
+  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"><title>${e.damage} урона</title></path></g>`).join('');
   // Labels go above every shaft, so a later arrow cannot paint over a number.
   const labels = edges.map(e => `<g class="attack-ray-label" data-source="${e.source.id}" data-target="${e.target.id}"${reveal(e)}>${numberBadge(e.damage,e.label.x,e.label.y,'ray',9)}</g>`).join('');
   return rays+previewMarkup+labels;

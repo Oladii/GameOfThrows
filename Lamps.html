@@ -389,7 +389,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.39</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T16:54:14.853Z">Сборка 12.11.2026, 19:54:14 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.40</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T17:09:13.799Z">Сборка 12.11.2026, 20:09:13 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <div id="update-notice" class="update-notice" role="status" hidden>Доступны обновления. Начните новую игру, чтобы они вступили в силу.</div>
   <main>
@@ -2199,7 +2199,7 @@ function lethalAttackPresentation(position, report, deaths) {
 
 const MAX_DAMAGE_ARROW_BEND = 32;
 
-function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report = null } = {}) {
+function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report = null, straight = false } = {}) {
   const edges = arrows.map((arrow, order) => {
     const { source, target } = arrow;
     const start = point(source), end = point(target), length = Math.hypot(end.x - start.x, end.y - start.y);
@@ -2212,6 +2212,15 @@ function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report 
     const a = ux * start.x + uy * start.y, b = ux * end.x + uy * end.y;
     return { ...arrow, order, start, end, dx, dy, ux, uy, shorten, lineKey, low: Math.min(a,b), high: Math.max(a,b) };
   }).filter(Boolean).sort((a,b) => `${a.source.id}:${a.target.id}`.localeCompare(`${b.source.id}:${b.target.id}`));
+  // Hover explains incoming damage; other unit badges may sit under the label.
+  if (straight) return edges.map(edge => {
+    const from = { x: edge.start.x + edge.dx * edge.shorten, y: edge.start.y + edge.dy * edge.shorten };
+    const to = { x: edge.end.x - edge.dx * edge.shorten, y: edge.end.y - edge.dy * edge.shorten };
+    const center = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+    const width = damageBadgeWidth(edge.damage, 9);
+    return { ...edge, from, to, control: center, labelT: .5,
+      label: { ...center, width, left: center.x - width / 2, right: center.x + width / 2, top: center.y - 9, bottom: center.y + 9 } };
+  });
   const groups = new Map();
   for (const edge of edges) {
     if (!groups.has(edge.lineKey)) groups.set(edge.lineKey, []);
@@ -2313,13 +2322,13 @@ function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report 
   return edges;
 }
 
-function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '' } = {}) {
+function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false } = {}) {
   const points = board.map(point), bounds = points.length ? { left:Math.min(...points.map(p=>p.x))-32,right:Math.max(...points.map(p=>p.x))+32,top:Math.min(...points.map(p=>p.y))-32,bottom:Math.max(...points.map(p=>p.y))+32 } : null;
   // Lay out the complete group before revealing it so existing arrows and
   // their labels stay in place when the next contribution appears.
-  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report}).filter(e => visibleCount === null || e.order < visibleCount);
+  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight}).filter(e => visibleCount === null || e.order < visibleCount);
   const reveal = e => visibleCount !== null && e.order === visibleCount - 1 ? ' data-revealing="true"' : '';
-  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"><title>${e.damage} урона</title></path></g>`).join('');
+  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"><title>${e.damage} урона</title></path></g>`).join('');
   // Labels go above every shaft, so a later arrow cannot paint over a number.
   const labels = edges.map(e => `<g class="attack-ray-label" data-source="${e.source.id}" data-target="${e.target.id}"${reveal(e)}>${numberBadge(e.damage,e.label.x,e.label.y,'ray',9)}</g>`).join('');
   return rays+previewMarkup+labels;
@@ -3111,7 +3120,7 @@ function highlightSources() {
   const targetInfo = context.report.get(target.id);
   const ghostAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS) : null;
   const ghost = context.isPreview ? `<g class="preview-ghost ${target.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})">${renderTokenBody(ghostAppearance, target.team)}${unitBadges(targetInfo, { showIncoming: true, pieceType: target.type, veteran: ghostAppearance.veteran })}</g>` : '';
-  layer.innerHTML = renderDamageArrows(arrows, point, { pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost });
+  layer.innerHTML = renderDamageArrows(arrows, point, { pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, straight: true });
 }
 function paintAttackReach(context) {
   const layer = $('#selected-attack-reach');

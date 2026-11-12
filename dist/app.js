@@ -365,7 +365,7 @@ function highlightSources() {
   const targetInfo = context.report.get(target.id);
   const ghostAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS) : null;
   const ghost = context.isPreview ? `<g class="preview-ghost ${target.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})">${renderTokenBody(ghostAppearance, target.team)}${unitBadges(targetInfo, { showIncoming: true, pieceType: target.type, veteran: ghostAppearance.veteran })}</g>` : '';
-  layer.innerHTML = renderDamageArrows(arrows, point, { pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost });
+  layer.innerHTML = renderDamageArrows(arrows, point, { pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, straight: true });
 }
 function paintAttackReach(context) {
   const layer = $('#selected-attack-reach');
