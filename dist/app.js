@@ -21,7 +21,7 @@ let archiveRetrying = false;
 function renderArchiveStatus(info) {
   const text = { disabled: '', pending: 'Записи партий ожидают отправки в архив.', syncing: 'Сохраняем партию в общем архиве…', saved: 'Партия сохранена в общем архиве.', error: 'Не удалось сохранить запись в общем архиве. Игра продолжается.' };
   $('#archive-status').textContent = archiveRetrying ? 'Повторяем сохранение записей в архив…' : info.failed > 0 ? 'Часть партий ещё не сохранена в архиве. Записи остаются в этом браузере; можно повторить отправку.' : !info.gameId && !info.pending && !['disabled', 'error'].includes(info.state) ? 'Партии автоматически записываются для анализа баланса.' : text[info.state] || '';
-  $('#archive-status').hidden = !$('#archive-status').textContent;
+  $('#archive-status').hidden = !archiveRetrying && !info.failed && info.state !== 'error';
   $('#archive-retry').hidden = !archiveRetrying && info.failed === 0 && info.state !== 'error';
   $('#archive-retry').disabled = archiveRetrying || info.state === 'syncing';
   $('#archive-retry').textContent = archiveRetrying ? 'Сохраняем…' : 'Повторить сохранение';
@@ -597,7 +597,9 @@ function render(deaths = []) {
   if (movement) boardMessage = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(lastAction.from)} → ${positionText(lastAction.to)}. Движение…`;
   if (combat) boardMessage = combat.phase === 'dimming' ? 'Выделяем участников расчёта боя.' : combat.phase === 'attacks' ? 'Стрелки по очереди показывают вклад в смертельный урон каждой цели.' : 'Показ гибели. Ход перейдёт другой стороне после завершения расчёта.';
   $('#board-hint').textContent = boardMessage;
-  $('#board-hint').hidden = !boardMessage;
+  $('#board-hint').hidden = true;
+  $('#bot-status').hidden = !botIssue;
+  $('#bot-controls').hidden = !botIssue && $('#resume-bot').hidden;
   $('#log-count').textContent = `${state.ply} ${plural(state.ply, ['ход', 'хода', 'ходов'])}`;
   $('#move-log').innerHTML = displayLog.length ? displayLog.map((entry, i) => `<div class="log-row"><span class="log-number">${i + 1}</span><p>${escape(entry.text)}<small>${escape(entry.detail)}</small></p></div>`).reverse().join('') : '<p class="log-empty">Здесь появятся перемещения и результат каждого расчёта. Урон не накапливается.</p>';
   document.querySelectorAll('[data-team]').forEach(b => b.classList.toggle('active', Number(b.dataset.team) === editorTeam));
