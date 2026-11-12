@@ -433,8 +433,30 @@ function unitReferenceMarkup(promotionOpen = false) {
 }
 function renderGameResult(position) {
   const finished = position.winner !== null && gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn;
-  const flagDestroyed = finished && [0, 1].includes(position.winner) && config.victoryCondition === 'flag-or-combat' && !position.pieces.some(piece => piece.team === 1 - position.winner && piece.type === 'defenseLamp');
-  const victory = finished ? position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Севера' : 'Юга'}${flagDestroyed ? '. Флаг противника уничтожен' : ''}` : '';
+  let reason = '';
+  if (finished && ['flag-or-combat', 'combat-units'].includes(config.victoryCondition)) {
+    const loss = [0, 1].map(team => {
+      const pieces = position.pieces.filter(piece => piece.team === team);
+      if (config.victoryCondition === 'flag-or-combat') {
+        if (!pieces.some(piece => piece.type === 'defenseLamp')) return 'flag';
+        if (pieces.length === 1) return 'only-flag';
+      }
+      return pieces.some(piece => piece.type === 'shield' || piece.type === 'archer') ? null : 'combat';
+    });
+    if (position.winner === 'draw') {
+      if (loss[0] && loss[0] === loss[1]) {
+        reason = { flag: 'Флаги обеих сторон уничтожены', 'only-flag': 'У обеих сторон остались только флаги', combat: 'У обеих сторон не осталось броненосцев и лукарей' }[loss[0]];
+      } else if (loss[0] && loss[1]) {
+        reason = loss.map((kind, team) => {
+          const side = team === 0 ? 'Севера' : 'Юга';
+          return kind === 'flag' ? `Флаг ${side} уничтожен` : kind === 'only-flag' ? `У ${side} остался только флаг` : `У ${side} не осталось броненосцев и лукарей`;
+        }).join('. ');
+      }
+    } else if ([0, 1].includes(position.winner)) {
+      reason = { flag: 'Флаг противника уничтожен', 'only-flag': 'У противника остался только флаг', combat: 'У противника не осталось броненосцев и лукарей' }[loss[1 - position.winner]] || '';
+    }
+  }
+  const victory = finished ? `${position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Севера' : 'Юга'}`}${reason ? '. ' + reason : ''}` : '';
   $('#move-counter').textContent = gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${movement ? ' · движение' : combat ? ' · расчёт боя' : ''}${victory ? '. ' + victory : ''}`;
   $('#play-again').hidden = !finished;
 }
