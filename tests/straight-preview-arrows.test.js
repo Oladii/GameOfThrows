@@ -79,9 +79,9 @@ test('selected unit keeps enemy incoming rays and shows its damage as enemy badg
   context.highlightSources();
   assert.equal(paths(layer.innerHTML).length, 1);
   assert.match(layer.innerHTML, /data-source="far" data-target="target"/);
-  assert.equal(badges.get(enemy.id).incoming, 2, 'shows selected contribution rather than total army damage');
+  assert.equal(badges.get(enemy.id).incoming, 9, 'shows total damage from the whole army');
   assert.equal(badges.get(enemy.id).show, true);
-  assert.equal(badges.get(enemy.id).dead, false, 'damage remains readable even for lethal targets');
+  assert.equal(badges.get(enemy.id).dead, true, 'preserves the lethal marker for combined damage');
   assert.equal(badges.get(own.id).incoming, 5);
 });
 

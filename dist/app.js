@@ -400,7 +400,7 @@ function highlightSources() {
   const context = movement ? { ...movement.forecast, isPreview: false } : inspectionContext(), target = context.piece;
   const potentialDamage = new Map();
   for (const attack of (target || selected) ? inspectionDamageArrows(target, selected, context.position, context.report, playMode === 'bot' ? humanTeam : context.position.turn) : []) {
-    if (attack.source.id === selected) potentialDamage.set(attack.target.id, attack.damage);
+    if (attack.source.id === selected) potentialDamage.set(attack.target.id, context.report.get(attack.target.id)?.incoming || 0);
   }
   const sourceIds = new Set(target ? context.report.get(target.id).attackers.map(a => a.id) : []);
   document.querySelectorAll('#board [data-piece-id]').forEach(element => {
@@ -411,7 +411,7 @@ function highlightSources() {
     element.classList.toggle('fatal', !previewOrigin && (info?.dead || false));
     element.classList.toggle('attacking-source', sourceIds.has(id));
     if (info) {
-      element.querySelector('.unit-badges').outerHTML = unitBadges({ ...info, dead: potentialDamage.has(id) ? false : info.dead, incoming: potentialDamage.get(id) ?? info.incoming }, { showIncoming: !previewOrigin && (potentialDamage.has(id) || id === selected || id === target?.id), potentialDamage: potentialDamage.has(id), pieceType: element.dataset.pieceType, veteran: element.dataset.veteran === 'true' });
+      element.querySelector('.unit-badges').outerHTML = unitBadges(info, { showIncoming: !previewOrigin && (potentialDamage.has(id) || id === selected || id === target?.id), potentialDamage: potentialDamage.has(id), pieceType: element.dataset.pieceType, veteran: element.dataset.veteran === 'true' });
     }
   });
   document.querySelectorAll('#board [data-cell]').forEach(element => element.classList.toggle('inspection-target', !!target && element.dataset.cell === key(target.q, target.r)));
