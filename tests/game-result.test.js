@@ -6,7 +6,7 @@ import { winnerForPieces } from '../dist/engine.js';
 
 const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
 function setup(victoryCondition = 'all-units') {
-  const nodes={'#move-counter':{textContent:''},'.arena-top':{dataset:{}}};
+  const nodes={'#mode-caption':{hidden:false},'#move-counter':{textContent:''},'.arena-top':{dataset:{}}};
   const context=vm.createContext({config:{victoryCondition},gamePhase:'playing',editor:false,playMode:'bot',humanTeam:1,movement:null,combat:null,currentDeaths:[],reviewingTurn:false,$:s=>nodes[s]});
   vm.runInContext(app.slice(app.indexOf('function renderGameResult('),app.indexOf('function render(deaths')),context);
   return {context,nodes,render:(winner,pieces=[])=>context.renderGameResult({ply:65,winner,pieces})};
@@ -117,4 +117,20 @@ test('result background reflects the human side and leaves no extra rematch cont
   const html = fs.readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
   assert.ok(!html.includes('id="play-again"'));
   assert.match(html, /id="board" focusable="false" tabindex="-1"/);
+});
+
+
+test('combat replaces the whole turn line until every death effect completes', () => {
+  const ui = setup();
+  for (const phase of ['dimming', 'attacks', 'deaths']) {
+    ui.context.combat = { phase }; ui.render(0);
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Расчёт боя…');
+    assert.equal(ui.nodes['#mode-caption'].hidden, true);
+  }
+  ui.context.combat = null; ui.context.currentDeaths = [{}]; ui.render(0);
+  assert.equal(ui.nodes['#move-counter'].textContent, 'Расчёт боя…');
+  assert.equal(ui.nodes['#mode-caption'].hidden, true);
+  ui.context.currentDeaths = []; ui.render(null);
+  assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 66');
+  assert.equal(ui.nodes['#mode-caption'].hidden, false);
 });

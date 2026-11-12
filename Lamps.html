@@ -442,7 +442,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.59</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T23:22:12.593Z">Сборка 13.11.2026, 02:22:12 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.60</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T23:29:36.136Z">Сборка 13.11.2026, 02:29:36 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -3427,7 +3427,9 @@ function renderGameResult(position) {
     }
   }
   const victory = finished ? `${position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Севера' : 'Юга'}`}${reason ? '. ' + reason : ''}` : '';
-  $('#move-counter').textContent = gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${movement ? ' · движение' : combat ? ' · расчёт боя' : ''}${victory ? '. ' + victory : ''}`;
+  const resolvingCombat = Boolean(combat || currentDeaths.length);
+  $('#mode-caption').hidden = resolvingCombat;
+  $('#move-counter').textContent = resolvingCombat ? 'Расчёт боя…' : gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${movement ? ' · движение' : ''}${victory ? '. ' + victory : ''}`;
   $('.arena-top').dataset.result = !finished ? '' : position.winner === 'draw' ? 'draw' : playMode === 'bot' && position.winner !== humanTeam ? 'loss' : 'win';
 }
 function renderUpdateNotice() {
