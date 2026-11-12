@@ -400,3 +400,5 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .arena-top[data-result="loss"] .turn-mode{color:#853d31}
 @media(min-width:1001px){.left-panel{display:flex;flex-direction:column;height:var(--game-height);min-height:490px}.left-panel>*{flex-shrink:0}}
 @media(max-width:700px){.left-panel>.version{padding-top:12px}}
+
+.undo-icon{display:block;flex:0 0 18px;width:18px;height:18px}
