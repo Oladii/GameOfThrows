@@ -134,3 +134,13 @@ test('combat replaces the whole turn line until every death effect completes', (
   assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 66');
   assert.equal(ui.nodes['#mode-caption'].hidden, false);
 });
+
+
+test('movement replaces the entire turn line just like combat', () => {
+  const ui = setup(); ui.context.movement = {}; ui.render(null);
+  assert.equal(ui.nodes['#move-counter'].textContent, 'Движение…');
+  assert.equal(ui.nodes['#mode-caption'].hidden, true);
+  ui.context.movement = null; ui.render(null);
+  assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 66');
+  assert.equal(ui.nodes['#mode-caption'].hidden, false);
+});
