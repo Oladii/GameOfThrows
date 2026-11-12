@@ -402,3 +402,6 @@ body:has(#rules-dialog[open]){overflow:hidden}
 @media(max-width:700px){.left-panel>.version{padding-top:12px}}
 
 .undo-icon{display:block;flex:0 0 18px;width:18px;height:18px}
+
+.custom-game-actions{display:flex;gap:10px}.custom-game-actions>.button.full{flex:1;width:auto;min-width:0}
+@media(max-width:500px){.custom-game-actions{flex-direction:column;gap:0}}

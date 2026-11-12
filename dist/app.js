@@ -554,7 +554,8 @@ function render(deaths = []) {
   $('#human-side-field').hidden = playMode !== 'bot'; $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
   $('#start-setup').hidden = gamePhase !== 'setup' || editor;
   $('#start-setup').disabled = refreshingNewGame;
-  $('#settings-open').disabled = refreshingNewGame || Boolean(movement || combat);
+  $('#settings-open').disabled = gamePhase !== 'setup' || positionKind !== 'custom' || editor || refreshingNewGame;
+  $('#settings-open').hidden = positionKind !== 'custom';
   $('#new-game').disabled = Boolean(movement || combat);
   $('#new-game').hidden = gamePhase !== 'playing';
   $('#cancel-new-game').hidden = !previousGame;
@@ -762,7 +763,7 @@ $('#position-kind').addEventListener('change', event => {
   if (gamePhase !== 'setup' || editor) return;
   try {
     const kind = event.target.value;
-    if (kind === 'default') { const next = createGame(config); resetBotContext(); state = next; history = []; log = []; selected = null; }
+    if (kind === 'default') { const defaults = clone(DEFAULT_CONFIG), next = createGame(defaults); resetBotContext(); config = defaults; state = next; history = []; log = []; selected = null; }
     positionKind = kind; render();
   } catch (error) { render(); toast(error.message); }
 });
@@ -772,7 +773,7 @@ $('#configure-position').addEventListener('click', () => {
 });
 $('#editor-done').addEventListener('click', () => {
   if (!editor) return;
-  try { state = validateState(state, config); positionKind = classifyPosition(state, config); editor = false; history = []; log = []; selected = null; render(); openStartSettings(); }
+  try { state = validateState(state, config); positionKind = 'custom'; editor = false; history = []; log = []; selected = null; render(); openStartSettings(); }
   catch (error) { toast(error.message); }
 });
 $('#replay-combat').addEventListener('click', replayLastCombat);
@@ -815,7 +816,7 @@ function settingsFromForm() {
   for (const [name] of experimentFields) next.experiments[name] = form.elements['experiment.' + name].checked;
   return validateConfig(next);
 }
-$('#settings-open').addEventListener('click', () => { cancelBot(); cancelMovement(); fillSettings(config); $('#settings-dialog').showModal(); render(); });
+$('#settings-open').addEventListener('click', () => { if (gamePhase !== 'setup' || positionKind !== 'custom' || editor || refreshingNewGame) return; cancelBot(); cancelMovement(); fillSettings(config); $('#settings-dialog').showModal(); render(); });
 $('#settings-form').elements.geometry.addEventListener('change', () => { $('#settings-form').elements.size.value = $('#settings-form').elements.geometry.value === 'hex' ? 5 : 11; updateSizeLabel(); });
 $('#settings-form').addEventListener('submit', event => {
   event.preventDefault();
@@ -869,7 +870,7 @@ function renderOnboarding() {
   }
   if (onboardingStep === 3) content = heading('Вы двигаете — армия атакует', 'После каждого хода обе армии атакуют автоматически. Уйдите из-под обстрела, сложите урон, обменяйтесь ударами и уничтожьте флаг в четырёх примерах.') + renderCombatExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
   if (onboardingStep === 4) content = heading('Теперь можно попробовать партию', 'Для начала достаточно одного решения: куда передвинуть фигуру, чтобы сохранить поддержку и достать противника.') +
-    `<ol class="onboarding-checklist">${(editor ? ['Закончите расстановку кнопкой «Готово».', 'В подготовке выберите режим и нажмите «Начать».', 'Выберите свою фигуру, посмотрите подсветку и сделайте ход.'] : gamePhase === 'setup' ? ['Выберите режим: против бота или вдвоём. Для первой партии оставьте позицию «Стандартная».', 'Выберите первый ход и свою сторону, если играете против бота. Нажмите «Начать».', 'Нажмите на свою фигуру, затем на доступную пустую клетку.'] : ['Продолжайте текущую партию: окно знакомства её не сбрасывает.', 'Выберите свою фигуру и посмотрите доступные клетки.', 'Передвиньте фигуру. Если сейчас ход бота, дождитесь его ответа.']).map(text => `<li>${text}</li>`).join('')}</ol><div class="onboarding-note"><strong>Подсказки всегда рядом.</strong> Снизу слева — сила атаки, справа — полная стойкость. Сверху — входящий урон со знаком минус или череп при смертельной угрозе. Выбор фигуры показывает её дальность значками меча или стрелы. «Ауры» показывает поддержку, «Атаки» — угрозы. Стрелки ← и → позволяют посмотреть последний ход; «Отменить ход» возвращает позицию.</div>`;
+    `<ol class="onboarding-checklist">${(editor ? ['Закончите расстановку кнопкой «Готово».', 'В подготовке выберите режим и нажмите «Начать».', 'Выберите свою фигуру, посмотрите подсветку и сделайте ход.'] : gamePhase === 'setup' ? ['Выберите режим: против бота или вдвоём. Для первой партии оставьте позицию «Стандартные».', 'Выберите первый ход и свою сторону, если играете против бота. Нажмите «Начать».', 'Нажмите на свою фигуру, затем на доступную пустую клетку.'] : ['Продолжайте текущую партию: окно знакомства её не сбрасывает.', 'Выберите свою фигуру и посмотрите доступные клетки.', 'Передвиньте фигуру. Если сейчас ход бота, дождитесь его ответа.']).map(text => `<li>${text}</li>`).join('')}</ol><div class="onboarding-note"><strong>Подсказки всегда рядом.</strong> Снизу слева — сила атаки, справа — полная стойкость. Сверху — входящий урон со знаком минус или череп при смертельной угрозе. Выбор фигуры показывает её дальность значками меча или стрелы. «Ауры» показывает поддержку, «Атаки» — угрозы. Стрелки ← и → позволяют посмотреть последний ход; «Отменить ход» возвращает позицию.</div>`;
   $('#onboarding-body').innerHTML = content;
   $('#onboarding-body').scrollTop = 0;
   $('#onboarding-back').disabled = onboardingStep === 0;
