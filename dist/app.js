@@ -159,7 +159,7 @@ try {
     history = (Array.isArray(saved.history) ? saved.history.slice(-40) : []).map(readSnapshot);
     lastTurn = readLastTurn(saved.lastTurn || saved.lastBotTurn) || lastTurnFromHistory();
     // Arm the existing local13 commander without rebuilding the saved position.
-    if (saved.balanceRevision === 20) {
+    if (saved.balanceRevision === 20 || saved.balanceRevision === 21) {
       const commanderBalance = updateSavedBalance(config, saved.balanceRevision);
       if (JSON.stringify(commanderBalance) !== JSON.stringify(config)) {
         config = validateConfig(commanderBalance); balanceUpdated = true; commanderUpdated = true; gameVersion = CURRENT_GAME_VERSION;
@@ -392,7 +392,7 @@ function renderInspector(context) {
   const info = effective(piece, position, config), base = config.stats[piece.type];
   const names = { move: 'Шаг', damage: 'Сила атаки', range: 'Дальность атаки', fortitude: 'Стойкость' };
   const descriptions = {
-    scoutLamp: `Увеличивает дальность союзных лукарей на ${base.rangeBonus}. Не увеличивает дальность броненосцев. ${base.damage > 0 && base.range > 0 ? `Атакует самостоятельно: урон ${base.damage}, дальность ${base.range}.` : 'Может атаковать только рядом с союзным ветераном.'}`,
+    scoutLamp: `Увеличивает дальность союзных лукарей на ${base.rangeBonus}. Не увеличивает дальность броненосцев. ${base.damage > 0 && base.range > 0 ? `Атакует самостоятельно: урон ${base.damage}, дальность ${base.range}. Дальность не увеличивается от аур.` : 'Может атаковать только рядом с союзным ветераном.'}`,
     shield: `Ходит вперёд и вбок, сражается вблизи и прикрывает соседних ${config.shieldDefenseOnly ? 'союзных броненосцев' : 'союзников'}. После дальнего края получает постоянное усиление и ход назад.`,
     archer: `Атакует по прямым лучам сетки. Союзные ауры усиливают урон, дальность и стойкость.${base.aura > 0 && base.damageBonus > 0 ? ' Его аура усиливает атаку союзников, кроме него самого.' : ''}`,
     attackLamp: `${config.drumMoveAllies ? 'Ускоряет всех союзников' : 'Ускоряет союзных броненосцев'}: +${config.drumShieldMoveBonus ?? 0} к шагу при начале действия в ауре.${base.damageBonus > 0 ? ` Также даёт +${base.damageBonus} к урону.` : ''} Сам себя не усиливает. Может атаковать только под поддержкой союзного ветерана.`,
@@ -412,7 +412,7 @@ function renderInspector(context) {
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion, allies = p.allies ?? p;
-  return `Урон: ${stats.damage + p.damageBonus}, дальность: ${Math.min(stats.range + p.rangeBonus, p.maxRange)}, стойкость: ${stats.fortitude + p.defenseBonus}. Получает ауру в ${allies.aura} ${plural(allies.aura, ['клетку', 'клетки', 'клеток'])}, добавляя союзникам +${allies.damageBonus} к урону, +${allies.rangeBonus} к дальности и +${allies.defenseBonus} к стойкости${config.shieldDefenseOnly ? ' только броненосцев' : ''}. Под этой аурой фигуры без собственной атаки могут атаковать.`;
+  return `Урон: ${stats.damage + p.damageBonus}, дальность: ${Math.min(stats.range + p.rangeBonus, p.maxRange)}, стойкость: ${stats.fortitude + p.defenseBonus}. Получает ауру в ${allies.aura} ${plural(allies.aura, ['клетку', 'клетки', 'клеток'])}, добавляя союзникам +${allies.damageBonus} к урону, +${allies.rangeBonus} к дальности и +${allies.defenseBonus} к стойкости${config.shieldDefenseOnly ? ' только броненосцев' : ''}. Дальность броненосцев и командиров с собственной атакой от союзных аур не растёт. Под этой аурой фигуры без собственной атаки могут атаковать.`;
 }
 function shieldDescriptionMarkup(open = false) {
   return `<p class="shield-description">Ходит вперёд и вбок. Аура ${config.stats.shield.aura} ${plural(config.stats.shield.aura, ['клетка', 'клетки', 'клеток'])}: стойкость ${config.shieldDefenseOnly ? 'союзных броненосцев' : 'союзников'} +${config.stats.shield.defenseBonus}. Ауры других фигур не увеличивают дальность атаки броненосцев.</p><details class="shield-promotion" data-shield-promotion${open ? ' open' : ''}><summary>Ветеран</summary><p>После достижения противоположного края усиливается: ${shieldPromotionDescription()}</p></details>`;
@@ -422,7 +422,7 @@ function unitReferenceMarkup(promotionOpen = false) {
     const stats = config.stats[type], fields = ['move', 'damage', 'range', 'fortitude'];
     let aura = '';
     if (type === 'archer' && stats.aura > 0 && stats.damageBonus > 0) aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон союзников +${stats.damageBonus}, кроме самого лукаря. Бонусы нескольких лукарей складываются.`;
-    if (type === 'scoutLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: дальность +${stats.rangeBonus}. Не увеличивает дальность броненосцев.`;
+    if (type === 'scoutLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: дальность +${stats.rangeBonus}. Броненосцы и командиры с собственной атакой этот бонус не получают.`;
     if (type === 'attackLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: шаг ${config.drumMoveAllies ? 'всех союзников' : 'броненосцев'} +${config.drumShieldMoveBonus ?? 0} при начале действия в ауре${stats.damageBonus > 0 ? `, урон +${stats.damageBonus}` : ''}.`;
     if (type === 'horn') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон всех союзников +${stats.damageBonus}.`;
     if (type === 'defenseLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: стойкость +${stats.defenseBonus}.`;
@@ -733,7 +733,7 @@ function victoryDescription() {
 function renderAbout() {
   $('#about-victory').textContent = victoryDescription();
   const commander = config.stats.scoutLamp;
-  if ($('#about-commander-combat')) $('#about-commander-combat').textContent = commander.damage > 0 && commander.range > 0 ? `Атакует самостоятельно: урон ${commander.damage}, дальность ${commander.range}.` : 'Может атаковать только под аурой союзного ветерана.';
+  if ($('#about-commander-combat')) $('#about-commander-combat').textContent = commander.damage > 0 && commander.range > 0 ? `Атакует самостоятельно: урон ${commander.damage}, дальность ${commander.range}. Дальность не увеличивается от аур.` : 'Может атаковать только под аурой союзного ветерана.';
   $('#about-directions').textContent = config.geometry === 'hex' ? 'На шестиугольном поле атаки идут по шести прямым лучам через стороны клеток. Ауры барабанщика, горниста, знаменосца и командира охватывают все клетки в пределах радиуса, включая клетки между лучами. Остальные ауры следуют направлениям сетки.' : `На квадратном поле атаки идут по ${config.experiments.squareDiagonals ? 'восьми направлениям, включая диагонали' : 'четырём направлениям через грани'}. Длина луча — число клеток от источника. Ауры барабанщика, горниста, знаменосца и командира охватывают все клетки в пределах радиуса.`;
   $('#about-promotion').innerHTML = shieldDescriptionMarkup();
   $('#about-stats').innerHTML = '<thead><tr><th>Фигура</th><th>Шаг</th><th>Урон</th><th>Дальность</th><th>Стойкость</th><th>Аура</th></tr></thead><tbody>' + TYPES.filter(type => config.stats[type]).map(type => { const stats = config.stats[type]; return `<tr><td>${LABELS[type]}</td><td>${stats.move}</td><td>${stats.damage || '—'}</td><td>${stats.range || '—'}</td><td>${stats.fortitude}</td><td>${stats.aura || '—'}</td></tr>`; }).join('') + '</tbody>';
@@ -754,16 +754,16 @@ let onboardingPreviewByKeyboard = false;
 function onboardingUnit(type) { return `<span class="onboarding-unit">${icon(type)}</span>`; }
 function renderOnboarding() {
   $('#onboarding-progress').innerHTML = onboardingSteps.map((label, index) => `<button type="button" data-onboarding-step="${index}"${index === onboardingStep ? ' aria-current="step"' : ''} aria-label="Шаг ${index + 1}: ${label}"><span class="step-number">${index + 1}</span>${label}</button>`).join('');
-  const heading = (title, text) => `<p class="eyebrow">${onboardingSteps[onboardingStep].toUpperCase()}</p><h3 id="onboarding-title">${title}</h3>${text ? `<p>${text}</p>` : ''}`;
+  const heading = (title, text) => `<h3 id="onboarding-title">${title}</h3>${text ? `<p>${text}</p>` : ''}`;
   let content = '';
-  if (onboardingStep === 0) content = heading('Исторические примеры', 'Эти учебные позиции используют прежние правила и не входят в текущий плейтест.') +
-    `<p>${victoryDescription()}</p><p>Солдаты сами выбирают цели и атакуют — с этим они разберутся. Ваша задача — помочь им занять выгодные позиции и сохранить строй.</p>` +
-    `<div class="onboarding-formation">${[['shield', 'Прикрывает'], ['archer', 'Бьёт издалека'], ['attackLamp', 'Усиливает атаку'], ['defenseLamp', 'Усиливает защиту'], ['scoutLamp', 'Добавляет дальность']].map(([type, role]) => `<div>${onboardingUnit(type)}<strong>${LABELS[type]}</strong><br>${role}</div>`).join('')}</div>` + renderShowcaseBattle(onboardingShowcaseStep, ICON_PATHS, unitBadges, onboardingAnimation?.sceneKey === 'showcase' ? onboardingAnimation : null);
-  if (onboardingStep === 1) content = heading('У каждой фигуры своя работа', 'Сначала разберись с бейджами, затем попробуй, как фигуры двигаются, атакуют и поддерживают друг друга.') + renderUnitExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
+  if (onboardingStep === 0) content = heading('Вы командуете армией', '13 фигур на сторону: 5 броненосцев, 4 лукаря и 4 фигуры поддержки. Ваша задача — сохранить строй и найти выгодный ход.') +
+    `<p>Уничтожьте вражеский флаг или всех броненосцев и лукарей. После каждого хода обе армии атакуют автоматически. Одновременное поражение — ничья.</p><p>Листайте бой стрелками, затем попробуйте учебные ходы. Примеры используют стандартные параметры этой версии и не меняют вашу партию.</p>` +
+    `<div class="onboarding-formation">${[['shield', 'Прикрывает союзников'], ['archer', 'Бьёт издалека'], ['attackLamp', 'Добавляет шаг'], ['horn', 'Усиливает урон'], ['defenseLamp', 'Усиливает защиту'], ['scoutLamp', 'Атакует и даёт дальность']].map(([type, role]) => `<div>${onboardingUnit(type)}<strong>${LABELS[type]}</strong><br>${role}</div>`).join('')}</div>` + renderShowcaseBattle(onboardingShowcaseStep, ICON_PATHS, unitBadges, onboardingAnimation?.sceneKey === 'showcase' ? onboardingAnimation : null);
+  if (onboardingStep === 1) content = heading('У каждой фигуры своя работа', 'Шесть фигур — шесть задач. Выберите фигуру, наведите на доступную клетку для прогноза и нажмите, чтобы сделать ход. «Сбросить» возвращает исходную позицию. Командир атакует на 2 клетки; ауры эту дальность не увеличивают, а барабанщик по-прежнему добавляет ему шаг.') + renderUnitExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
   if (onboardingStep === 2) {
     content = heading('Один ход меняет всё построение', 'Шесть примеров: пробуйте ходы и смотрите, что изменится.') + renderMoveExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
   }
-  if (onboardingStep === 3) content = heading('Вы двигаете — армия атакует', 'После каждого хода обе армии атакуют автоматически. Попробуй уйти из-под обстрела, сложить урон и обменяться ударами.') + renderCombatExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
+  if (onboardingStep === 3) content = heading('Вы двигаете — армия атакует', 'После каждого хода обе армии атакуют автоматически. Уйдите из-под обстрела, сложите урон, обменяйтесь ударами и уничтожьте флаг в четырёх примерах.') + renderCombatExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
   if (onboardingStep === 4) content = heading('Теперь можно попробовать партию', 'Для начала достаточно одного решения: куда передвинуть фигуру, чтобы сохранить поддержку и достать противника.') +
     `<ol class="onboarding-checklist">${(editor ? ['Закончите расстановку кнопкой «Готово».', 'В подготовке выберите режим и нажмите «Начать».', 'Выберите свою фигуру, посмотрите подсветку и сделайте ход.'] : gamePhase === 'setup' ? ['Выберите режим: против бота или вдвоём. Для первой партии оставьте позицию «Стандартная».', 'Выберите первый ход и свою сторону, если играете против бота. Нажмите «Начать».', 'Нажмите на свою фигуру, затем на доступную пустую клетку.'] : ['Продолжайте текущую партию: окно знакомства её не сбрасывает.', 'Выберите свою фигуру и посмотрите доступные клетки.', 'Передвиньте фигуру. Если сейчас ход бота, дождитесь его ответа.']).map(text => `<li>${text}</li>`).join('')}</ol><div class="onboarding-note"><strong>Подсказки всегда рядом.</strong> Снизу слева — сила атаки, справа — полная стойкость. Сверху — входящий урон со знаком минус или череп при смертельной угрозе. Выбор фигуры показывает её дальность значками меча или стрелы. «Ауры» показывает поддержку, «Атаки» — угрозы. Стрелки ← и → позволяют посмотреть последний ход; «Отменить» возвращает позицию.</div>`;
   $('#onboarding-body').innerHTML = content;
@@ -784,7 +784,8 @@ function openAbout() {
   cancelBot(); cancelMovement(); renderAbout();
   onboardingStep = 0; onboardingDamage = 2;
   onboardingExamples = {}; onboardingShowcaseStep = 0;
-  showAboutView(false); $('#rules-dialog').showModal(); render();
+  renderOnboarding(); showAboutView(true); $('#rules-dialog').showModal(); render();
+  $('#onboarding-body').focus({ preventScroll: true });
 }
 function goToOnboardingStep(step) {
   cancelOnboardingAnimation();
@@ -808,7 +809,7 @@ $('#onboarding-next').addEventListener('click', () => {
 });
 function onboardingLessonModel(sceneKey, example) {
   if (sceneKey.startsWith('unit-')) return createUnitLesson(sceneKey.slice(5), example);
-  if (['8', '9', '10'].includes(sceneKey)) return createCombatLesson(Number(sceneKey) - 8, example);
+  if (['8', '9', '10', '11'].includes(sceneKey)) return createCombatLesson(Number(sceneKey) - 8, example);
   return createMoveLesson(sceneKey.startsWith('4-') ? 4 : Number(sceneKey), { ...example, aura: sceneKey === '4-defense' ? 'defense' : 'attack' });
 }
 function cancelOnboardingAnimation() {
@@ -1027,4 +1028,4 @@ addEventListener('online', () => { void checkGameVersion(); });
 if (freshNewGameRequested && gamePhase === 'setup' && previousGame) openStartSettings();
 if (presetUpdated) toast('Подготовлена расстановка с одним барабанщиком и одним знаменосцем. Нажмите «Начать», чтобы играть.');
 
-if (balanceUpdated) toast(commanderUpdated ? 'Командир: атака 3, дальность 1. Расстановка сохранена.' : 'Обновлена расстановка: броненосец в центре, два новых лукаря; флаг и барабанщик отодвинуты назад.');
+if (balanceUpdated) toast(commanderUpdated ? 'Командир: атака 3, дальность 2. Расстановка сохранена.' : 'Обновлена расстановка: броненосец в центре, два новых лукаря; флаг и барабанщик отодвинуты назад.');

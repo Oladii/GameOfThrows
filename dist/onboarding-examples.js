@@ -1,119 +1,99 @@
-import { PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG, LABELS } from './rules.js';
+import { DEFAULT_CONFIG, LABELS } from './rules.js';
 import { renderTokenBody } from './token-presentation.js';
 import { clone, cells, key, distance, reachable, movementPath, analyze, auraReaches, attacks, inspectCell, move, resolve } from './engine.js';
 import { auraCircleMarkup, renderDeathEffects, renderMovingToken, unitAppearance, attackReachPresentation } from './board-presentation.js';
 
-// Training models use relative team 0 for the player; show that army as the default South.
+// The isolated player's native team0 is displayed as the familiar orange South.
 const lessonDisplayTeam = piece => 1 - piece.team;
-export const MOVE_LESSONS = ['Маршруты', 'Ближний бой', 'Щит на пути', 'Достать до врага', 'Аура атаки', 'Аура защиты'];
+export const MOVE_LESSONS = ['Маршрут под барабаном', 'Ближний бой', 'Щит на пути', 'Дальность выстрела', 'Горнист усиливает атаку', 'Знамя защищает'];
 const lessonPiece = (id, type, team, q, r) => ({ id, type, team, q, r });
-const lessonPosition = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
-// Current-balance positions shared by the movement and unit tutorials.
-export function supportLessonPieces(type) {
-  if (type === 'attackLamp') return [lessonPiece('blue','archer',0,0,-1),lessonPiece('support',type,0,2,-2),lessonPiece('guard','shield',0,-2,0),lessonPiece('enemy','archer',1,2,-1),lessonPiece('flag','defenseLamp',1,-3,3),lessonPiece('second','archer',0,-1,3),lessonPiece('wall','shield',1,3,0)];
-  if (type === 'scoutLamp') return [lessonPiece('blue','archer',0,-2,0),lessonPiece('support',type,0,2,-2),lessonPiece('enemy','archer',1,3,0),lessonPiece('second','archer',0,0,3),lessonPiece('wall','shield',1,3,-1)];
-  return [lessonPiece('blue','shield',0,1,0),lessonPiece('support','defenseLamp',0,-2,-1),lessonPiece('enemy','shield',1,2,0),{...lessonPiece('enemyVeteran','shield',1,3,-1),reachedFarEdge:true},lessonPiece('second','archer',0,2,-2),lessonPiece('guard','shield',0,0,1)];
-}
-// Match the player's default view: the friendly army advances from bottom to top.
+const lessonPosition = pieces => ({ pieces: clone(pieces), turn: 0, ply: 0, winner: null });
+const trainingHint = 'Учебная цель на отдельном поле: здесь проверяется приём, а не победа полной армии. Текущая партия не меняется.';
 export const lessonPoint = cell => ({ x: 280 + 45 * cell.q, y: 205 - Math.sqrt(3) * 30 * (cell.r + cell.q / 2) });
-export const lessonPolygonPoints = (p, rotation = 0) => {
-  return Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 180 * (60 * i + rotation); return `${(p.x + 30 * Math.cos(a)).toFixed(2)},${(p.y + 30 * Math.sin(a)).toFixed(2)}`; }).join(' ');
-};
 export const verticalLessonPoint = lessonPoint;
-// Combat uses the current default unit values; lesson one has a three-step training move.
-export function createMoveLesson(index = 0, { advanced = false, selected = false, aura = 'attack', destination = null, placement = null, previewPlacement = null, shieldRemoved = false } = {}) {
-  if (!selected && !advanced) destination = null;
-  advanced = index === 4 ? Boolean(placement) : Boolean(advanced && destination);
-  if (!selected) previewPlacement = null;
-  const config = clone(DEFAULT_CONFIG); config.geometry = 'hex'; config.size = 3;
-  // These isolated combat exercises may contain support-only armies; they do not teach the match ending rule.
-  config.victoryCondition = 'all-units';
-  const lesson = { index, advanced, selected, aura, placement, previewPlacement, shieldRemoved: index === 2 && shieldRemoved, supportLesson: index === 4, config, moverId: 'blue', sourceId: null, targetId: 'enemy', facts: [] };
-  let pieces;
-  if (index === 0) {
-    config.stats.archer.move = 3;
-    pieces = [lessonPiece('blue', 'archer', 0, -2, 0), lessonPiece('enemy', 'shield', 1, 0, 0), lessonPiece('friend', 'shield', 0, -2, 1)];
-    lesson.title = 'Ходим по кратчайшему пути.';
-    lesson.description = 'За один ход лукарь может пройти до трёх шагов.\nВыбери его, чтобы увидеть доступные клетки.\nСквозь врага пройти нельзя, сквозь союзника — можно: он пропустит.\nЗакончить ход на клетке, где уже стоит любая фишка, нельзя.';
-    lesson.hint = 'Враг перекрывает путь. Союзник пропускает лукаря и остаётся на месте. Радиус поля — 3 клетки.';
-  } else if (index === 1) {
-    pieces = [lessonPiece('blue', 'shield', 0, 0, 0), lessonPiece('enemy', 'archer', 1, 0, 2)];
-    lesson.title = 'Подойти, чтобы ударить';
-    lesson.description = 'Выбери броненосца и наведи на доступную клетку. Найди позицию для удара вблизи, затем нажми на клетку, чтобы сделать ход.';
-    lesson.hint = 'Для удара нужно занять соседнюю с врагом клетку. Щит ходит вперёд и вбок; на клетку противника вставать нельзя.';
-  } else if (index === 2) {
-    pieces = [lessonPiece('blue', 'archer', 0, -3, 0), lessonPiece('drummer', 'scoutLamp', 0, -3, 1), lessonPiece('wall', 'shield', 1, 0, 0), lessonPiece('enemy', 'archer', 1, 2, 0)];
-    lesson.title = 'Щит закрывает тех, кто за ним';
-    if (shieldRemoved) pieces = pieces.filter(piece => piece.id !== 'wall');
-    lesson.description = 'Щит закрывает вражеского лукаря. Убери щитовика кнопкой и посмотри, кому теперь достанется стрела.';
-    lesson.hint = 'Командир даёт нашему лукарю дальность до врага. Можно также выбрать лукаря и проверить другие позиции.';
-  } else if (index === 3) {
-    pieces = [lessonPiece('blue', 'archer', 0, -3, 0), lessonPiece('enemy', 'shield', 1, 2, 0)];
-    lesson.title = 'Найди клетку, с которой достаёт стрела';
-    lesson.description = 'Выбери лукаря и наведи на доступные клетки. Прогноз покажет, откуда стрела долетает до врага. Сделай ход нажатием.';
-    lesson.hint = 'Для выстрела нужны и прямая линия, и достаточная дальность. Следи за прогнозом урона, а не только за расстоянием.';
-  } else {
-    const defensive = aura === 'defense';
-    pieces = supportLessonPieces(defensive ? 'defenseLamp' : 'attackLamp');
-    lesson.moverId = 'support'; lesson.sourceId = 'support';
-    lesson.title = defensive ? 'Под знаменем легче держать удар' : 'Под барабан стрелы становятся опаснее';
-    lesson.description = defensive ? 'Выбери знаменосца. Поставь его так, чтобы его аура усилила броненосца и тот пережил удар врага.' : 'Выбери барабанщика. Поставь его так, чтобы его аура усилила лукаря и он смог уничтожить врага.';
-    lesson.hint = `За ход ${defensive ? 'знаменосец' : 'барабанщик'} проходит до ${config.stats[defensive ? 'defenseLamp' : 'attackLamp'].move} клеток. После хода проходит расчёт боя. Аура усиливает только союзников и не действует на источник. Без ветерана поддержка не атакует.`;
-  }
-  lesson.before = lessonPosition(pieces);
-  lesson.destination = index === 4 ? placement || previewPlacement : destination;
-  const mover = pieces.find(piece => piece.id === lesson.moverId);
-  lesson.path = lesson.destination ? movementPath(mover, lesson.before, config, lesson.destination) : [];
-  if (lesson.destination && !lesson.path.length) throw new Error('Недоступная клетка учебного примера.');
-  const moved = lesson.path.length ? inspectCell(lesson.before, config, lesson.destination, mover.id).position : null;
-  lesson.combatPosition = moved || lesson.before;
-  lesson.completed = advanced || lesson.shieldRemoved;
-  const outcome = advanced ? move(lesson.before, config, mover.id, lesson.destination) : lesson.shieldRemoved ? resolve(lesson.before, config) : null;
-  lesson.position = outcome ? outcome.state : clone(lesson.before);
-  lesson.deaths = outcome?.deaths || [];
-  lesson.isPreview = Boolean(selected && !lesson.completed && moved);
-  lesson.previewPosition = lesson.isPreview ? clone(moved) : clone(lesson.position);
-  lesson.beforeReport = analyze(lesson.before, config);
-  lesson.report = outcome?.report || analyze(lesson.combatPosition, config);
-  lesson.displayReport = lesson.completed ? analyze(lesson.position, config) : lesson.report;
-  const moves = reachable(mover, lesson.before, config);
-  lesson.available = selected && !lesson.completed ? moves : [];
-  lesson.enemyBlocked = [];
-  if (index === 0 && selected && !advanced) {
-    const actual = new Set(moves.map(cell => key(cell.q, cell.r))), own = new Set(pieces.filter(piece => piece.team === 0).map(piece => key(piece.q, piece.r)));
-    lesson.enemyBlocked = reachable(mover, { ...lesson.before, pieces: pieces.filter(piece => piece.team === 0) }, config).filter(cell => !actual.has(key(cell.q, cell.r)) && !own.has(key(cell.q, cell.r)));
-  }
-  lesson.passesAlly = lesson.path.slice(1, -1).some(cell => pieces.some(piece => piece.id !== mover.id && piece.team === 0 && piece.q === cell.q && piece.r === cell.r));
-  const blue = lesson.combatPosition.pieces.find(piece => piece.id === 'blue'), enemy = lesson.combatPosition.pieces.find(piece => piece.id === 'enemy');
-  const blueStats = lesson.report.get('blue'), enemyStats = lesson.report.get('enemy');
-  lesson.canHit = attacks(blue, enemy, lesson.combatPosition, config);
-  if (index === 0) {
-    lesson.facts = [['Максимальный ход', `${config.stats.archer.move}`], ['Маршрут', destination ? `${lesson.path.length - 1} из ${config.stats.archer.move} шагов` : 'Не показан']];
-    lesson.feedback = advanced ? lesson.passesAlly ? 'Лукарь прошёл сквозь союзника. Союзник остался на своей клетке.' : 'Лукарь занял выбранную клетку.' : destination ? lesson.passesAlly ? 'Маршрут проходит сквозь союзника. На его клетке останавливаться нельзя.' : 'Цифры считают шаги. Нажми на клетку, чтобы передвинуть лукаря.' : selected ? 'Наведи на зелёную клетку — появятся номера шагов. Нажатие сразу выполняет ход.' : 'Сначала выбери своего лукаря.';
-  } else if (index === 1) {
-    lesson.facts = [['Дальность броненосца', `${blueStats.range}`], ['Расстояние до врага', `${distance(blue, enemy, config)}`], ['Урон по лукарю', `${enemyStats.incoming}`]];
-    lesson.feedback = enemyStats.incoming ? `Броненосец достаёт лукаря: ${enemyStats.incoming} урона. Лукарь ${enemyStats.dead ? 'погибнет' : 'выживет'} при расчёте.` : 'С этой клетки броненосец ещё не достаёт до лукаря.';
-  } else if (index === 2) {
-    lesson.facts = [['Урон по броненосцу', shieldRemoved ? 'Убран' : `${lesson.report.get('wall').incoming}`], ['Урон по лукарю за ним', `${enemyStats.incoming}`], ['Ответный урон по нашему лукарю', `${blueStats.incoming}`]];
-    lesson.feedback = enemyStats.incoming ? `Стрела достигает вражеского лукаря: ${enemyStats.incoming} урона. Он ${enemyStats.dead ? 'погибнет' : 'выживет'}.` : lesson.report.get('wall')?.incoming ? 'Стрела попадает в броненосца. Щит перекрывает луч, и лукарь за ним не получает урона.' : 'С этой позиции стрела не достигает вражеского лукаря. Проверь направление и дальность.';
-    lesson.feedback += blueStats.incoming ? ` Ответный урон — ${blueStats.incoming}: наш лукарь ${blueStats.dead ? 'погибнет' : 'выживет'}.` : ' Ответный выстрел до нашего лукаря не достаёт.';
-  } else if (index === 3) {
-    lesson.facts = [['Расстояние до врага', `${distance(blue, enemy, config)}`], ['Дальность лукаря', `${blueStats.range}`], ['Урон по врагу', `${enemyStats.incoming}`]];
-    lesson.feedback = lesson.canHit ? `Враг в пределах выстрела: ${enemyStats.incoming} урона. Он ${enemyStats.dead ? 'погибнет' : 'выживет'} при расчёте.` : 'Лукарь не достаёт врага: нужна прямая линия в пределах дальности.';
-  } else {
-    const withoutSupport = analyze({ ...lesson.combatPosition, pieces: lesson.combatPosition.pieces.filter(piece => piece.id !== 'support') }, config).get('blue');
-    const value = field => withoutSupport[field] === blueStats[field] ? `${blueStats[field]}` : `${withoutSupport[field]} → ${blueStats[field]}`;
-    lesson.facts = aura === 'defense' ? [['Стойкость броненосца', value('fortitude')], ['Входящий урон', `${blueStats.incoming}`], ['После расчёта', blueStats.dead ? 'Погибнет' : 'Выживет']] : [['Урон лукаря', value('damage')], ['Дальность лукаря', value('range')], ['Урон по врагу', `${enemyStats.incoming}`], ['Вражеский лукарь', enemyStats.dead ? 'Погибнет' : 'Выживет']];
-    lesson.feedback = blueStats.sources.includes('support') ? aura === 'defense' ? `Знамя повышает стойкость до ${blueStats.fortitude}. При входящем уроне ${blueStats.incoming} броненосец ${blueStats.dead ? 'погибнет' : 'выживет'}.` : `Барабанщик добавляет ${blueStats.damage - withoutSupport.damage} к урону. ${enemyStats.incoming ? `Вражеский лукарь получает ${enemyStats.incoming} урона и ${enemyStats.dead ? 'погибнет' : 'выживет'}.` : 'Стрела пока не достигает вражеского лукаря.'}` : selected ? `Аура пока не достигает ${aura === 'defense' ? 'броненосца' : 'лукаря'}. Наведи на другую пустую клетку и сравни прогноз.` : aura === 'defense' ? `Без знамени броненосец ${blueStats.dead ? 'погибнет' : 'выживет'} при расчёте. Выбери знаменосца и найди место, где его аура защитит союзника.` : 'Выбери барабанщика, чтобы увидеть ауру и доступные места.';
-    const source = lesson.previewPosition.pieces.find(piece => piece.id === 'support');
-    lesson.auraCells = selected && source ? cells(config).filter(cell => auraReaches(source, cell, lesson.previewPosition, config)) : [];
-  }
-  if (lesson.completed) {
-    const fallen = lesson.deaths.map(piece => `${piece.team ? 'противник' : 'союзник'} — ${LABELS[piece.type].toLowerCase()}`);
-    lesson.feedback = `Расчёт завершён. ${fallen.length ? 'Погибли: ' + fallen.join('; ') + '.' : 'Все фигуры выжили.'} Верни исходную позицию, чтобы попробовать другой ход.`;
-    lesson.facts = lesson.facts.map(([label, value]) => [label, value === 'Погибнет' ? 'Погиб' : value === 'Выживет' ? 'Выжил' : value]);
-  } else if ((index === 1 || index === 3) && !selected) lesson.feedback = `Выбери ${index === 1 ? 'броненосца' : 'лукаря'}, наведи на доступную клетку и сравни прогноз. ${lesson.feedback}`;
+export const lessonPolygonPoints = (p, rotation = 0) => Array.from({ length: 6 }, (_, i) => {
+  const a = Math.PI / 180 * (60 * i + rotation);return `${(p.x + 30 * Math.cos(a)).toFixed(2)},${(p.y + 30 * Math.sin(a)).toFixed(2)}`;
+}).join(' ');
+
+// All combat and aura numbers come from the current game. Only the compact
+// board and the isolated exercise's ending condition differ from a full match.
+export function createPositionLesson(pieces, moverId, options = {}) {
+  const { selected = false, advanced = false } = options;
+  const destination = selected || advanced ? options.destination || null : null;
+  const config = clone(DEFAULT_CONFIG);config.geometry = 'hex';config.size = 3;
+  if (!options.matchRules) config.victoryCondition = 'all-units';
+  const before = lessonPosition(pieces), mover = before.pieces.find(piece => piece.id === moverId);
+  const path = destination ? movementPath(mover, before, config, destination) : [];
+  if (destination && !path.length) throw new Error('Недоступная клетка учебного примера.');
+  const completed = Boolean(advanced && destination), isPreview = Boolean(selected && !completed && destination);
+  const inspected = destination ? inspectCell(before, config, destination, moverId) : null;
+  const outcome = completed ? move(before, config, moverId, destination) : null;
+  const position = outcome?.state || clone(before), beforeReport = analyze(before, config), combatPosition = inspected?.position || before;
+  const report = outcome?.report || inspected?.report || beforeReport;
+  return { config, before, position, combatPosition, previewPosition: isPreview ? combatPosition : position,
+    beforeReport, report, displayReport: completed ? analyze(position, config) : report,
+    selected, advanced: completed, completed, isPreview, moverId, destination, path, deaths: outcome?.deaths || [],
+    available: selected && !completed ? reachable(mover, before, config) : [], enemyBlocked: [], matchRules: Boolean(options.matchRules) };
+}
+
+export function supportLessonPieces(type) {
+  if(type==='attackLamp')return [lessonPiece('blue','archer',0,1,0),lessonPiece('support',type,0,-2,-1),lessonPiece('enemy','archer',1,3,0)];
+  if(type==='horn')return [lessonPiece('blue','archer',0,0,0),lessonPiece('support',type,0,-2,-1),lessonPiece('enemy','archer',1,3,0)];
+  if(type==='scoutLamp')return [lessonPiece('blue','archer',0,-1,1),lessonPiece('support',type,0,0,-1),lessonPiece('enemy','archer',1,1,1)];
+  return [lessonPiece('blue','archer',0,1,0),lessonPiece('support','defenseLamp',0,-3,1),lessonPiece('enemy','scoutLamp',1,2,0)];
+}
+
+// Read-only metadata lets tests and the UI explain a reproducible legal move.
+export function finishLessonGoal(lesson, { objective, destination, met, instruction, feedback, hint }) {
+  lesson.objective=objective;lesson.solution=[{id:lesson.moverId,to:{...destination}}];lesson.previewSuccess=Boolean(met);lesson.success=Boolean(lesson.completed&&met);
+  lesson.feedback=lesson.completed ? `${lesson.success?'Цель выполнена.':'Ход выполнен, но цель ещё не достигнута.'} ${feedback} Верни исходную позицию, чтобы попробовать снова.` : lesson.selected ? feedback : instruction;
+  lesson.hint=`${hint} ${lesson.matchRules?'Здесь действует настоящее правило: потеря знаменосца завершает партию, даже если остались броненосцы и лукари.':trainingHint}`;
   return lesson;
+}
+
+export function createMoveLesson(index=0, options={}) {
+  const aura=options.aura||'attack',defensive=aura==='defense';
+  const chosen=index===4?options.placement||options.previewPlacement||options.destination:options.destination;
+  const advanced=index===4?Boolean(options.placement||options.advanced&&options.destination):Boolean(options.advanced&&chosen);
+  let pieces,moverId='blue',destination,title,description,instruction,hint;
+  if(index===0){
+    pieces=[lessonPiece('blue','archer',0,-2,0),lessonPiece('enemy','shield',1,0,0),lessonPiece('friend','shield',0,-2,1),lessonPiece('drum','attackLamp',0,-3,0)];destination={q:-2,r:3};
+    title='Три шага под барабаном';description='У лукаря обычный шаг 2. В начале действия барабанщик добавляет ещё 1: можно пройти 3 клетки.\nПройди через союзника к верхней клетке в той же колонке. На занятой клетке останавливаться нельзя; враг перекрывает путь.';
+    instruction='Выбери лукаря. Наведи на клетку через три шага вверх и выполни ход.';hint='Барабанщик ускоряет союзников всех типов. Если действие началось в его ауре, дополнительный шаг сохраняется до конца маршрута, даже после выхода из ауры.';
+  }else if(index===1){
+    pieces=[lessonPiece('blue','shield',0,0,0),lessonPiece('enemy','archer',1,0,2)];destination={q:0,r:1};title='Подойти, чтобы ударить';description='Обычный броненосец бьёт только соседнюю клетку: дальность 1.\nПодойди к лукарю и уничтожь его, пережив ответный выстрел.';instruction='Выбери броненосца и займи клетку между фигурами.';hint='Движение и атака — одно действие. После перемещения все атаки рассчитываются автоматически.';
+  }else if(index===2){
+    pieces=[lessonPiece('blue','archer',0,0,-2),lessonPiece('enemy','archer',1,0,1),lessonPiece('wall','shield',1,0,0),lessonPiece('drum','attackLamp',0,0,-3)];destination={q:-2,r:1};title='Щит перекрывает стрелу';description='Вражеский щит закрывает лукаря за собой.\nОбойди щит слева и найди прямую линию выстрела. Кнопка «Убрать щитовика» позволяет отдельно сравнить ту же позицию без преграды.';instruction='Выбери лукаря и обойди щит, чтобы стрела достигла цели.';hint='Стрелы летят по прямым линиям сетки. Вражеский броненосец перекрывает луч; союзники пропускают выстрелы.';
+    if(options.shieldRemoved)pieces=pieces.filter(p=>p.id!=='wall');
+  }else if(index===3){
+    pieces=[lessonPiece('blue','archer',0,-3,0),lessonPiece('enemy','shield',1,2,0)];destination={q:-1,r:0};title='Достать до врага';description='Обычный лукарь стреляет на 4 клетки. Враг стоит в пяти.\nПереместись ближе и добейся попадания по прямой.';instruction='Выбери лукаря и сократи расстояние до цели.';hint='Одного расстояния недостаточно: цель должна лежать на прямой линии сетки.';
+  }else{
+    moverId='support';pieces=supportLessonPieces(defensive?'defenseLamp':'horn');destination=defensive?{q:-1,r:1}:{q:-1,r:0};
+    title=defensive?'Знамя спасает союзника':'Горнист добавляет урон';
+    description=defensive?'Знаменосец даёт +1 к стойкости союзников в радиусе 3. Сам он имеет стойкость 3.\nПодведи знамя: лукарь должен пережить удар командира с уроном 3.':'Горнист даёт +1 к урону союзников всех типов в радиусе 2.\nПодведи его к лукарю: атака вырастет с 2 до 3 и уничтожит вражеского лукаря.';
+    instruction=defensive?'Выбери знаменосца и прикрой союзника аурой.':'Выбери горниста и усиль выстрел союзного лукаря.';
+    hint=defensive?'Защита от разных союзников складывается. Источник не защищает себя.':'Горнист не усиливает себя и не начинает атаковать от собственной ауры. Поддержка без базовой атаки может бить только рядом с ветераном.';
+  }
+  const lesson=createPositionLesson(pieces,moverId,{...options,advanced,destination:chosen});
+  Object.assign(lesson,{index,aura,title,description,supportLesson:index===4,sourceId:index===4?'support':null,targetId:'enemy',shieldRemoved:index===2&&Boolean(options.shieldRemoved)});
+  if(lesson.shieldRemoved){const outcome=resolve(lesson.before,lesson.config);Object.assign(lesson,{completed:true,position:outcome.state,deaths:outcome.deaths,report:outcome.report,displayReport:analyze(outcome.state,lesson.config),available:[]});}
+  const blue=lesson.combatPosition.pieces.find(p=>p.id==='blue'),enemy=lesson.combatPosition.pieces.find(p=>p.id==='enemy'),blueStats=lesson.report.get('blue'),target=lesson.report.get('enemy');
+  lesson.canHit=attacks(blue,enemy,lesson.combatPosition,lesson.config);
+  lesson.passesAlly=lesson.path.slice(1,-1).some(cell=>lesson.before.pieces.some(p=>p.id!==moverId&&p.team===0&&p.q===cell.q&&p.r===cell.r));
+  let met,feedback,objective;
+  if(index===0){
+    const allowance=lesson.beforeReport.get('blue').move,spent=lesson.path.length?lesson.path.length-1:0;
+    lesson.facts=[['Обычный шаг',String(lesson.config.stats.archer.move)],['В начале действия',String(allowance)],['Длина маршрута',`${spent} из ${allowance}`],['Шаг на конечной клетке',String(blueStats.move)]];
+    met=spent===3&&lesson.passesAlly;objective='Пройти три шага через союзника, сохранив дополнительный шаг после выхода из ауры.';
+    feedback=spent?`Маршрут: ${spent} шага. ${lesson.passesAlly?'Союзник пропускает фигуру. ':''}Допуск на это действие — ${allowance}; на конечной клетке обычный шаг снова ${blueStats.move}.`:'Барабанщик даёт лукарю 2 + 1 = 3 шага на начатое действие.';
+    const moves=reachable(lesson.before.pieces.find(p=>p.id===moverId),lesson.before,lesson.config),actual=new Set(moves.map(c=>key(c.q,c.r))),own=new Set(pieces.filter(p=>p.team===0).map(p=>key(p.q,p.r)));
+    lesson.enemyBlocked=reachable(lesson.before.pieces.find(p=>p.id===moverId),{...lesson.before,pieces:pieces.filter(p=>p.team===0)},lesson.config).filter(c=>!actual.has(key(c.q,c.r))&&!own.has(key(c.q,c.r)));
+  }else if(index===1){lesson.facts=[['Дальность щита',String(blueStats.range)],['Урон по лукарю',String(target.incoming)],['Ответный урон',String(blueStats.incoming)]];met=target.dead&&!blueStats.dead;objective='Уничтожить лукаря соседним ударом и выжить.';feedback=`По врагу: ${target.incoming} урона, по броненосцу: ${blueStats.incoming}. ${target.dead?'Лукарь погибает.':'Нужна соседняя клетка.'}`;
+  }else if(index===2){lesson.facts=[['Урон по щиту',lesson.shieldRemoved?'Убран':String(lesson.report.get('wall').incoming)],['Урон по лукарю за ним',String(target.incoming)],['Ответный урон',String(blueStats.incoming)]];met=target.incoming>0&&!blueStats.dead;objective='Обойти преграду и попасть по лукарю, сохранив свою фигуру.';feedback=target.incoming?`Стрела достигла лукаря: ${target.incoming} урона. ${blueStats.dead?'Наш лукарь тоже погибает — найди безопасный обход.':'Наш лукарь переживает ответ.'}`:'Вражеский щит перекрывает луч. Лукарь за ним не получает урона.';
+  }else if(index===3){lesson.facts=[['Расстояние',String(distance(blue,enemy,lesson.config))],['Дальность',String(blueStats.range)],['Урон по цели',String(target.incoming)]];met=target.incoming>0&&!blueStats.dead;objective='Найти прямую линию в пределах четырёх клеток и попасть по цели.';feedback=target.incoming?`Цель в пределах выстрела: ${target.incoming} урона.`:'Сейчас стрела не достаёт цели: проверь прямую и расстояние.';
+  }else if(defensive){lesson.facts=[['Стойкость лукаря',String(blueStats.fortitude)],['Входящий урон',String(blueStats.incoming)],['Стойкость знаменосца',String(lesson.report.get('support').fortitude)]];met=blueStats.sources.includes('support')&&!blueStats.dead;objective='Защитить лукаря знаменем и пережить 3 урона.';feedback=`Лукарь: стойкость ${blueStats.fortitude}, входящий урон ${blueStats.incoming}. ${blueStats.dead?'Без защиты он погибает.':'Защита позволяет выжить.'}`;
+  }else{lesson.facts=[['Атака лукаря',String(blueStats.damage)],['Стойкость врага',String(target.fortitude)],['Урон по врагу',String(target.incoming)],['Атака горниста',String(lesson.report.get('support').damage)]];met=target.dead&&blueStats.sources.includes('support')&&!blueStats.dead;objective='Усилить лукаря горнистом и уничтожить врага.';feedback=`Лукарь наносит ${blueStats.damage}, цель получает ${target.incoming} при стойкости ${target.fortitude}. ${target.dead?'Этого достаточно для гибели цели.':'Нужно усиление горниста.'}`;}
+  return finishLessonGoal(lesson,{objective,destination,met,instruction,feedback,hint});
 }
 
 export function renderMoveLesson(lesson, icons, renderBadges = () => '', animation = null) {
@@ -166,81 +146,27 @@ export function renderMoveLesson(lesson, icons, renderBadges = () => '', animati
   return `<section class="lesson-scene" data-lesson-scene="${sceneKey}" aria-labelledby="${titleId}"><div class="lesson-scene-heading">${lesson.unitType ? '' : `<p class="eyebrow">ПРИМЕР ${lesson.exampleNumber ?? (index === 4 && lesson.aura === 'defense' ? 6 : index + 1)} ИЗ ${lesson.exampleTotal ?? MOVE_LESSONS.length}${index === 4 ? lesson.aura === 'defense' ? ' · ЗАЩИТА' : ' · АТАКА' : ''}</p>`}<h4 id="${titleId}">${lesson.title}</h4>${lesson.description.split('\n').map(text => `<p>${text}</p>`).join('')}</div><div class="lesson-layout"><div class="lesson-field"><svg class="lesson-board" aria-busy="${busy}" viewBox="${lesson.viewBox || '70 10 420 390'}" role="group" aria-label="Учебная позиция: ${lesson.title}">${tiles}<g class="lesson-aura-circles">${auraMarkup}</g><g class="lesson-lines">${routeLine}</g>${pieces}<g class="lesson-ghost">${ghost}</g><g class="lesson-attack-reach" aria-hidden="true">${attackMarkup}</g><g class="lesson-numbers">${numbers}</g>${effects}${movingToken}</svg><p class="lesson-legend"><span><i></i> Ваши — Юг</span><span><i class="enemy"></i> Север</span>${index === 0 ? '<span>Цифры — шаги маршрута</span><span>× — враг перекрыл путь</span>' : '<span>Череп — погибнет при расчёте</span>'}</p></div><div class="lesson-details"><p class="lesson-state">${stateLabel}</p><dl>${lesson.facts.map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`).join('')}</dl><p class="lesson-feedback" role="status">${feedback}</p>${controls}<p class="lesson-hint">${lesson.hint}</p></div></div></section>`;
 }
 
-export function renderMoveExamples(exampleStates, icons, renderBadges = () => '', animation = null) {
-  const examples = [
-    { index: 0, key: '0' }, { index: 1, key: '1' }, { index: 2, key: '2' }, { index: 3, key: '3' },
-    { index: 4, key: '4-attack', aura: 'attack' }, { index: 4, key: '4-defense', aura: 'defense' }
-  ];
-  return '<div class="lesson-page">' + examples.map(example => {
-    const state = exampleStates[example.key] || {};
-    return renderMoveLesson(createMoveLesson(example.index, { advanced: state.advanced || false, selected: state.selected || false, destination: state.destination || null, placement: state.placement || null, previewPlacement: state.previewPlacement || null, shieldRemoved: state.shieldRemoved || false, aura: example.aura || 'attack' }), icons, renderBadges, animation?.sceneKey === example.key ? animation : null);
-  }).join('') + '</div><p class="lesson-footnote">Учебные позиции: в первом примере лукарь ходит на 3 клетки, боевые параметры фигур — как в игре. Под фигурами — сила атаки и стойкость после ожидаемого урона, как в игре. Можно пробовать — ваша партия не изменится.</p>';
+
+export function renderMoveExamples(states,icons,renderBadges=()=>'',animation=null){
+  const examples=[{index:0,key:'0'},{index:1,key:'1'},{index:2,key:'2'},{index:3,key:'3'},{index:4,key:'4-attack',aura:'attack'},{index:4,key:'4-defense',aura:'defense'}];
+  return '<div class="lesson-page">'+examples.map(example=>renderMoveLesson(createMoveLesson(example.index,{...states[example.key],aura:example.aura||'attack'}),icons,renderBadges,animation?.sceneKey===example.key?animation:null)).join('')+'</div><p class="lesson-footnote">Это отдельные учебные позиции с характеристиками текущей игры. Справа показана полная стойкость, сверху — входящий урон. Учебная цель заменяет правило полной партии, если не указано обратное. Выбор, прогноз, ход и сброс не меняют вашу партию.</p>';
 }
 
-// A single legal move, forecast and simultaneous resolution for every new sandbox.
-export function createPositionLesson(pieces, moverId, options = {}) {
-  const { selected = false, advanced = false } = options;
-  const destination = selected || advanced ? options.destination || null : null;
-  const config = clone(DEFAULT_CONFIG); config.geometry = 'hex'; config.size = 3;
-  // These isolated combat exercises may contain support-only armies; they do not teach the match ending rule.
-  config.victoryCondition = 'all-units';
-  const before = lessonPosition(pieces), mover = pieces.find(piece => piece.id === moverId);
-  const path = destination ? movementPath(mover, before, config, destination) : [];
-  if (destination && !path.length) throw new Error('Недоступная клетка учебного примера.');
-  const completed = Boolean(advanced && destination), isPreview = Boolean(selected && !completed && destination);
-  const inspected = destination ? inspectCell(before, config, destination, moverId) : null;
-  const outcome = completed ? move(before, config, moverId, destination) : null;
-  const position = outcome?.state || clone(before), beforeReport = analyze(before, config);
-  const combatPosition = inspected?.position || before;
-  const report = outcome?.report || inspected?.report || beforeReport;
-  return { config, before, position, combatPosition, previewPosition: isPreview ? combatPosition : position,
-    beforeReport, report, displayReport: completed ? analyze(position, config) : report,
-    selected, advanced: completed, completed, isPreview, moverId, destination, path, deaths: outcome?.deaths || [],
-    available: selected && !completed ? reachable(mover, before, config) : [], enemyBlocked: [] };
+export function createCombatLesson(index,options={}){
+  let pieces,destination;
+  if(index===0){pieces=[lessonPiece('blue','shield',0,0,0),lessonPiece('enemy','archer',1,0,3)];destination={q:1,r:0};}
+  else if(index===1){pieces=[lessonPiece('blue','archer',0,-2,-1),lessonPiece('enemy','archer',1,0,0),...(options.secondArcher===false?[]:[lessonPiece('second','archer',0,0,-2)])];destination={q:-2,r:0};}
+  else if(index===2){pieces=[lessonPiece('blue','shield',0,0,0),lessonPiece('enemy','shield',1,0,2),lessonPiece('drum','attackLamp',0,-1,1),lessonPiece('enemyDrum','attackLamp',1,1,2)];destination={q:0,r:1};}
+  else if(index===3){pieces=[lessonPiece('blue','scoutLamp',0,0,0),lessonPiece('enemy','defenseLamp',1,0,3),lessonPiece('enemy-fighter','shield',1,2,1),lessonPiece('own-flag','defenseLamp',0,-3,1),lessonPiece('own-fighter','archer',0,-3,0)];destination={q:0,r:1};}
+  else throw new Error('Неизвестный учебный пример боя.');
+  const lesson=createPositionLesson(pieces,'blue',{...options,matchRules:index===3});
+  Object.assign(lesson,{index:8+index,exampleNumber:index+1,exampleTotal:4});
+  if(index!==1)Object.assign(lesson,{point:verticalLessonPoint,rotation:0,viewBox:'70 10 420 390'});
+  const own=lesson.report.get('blue'),enemy=lesson.report.get('enemy');let title,description,objective,instruction,feedback,hint,met;
+  if(index===0){title='Урон не накапливается';description=`Лукарь обстреливает броненосца: ${lesson.beforeReport.get('blue').incoming} урона при полной стойкости ${lesson.beforeReport.get('blue').fortitude}.\nВыведи броненосца из линии выстрела. Стойкость не расходуется как здоровье и останется прежней.`;objective='Уйти с линии огня, сохранив полную стойкость 5.';instruction='Выбери броненосца, наведи на соседнюю клетку сбоку и сравни верхний бейдж.';met=own.incoming===0;feedback=`Справа полная стойкость ${own.fortitude}. ${own.incoming?`Сверху входящий урон −${own.incoming}.`:'Входящего урона нет: верхний бейдж исчезает.'}`;hint='Урон считается заново после каждого действия. Несмертельный урон не переносится на следующий ход.';lesson.facts=[['Полная стойкость',String(own.fortitude)],['Входящий урон',String(own.incoming)],['Накопленный урон','Не хранится']];}
+  else if(index===1){title='Урон союзников складывается';description='Одна стрела наносит 2 урона, а стойкость лукаря равна 3.\nПодведи второго лукаря на линию выстрела: две атаки сложатся в одном расчёте.';objective='Двумя лукарями нанести 4 урона и уничтожить цель.';instruction='Выбери лукаря слева и найди прямую линию к врагу.';met=enemy.dead;feedback=`По цели ${enemy.incoming} урона при стойкости ${enemy.fortitude}. ${enemy.dead?'Совместного огня достаточно.':'Одной стрелы не хватает.'}`;hint='Убери второго лукаря кнопкой и сравни тот же ход. Между ходами урон не накапливается.';lesson.facts=[['Суммарный урон',String(enemy.incoming)],['Стойкость цели',String(enemy.fortitude)],['Цель',enemy.dead?'Погибает':'Выживает']];lesson.extraControls=`<button class="button outline" data-lesson-action="toggle-archer">${options.secondArcher===false?'Вернуть второго лукаря':'Убрать второго лукаря'}</button>`;}
+  else if(index===2){title='Смерти происходят одновременно';description='Между броненосцами одна пустая клетка. Их атака 5, стойкость 5.\nПодойди вплотную: оба нанесут ответный удар, даже если погибают сами.';objective='Вызвать одновременную гибель обоих броненосцев.';instruction='Выбери броненосца и займи клетку между ними.';met=own.dead&&enemy.dead;feedback=met?'Оба броненосца наносят по 5 урона и погибают одновременно.':'Пока расстояние слишком велико для удара. Дальность обычного броненосца — 1.';hint='Сначала считается урон всех фигур, затем погибшие удаляются одновременно. Барабанщик здесь даёт шаг, а не атаку.';lesson.facts=[['Наш входящий урон',String(own.incoming)],['Вражеский входящий урон',String(enemy.incoming)],['Итог',met?'Оба погибают':'Оба живы']];}
+  else{title='Потеря знамени завершает партию';description='На поле два знаменосца и боевые фигуры обеих сторон. Здесь действует настоящее условие победы.\nПодведи командира на две клетки к вражескому знамени и нанеси 3 урона при стойкости 3.';objective='Победить, уничтожив знамя, пока вражеский броненосец остаётся жив.';instruction='Выбери командира и подойди к вражескому флагу на две клетки.';met=enemy.dead&&(!lesson.completed||lesson.position.winner===0)&&lesson.position.pieces.some(p=>p.id==='enemy-fighter');feedback=lesson.completed&&met?'Знаменосец погиб. У Севера остался броненосец, но потеря флага уже принесла победу Югу.':`Стойкость знамени ${enemy.fortitude}, входящий урон ${enemy.incoming}. Для атаки командиру нужна цель в пределах двух клеток.`;hint='Командир атакует самостоятельно, но не считается броненосцем или лукарём для условия сохранения боевых фигур.';lesson.facts=[['Урон по знамени',String(enemy.incoming)],['Стойкость знамени',String(enemy.fortitude)],['Вражеский броненосец',lesson.position.pieces.some(p=>p.id==='enemy-fighter')?'Жив':'Погиб'],['Победа',lesson.position.winner===0?'Юг победил':'Ещё не завершено']];}
+  Object.assign(lesson,{title,description});return finishLessonGoal(lesson,{objective,destination,met,instruction,feedback,hint});
 }
-
-export function createCombatLesson(index, options = {}) {
-  const pieces = index === 0
-    ? [lessonPiece('blue', 'shield', 0, 0, 0), lessonPiece('enemy', 'archer', 1, 0, 3)]
-    : index === 1
-      ? [lessonPiece('blue', 'archer', 0, -2, -1), lessonPiece('enemy', 'archer', 1, 0, 0), ...(options.secondArcher === false ? [] : [lessonPiece('second', 'archer', 0, 0, -2)])]
-      : [lessonPiece('blue', 'shield', 0, 0, 0), lessonPiece('enemy', 'shield', 1, 0, 2), lessonPiece('drum','attackLamp',0,-1,1), lessonPiece('enemyDrum','attackLamp',1,1,2)];
-  const lesson = createPositionLesson(pieces, 'blue', options);
-  Object.assign(lesson, { index: 8 + index, exampleNumber: index + 1, exampleTotal: 3 });
-  if (index !== 1) Object.assign(lesson, { point: verticalLessonPoint, rotation: 0, viewBox: '70 10 420 390' });
-  const current = lesson.report.get('blue'), target = lesson.report.get('enemy');
-  if (index === 0) {
-    const initial = lesson.beforeReport.get('blue');
-    lesson.title = 'Выйди из-под обстрела';
-    lesson.description = `Лукарь впереди держит броненосца под огнём. Справа — полная стойкость ${initial.fortitude}; при выборе сверху появляется входящий урон −${initial.incoming}.\nВыбери броненосца и уведи его с линии выстрела. Наведи на доступную клетку, сравни прогноз и сделай ход нажатием.`;
-    lesson.facts = [['Стойкость броненосца', String(current.fortitude)], ['Урон от лукаря', String(current.incoming)], ['Стойкость справа', String(current.fortitude)]];
-    lesson.feedback = current.incoming ? `Здесь лукарь достаёт: сверху −${current.incoming}. Отойди в сторону от линии выстрела.` : `Здесь лукарь не достаёт: верхний бейдж урона исчезает. Справа по-прежнему ${current.fortitude}.`;
-    lesson.hint = 'Число справа — полная стойкость с усилениями. Сверху — входящий урон или череп при смертельной угрозе. Прошлый урон не сохраняется.';
-  } else if (index === 1) {
-    lesson.title = 'Урон складывается';
-    lesson.description = 'До врага достаёт только лукарь справа: 2 урона при стойкости 4.\nВыбери лукаря слева и найди клетку, с которой он тоже достанет врага. Сделай ход — обе стрелы полетят автоматически.';
-    lesson.facts = [['Суммарный урон по врагу', String(target.incoming)], ['Стойкость врага', String(target.fortitude)], ['Враг', target.dead ? 'Погибнет' : 'Выживет']];
-    lesson.feedback = target.dead ? `Оба лукаря достают врага. Их урон складывается: ${target.incoming} — этого хватает, чтобы уничтожить лукаря.` : `Враг получает ${target.incoming} урона при стойкости ${target.fortitude} и выживает. Нужна прямая линия для второго лукаря.`;
-    lesson.extraControls = `<button class="button outline" data-lesson-action="toggle-archer">${options.secondArcher === false ? 'Вернуть второго лукаря' : 'Убрать второго лукаря'}</button>`;
-    lesson.hint = 'Сравни ход с одним и двумя лукарями. Урон от нескольких врагов складывается в одном расчёте, но между ходами не накапливается.';
-  } else {
-    lesson.title = 'Атаки происходят одновременно';
-    lesson.description = `Броненосцы стоят по вертикали, между ними одна пустая клетка. Каждый под барабаном: атака ${lesson.beforeReport.get('blue').damage}, стойкость ${lesson.beforeReport.get('blue').fortitude}.\nПододвинь своего броненосца к врагу и посмотри, как они обменяются ударами.`;
-    lesson.facts = [['Урон по нашему броненосцу', String(current.incoming)], ['Урон по врагу', String(target.incoming)], ['Итог расчёта', current.dead && target.dead ? 'Оба погибнут' : 'Оба выживут']];
-    lesson.feedback = current.dead && target.dead ? 'Каждый наносит смертельный удар. Оба погибнут одновременно: гибель не отменяет ответную атаку.' : 'Пока они не достают друг друга. Займи пустую клетку рядом с врагом.';
-    lesson.hint = 'Сначала все фигуры атакуют, затем погибшие удаляются одновременно. В этом расчёте они ещё успевают ударить и усилить союзников.';
-  }
-  if (lesson.completed) {
-    lesson.facts = lesson.facts.map(([name, value]) => [name, value.replace('погибнут', 'погибли').replace('выживут', 'выжили').replace('Погибнет', 'Погиб').replace('Выживет', 'Выжил')]);
-    lesson.feedback = index === 2 && current.dead && target.dead ? 'Оба броненосца погибли одновременно. Каждый успел нанести ответный удар.' : lesson.feedback.replaceAll('погибнут', 'погибли');
-    lesson.feedback += ' Верни исходную позицию, чтобы попробовать другой ход.';
-  } else if (!lesson.selected) lesson.feedback = 'Выбери оранжевую фигуру, затем наведи на доступную клетку и сравни прогноз.';
-  return lesson;
-}
-
-export function renderCombatExamples(states, icons, renderBadges = () => '', animation = null) {
-  return '<div class="lesson-page">' + [0, 1, 2].map(index => {
-    const sceneKey = String(8 + index);
-    return renderMoveLesson(createCombatLesson(index, states[sceneKey] || {}), icons, renderBadges, animation?.sceneKey === sceneKey ? animation : null);
-  }).join('') + '</div>';
-}
+export function renderCombatExamples(states,icons,renderBadges=()=>'',animation=null){return '<div class="lesson-page">'+[0,1,2,3].map(index=>{const key=String(8+index);return renderMoveLesson(createCombatLesson(index,states[key]||{}),icons,renderBadges,animation?.sceneKey===key?animation:null);}).join('')+'</div>';}

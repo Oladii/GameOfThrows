@@ -1,49 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCombatLesson, renderCombatExamples } from '../dist/onboarding-examples.js';
-import { analyze } from '../dist/engine.js';
+import { analyze, move, winnerForPieces } from '../dist/engine.js';
 
-test('escape is vertical, red while threatened and safe to the side with a real legal move', () => {
-  const initial = createCombatLesson(0), blue = initial.before.pieces[0], enemy = initial.before.pieces[1];
-  assert.equal(blue.q, enemy.q); assert.ok(enemy.r > blue.r);
-  assert.ok(Math.abs(initial.point(blue).x - initial.point(enemy).x) < 1e-10);
-  assert.ok(initial.point(enemy).y < initial.point(blue).y);
-  assert.equal(initial.report.get('blue').incoming, 2);
-  assert.match(initial.description, /сверху появляется входящий урон/);
-  const safe = createCombatLesson(0, { advanced: true, destination: { q: 1, r: 0 } });
-  assert.equal(safe.report.get('blue').incoming, 0);
-  assert.equal(safe.report.get('blue').fortitude, 5);
-  const exposed = createCombatLesson(0, { advanced: true, destination: { q: 0, r: 1 } });
-  assert.equal(exposed.report.get('blue').incoming, 2);
+test('leaving fire removes incoming damage while full fortitude stays5 and no damage is carried over',()=>{
+  const initial=createCombatLesson(0);assert.equal(initial.report.get('blue').incoming,2);assert.equal(initial.report.get('blue').fortitude,5);assert.equal(initial.success,false);
+  const safe=createCombatLesson(0,{advanced:true,destination:initial.solution[0].to});assert.equal(safe.report.get('blue').incoming,0);assert.equal(safe.report.get('blue').fortitude,5);assert.equal(safe.success,true);
+  const exposed=createCombatLesson(0,{advanced:true,destination:{q:0,r:1}});assert.equal(exposed.report.get('blue').incoming,2);assert.equal(analyze(exposed.position,exposed.config).get('blue').fortitude,5);assert.equal(exposed.success,false);
+  assert.match(safe.feedback,/стойкость 5/);assert.match(safe.feedback,/Входящего урона нет/);
 });
 
-test('sum example starts nonlethal and requires movement, with two shots killing where one cannot', () => {
-  const initial = createCombatLesson(1);
-  assert.equal(initial.report.get('enemy').incoming, 2);
-  assert.equal(initial.report.get('enemy').dead, false);
-  const destination = { q: -2, r: 0 };
-  const two = createCombatLesson(1, { advanced: true, destination });
-  assert.equal(two.report.get('enemy').incoming, 4);
-  assert.ok(!two.position.pieces.some(p => p.id === 'enemy'));
-  const one = createCombatLesson(1, { advanced: true, destination, secondArcher: false });
-  assert.equal(one.report.get('enemy').incoming, 2);
-  assert.ok(one.position.pieces.some(p => p.id === 'enemy'));
-  assert.equal(analyze(one.position, one.config).get('enemy').fortitude, 3);
+test('two actual shots sum to4 against fortitude3, while the same move with one archer leaves the target alive',()=>{
+  const initial=createCombatLesson(1);assert.equal(initial.report.get('enemy').incoming,2);assert.equal(initial.report.get('enemy').dead,false);
+  const to=initial.solution[0].to,two=createCombatLesson(1,{advanced:true,destination:to}),one=createCombatLesson(1,{advanced:true,destination:to,secondArcher:false});
+  assert.equal(two.report.get('enemy').incoming,4);assert.equal(two.report.get('enemy').fortitude,3);assert.equal(two.success,true);assert.ok(!two.position.pieces.some(p=>p.id==='enemy'));
+  assert.equal(one.report.get('enemy').incoming,2);assert.equal(one.success,false);assert.ok(one.position.pieces.some(p=>p.id==='enemy'));assert.equal(analyze(one.position,one.config).get('enemy').fortitude,3);
+  assert.match(two.feedback,/4 урона при стойкости 3/);assert.match(one.feedback,/Одной стрелы не хватает/);
 });
 
-test('vertical shield example starts apart and a real approach ends with both deaths at once', () => {
-  const initial = createCombatLesson(2), [blue, enemy] = initial.before.pieces;
-  assert.equal(blue.q, enemy.q); assert.equal(enemy.r - blue.r, 2);
-  assert.ok(Math.abs(initial.point(blue).x - initial.point(enemy).x) < 1e-10);
-  assert.ok(initial.point(enemy).y < initial.point(blue).y);
-  assert.equal(initial.report.get('blue').incoming, 0);
-  assert.equal(initial.report.get('enemy').incoming, 0);
-  assert.ok(!initial.description.includes('?'));
-  const complete = createCombatLesson(2, { advanced: true, destination: { q: 0, r: 1 } });
-  assert.equal(complete.deaths.length, 2); assert.equal(complete.position.pieces.length, 2);
-  assert.equal(complete.report.get('blue').incoming, 6); assert.equal(complete.report.get('enemy').incoming, 6);
-  const html = renderCombatExamples({}, {});
-  assert.equal((html.match(/data-lesson-unit=/g) || []).length, 3);
-  assert.ok(!html.includes('Выстрелить')); assert.ok(!html.includes('Показать бой'));
-  for (const number of [1, 2, 3]) assert.ok(html.includes(`ПРИМЕР ${number} ИЗ 3`));
+test('ordinary shields deal5 at range1 and die simultaneously; drum affects movement rather than attack',()=>{
+  const initial=createCombatLesson(2);assert.equal(initial.report.get('blue').damage,5);assert.equal(initial.report.get('blue').range,1);assert.equal(initial.report.get('blue').incoming,0);assert.equal(initial.success,false);
+  const done=createCombatLesson(2,{advanced:true,destination:initial.solution[0].to});assert.deepEqual(done.deaths.map(p=>p.id),['blue','enemy']);assert.equal(done.report.get('blue').incoming,5);assert.equal(done.report.get('enemy').incoming,5);assert.equal(done.position.pieces.length,2);assert.equal(done.success,true);assert.match(done.feedback,/одновременно/);
+});
+
+test('flag exercise uses the actual victory rule and wins with an enemy combat unit still alive',()=>{
+  const initial=createCombatLesson(3);assert.equal(initial.config.victoryCondition,'flag-or-combat');assert.equal(initial.before.pieces.filter(p=>p.type==='defenseLamp').length,2);assert.equal(initial.report.get('enemy').incoming,0);assert.equal(winnerForPieces(initial.before.pieces,initial.config),null);
+  const to=initial.solution[0].to,preview=createCombatLesson(3,{selected:true,destination:to}),done=createCombatLesson(3,{advanced:true,destination:to});
+  assert.equal(preview.report.get('enemy').incoming,3);assert.equal(preview.previewSuccess,true);assert.deepEqual(preview.position,initial.position);
+  assert.deepEqual(done.position,move(initial.before,initial.config,'blue',to).state);assert.equal(done.position.winner,0);assert.ok(done.position.pieces.some(p=>p.id==='enemy-fighter'));assert.ok(done.position.pieces.some(p=>p.id==='own-fighter'));assert.ok(!done.position.pieces.some(p=>p.id==='enemy'));assert.equal(done.success,true);assert.match(done.feedback,/остался броненосец/);assert.match(done.feedback,/победу Югу/);
+});
+
+test('combat page has four independent resettable boards and marks the real flag-rule scene',()=>{
+  const html=renderCombatExamples({},{});assert.equal((html.match(/data-lesson-scene=/g)||[]).length,4);assert.equal((html.match(/data-lesson-action="reset"/g)||[]).length,4);assert.match(html,/data-lesson-scene="11"/);assert.match(html,/настоящее правило/);
 });

@@ -169,7 +169,9 @@ export function effective(piece, state, config) {
   const armedCommander = piece.type === 'scoutLamp' && stats.damage > 0 && stats.range > 0;
   const canAttack = !support || armedCommander || veteranSupport;
   const damage = canAttack ? stats.damage + damageBonus : 0;
-  const range = !canAttack ? 0 : support && stats.range === 0 ? Math.min(rangeBonus, 1) : piece.type === 'shield' ? Math.min(stats.range + rangeBonus, promotion.maxRange ?? PREVIOUS_SCOUT_CONFIG.shieldPromotion.maxRange) : stats.range + rangeBonus;
+  // An armed commander keeps its base attack reach; auras still grant its
+  // damage, defense and movement. Legacy unarmed support keeps veteran range.
+  const range = !canAttack ? 0 : armedCommander ? stats.range : support && stats.range === 0 ? Math.min(rangeBonus, 1) : piece.type === 'shield' ? Math.min(stats.range + rangeBonus, promotion.maxRange ?? PREVIOUS_SCOUT_CONFIG.shieldPromotion.maxRange) : stats.range + rangeBonus;
   return { damage, range, fortitude: stats.fortitude + defenseBonus, aura: veteran ? alliedPromotionStats(config).aura : stats.aura, move: stats.move + moveBonus, damageBonus: canAttack ? damageBonus : 0, rangeBonus: Math.max(0, range - stats.range), defenseBonus, sources };
 }
 export function attacks(attacker, target, state, config, stats = effective(attacker, state, config)) {

@@ -269,7 +269,7 @@ export function alliedBonusDetails(piece, position, config) {
     const raw = {
       ...(source.type === 'attackLamp' && (config.drumMoveAllies || piece.type === 'shield') && config.drumShieldMoveBonus ? { move: config.drumShieldMoveBonus } : {}),
       damage: offensive ? aura.damageBonus : 0,
-      range: offensive && piece.type !== 'shield' ? aura.rangeBonus : 0,
+      range: offensive && piece.type !== 'shield' && !(piece.type === 'scoutLamp' && config.stats.scoutLamp.damage > 0 && config.stats.scoutLamp.range > 0) ? aura.rangeBonus : 0,
       fortitude: (veteran || ['shield', 'defenseLamp'].includes(source.type)) && (!config.shieldDefenseOnly || source.type !== 'shield' || piece.type === 'shield') ? aura.defenseBonus : 0
     };
     const bonuses = Object.fromEntries(Object.entries(raw).map(([field, value]) => {

@@ -19,23 +19,23 @@ function setup(overrides={}){
   const readSnapshot=value=>({...clone(value),config:validateConfig(value.config),state:validateState(value.state,value.config)});
   const context=vm.createContext({DEFAULT_CONFIG,PREVIOUS_LOCAL_CONFIG,BALANCE_REVISION,updateSavedBalance,upgradeSelectedBalancePreset,clone,validateConfig,createGame,classifyPosition,
     config:clone(DEFAULT_CONFIG),state:createGame(DEFAULT_CONFIG),history:[],log:[],lastTurn:null,previousGame:null,selected:null,
-    STORAGE:'lamps-prototype-v1',CURRENT_GAME_VERSION:'0.1.38',PRESET_REVISION:1,START_PREFS_REVISION:2,
-    firstMove:'random',playMode:'bot',humanTeam:1,botDifficulty:'easy',readBotDifficulty:value=>value||'easy',gameVersion:'0.1.38',gamePhase:'setup',positionKind:'default',editor:false,
+    STORAGE:'lamps-prototype-v1',CURRENT_GAME_VERSION:'0.1.39',PRESET_REVISION:1,START_PREFS_REVISION:2,
+    firstMove:'random',playMode:'bot',humanTeam:1,botDifficulty:'easy',readBotDifficulty:value=>value||'easy',gameVersion:'0.1.39',gamePhase:'setup',positionKind:'default',editor:false,
     readSnapshot,readPreviousGame:value=>value?clone(value):null,readLastTurn:value=>clone(value??null),lastTurnFromHistory:()=>null,
     localStorage:{getItem:key=>key==='lamps-prototype-v1'?JSON.stringify(saved):null},checkpoint:()=>{checkpoints++;},toast:message=>{throw Error(message);},balanceUpdated:false,commanderUpdated:false});
   vm.runInContext(pendingHelper+loadBlock,context);
   return {context,saved,checkpoints:()=>checkpoints,reset:()=>vm.runInContext(resetDeclaration+'\nresetNewGameDefaults()',context)};
 }
 
-test('release38 selects existing production saves while localhost and standalone keep the local profile',()=>{
+test('release39 selects existing production saves while localhost and standalone keep the local profile',()=>{
   const declaration=app.match(/^const archiveIsSite = .*;$/m)[0]+'\n'+app.match(/^const STORAGE = .*;$/m)[0]+'\nSTORAGE';
   for(const [origin,pathname,expected]of [['https://oladii.github.io','/GameOfThrows/','lamps-prototype-v1'],['http://127.0.0.1:35810','/','lamps-local-playtest13-v1'],['null','/Lamps.html','lamps-local-playtest13-v1']])assert.equal(vm.runInNewContext(declaration,{location:{origin,pathname}}),expected);
-  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.38');
+  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.39');
 });
 
 test('a fully known production revision16 standard pending setup upgrades to current13',()=>{
   const ui=setup();assert.deepEqual(plain(ui.context.config),DEFAULT_CONFIG);assert.deepEqual(plain(ui.context.state),createGame(DEFAULT_CONFIG));
-  assert.equal(ui.context.state.pieces.length,26);assert.equal(ui.checkpoints(),1);assert.equal(ui.context.gameVersion,'0.1.38');
+  assert.equal(ui.context.state.pieces.length,26);assert.equal(ui.checkpoints(),1);assert.equal(ui.context.gameVersion,'0.1.39');
 });
 
 test('production revision16 active games, editors, custom settings and custom positions are preserved',()=>{
@@ -46,9 +46,9 @@ test('production revision16 active games, editors, custom settings and custom po
     const ui=setup({...before,...overrides});
     assert.deepEqual(plain(ui.context.config),before.config);assert.deepEqual(plain(ui.context.state),plain(before.state));assert.deepEqual(plain(ui.context.history),plain(before.history));assert.deepEqual(plain(ui.context.lastTurn),before.lastTurn);assert.equal(ui.checkpoints(),0);
     assert.equal(ui.context.gameVersion,'0.1.36');
-    ui.reset();assert.deepEqual(plain(ui.context.config),DEFAULT_CONFIG);assert.deepEqual(plain(ui.context.state),createGame(DEFAULT_CONFIG));assert.equal(ui.context.state.pieces.length,26);assert.equal(ui.context.gameVersion,'0.1.38');
+    ui.reset();assert.deepEqual(plain(ui.context.config),DEFAULT_CONFIG);assert.deepEqual(plain(ui.context.state),createGame(DEFAULT_CONFIG));assert.equal(ui.context.state.pieces.length,26);assert.equal(ui.context.gameVersion,'0.1.39');
   }
-  assert.equal(needsNewGame({phase:'playing',savedVersion:'0.1.36',currentVersion:'0.1.38',latestVersion:null}),true);
+  assert.equal(needsNewGame({phase:'playing',savedVersion:'0.1.36',currentVersion:'0.1.39',latestVersion:null}),true);
 });
 
 test('fresh preparation defaults to random, and revision1 setup changes only the first-move preference',()=>{
@@ -77,8 +77,19 @@ test('starting a random game rolls exactly once and fixes that turn for the runn
   for(const [roll,expected]of [[0.1,0],[0.9,1]]){
     let rolls=0,starts=0;
     const context=vm.createContext({config:clone(DEFAULT_CONFIG),state:createGame(DEFAULT_CONFIG),firstMove:'random',gamePhase:'setup',editor:false,refreshingNewGame:false,history:[],log:[],previousGame:null,selected:null,
-      Math:{random:()=>{rolls++;return roll;},floor:Math.floor},prepareStartPosition,resetBotContext(){},classifyPosition,CURRENT_GAME_VERSION:'0.1.38',gameVersion:'0.1.37',archiveGameMetadata:()=>({}),archiveRecorder:{start(){starts++;}},$:()=>({close(){}}),render(){},toast:message=>{throw Error(message);}});
+      Math:{random:()=>{rolls++;return roll;},floor:Math.floor},prepareStartPosition,resetBotContext(){},classifyPosition,CURRENT_GAME_VERSION:'0.1.39',gameVersion:'0.1.37',archiveGameMetadata:()=>({}),archiveRecorder:{start(){starts++;}},$:()=>({close(){}}),render(){},toast:message=>{throw Error(message);}});
     vm.runInContext(startingTeam+'\n'+startGame+'\nstartGame();startGame();',context);
     assert.equal(rolls,1);assert.equal(starts,1);assert.equal(context.state.turn,expected);assert.equal(context.gamePhase,'playing');
   }
+});
+
+
+test('revision21 commander range migration preserves a running turn, position, history and choices',()=>{
+  const config=clone(DEFAULT_CONFIG);config.stats.scoutLamp.range=1;
+  const state=createGame(config);state.ply=18;state.turn=1;
+  const history=[{config:clone(config),state:clone(state),log:[],positionKind:'custom',gameVersion:'0.1.38'}],lastTurn={saved:true};
+  const ui=setup({config,state,history,lastTurn,balanceRevision:21,startPrefsRevision:2,gamePhase:'playing',positionKind:'custom',firstMove:'north',playMode:'local',humanTeam:0});
+  const expected=clone(config);expected.stats.scoutLamp.range=2;
+  assert.deepEqual(plain(ui.context.config),expected);assert.deepEqual(plain(ui.context.state),state);assert.deepEqual(plain(ui.context.history),history);assert.deepEqual(plain(ui.context.lastTurn),lastTurn);assert.equal(ui.context.state.turn,1);assert.equal(ui.context.firstMove,'north');assert.equal(ui.context.playMode,'local');assert.equal(ui.checkpoints(),0);
+  for(const [damage,range] of [[2,1],[3,4]]){const custom=clone(config);Object.assign(custom.stats.scoutLamp,{damage,range});const saved=setup({config:custom,state,balanceRevision:21,startPrefsRevision:2,gamePhase:'playing'});assert.deepEqual(plain(saved.context.config),custom);assert.deepEqual(plain(saved.context.state),state);}
 });

@@ -47,7 +47,7 @@ test('new match requires one flag and combat units for each side; historical mod
 });
 
 test('revision16 standard setup migrates exactly once and explicit historical or custom rules retain their behavior',()=>{
- assert.equal(BALANCE_REVISION,21);assert.deepEqual(updateSavedBalance(PREVIOUS_DRUM_CONFIG,17),DEFAULT_CONFIG);assert.equal(createGame(PREVIOUS_DRUM_CONFIG).pieces.length,28);assert.deepEqual(updateSavedBalance(PREVIOUS_UNCAPPED_CONFIG,16),DEFAULT_CONFIG);
+ assert.equal(BALANCE_REVISION,22);assert.deepEqual(updateSavedBalance(PREVIOUS_DRUM_CONFIG,17),DEFAULT_CONFIG);assert.equal(createGame(PREVIOUS_DRUM_CONFIG).pieces.length,28);assert.deepEqual(updateSavedBalance(PREVIOUS_UNCAPPED_CONFIG,16),DEFAULT_CONFIG);
  assert.deepEqual(updateSavedBalance(PREVIOUS_UNCAPPED_CONFIG,19),PREVIOUS_UNCAPPED_CONFIG);
  assert.equal(effective(p('s','shield',0,0,0),s([p('s','shield',0,0,0),p('d','attackLamp',0,0,1)]),PREVIOUS_UNCAPPED_CONFIG).move,1);
  for(const change of [c=>c.stats.archer.damage++,c=>c.stats.attackLamp.aura=3,c=>c.army.rearArchers=3]){const custom=clone(PREVIOUS_UNCAPPED_CONFIG);change(custom);assert.deepEqual(updateSavedBalance(custom,16),custom);}

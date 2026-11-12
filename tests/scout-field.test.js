@@ -33,13 +33,15 @@ test('old games gain only an empty scout schema; full default presets upgrade an
   const custom=clone(normalized);mutate(custom);assert.deepEqual(upgradeScoutFieldPreset(custom),custom);
  }
 });
-test('new scout and revised drummer lessons require the stated support effect to win',()=>{
+test('current commander and drummer exercises require their actual attack and movement goals',()=>{
  for(const type of ['scoutLamp','attackLamp']){
-  const initial=createUnitLesson(type),result=createUnitLesson(type,{selected:true,advanced:true,destination:type==='scoutLamp'?{q:0,r:-2}:{q:1,r:-2}});
-  assert.equal(initial.report.get('enemy').dead,false);assert.equal(result.report.get('enemy').dead,true);
-  assert.equal(result.report.get('blue').dead,false);
-  const expected=move(initial.before,initial.config,'support',type==='scoutLamp'?{q:0,r:-2}:{q:1,r:-2});assert.deepEqual(result.position,expected.state);
-  assert.equal(result.report.get('blue').range-initial.report.get('blue').range,type==='scoutLamp'?1:0);
-  assert.equal(result.report.get('blue').damage-initial.report.get('blue').damage,type==='attackLamp'?1:0);
+  const initial=createUnitLesson(type),destination=initial.solution[0].to,result=createUnitLesson(type,{selected:true,advanced:true,destination});
+  assert.equal(initial.success,false);assert.equal(result.success,true);
+  assert.deepEqual(result.position,move(initial.before,initial.config,'support',destination).state);
+  if(type==='scoutLamp'){
+   assert.equal(result.report.get('support').damage,3);assert.equal(result.report.get('support').range,2);assert.ok(result.report.get('enemy').attackers.some(p=>p.id==='support'));
+  }else{
+   assert.equal(result.report.get('blue').move,3);assert.equal(result.report.get('blue').damage,2);assert.equal(result.report.get('support').damage,0);
+  }
  }
 });

@@ -8,7 +8,7 @@ import {alliedBonusDetails} from '../dist/board-presentation.js';
 const p=(id,type,team,q,r,v=false)=>({id,type,team,q,r,...(v?{reachedFarEdge:true}:{})});
 const state=pieces=>({pieces,turn:0,ply:0,winner:null});
 test('small balance preserves the exact formation and upgrades only a former complete standard setup',()=>{
- assert.equal(BALANCE_REVISION,21);
+ assert.equal(BALANCE_REVISION,22);
  assert.deepEqual(createGame(DEFAULT_CONFIG).pieces,createGame(PREVIOUS_FORMATION_CONFIG).pieces);
  assert.deepEqual(['shield','archer','attackLamp','defenseLamp','scoutLamp'].map(t=>[DEFAULT_CONFIG.stats[t].damage,DEFAULT_CONFIG.stats[t].fortitude]),[[4,5],[1,4],[0,2],[0,2],[0,2]]);
  assert.deepEqual([DEFAULT_CONFIG.stats.archer.move,DEFAULT_CONFIG.stats.archer.range,DEFAULT_CONFIG.stats.archer.aura,DEFAULT_CONFIG.stats.archer.damageBonus],[2,3,0,0]);

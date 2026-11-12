@@ -6,6 +6,9 @@ import { DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, updateSavedBalanc
 import { effective, validateConfig, shieldCanRetreat } from '../dist/engine.js';
 import { alliedBonusDetails, unitStatParts, auraKind, auraCircleMarkup } from '../dist/board-presentation.js';
 import { renderTokenBody, HORN_ICON_PATH, COMMANDER_ICON_PATH } from '../dist/token-presentation.js';
+import { renderUnitExamples } from '../dist/onboarding-units.js';
+import { renderMoveExamples, renderCombatExamples } from '../dist/onboarding-examples.js';
+import { renderShowcaseBattle } from '../dist/onboarding-showcase.js';
 
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
@@ -71,21 +74,23 @@ test('settings round trip all six types and preserve archived configurations wit
       assert.equal(form.elements['army.horns'].value, '1');
       assert.equal(form.elements['stats.horn.damageBonus'].value, '1');
       assert.equal(form.elements['stats.scoutLamp.damage'].value, '3');
-      assert.equal(form.elements['stats.scoutLamp.range'].value, '1');
+      assert.equal(form.elements['stats.scoutLamp.range'].value, '2');
       assert.match(nodes['#drum-move-label'].textContent, /всех союзников/);
     }
   }
 });
 
-test('current rules open directly and production retains its original saved game namespace', () => {
+test('interactive training opens directly and production retains its original saved game namespace', () => {
   assert.match(app, /const STORAGE = archiveIsSite \? 'lamps-prototype-v1' : 'lamps-local-playtest13-v1'/);
   const storageDeclaration=app.match(/^const STORAGE = .*;$/m)[0];
   for(const [site,expected]of [[true,'lamps-prototype-v1'],[false,'lamps-local-playtest13-v1']]){const context=vm.createContext({archiveIsSite:site});assert.equal(vm.runInContext(storageDeclaration+'\nSTORAGE',context),expected);}
   assert.doesNotMatch(app, /localStorage\.(?:removeItem|clear)\(/);
   assert.doesNotMatch(app, /next\.stats\.attackLamp\.damage = 2/);
   const openAbout = app.slice(app.indexOf('function openAbout()'), app.indexOf('function goToOnboardingStep('));
-  assert.match(openAbout, /showAboutView\(false\)/);
-  assert.doesNotMatch(openAbout, /renderOnboarding\(\)/);
+  assert.match(openAbout, /showAboutView\(true\)/);
+  assert.match(openAbout, /renderOnboarding\(\)/);
+  assert.match(html, /<div class="about-switch"/);
+  assert.match(html, /id="onboarding-open"[^>]*>Обучение с примерами/);
   assert.match(html, /<strong>Горнист<\/strong> усиливает урон союзников всех типов/);
   assert.match(html, /<strong>Барабанщик<\/strong> добавляет союзникам всех типов шаг/);
 });
@@ -99,7 +104,7 @@ test('commander reuses the established helmet and keeps the scout mechanics iden
   assert.match(COMMANDER_ICON_PATH, /M3 9c0-4\.3 4-7 9-7/);
   assert.doesNotMatch(markup, /data-artwork="type-scoutLamp"/);
   assert.match(app, /scoutLamp: COMMANDER_ICON_PATH/);
-  assert.match(html, /<strong>Командир<\/strong> увеличивает дальность союзников/);
+  assert.match(html, /<strong>Командир<\/strong> увеличивает дальность союзных лукарей/);
   assert.doesNotMatch(html, /[Рр]азведчик|бинокл/);
 });
 
@@ -120,7 +125,10 @@ test('commander inspector distinguishes an independent attack from historical su
     const context = vm.createContext({ config, selected: 'commander', movement: null, combat: null, visibleState: () => state, effective, shieldCanRetreat, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg/>', plural: () => 'клетки', $: selector => nodes[selector] });
     vm.runInContext(app.slice(app.indexOf('function renderInspector('), app.indexOf('function shieldPromotionDescription(')), context);
     context.renderInspector({});
-    if (input === DEFAULT_CONFIG) assert.match(nodes['#inspector'].innerHTML, /Атакует самостоятельно: урон 3, дальность 1/);
+    if (input === DEFAULT_CONFIG) {
+      assert.match(nodes['#inspector'].innerHTML, /Атакует самостоятельно: урон 3, дальность 2/);
+      assert.match(nodes['#inspector'].innerHTML, /Дальность не увеличивается от аур/);
+    }
     else {
       assert.match(nodes['#inspector'].innerHTML, /Может атаковать только рядом с союзным ветераном/);
       assert.doesNotMatch(nodes['#inspector'].innerHTML, /Атакует самостоятельно/);
@@ -138,7 +146,7 @@ test('loading revision20 arms the current commander without rebuilding the posit
   const start = app.indexOf('    // Arm the existing local13 commander');
   vm.runInContext(app.slice(start, app.indexOf('    const updatedBalance =', start)), context);
   assert.equal(context.config.stats.scoutLamp.damage, 3);
-  assert.equal(context.config.stats.scoutLamp.range, 1);
+  assert.equal(context.config.stats.scoutLamp.range, 2);
   assert.deepEqual(context.config.army, config.army);
   assert.strictEqual(context.state, state);
   assert.strictEqual(context.history, history);
@@ -147,5 +155,49 @@ test('loading revision20 arms the current commander without rebuilding the posit
   let notification = '';
   context.toast = message => { notification = message; };
   vm.runInContext(app.slice(app.lastIndexOf('if (balanceUpdated) toast(')), context);
-  assert.equal(notification, 'Командир: атака 3, дальность 1. Расстановка сохранена.');
+  assert.equal(notification, 'Командир: атака 3, дальность 2. Расстановка сохранена.');
+});
+
+
+test('the visible tutorial renders six unit scenes and a flag victory exercise while keeping text rules separately available', () => {
+  const nodes = Object.fromEntries(['onboarding-progress', 'onboarding-body', 'onboarding-back', 'onboarding-count', 'onboarding-next', 'onboarding', 'rules-reference', 'about-guide-tab', 'about-reference-tab'].map(id => ['#' + id, { innerHTML: '', attrs: {}, setAttribute(name, value) { this.attrs[name] = value; } }]));
+  const context = vm.createContext({ DEFAULT_CONFIG, LABELS, ICON_PATHS: {}, unitBadges: () => '', icon: type => `<svg data-icon="${type}"/>`, renderUnitExamples, renderMoveExamples, renderCombatExamples, renderShowcaseBattle, gamePhase: 'playing', editor: false, $: selector => nodes[selector] });
+  vm.runInContext(app.slice(app.indexOf('const onboardingSteps ='), app.indexOf('function showAboutView(')), context);
+  vm.runInContext('renderOnboarding()', context);
+  assert.match(nodes['#onboarding-body'].innerHTML, /data-showcase-action="next"/);
+  assert.match(nodes['#onboarding-body'].innerHTML, /Уничтожьте вражеский флаг или всех броненосцев и лукарей\. После каждого хода обе армии атакуют автоматически\. Одновременное поражение — ничья\./);
+  assert.match(nodes['#onboarding-body'].innerHTML, /Листайте бой стрелками, затем попробуйте учебные ходы\. Примеры используют стандартные параметры этой версии и не меняют вашу партию\./);
+  for (const type of TYPES) assert.ok(nodes['#onboarding-body'].innerHTML.includes(`data-icon="${type}"`));
+  assert.doesNotMatch(nodes['#onboarding-body'].innerHTML, /Исторические примеры|прежние правила/);
+  vm.runInContext('onboardingStep = 1; renderOnboarding()', context);
+  for (const type of TYPES) assert.ok(nodes['#onboarding-body'].innerHTML.includes(`data-lesson-scene="unit-${type}"`));
+  vm.runInContext('onboardingStep = 3; renderOnboarding()', context);
+  assert.match(nodes['#onboarding-body'].innerHTML, /data-lesson-scene="11"/);
+  context.cancelOnboardingAnimation = () => false;
+  vm.runInContext(app.slice(app.indexOf('function showAboutView('), app.indexOf('function openAbout(')), context);
+  context.showAboutView(false);
+  assert.equal(nodes['#onboarding'].hidden, true);
+  assert.equal(nodes['#rules-reference'].hidden, false);
+  assert.equal(nodes['#about-reference-tab'].attrs['aria-pressed'], 'true');
+  context.showAboutView(true);
+  assert.equal(nodes['#onboarding'].hidden, false);
+  assert.equal(nodes['#rules-reference'].hidden, true);
+  assert.equal(nodes['#about-guide-tab'].attrs['aria-pressed'], 'true');
+});
+
+test('the commander source panel keeps move, damage and defense bonuses while excluding range growth', () => {
+  const target = { id: 'commander', type: 'scoutLamp', team: 0, q: 0, r: 0 };
+  const state = position([target, { id: 'veteran', type: 'shield', team: 0, q: 1, r: 0, reachedFarEdge: true }, { id: 'drummer', type: 'attackLamp', team: 0, q: 0, r: 1 }]);
+  const details = alliedBonusDetails(target, state, DEFAULT_CONFIG);
+  const veteran = details.find(detail => detail.source.id === 'veteran');
+  assert.equal(effective(target, state, DEFAULT_CONFIG).range, 2);
+  assert.equal(veteran.bonuses.range, 0);
+  assert.equal(veteran.bonuses.damage, 1);
+  assert.equal(veteran.bonuses.fortitude, 1);
+  assert.equal(details.find(detail => detail.source.id === 'drummer').bonuses.move, 1);
+  assert.match(html, /Дальность не увеличивается от аур/);
+  assert.match(html, /Броненосцы и командиры с собственной атакой не получают дополнительную дальность/);
+  const legacy = structuredClone(PREVIOUS_LOCAL_CONFIG);
+  const legacyDetails = alliedBonusDetails(target, state, legacy);
+  assert.equal(legacyDetails.find(detail => detail.source.id === 'veteran').bonuses.range, 1);
 });

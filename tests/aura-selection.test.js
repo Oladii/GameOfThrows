@@ -56,7 +56,7 @@ test('square circles reach the furthest covered cell centres with and without di
 });
 test('tutorial aura circles use the same renderer and follow hover, committed selection, and deselection',()=>{
   for(const aura of ['attack','defense']){
-    const destination=aura==='attack'?{q:1,r:-2}:{q:-1,r:0};
+    const destination=createMoveLesson(4,{aura}).solution[0].to;
     for(const options of [{selected:true,previewPlacement:destination},{selected:true,placement:destination}]){
       const lesson=createMoveLesson(4,{aura,...options}),html=renderMoveLesson(lesson,{});
       assert.ok(html.includes(`data-aura-origin="${destination.q},${destination.r}"`));
