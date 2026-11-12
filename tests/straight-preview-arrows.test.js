@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { layoutDamageArrows, renderDamageArrows, inspectionDamageArrows } from '../dist/board-presentation.js';
+import { layoutDamageArrows, renderDamageArrows, inspectionDamageArrows, renderUnitBadges } from '../dist/board-presentation.js';
 
 const point = p => ({ x: p.q, y: p.r });
 const target = { id: 'target', q: 0, r: 0, team: 0 };
@@ -83,4 +83,16 @@ test('selected unit keeps enemy incoming rays and shows its damage as enemy badg
   assert.equal(badges.get(enemy.id).show, true);
   assert.equal(badges.get(enemy.id).dead, false, 'damage remains readable even for lethal targets');
   assert.equal(badges.get(own.id).incoming, 5);
+});
+
+
+test('potential damage badge overrides legacy lethal hiding without changing ordinary skulls', () => {
+  const info = { damage: 0, fortitude: 4, incoming: 4, dead: false };
+  const html = renderUnitBadges(info, { showIncoming: true, potentialDamage: true });
+  assert.match(html, /class="unit-badges potential-damage"/);
+  assert.match(html, /data-value="−4"/);
+  assert.match(html, /data-artwork="target-ring"/);
+  const css = fs.readFileSync(new URL('../dist/styles.css', import.meta.url), 'utf8');
+  assert.ok(css.includes('.piece.fatal .unit-badges.potential-damage .incoming-text{visibility:visible}'));
+  assert.match(renderUnitBadges({ ...info, dead: true }), /data-artwork="skull"/);
 });

@@ -111,7 +111,7 @@ function detailedTarget() {
   return `<g class="incoming-target-plate" transform="translate(${cx},${cy}) scale(${86/90}) translate(${-cx},${-cy})"><defs><clipPath id="${id}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath></defs><g clip-path="url(#${id})">${tokenArtwork('target-texture',tokenX(50.250113),tokenY(-25.666715),139.5*TOKEN_UNIT_SCALE,144.666665*TOKEN_UNIT_SCALE)}</g>${tokenArtwork('target-ring',tokenX(75),tokenY(0),90*TOKEN_UNIT_SCALE,93.333328*TOKEN_UNIT_SCALE,'incoming-badge')}</g>`;
 }
 
-export function renderTokenBadges(info, { showIncoming = false } = {}) {
+export function renderTokenBadges(info, { showIncoming = false, potentialDamage = false } = {}) {
   const attack=`<g class="attack-indicator" data-attack="${info.damage}"><title>Урон атаки: ${info.damage}</title>${attackBacking()}${renderTokenNumber(info.damage,tokenX(70),tokenY(128+TOKEN_BADGE_LAYOUT.statInkY),'attack')}</g>`;
   const armor=`<g class="survival-indicator" data-fortitude="${info.fortitude}"><title>Броня: ${info.fortitude}</title>${tokenArtwork('armor',tokenX(131),tokenY(141.467391014),78*TOKEN_UNIT_SCALE,72.065216064*TOKEN_UNIT_SCALE,'fort-badge')}${renderTokenNumber(info.fortitude,tokenX(170),tokenY(128+TOKEN_BADGE_LAYOUT.statInkY),'fort')}</g>`;
   let threat='';
@@ -123,7 +123,7 @@ export function renderTokenBadges(info, { showIncoming = false } = {}) {
     const state=info.dead?' lethal':!showIncoming?' under-fire-target':'';
     threat=`<g class="incoming-indicator${state}" data-incoming="${info.incoming}"><title>Входящий урон: ${info.incoming}${info.dead?' · погибнет при расчёте':''}</title>${badge}${number}</g>`;
   }
-  return `<g class="unit-badges" data-token-style="matrix">${attack}${armor}${threat}</g>`;
+  return `<g class="unit-badges${potentialDamage ? ' potential-damage' : ''}" data-token-style="matrix">${attack}${armor}${threat}</g>`;
 }
 
 // Keep arrow labels out of the actual badge artwork and outlined numeral ink.

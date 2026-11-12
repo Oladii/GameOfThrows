@@ -411,7 +411,7 @@ function highlightSources() {
     element.classList.toggle('fatal', !previewOrigin && (info?.dead || false));
     element.classList.toggle('attacking-source', sourceIds.has(id));
     if (info) {
-      element.querySelector('.unit-badges').outerHTML = unitBadges({ ...info, dead: potentialDamage.has(id) ? false : info.dead, incoming: potentialDamage.get(id) ?? info.incoming }, { showIncoming: !previewOrigin && (potentialDamage.has(id) || id === selected || id === target?.id), pieceType: element.dataset.pieceType, veteran: element.dataset.veteran === 'true' });
+      element.querySelector('.unit-badges').outerHTML = unitBadges({ ...info, dead: potentialDamage.has(id) ? false : info.dead, incoming: potentialDamage.get(id) ?? info.incoming }, { showIncoming: !previewOrigin && (potentialDamage.has(id) || id === selected || id === target?.id), potentialDamage: potentialDamage.has(id), pieceType: element.dataset.pieceType, veteran: element.dataset.veteran === 'true' });
     }
   });
   document.querySelectorAll('#board [data-cell]').forEach(element => element.classList.toggle('inspection-target', !!target && element.dataset.cell === key(target.q, target.r)));

@@ -379,3 +379,6 @@ body:has(#rules-dialog[open]){overflow:hidden}
  .move-hint{margin:18px 0;border-top:1px solid var(--line);padding-top:14px;font-size:14px;line-height:1.65}
 .move-hint[hidden]{display:none}.move-hint h2{font-size:17px;line-height:1.4;margin:0 0 12px}.move-hint p{margin:0 0 12px}.hint-thinking{font-size:inherit;font-weight:400;color:var(--muted)}.hint-thinking span{display:inline-block;min-width:1.4em;text-align:left}
 .hint-trace .damage-arrow-path{fill:none;stroke:#44834a;stroke-width:2.5;stroke-dasharray:5 3;opacity:.9;filter:url(#damage-arrow-outline)}
+
+/* Selected-unit damage stays readable even when the full combat forecast is lethal. */
+.piece.fatal .unit-badges.potential-damage .incoming-badge,.piece.fatal .unit-badges.potential-damage .incoming-text{visibility:visible}
