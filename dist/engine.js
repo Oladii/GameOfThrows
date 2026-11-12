@@ -235,16 +235,18 @@ function movementSearch(piece, state, config, includePath = false) {
     const current = queue[i];
     if (current.steps >= movementAllowance) continue;
     for (const [dq, dr] of directions(config)) {
-      if (piece.type === 'shield' && !current.unlocked && dr * (piece.team === 0 ? 1 : -1) < 0) continue;
+      if (piece.type === 'shield' && !unlocked && dr * (piece.team === 0 ? 1 : -1) < 0) continue;
       const q = current.q + dq, r = current.r + dr, pos = key(q, r);
-      const reached = current.unlocked || ((piece.type === 'shield' || piece.type === 'archer' && config.archerEdgeDamageBonus > 0) && r === farRow(piece.team, config));
-      const visit = `${pos}:${reached}`;
+      const reached = (piece.type === 'shield' ? unlocked : current.unlocked) || ((piece.type === 'shield' || piece.type === 'archer' && config.archerEdgeDamageBonus > 0) && r === farRow(piece.team, config));
+      // Shield promotion depends on the endpoint; it cannot unlock retreat mid-action.
+      const routeUnlocked = piece.type === 'shield' ? unlocked : reached;
+      const visit = `${pos}:${routeUnlocked}`;
       if (!board.has(pos) || seen.has(visit)) continue;
       const blocking = occupied.get(pos);
       if (blocking && blocking.team !== piece.team) continue;
-      seen.add(visit); queue.push({ q, r, steps: current.steps + 1, unlocked: reached });
+      seen.add(visit); queue.push({ q, r, steps: current.steps + 1, unlocked: routeUnlocked });
       if (parents) parents.push(i);
-      // If either route reaches the edge, use that route and retain its permission.
+      // Archers retain an edge-touch bonus; shield promotion is endpoint-only.
       if (!blocking && (!out.has(pos) || reached && !out.get(pos).reachedFarEdge && !out.get(pos).archerReachedFarEdge)) {
         out.set(pos, { q, r, steps: current.steps + 1, ...(piece.type === 'shield' && reached ? { reachedFarEdge: true } : {}), ...(piece.type === 'archer' && reached ? { archerReachedFarEdge: true } : {}) });
         if (endpoints) endpoints.set(pos, queue.length - 1);

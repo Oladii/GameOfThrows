@@ -67,7 +67,7 @@ test('square movement path respects cardinal and diagonal settings', () => {
   assertLegalPath(path, moving, current, config, destination);
 });
 
-test('shield path uses the far-edge route selected by reachable even when a direct route exists', () => {
+test('shield takes the direct route without detouring to the edge or unlocking retreat', () => {
   for (const geometry of ['hex', 'square']) for (const team of [0, 1]) {
     const config = clone(DEFAULT_CONFIG); config.geometry = geometry; config.stats.shield.move = 3;
     if (geometry === 'square') { config.size = 6; config.experiments.squareDiagonals = false; }
@@ -77,11 +77,11 @@ test('shield path uses the far-edge route selected by reachable even when a dire
     const moving = piece('moving', 'shield', team, q, edge - forward), current = state([moving]);
     const destination = { q: q - forward, r: edge - forward };
     const route = reachable(moving, current, config).find(cell => cell.q === destination.q && cell.r === destination.r);
-    assert.deepEqual(route, { ...destination, steps: geometry === 'hex' ? 2 : 3, reachedFarEdge: true });
+    assert.deepEqual(route, { ...destination, steps: 1 });
     const path = movementPath(moving, current, config, destination);
-    assert.ok(path.some(cell => cell.r === edge));
+    assert.ok(path.every(cell => cell.r !== edge));
     assertLegalPath(path, moving, current, config, destination);
-    assert.equal(movementPath(moving, current, config, { q, r: edge - forward * 2 }).length, 4);
+    assert.deepEqual(movementPath(moving, current, config, { q, r: edge - forward * 2 }), []);
     assert.equal(moving.reachedFarEdge, undefined);
   }
 });
