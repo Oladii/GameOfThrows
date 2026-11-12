@@ -1,13 +1,14 @@
+import { explainHint } from './hint.js';
 import { boardNavigationTarget } from './board-navigation.js';
 import { renderTokenBody, HORN_ICON_PATH, COMMANDER_ICON_PATH } from './token-presentation.js';
 import { DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance, upgradeSelectedBalancePreset } from './rules.js';
 import { consumeNewGameRefresh, refreshNewGamePage, hasNewerGameVersion, needsNewGame, latestGameVersion } from './new-game-refresh.js';
-import { clone, key, cells, distance, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, isLethalDamage, auraReaches, reachable, movementPath, shieldCanRetreat, move, pass, resolve } from './engine.js';
+import { clone, key, cells, distance, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, isLethalDamage, auraReaches, reachable, movementPath, shieldCanRetreat, archerHasEdgeBonus, move, pass, resolve } from './engine.js';
 import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from './bot-client.js';
 import { classifyPosition, prepareStartPosition } from './start-position.js';
 import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION } from './move-animation.js';
 import { GameRecorder } from './game-archive.js';
-import { renderUnitBadges, lethalAttackPresentation, renderDamageArrows, attackCellsFor, unitStatParts, alliedBonusDetails, ATTACK_TEAM_COLORS, AURA_COLORS, auraKind, auraCircleMarkup, skullShape, renderDeathEffects, renderMovingToken, unitAppearance, attackMarkerRotation, attackReachPresentation } from './board-presentation.js';
+import { renderHintArrow, renderUnitBadges, lethalAttackPresentation, renderDamageArrows, attackCellsFor, unitStatParts, alliedBonusDetails, ATTACK_TEAM_COLORS, AURA_COLORS, auraKind, auraCircleMarkup, skullShape, renderDeathEffects, renderMovingToken, unitAppearance, attackMarkerRotation, attackReachPresentation } from './board-presentation.js';
 import { createMoveLesson, renderMoveLesson, renderMoveExamples, createCombatLesson, renderCombatExamples, lessonPoint } from './onboarding-examples.js';
 import { createUnitLesson, renderUnitExamples } from './onboarding-units.js';
 import { createShowcaseBattle, renderShowcaseBattle } from './onboarding-showcase.js';
@@ -68,6 +69,58 @@ let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
 let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
 const botRunner = new BotRunner();
+const hintRunner = new BotRunner();
+let hint = null, hintThinkingTimer = null;
+function clearHint() { hintRunner.cancel(); clearInterval(hintThinkingTimer); hintThinkingTimer = null; hint = null; }
+function hintPositionKey() { return JSON.stringify({ state, config }); }
+function canRequestHint() { return humanCanMove() && !editor; }
+function requestHint() {
+  if (!canRequestHint()) return;
+  if (hint) { clearHint(); render(); return; }
+  const positionKey = hintPositionKey(), recent = recentBotHistory(), lastActions = new Map();
+  for (const entry of recent) if (entry.action?.id) lastActions.set(entry.action.id, entry.action);
+  hint = { positionKey, pending: true };
+  hintRunner.run({ state, config, options: { depth: BOT_DIFFICULTIES.hard.depth, seed: 17001,
+    previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
+    if (hint?.positionKey !== positionKey || hintPositionKey() !== positionKey || !canRequestHint()) return;
+    try { hint = { positionKey, ...explainHint(state, config, result?.action), action: result?.action }; }
+    catch { hint = { positionKey, title: 'Не удалось показать подсказку', reasons: ['Попробуйте ещё раз.'] }; }
+    render();
+  }, () => {
+    if (hint?.positionKey !== positionKey || hintPositionKey() !== positionKey || !canRequestHint()) return;
+    hint = { positionKey, title: 'Не удалось рассчитать подсказку', reasons: ['Скройте подсказку и попробуйте ещё раз.'] }; render();
+  });
+  render();
+}
+function renderHint() {
+  const button = $('#show-hint'), panel = $('#move-hint');
+  button.disabled = !canRequestHint() || Boolean(hint);
+  button.textContent = 'Попросить совет';
+  button.setAttribute('aria-expanded', String(Boolean(hint)));
+  panel.hidden = !hint;
+  panel.setAttribute('aria-busy', String(Boolean(hint?.pending)));
+  if (!hint?.pending) { clearInterval(hintThinkingTimer); hintThinkingTimer = null; }
+  panel.innerHTML = !hint ? '' : hint.pending ? '<p class="hint-thinking">Думовую<span id="hint-thinking-dots">.</span></p>' :
+    `<h2>${escape(hint.title)}</h2>${hint.reasons.map(reason => `<p>${escape(reason)}</p>`).join('')}`;
+  if (hint?.pending && hintThinkingTimer === null) {
+    let dots = 1;
+    hintThinkingTimer = setInterval(() => {
+      const node = $('#hint-thinking-dots');
+      if (node) node.textContent = '.'.repeat(dots = dots % 3 + 1);
+    }, 400);
+  }
+}
+function dismissHintOnClick(event) {
+  if (!hint || event.target.closest?.('#show-hint')) return;
+  clearHint(); renderHint();
+  $('#board .hint-trace')?.remove();
+  renderInspector(inspectionContext());
+}
+function hintTrace() {
+  if (!hint?.action || hint.action.pass || hint.pending) return '';
+  const piece = state.pieces.find(p => p.id === hint.action.id);
+  return piece ? renderHintArrow(piece, hint.action.to, point) : '';
+}
 let boardFocus = null, restoringBoardFocus = false;
 let selected = null, editor = false, tool = 'shield', editorTeam = 0, hover = null, inspection = null, toastTimer, fieldView = null;
 let report = analyze(state, config), available = [], ready = false;
@@ -187,7 +240,7 @@ function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && s
 function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !isBotTurn() && state.winner === null; }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
 function cancelMovement() { moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
-function resetBotContext(clearLastTurn = true) { cancelBot(); cancelMovement(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
+function resetBotContext(clearLastTurn = true) { clearHint(); cancelBot(); cancelMovement(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function presentMove(before, action, deaths) {
   cancelMovement();
   const piece = action && !action.pass ? before.state.pieces.find(p => p.id === action.id) : null;
@@ -280,7 +333,7 @@ function boardMarkup() {
     if (cellDamage[0]) classes.push('attack-north');
     if (cellDamage[1]) classes.push('attack-south');
     if (cellDamage.every(Boolean)) classes.push('attack-both');
-    const details = p ? `${TEAM_NAMES[p.team]}, ${LABELS[p.type]}${shieldCanRetreat(p, config) ? '-ветеран' : ''}` : 'пусто';
+    const details = p ? `${TEAM_NAMES[p.team]}, ${LABELS[p.type]}${shieldCanRetreat(p, config) || archerHasEdgeBonus(p, config) ? '-ветеран' : ''}` : 'пусто';
     let token = '';
     const damageY = p ? 28 : 0;
     const damageLabel = showTeamDamage ? cellDamage.map((damage, team) => {
@@ -291,14 +344,14 @@ function boardMarkup() {
     if (p) {
       const info = report.get(p.id);
       const appearance = unitAppearance(p, config, ICON_PATHS);
-      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" data-piece-type="${p.type}" data-veteran="${appearance.veteran}" transform="translate(${x},${y})">${renderTokenBody(appearance, p.team)}${p.group ? `<text class="group-text" x="0" y="18">${p.group === 1 ? 'I' : p.group === 2 ? 'II' : p.group}</text>` : ''}${unitBadges(info, { pieceType: p.type, veteran: appearance.veteran })}</g>`;
+      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" data-piece-type="${p.type}" data-veteran="${appearance.veteran}" transform="translate(${x},${y})">${renderTokenBody(appearance, p.team)}${unitBadges(info, { pieceType: p.type, veteran: appearance.veteran })}</g>`;
     }
     tokens.push(token);
     damageLabels.push(damageLabel);
     const info = p && report.get(p.id);
     const description = info ? `<desc id="cell-stats-${k}">Урон атаки: ${info.damage}. Броня: ${info.fortitude}. Входящий урон: ${info.incoming}.${info.dead ? ' Погибнет при расчёте.' : ''}</desc>` : '';
     return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}" aria-describedby="cell-stats-${k}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/>${description}</g>`;
-  }).join('') + '<g id="aura-circles" clip-path="url(#aura-field-clip)" aria-hidden="true"></g><g id="selected-attack-reach" aria-hidden="true"></g>' + `<g id="board-damage-labels" pointer-events="none" aria-hidden="true">${damageLabels.join('')}</g><g id="board-pieces" pointer-events="none" aria-hidden="true">${tokens.join('')}</g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>` + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config)}</g>` + lastMoveTrace() + movingTokenMarkup();
+  }).join('') + '<g id="aura-circles" clip-path="url(#aura-field-clip)" aria-hidden="true"></g><g id="selected-attack-reach" aria-hidden="true"></g>' + `<g id="board-damage-labels" pointer-events="none" aria-hidden="true">${damageLabels.join('')}</g><g id="board-pieces" pointer-events="none" aria-hidden="true">${tokens.join('')}</g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>` + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config)}</g>` + lastMoveTrace() + hintTrace() + movingTokenMarkup();
   if (restoreFocus) {
     // Replacing cells preserves keyboard focus without starting a new forecast.
     restoringBoardFocus = true;
@@ -382,8 +435,8 @@ function renderInspector(context) {
   const position = context.isPreview && context.piece?.id === selected ? context.position : visibleState();
   const piece = position.pieces.find(p => p.id === selected), panel = $('#inspector');
   const pieceId = piece?.id || '';
-  $('#reference-panel').hidden = Boolean(piece);
-  $('#selection-panel').hidden = !piece;
+  $('#reference-panel').hidden = Boolean(piece) || Boolean(hint);
+  $('#selection-panel').hidden = !piece || Boolean(hint);
   if (panel.dataset.pieceId !== pieceId) { panel.dataset.pieceId = pieceId; $('.left-panel').scrollTop = 0; }
   if (!piece) {
     panel.innerHTML = '';
@@ -394,7 +447,7 @@ function renderInspector(context) {
   const descriptions = {
     scoutLamp: `Увеличивает дальность союзных лукарей на ${base.rangeBonus}. Не увеличивает дальность броненосцев. ${base.damage > 0 && base.range > 0 ? `Атакует самостоятельно: урон ${base.damage}, дальность ${base.range}. Дальность не увеличивается от аур.` : 'Может атаковать только рядом с союзным ветераном.'}`,
     shield: `Ходит вперёд и вбок, сражается вблизи и прикрывает соседних ${config.shieldDefenseOnly ? 'союзных броненосцев' : 'союзников'}. После дальнего края получает постоянное усиление и ход назад.`,
-    archer: `Атакует по прямым лучам сетки. Союзные ауры усиливают урон, дальность и стойкость.${base.aura > 0 && base.damageBonus > 0 ? ' Его аура усиливает атаку союзников, кроме него самого.' : ''}`,
+    archer: `Атакует по прямым лучам сетки. Союзные ауры усиливают урон, дальность и стойкость. ${config.archerEdgeDamageBonus > 0 ? `Достигнув чужого края, навсегда получает +${config.archerEdgeDamageBonus} к урону и венок, даже после отхода. Ауру ветерана не получает.` : 'В правилах этой партии усиление лукаря за край не включено.'}${base.aura > 0 && base.damageBonus > 0 ? ' Его аура усиливает атаку союзников, кроме него самого.' : ''}`,
     attackLamp: `${config.drumMoveAllies ? 'Ускоряет всех союзников' : 'Ускоряет союзных броненосцев'}: +${config.drumShieldMoveBonus ?? 0} к шагу при начале действия в ауре.${base.damageBonus > 0 ? ` Также даёт +${base.damageBonus} к урону.` : ''} Сам себя не усиливает. Может атаковать только под поддержкой союзного ветерана.`,
     horn: `Усиливает урон всех союзников на ${base.damageBonus}. Сам себя не усиливает. Может атаковать только под поддержкой союзного ветерана.`,
     defenseLamp: 'Повышает стойкость союзников. Может атаковать только под поддержкой союзного ветерана.'
@@ -408,7 +461,7 @@ function renderInspector(context) {
   const sourceDetails = sources.map(({source, bonuses}) => `<li><strong>${LABELS[source.type]}</strong><span>${Object.entries(bonuses).filter(([,value]) => value > 0).map(([field,value]) => `+${value} ${bonusLabels[field]}`).join(', ')}</span></li>`).join('');
   const aura = shieldCanRetreat(piece, config) ? config.shieldPromotion.allies ?? config.shieldPromotion : base;
   const bonuses = [[piece.type === 'attackLamp' ? config.drumShieldMoveBonus ?? 0 : 0, config.drumMoveAllies ? 'шаг союзников' : 'шаг броненосцев'], [aura.damageBonus, 'урон'], [aura.rangeBonus, 'дальность'], [aura.defenseBonus, config.shieldDefenseOnly && piece.type === 'shield' ? 'стойкость броненосцев' : 'стойкость']].filter(([value]) => value > 0).map(([value, name]) => `${name} +${value}`).join(', ');
-  panel.innerHTML = `${context.isPreview && context.piece?.id === selected ? '<p class="preview-label">Параметры после предполагаемого перемещения</p>' : ''}<div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) ? ' veteran' : ''}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p><div class="stat-grid">${stats}</div><p class="stat-explanation">Крупно — итог, в скобках — полный расчёт с усилениями союзников. Бонус за край входит в расчёт и подписан отдельно.</p>${info.aura > 0 ? `<p class="unit-aura"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><br>${bonuses}.</p>` : ''}<div class="sources"><strong>Усиления от союзников</strong>${sources.length ? `<ul class="allied-bonus-list">${sourceDetails}</ul>` : '<p>Сейчас нет усилений от союзников.</p>'}</div>`;
+  panel.innerHTML = `${context.isPreview && context.piece?.id === selected ? '<p class="preview-label">Параметры после предполагаемого перемещения</p>' : ''}<div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' veteran' : ''}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p><div class="stat-grid">${stats}</div><p class="stat-explanation">Крупно — итог, в скобках — полный расчёт с усилениями союзников. Бонус за край входит в расчёт и подписан отдельно.</p>${info.aura > 0 ? `<p class="unit-aura"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><br>${bonuses}.</p>` : ''}<div class="sources"><strong>Усиления от союзников</strong>${sources.length ? `<ul class="allied-bonus-list">${sourceDetails}</ul>` : '<p>Сейчас нет усилений от союзников.</p>'}</div>`;
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion, allies = p.allies ?? p;
@@ -422,6 +475,7 @@ function unitReferenceMarkup(promotionOpen = false) {
     const stats = config.stats[type], fields = ['move', 'damage', 'range', 'fortitude'];
     let aura = '';
     if (type === 'archer' && stats.aura > 0 && stats.damageBonus > 0) aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон союзников +${stats.damageBonus}, кроме самого лукаря. Бонусы нескольких лукарей складываются.`;
+    if (type === 'archer' && config.archerEdgeDamageBonus > 0) aura += ` После чужого края навсегда получает +${config.archerEdgeDamageBonus} к урону. Венок отмечает усиление; дополнительной ауры нет.`;
     if (type === 'scoutLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: дальность +${stats.rangeBonus}. Броненосцы и командиры с собственной атакой этот бонус не получают.`;
     if (type === 'attackLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: шаг ${config.drumMoveAllies ? 'всех союзников' : 'броненосцев'} +${config.drumShieldMoveBonus ?? 0} при начале действия в ауре${stats.damageBonus > 0 ? `, урон +${stats.damageBonus}` : ''}.`;
     if (type === 'horn') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон всех союзников +${stats.damageBonus}.`;
@@ -473,6 +527,8 @@ async function checkGameVersion() {
   } finally { versionCheckPending = false; }
 }
 function render(deaths = []) {
+  if (hint && (hint.positionKey !== hintPositionKey() || !canRequestHint())) clearHint();
+  renderHint();
   renderUpdateNotice();
   const state = visibleState(), displayLog = movement ? movement.before.log : combat ? combat.before.log : reviewingTurn && lastTurn ? lastTurn.before.log : log;
   for (const view of ['attacks', 'auras']) $('#show-' + view).disabled = Boolean(movement || combat);
@@ -528,20 +584,20 @@ function render(deaths = []) {
   const lastPiece = lastAction && !lastAction.pass ? lastTurn.before.state.pieces.find(p => p.id === lastAction.id) : null;
   const lastMoveText = lastAction ? lastAction.pass ? `Последний ход: ${TEAM_NAMES[lastTurn.before.state.turn]} · пропуск.` : `Последний ход: ${TEAM_NAMES[lastTurn.before.state.turn]} · ${LABELS[lastPiece?.type] || 'Фигура'} · ${positionText(lastAction.from)} → ${positionText(lastAction.to)}.` : 'Сделайте ход. Стрелки рядом с «Отменить» позволяют посмотреть предыдущую позицию.';
   $('#bot-status').textContent = combat ? 'Расчёт боя…' : movement ? `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]} перемещается…` : currentDeaths.length ? 'Расчёт боя…' : editor ? 'Бот не ходит в редакторе.' : reviewingTurn ? lastMoveText : botIssue || (isBotTurn() ? botSuspended ? 'Ход бота приостановлен. Нажмите «Ход бота», чтобы продолжить.' : $('dialog[open]') ? 'Бот ждёт закрытия окна.' : 'Бот выбирает ход…' : lastMoveText);
-  let hint = editor ? 'Выберите фигуру в палитре и нажмите на пустую клетку. Для удаления выберите ластик.' : selected && p?.team === state.turn ? 'Подсвечены пустые клетки, до которых можно пройти. Наведите на клетку для прогноза.' : 'Выберите свою фигуру, затем подсвеченную клетку.';
-  if (!editor && selected && p?.team === state.turn && p.type === 'shield') hint = shieldCanRetreat(p, config) ? `Край достигнут: ход во все стороны, постоянные +${config.shieldPromotion.damageBonus} к урону и +${config.shieldPromotion.defenseBonus} к стойкости, дальность до ${config.shieldPromotion.maxRange}; аура атаки и защиты — ${(config.shieldPromotion.allies ?? config.shieldPromotion).aura} ${plural((config.shieldPromotion.allies ?? config.shieldPromotion).aura, ['клетка', 'клетки', 'клеток'])}.` : 'Броненосец ходит вперёд и вбок. Достигнув противоположного края поля, навсегда получает ход назад.';
-  if (!editor && state.winner === null && !state.pieces.filter(p => p.team === state.turn).some(p => reachable(p, state, config).length)) hint = 'У команды нет доступных ходов. Исследуйте позицию в редакторе или разрешите пропуск в настройках.';
-  if (!editor && isBotTurn()) hint = 'Сейчас ход бота. Можно рассматривать атаки и ауры или открыть настройки.';
-  else if (!editor && !selected && lastAction) hint = `${lastMoveText} Выберите свою фигуру.`;
-  if (!editor && p && p.team !== state.turn && !isBotTurn()) hint = `Выбрана фигура команды «${TEAM_NAMES[p.team]}». Сейчас ходит «${TEAM_NAMES[state.turn]}» — выберите ${state.turn === 0 ? 'синюю' : 'оранжевую'} фигуру.`;
-  if (gamePhase === 'setup') hint = editor ? 'Выберите фигуру и пустую клетку для перестановки. Палитра добавляет фигуры. «Готово» завершает настройку позиции.' : '';
-  if (fieldView) hint = `${{ attacks: 'Показаны атаки обеих команд', auras: 'Показаны ауры всех фигур' }[fieldView]}. Нажмите кнопку ещё раз или выберите фигуру, чтобы выйти.`;
-  if (reviewingTurn) hint = `Просмотр перед последним ходом. ${lastMoveText} Нажмите →, чтобы вернуться к партии.`;
-  if (currentDeaths.length) hint = 'Расчёт боя: погибшие фигуры удаляются одновременно.';
-  if (movement) hint = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(lastAction.from)} → ${positionText(lastAction.to)}. Движение…`;
-  if (combat) hint = combat.phase === 'dimming' ? 'Выделяем участников расчёта боя.' : combat.phase === 'attacks' ? 'Стрелки по очереди показывают вклад в смертельный урон каждой цели.' : 'Показ гибели. Ход перейдёт другой стороне после завершения расчёта.';
-  $('#board-hint').textContent = hint;
-  $('#board-hint').hidden = !hint;
+  let boardMessage = editor ? 'Выберите фигуру в палитре и нажмите на пустую клетку. Для удаления выберите ластик.' : selected && p?.team === state.turn ? 'Подсвечены пустые клетки, до которых можно пройти. Наведите на клетку для прогноза.' : 'Выберите свою фигуру, затем подсвеченную клетку.';
+  if (!editor && selected && p?.team === state.turn && p.type === 'shield') boardMessage = shieldCanRetreat(p, config) ? `Край достигнут: ход во все стороны, постоянные +${config.shieldPromotion.damageBonus} к урону и +${config.shieldPromotion.defenseBonus} к стойкости, дальность до ${config.shieldPromotion.maxRange}; аура атаки и защиты — ${(config.shieldPromotion.allies ?? config.shieldPromotion).aura} ${plural((config.shieldPromotion.allies ?? config.shieldPromotion).aura, ['клетка', 'клетки', 'клеток'])}.` : 'Броненосец ходит вперёд и вбок. Достигнув противоположного края поля, навсегда получает ход назад.';
+  if (!editor && state.winner === null && !state.pieces.filter(p => p.team === state.turn).some(p => reachable(p, state, config).length)) boardMessage = 'У команды нет доступных ходов. Исследуйте позицию в редакторе или разрешите пропуск в настройках.';
+  if (!editor && isBotTurn()) boardMessage = 'Сейчас ход бота. Можно рассматривать атаки и ауры или открыть настройки.';
+  else if (!editor && !selected && lastAction) boardMessage = `${lastMoveText} Выберите свою фигуру.`;
+  if (!editor && p && p.team !== state.turn && !isBotTurn()) boardMessage = `Выбрана фигура команды «${TEAM_NAMES[p.team]}». Сейчас ходит «${TEAM_NAMES[state.turn]}» — выберите ${state.turn === 0 ? 'синюю' : 'оранжевую'} фигуру.`;
+  if (gamePhase === 'setup') boardMessage = editor ? 'Выберите фигуру и пустую клетку для перестановки. Палитра добавляет фигуры. «Готово» завершает настройку позиции.' : '';
+  if (fieldView) boardMessage = `${{ attacks: 'Показаны атаки обеих команд', auras: 'Показаны ауры всех фигур' }[fieldView]}. Нажмите кнопку ещё раз или выберите фигуру, чтобы выйти.`;
+  if (reviewingTurn) boardMessage = `Просмотр перед последним ходом. ${lastMoveText} Нажмите →, чтобы вернуться к партии.`;
+  if (currentDeaths.length) boardMessage = 'Расчёт боя: погибшие фигуры удаляются одновременно.';
+  if (movement) boardMessage = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(lastAction.from)} → ${positionText(lastAction.to)}. Движение…`;
+  if (combat) boardMessage = combat.phase === 'dimming' ? 'Выделяем участников расчёта боя.' : combat.phase === 'attacks' ? 'Стрелки по очереди показывают вклад в смертельный урон каждой цели.' : 'Показ гибели. Ход перейдёт другой стороне после завершения расчёта.';
+  $('#board-hint').textContent = boardMessage;
+  $('#board-hint').hidden = !boardMessage;
   $('#log-count').textContent = `${state.ply} ${plural(state.ply, ['ход', 'хода', 'ходов'])}`;
   $('#move-log').innerHTML = displayLog.length ? displayLog.map((entry, i) => `<div class="log-row"><span class="log-number">${i + 1}</span><p>${escape(entry.text)}<small>${escape(entry.detail)}</small></p></div>`).reverse().join('') : '<p class="log-empty">Здесь появятся перемещения и результат каждого расчёта. Урон не накапливается.</p>';
   document.querySelectorAll('[data-team]').forEach(b => b.classList.toggle('active', Number(b.dataset.team) === editorTeam));
@@ -608,6 +664,8 @@ $('#board').addEventListener('focusin', hoverCell);
 $('#board').addEventListener('pointerleave', clearHover);
 $('#board').addEventListener('focusout', event => { if (!$('#board').contains(event.relatedTarget)) clearHover(); });
 for (const view of ['attacks', 'auras']) $('#show-' + view).addEventListener('click', () => { fieldView = fieldView === view ? null : view; selected = null; render(); });
+document.addEventListener('click', dismissHintOnClick, true);
+$('#show-hint').addEventListener('click', requestHint);
 $('#undo').addEventListener('click', () => {
   if (movement || combat || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor)) return;
   let previous = history.pop();
@@ -757,6 +815,7 @@ function renderAbout() {
   const commander = config.stats.scoutLamp;
   if ($('#about-commander-combat')) $('#about-commander-combat').textContent = commander.damage > 0 && commander.range > 0 ? `Атакует самостоятельно: урон ${commander.damage}, дальность ${commander.range}. Дальность не увеличивается от аур.` : 'Может атаковать только под аурой союзного ветерана.';
   $('#about-directions').textContent = config.geometry === 'hex' ? 'На шестиугольном поле атаки идут по шести прямым лучам через стороны клеток. Ауры барабанщика, горниста, знаменосца и командира охватывают все клетки в пределах радиуса, включая клетки между лучами. Остальные ауры следуют направлениям сетки.' : `На квадратном поле атаки идут по ${config.experiments.squareDiagonals ? 'восьми направлениям, включая диагонали' : 'четырём направлениям через грани'}. Длина луча — число клеток от источника. Ауры барабанщика, горниста, знаменосца и командира охватывают все клетки в пределах радиуса.`;
+  $('#about-archer-promotion').textContent = config.archerEdgeDamageBonus > 0 ? `За достижение противоположного края навсегда получает +${config.archerEdgeDamageBonus} к урону и венок. Бонус сохраняется после отхода, не складывается повторно и не даёт ауру ветерана.` : 'В правилах этой партии усиление лукаря за край не включено.';
   $('#about-promotion').innerHTML = shieldDescriptionMarkup();
   $('#about-stats').innerHTML = '<thead><tr><th>Фигура</th><th>Шаг</th><th>Урон</th><th>Дальность</th><th>Стойкость</th><th>Аура</th></tr></thead><tbody>' + TYPES.filter(type => config.stats[type]).map(type => { const stats = config.stats[type]; return `<tr><td>${LABELS[type]}</td><td>${stats.move}</td><td>${stats.damage || '—'}</td><td>${stats.range || '—'}</td><td>${stats.fortitude}</td><td>${stats.aura || '—'}</td></tr>`; }).join('') + '</tbody>';
   const experiments = config.experiments;

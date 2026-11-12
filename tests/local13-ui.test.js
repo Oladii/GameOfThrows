@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, updateSavedBalance } from '../dist/rules.js';
-import { effective, validateConfig, shieldCanRetreat } from '../dist/engine.js';
+import { effective, validateConfig, shieldCanRetreat, archerHasEdgeBonus } from '../dist/engine.js';
 import { alliedBonusDetails, unitStatParts, auraKind, auraCircleMarkup } from '../dist/board-presentation.js';
 import { renderTokenBody, HORN_ICON_PATH, COMMANDER_ICON_PATH } from '../dist/token-presentation.js';
 import { renderUnitExamples } from '../dist/onboarding-units.js';
@@ -64,7 +64,7 @@ test('settings round trip all six types and preserve archived configurations wit
         }
       }
     };
-    const context = vm.createContext({ config, TYPES, LABELS, clone: structuredClone, validateConfig, $: selector => nodes[selector] });
+    const context = vm.createContext({ hint: null, config, TYPES, LABELS, clone: structuredClone, validateConfig, $: selector => nodes[selector] });
     vm.runInContext(app.slice(app.indexOf('const statFields ='), app.indexOf("$('#settings-open').addEventListener")), context);
     context.fillSettings(config);
     const next = context.settingsFromForm();
@@ -83,7 +83,7 @@ test('settings round trip all six types and preserve archived configurations wit
 test('interactive training opens directly and production retains its original saved game namespace', () => {
   assert.match(app, /const STORAGE = archiveIsSite \? 'lamps-prototype-v1' : 'lamps-local-playtest13-v1'/);
   const storageDeclaration=app.match(/^const STORAGE = .*;$/m)[0];
-  for(const [site,expected]of [[true,'lamps-prototype-v1'],[false,'lamps-local-playtest13-v1']]){const context=vm.createContext({archiveIsSite:site});assert.equal(vm.runInContext(storageDeclaration+'\nSTORAGE',context),expected);}
+  for(const [site,expected]of [[true,'lamps-prototype-v1'],[false,'lamps-local-playtest13-v1']]){const context=vm.createContext({ hint: null,archiveIsSite:site});assert.equal(vm.runInContext(storageDeclaration+'\nSTORAGE',context),expected);}
   assert.doesNotMatch(app, /localStorage\.(?:removeItem|clear)\(/);
   assert.doesNotMatch(app, /next\.stats\.attackLamp\.damage = 2/);
   const openAbout = app.slice(app.indexOf('function openAbout()'), app.indexOf('function goToOnboardingStep('));
@@ -109,7 +109,7 @@ test('commander reuses the established helmet and keeps the scout mechanics iden
 });
 
 test('saved logs rename scout cases while preserving new commander messages on reload', () => {
-  const context = vm.createContext({ LABELS });
+  const context = vm.createContext({ hint: null, LABELS });
   vm.runInContext(app.slice(app.indexOf('function normalizeUnitNames('), app.indexOf('function normalizeLog(')), context);
   assert.equal(context.normalizeUnitNames('Разведчик · разведчика · разведчику · разведчиком · разведчике'), 'Командир · командира · командиру · командиром · командире');
   assert.equal(context.normalizeUnitNames('Разведчики · разведчиков · разведчикам · разведчиками · разведчиках'), 'Командиры · командиров · командирам · командирами · командирах');
@@ -122,7 +122,7 @@ test('commander inspector distinguishes an independent attack from historical su
     const config = structuredClone(input);
     const state = position([{ id: 'commander', type: 'scoutLamp', team: 0, q: 0, r: 0 }]);
     const nodes = { '#inspector': { innerHTML: '', dataset: {} }, '#reference-panel': {}, '#selection-panel': {}, '.left-panel': { scrollTop: 0 } };
-    const context = vm.createContext({ config, selected: 'commander', movement: null, combat: null, visibleState: () => state, effective, shieldCanRetreat, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg/>', plural: () => 'клетки', $: selector => nodes[selector] });
+    const context = vm.createContext({ hint: null, config, selected: 'commander', movement: null, combat: null, visibleState: () => state, effective, shieldCanRetreat, archerHasEdgeBonus, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg/>', plural: () => 'клетки', $: selector => nodes[selector] });
     vm.runInContext(app.slice(app.indexOf('function renderInspector('), app.indexOf('function shieldPromotionDescription(')), context);
     context.renderInspector({});
     if (input === DEFAULT_CONFIG) {
@@ -142,7 +142,7 @@ test('loading revision20 arms the current commander without rebuilding the posit
   config.stats.scoutLamp.damage = 0; config.stats.scoutLamp.range = 0;
   const state = position([{ id: 'saved', type: 'shield', team: 0, q: 2, r: 1 }]);
   const history = [{ saved: true }], lastTurn = { saved: true };
-  const context = vm.createContext({ config, state, history, lastTurn, gamePhase: 'setup', positionKind: 'custom', editor: true, saved: { balanceRevision: 20 }, updateSavedBalance, validateConfig, balanceUpdated: false, commanderUpdated: false, gameVersion: '0.1.36', CURRENT_GAME_VERSION: '0.1.36' });
+  const context = vm.createContext({ hint: null, config, state, history, lastTurn, gamePhase: 'setup', positionKind: 'custom', editor: true, saved: { balanceRevision: 20 }, updateSavedBalance, validateConfig, balanceUpdated: false, commanderUpdated: false, gameVersion: '0.1.36', CURRENT_GAME_VERSION: '0.1.36' });
   const start = app.indexOf('    // Arm the existing local13 commander');
   vm.runInContext(app.slice(start, app.indexOf('    const updatedBalance =', start)), context);
   assert.equal(context.config.stats.scoutLamp.damage, 3);
@@ -161,7 +161,7 @@ test('loading revision20 arms the current commander without rebuilding the posit
 
 test('the visible tutorial renders six unit scenes and a flag victory exercise while keeping text rules separately available', () => {
   const nodes = Object.fromEntries(['onboarding-progress', 'onboarding-body', 'onboarding-back', 'onboarding-count', 'onboarding-next', 'onboarding', 'rules-reference', 'about-guide-tab', 'about-reference-tab'].map(id => ['#' + id, { innerHTML: '', attrs: {}, setAttribute(name, value) { this.attrs[name] = value; } }]));
-  const context = vm.createContext({ DEFAULT_CONFIG, LABELS, ICON_PATHS: {}, unitBadges: () => '', icon: type => `<svg data-icon="${type}"/>`, renderUnitExamples, renderMoveExamples, renderCombatExamples, renderShowcaseBattle, gamePhase: 'playing', editor: false, $: selector => nodes[selector] });
+  const context = vm.createContext({ hint: null, DEFAULT_CONFIG, LABELS, ICON_PATHS: {}, unitBadges: () => '', icon: type => `<svg data-icon="${type}"/>`, renderUnitExamples, renderMoveExamples, renderCombatExamples, renderShowcaseBattle, gamePhase: 'playing', editor: false, $: selector => nodes[selector] });
   vm.runInContext(app.slice(app.indexOf('const onboardingSteps ='), app.indexOf('function showAboutView(')), context);
   vm.runInContext('renderOnboarding()', context);
   assert.match(nodes['#onboarding-body'].innerHTML, /data-showcase-action="next"/);

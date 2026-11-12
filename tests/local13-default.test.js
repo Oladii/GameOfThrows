@@ -15,7 +15,7 @@ const expected={pieces:north.flatMap(([type,q,r,group],index)=>[
 
 test('release defaults retain revision22 parameters and the exact approved 13-per-side formation',()=>{
   assert.equal(BALANCE_REVISION,22);
-  assert.equal(createHash('sha256').update(JSON.stringify(DEFAULT_CONFIG)).digest('hex'),'a484dce84e525d2a78d237f6a2899d2928604cc964159f3a8a318a8114ca78f8');
+  assert.equal(createHash('sha256').update(JSON.stringify(DEFAULT_CONFIG)).digest('hex'),'6efda3c79a1b90ad44d103feca3ba67f61570ed2b17cb54ef2fc8992331e317d');
   const state=createGame(DEFAULT_CONFIG);assert.deepEqual(state,expected);assert.deepEqual(createScenario('start',DEFAULT_CONFIG),expected);
   assert.equal(new Set(state.pieces.map(p=>`${p.q},${p.r}`)).size,26);
   assert.deepEqual(validateState(state,DEFAULT_CONFIG),state);

@@ -1,5 +1,5 @@
 import { oneReplySafety } from './defensive-selection.mjs';
-import { analyze, cells, effective, attacks, isRay, distance, isLethalDamage, move, pass, reachable, shieldCanRetreat, validateConfig, validateState } from './engine.js';
+import { analyze, cells, effective, attacks, isRay, distance, isLethalDamage, move, pass, reachable, shieldCanRetreat, archerHasEdgeBonus, validateConfig, validateState } from './engine.js';
 export function createStrategyPolicy(PLAN){
 if(!['formation','ranged','veteran'].includes(PLAN))throw Error('Unknown plan');
 const key=p=>`${p.q},${p.r}`;
@@ -91,7 +91,7 @@ const PIECE_VALUES = PLAN === 'formation' ? {shield:6,archer:3,attackLamp:6,horn
 const ROOT_BEAM = 8, REPLY_BEAM = 3, WIN_SCORE = 1e7;
 
 function botPositionKey(state, config) {
-  return `${state.turn}|${state.pieces.map(p => `${p.team}:${p.type}:${p.q},${p.r}:${shieldCanRetreat(p, config) ? 1 : 0}`).sort().join('|')}`;
+  return `${state.turn}|${state.pieces.map(p => `${p.team}:${p.type}:${p.q},${p.r}:${shieldCanRetreat(p, config) ? 1 : 0}${archerHasEdgeBonus(p, config) ? ':a1' : ''}`).sort().join('|')}`;
 }
 
 function tieNoise(seed, ply, action) {

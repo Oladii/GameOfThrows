@@ -1,4 +1,4 @@
-import { cells, attacks, effective, shieldCanRetreat, key } from './engine.js';
+import { cells, attacks, effective, shieldCanRetreat, archerHasEdgeBonus, key } from './engine.js';
 import { renderTokenBody, renderTokenBadges, renderDeathSkull, tokenBadgeBounds } from './token-presentation.js';
 
 export const ATTACK_TEAM_COLORS = ['#4c9fc9', '#ab3300'];
@@ -9,7 +9,7 @@ export function auraKind(source, config) {
   return shieldCanRetreat(source, config) ? 'combined' : ['shield', 'defenseLamp'].includes(source.type) ? 'defense' : 'attack';
 }
 export function unitAppearance(piece, config, icons, displayTeam = piece.team) {
-  const veteran = config ? shieldCanRetreat(piece, config) : piece.type === 'shield' && piece.reachedFarEdge === true;
+  const veteran = config ? shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) : piece.type === 'shield' && piece.reachedFarEdge === true || piece.type === 'archer' && piece.archerReachedFarEdge === true;
   const glyph = icons[piece.type];
   return { veteran, type:piece.type, icon: piece.type === 'archer' ? `<g transform="rotate(${displayTeam === 0 ? 90 : -90} 12 12)">${glyph || ''}</g>` : glyph };
 }
@@ -43,7 +43,7 @@ export function renderDeathEffects(deaths, point, polygonPoints, icons, config =
 
 export function renderMovingToken(piece, frame, icons, id = 'moving-token', config = null, displayTeam = piece.team, info = null) {
   const appearance = unitAppearance(piece, config, icons, displayTeam);
-  return `<g id="${id}" class="moving-token${appearance.veteran ? ' veteran' : ''} ${displayTeam ? 'south' : 'north'}${info?.dead ? ' fatal' : ''}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true">${renderTokenBody(appearance, displayTeam)}${piece.group ? `<text class="group-text" x="0" y="18">${piece.group === 1 ? 'I' : piece.group === 2 ? 'II' : piece.group}</text>` : ''}${info ? renderUnitBadges(info, { showIncoming: true, pieceType: piece.type, veteran: appearance.veteran }) : ''}</g>`;
+  return `<g id="${id}" class="moving-token${appearance.veteran ? ' veteran' : ''} ${displayTeam ? 'south' : 'north'}${info?.dead ? ' fatal' : ''}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true">${renderTokenBody(appearance, displayTeam)}${info ? renderUnitBadges(info, { showIncoming: true, pieceType: piece.type, veteran: appearance.veteran }) : ''}</g>`;
 }
 
 // Both the board and onboarding use the same selected-aura palette and hatch.
@@ -262,7 +262,7 @@ export function unitStatParts(piece, position, config) {
   const veteran = shieldCanRetreat(piece, config), promotion = config.shieldPromotion;
   const bonusFields = { damage: 'damageBonus', range: 'rangeBonus', fortitude: 'defenseBonus' };
   return ['move', 'damage', 'range', 'fortitude'].map(field => {
-    const personal = veteran && bonusFields[field] ? Math.min(promotion[bonusFields[field]], Math.max(0, power[field] - base[field])) : 0;
+    const personal = piece.type === 'archer' && archerHasEdgeBonus(piece, config) && field === 'damage' ? config.archerEdgeDamageBonus : veteran && bonusFields[field] ? Math.min(promotion[bonusFields[field]], Math.max(0, power[field] - base[field])) : 0;
     return { field, base: base[field], personal, allied: power[field] - base[field] - personal, total: power[field] };
   });
 }
@@ -311,4 +311,11 @@ export function attackReachPresentation(piece, position, config, {point, polygon
   }
   const markup = outlines.join('') + markers.join('');
   return { cells: attackCells, markup };
+}
+
+// Same departure offset as straight damage arrows; an empty cell ends at its centre.
+export function renderHintArrow(source, destination, point) {
+  const edge = layoutDamageArrows([{ source, target: { ...destination, id: '__hint_destination' }, damage: 0 }], point, { straight: true })[0];
+  if (!edge) return '';
+  return `<g class="hint-trace" pointer-events="none" aria-hidden="true"><defs><marker id="hint-arrow-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#44834a"/></marker></defs><path class="damage-arrow-path" d="M${edge.from.x},${edge.from.y}L${edge.end.x},${edge.end.y}" marker-end="url(#hint-arrow-head)"><title>Рекомендуемый ход</title></path></g>`;
 }

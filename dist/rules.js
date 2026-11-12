@@ -3,6 +3,7 @@ export const LABELS = { shield: 'Броненосец', archer: 'Лукарь', 
 export const TEAM_NAMES = ['Север', 'Юг'];
 export const DEFAULT_CONFIG = {
   "version": 1,
+  "archerEdgeDamageBonus": 2,
   "geometry": "hex",
   "size": 5,
   "auraDefenseCap": -1,

@@ -22,7 +22,7 @@ const ArchivePick = (value, fields) => {
   return Object.fromEntries(fields.filter(field => Object.hasOwn(value, field)).map(field => [field, value[field]]));
 };
 const ArchiveConfig = value => {
-  const config = ArchivePick(value, ['version', 'geometry', 'size', 'army', 'stats', 'experiments', 'shieldPromotion', 'auraDefenseCap', 'victoryCondition', 'deploymentOffset', 'shieldDefenseOnly', 'drumShieldMoveBonus', 'centerArchers', 'drumMoveAllies']);
+  const config = ArchivePick(value, ['version', 'geometry', 'size', 'army', 'stats', 'experiments', 'shieldPromotion', 'auraDefenseCap', 'victoryCondition', 'deploymentOffset', 'shieldDefenseOnly', 'drumShieldMoveBonus', 'centerArchers', 'drumMoveAllies', 'archerEdgeDamageBonus']);
   if (!config || typeof config !== 'object' || Array.isArray(config)) return config;
   if (Object.hasOwn(config, 'army')) config.army = ArchivePick(config.army, ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps', 'scoutLamps', 'centralShields', 'rearArchers', 'rearShields', 'rearSupportOffset', 'horns']);
   if (Object.hasOwn(config, 'stats')) {
@@ -40,7 +40,7 @@ const ArchiveConfig = value => {
   }
   return config;
 };
-const ArchivePiece = (value, death = false) => ArchivePick(value, ['id', 'type', 'team', 'q', 'r', 'group', 'reachedFarEdge', ...(death ? ['incoming', 'fortitude'] : [])]);
+const ArchivePiece = (value, death = false) => ArchivePick(value, ['id', 'type', 'team', 'q', 'r', 'group', 'reachedFarEdge', 'archerReachedFarEdge', ...(death ? ['incoming', 'fortitude'] : [])]);
 const ArchiveState = value => {
   const state = ArchivePick(value, ['pieces', 'turn', 'ply', 'winner']);
   if (state && Array.isArray(state.pieces)) state.pieces = state.pieces.map(piece => ArchivePiece(piece));

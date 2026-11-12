@@ -6,6 +6,8 @@ const SQUARE_DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [1, -1], [-1, 1],
 export const directions = config => config.geometry === 'hex' ? HEX_DIRS : SQUARE_DIRS.slice(0, config.experiments.squareDiagonals ? 8 : 4);
 const farRow = (team, config) => config.geometry === 'hex' ? (team === 0 ? config.size : -config.size) : (team === 0 ? config.size - 1 : 0);
 export const shieldCanRetreat = (piece, config) => piece.type === 'shield' && (piece.reachedFarEdge === true || piece.r === farRow(piece.team, config));
+// Permanent personal archer promotion, independent of shield veteran auras.
+export const archerHasEdgeBonus = (piece, config) => piece.type === 'archer' && config.archerEdgeDamageBonus > 0 && (piece.archerReachedFarEdge === true || piece.r === farRow(piece.team, config));
 const promotionStats = config => config.shieldPromotion ?? PREVIOUS_SCOUT_CONFIG.shieldPromotion;
 const alliedPromotionStats = config => promotionStats(config).allies ?? promotionStats(config);
 export const isCombatUnit = piece => piece.type === 'shield' || piece.type === 'archer';
@@ -34,6 +36,7 @@ export function validateConfig(input) {
   if (!config || !['hex', 'square'].includes(config.geometry)) throw new Error('Неизвестный тип поля.');
   const number = (n, min, max, label) => { if (!Number.isInteger(n) || n < min || n > max) throw new Error(`${label}: нужно целое число от ${min} до ${max}.`); };
   number(config.size, config.geometry === 'hex' ? 3 : 6, config.geometry === 'hex' ? 6 : 12, 'Размер поля');
+  if (config.archerEdgeDamageBonus !== undefined) number(config.archerEdgeDamageBonus, 0, 20, 'Усиление лукаря за край');
   config.auraDefenseCap ??= -1;
   number(config.auraDefenseCap, -1, 20, 'Предел защиты от аур');
   if (config.drumShieldMoveBonus !== undefined) number(config.drumShieldMoveBonus, 0, 6, 'Бонус шага от барабанщика');
@@ -94,6 +97,8 @@ export function validateState(input, config) {
     if (p.group != null && (!Number.isInteger(p.group) || p.group < 1 || p.group > 100)) throw new Error('Неверная группа.');
     if (p.reachedFarEdge !== undefined && (p.type !== 'shield' || typeof p.reachedFarEdge !== 'boolean')) throw new Error('Неверный признак достижения края броненосцем.');
     if (shieldCanRetreat(p, config)) p.reachedFarEdge = true;
+    if (p.archerReachedFarEdge !== undefined && (p.type !== 'archer' || typeof p.archerReachedFarEdge !== 'boolean')) throw new Error('Неверный признак достижения края лукарем.');
+    if (archerHasEdgeBonus(p, config)) p.archerReachedFarEdge = true;
   }
   if (![null, 0, 1, 'draw'].includes(state.winner)) throw new Error('Неверный результат партии.');
   if (['combat-units', 'flag-or-combat'].includes(config.victoryCondition)) state.winner = winnerForPieces(state.pieces, config);
@@ -145,7 +150,7 @@ export function effective(piece, state, config) {
   const stats = config.stats[piece.type];
   const sources = [];
   const veteran = shieldCanRetreat(piece, config), promotion = promotionStats(config);
-  let damageBonus = veteran ? promotion.damageBonus : 0, rangeBonus = veteran ? promotion.rangeBonus : 0, defenseBonus = veteran ? promotion.defenseBonus : 0;
+  let damageBonus = veteran ? promotion.damageBonus : archerHasEdgeBonus(piece, config) ? config.archerEdgeDamageBonus : 0, rangeBonus = veteran ? promotion.rangeBonus : 0, defenseBonus = veteran ? promotion.defenseBonus : 0;
   let veteranSupport = false, moveBonus = 0;
   for (const source of state.pieces) {
     const veteranSource = shieldCanRetreat(source, config);
@@ -205,6 +210,7 @@ export function inspectCell(state, config, cell, selectedId = null, currentRepor
     const position = clone(state), piece = position.pieces.find(p => p.id === selectedId);
     piece.q = cell.q; piece.r = cell.r;
     if (route.reachedFarEdge) piece.reachedFarEdge = true;
+    if (route.archerReachedFarEdge) piece.archerReachedFarEdge = true;
     return { piece, position, report: analyze(position, config), isPreview: true };
   }
   return { piece: selected || null, position: state, report: currentReport, isPreview: false };
@@ -220,7 +226,7 @@ export function resolve(state, config) {
 function movementSearch(piece, state, config, includePath = false) {
   const board = new Set(cells(config).map(c => key(c.q, c.r)));
   const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p]));
-  const unlocked = shieldCanRetreat(piece, config);
+  const unlocked = shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config);
   // Fix the allowance at the start, even when the destination leaves the aura.
   const movementAllowance = effective(piece, state, config).move;
   const seen = new Set([`${key(piece.q, piece.r)}:${unlocked}`]), out = new Map(), queue = [{ q: piece.q, r: piece.r, steps: 0, unlocked }];
@@ -231,7 +237,7 @@ function movementSearch(piece, state, config, includePath = false) {
     for (const [dq, dr] of directions(config)) {
       if (piece.type === 'shield' && !current.unlocked && dr * (piece.team === 0 ? 1 : -1) < 0) continue;
       const q = current.q + dq, r = current.r + dr, pos = key(q, r);
-      const reached = current.unlocked || (piece.type === 'shield' && r === farRow(piece.team, config));
+      const reached = current.unlocked || ((piece.type === 'shield' || piece.type === 'archer' && config.archerEdgeDamageBonus > 0) && r === farRow(piece.team, config));
       const visit = `${pos}:${reached}`;
       if (!board.has(pos) || seen.has(visit)) continue;
       const blocking = occupied.get(pos);
@@ -239,8 +245,8 @@ function movementSearch(piece, state, config, includePath = false) {
       seen.add(visit); queue.push({ q, r, steps: current.steps + 1, unlocked: reached });
       if (parents) parents.push(i);
       // If either route reaches the edge, use that route and retain its permission.
-      if (!blocking && (!out.has(pos) || reached && !out.get(pos).reachedFarEdge)) {
-        out.set(pos, { q, r, steps: current.steps + 1, ...(piece.type === 'shield' && reached ? { reachedFarEdge: true } : {}) });
+      if (!blocking && (!out.has(pos) || reached && !out.get(pos).reachedFarEdge && !out.get(pos).archerReachedFarEdge)) {
+        out.set(pos, { q, r, steps: current.steps + 1, ...(piece.type === 'shield' && reached ? { reachedFarEdge: true } : {}), ...(piece.type === 'archer' && reached ? { archerReachedFarEdge: true } : {}) });
         if (endpoints) endpoints.set(pos, queue.length - 1);
       }
     }
@@ -272,6 +278,7 @@ export function move(state, config, id, destination) {
   const next = clone(state), moving = next.pieces.find(p => p.id === id);
   moving.q = destination.q; moving.r = destination.r;
   if (route.reachedFarEdge) moving.reachedFarEdge = true;
+  if (route.archerReachedFarEdge) moving.archerReachedFarEdge = true;
   const outcome = resolve(next, config);
   outcome.state.turn = 1 - state.turn; outcome.state.ply = state.ply + 1;
   return { ...outcome, action: { team: piece.team, type: piece.type, from: { q: piece.q, r: piece.r }, to: destination } };

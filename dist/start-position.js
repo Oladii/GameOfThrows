@@ -4,7 +4,7 @@ import { createGame, isCombatUnit, validateConfig, validateState } from './engin
 // flags and missing/null groups have the same meaning to the rules engine.
 export function deploymentKey(state) {
   return JSON.stringify(state.pieces.map(piece => JSON.stringify([
-    piece.type, piece.team, piece.q, piece.r, piece.group ?? null, piece.reachedFarEdge === true
+    piece.type, piece.team, piece.q, piece.r, piece.group ?? null, piece.reachedFarEdge === true, piece.archerReachedFarEdge === true
   ])).sort());
 }
 
