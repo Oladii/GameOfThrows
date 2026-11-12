@@ -444,7 +444,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.64</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T23:35:28.373Z">Сборка 13.11.2026, 02:35:28 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.65</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T23:36:03.265Z">Сборка 13.11.2026, 02:36:03 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -3471,7 +3471,7 @@ function render(deaths = []) {
   $('#position-kind').value = positionKind;
   $('#configure-position').disabled = positionKind !== 'custom';
   $('#configure-position').hidden = positionKind !== 'custom';
-  $('#mode-caption').textContent = playMode === 'bot' ? `Против бота · ${BOT_DIFFICULTIES[botDifficulty].label.toLowerCase()}` : '2 игрока на одном экране';
+  $('#mode-caption').textContent = playMode === 'bot' ? `Против ${botDifficulty === 'easy' ? 'лёгкого' : 'сложного'} бота` : '2 игрока на одном экране';
   hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
