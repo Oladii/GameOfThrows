@@ -538,7 +538,7 @@ function render(deaths = []) {
   if (hint) selected = null;
   renderHint();
   renderUpdateNotice();
-  const state = visibleState(), displayLog = movement ? movement.before.log : combat ? combat.before.log : reviewingTurn && lastTurn ? lastTurn.before.log : log;
+  const state = visibleState();
   for (const view of ['attacks', 'auras']) $('#show-' + view).disabled = Boolean(movement || combat);
   for (const view of ['attacks', 'auras']) $('#show-' + view).setAttribute('aria-pressed', String(fieldView === view));
   clearTimeout(deathEffectTimer);
@@ -608,8 +608,6 @@ function render(deaths = []) {
   $('#board-hint').hidden = true;
   $('#bot-status').hidden = !botIssue;
   $('#bot-controls').hidden = !botIssue && $('#resume-bot').hidden;
-  $('#log-count').textContent = `${state.ply} ${plural(state.ply, ['ход', 'хода', 'ходов'])}`;
-  $('#move-log').innerHTML = displayLog.length ? displayLog.map((entry, i) => `<div class="log-row"><span class="log-number">${i + 1}</span><p>${escape(entry.text)}<small>${escape(entry.detail)}</small></p></div>`).reverse().join('') : '<p class="log-empty">Здесь появятся перемещения и результат каждого расчёта. Урон не накапливается.</p>';
   document.querySelectorAll('[data-team]').forEach(b => b.classList.toggle('active', Number(b.dataset.team) === editorTeam));
   $('#erase-tool').classList.toggle('selected-tool', tool === 'erase');
   $('#piece-palette').innerHTML = TYPES.map(type => `<button class="palette-item ${tool === type ? 'active' : ''}" data-tool="${type}">${icon(type)}<span>${LABELS[type]}</span></button>`).join('');
