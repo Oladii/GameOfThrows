@@ -340,8 +340,8 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .lesson-tile.lesson-available>polygon{fill:#e0ebcc}
 .lesson-tile.lesson-route>polygon,.lesson-tile.lesson-unit-cell>polygon,.lesson-available:hover>polygon,.lesson-available:focus-visible>polygon{fill:#d4e2c0}
 .token-body-paint{isolation:isolate;pointer-events:none}
-.token-team-tint{mix-blend-mode:color;fill:#af6a4b}
-.token-team-tint.north{opacity:0}
+.token-team-tint{mix-blend-mode:normal}
+.token-team-tint.north{opacity:1}
 .token-art,.token-digit,.token-number{pointer-events:none}
 .piece>.piece-circle,.moving-token>.piece-circle,.death-token>.piece-circle,.lesson-piece>.piece-circle,.preview-ghost>.piece-circle,.lesson-preview-piece>.piece-circle{fill:none;stroke:none;filter:none}
 .piece.north>.piece-circle,.piece.south>.piece-circle,.moving-token.north>.piece-circle,.moving-token.south>.piece-circle,.death-ghost .death-token>.piece-circle{fill:none}

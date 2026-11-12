@@ -48,7 +48,9 @@ function veteranWreath() {
 export function renderTokenBody(appearance, displayTeam = 0) {
   const side = displayTeam ? 'south' : 'north';
   const body = tokenArtwork('body',tokenX(30),tokenY(30),180*TOKEN_UNIT_SCALE,180*TOKEN_UNIT_SCALE,'token-body-image');
-  const tint = `<circle class="token-team-tint ${side}" cx="0" cy="0" r="${87*TOKEN_UNIT_SCALE}"/>`;
+  const surfaceId = `token-surface-${++tokenMaskSequence}`;
+  const colors = displayTeam ? ['#c33f00', '#ab3300', '#802700'] : ['#58b4df', '#4c9fc9', '#387d9f'];
+  const tint = `<defs><radialGradient id="${surfaceId}" cx="43%" cy="40%" r="75%"><stop offset="0" stop-color="${colors[0]}"/><stop offset=".6" stop-color="${colors[1]}"/><stop offset="1" stop-color="${colors[2]}"/></radialGradient></defs><circle class="token-team-tint ${side}" cx="0" cy="0" r="${85.5*TOKEN_UNIT_SCALE}" fill="url(#${surfaceId})"/>`;
   const icon = appearance.type && TOKEN_ART['type-'+appearance.type]
     ? tokenTypeIcon(appearance.type)
     : `<g transform="translate(${tokenX(65)},${tokenY(63)}) scale(${110/24*TOKEN_UNIT_SCALE})">${appearance.icon || ''}</g>`;

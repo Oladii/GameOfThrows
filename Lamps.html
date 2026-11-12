@@ -350,8 +350,8 @@ body:has(#rules-dialog[open]){overflow:hidden}
 .lesson-tile.lesson-available>polygon{fill:#e0ebcc}
 .lesson-tile.lesson-route>polygon,.lesson-tile.lesson-unit-cell>polygon,.lesson-available:hover>polygon,.lesson-available:focus-visible>polygon{fill:#d4e2c0}
 .token-body-paint{isolation:isolate;pointer-events:none}
-.token-team-tint{mix-blend-mode:color;fill:#af6a4b}
-.token-team-tint.north{opacity:0}
+.token-team-tint{mix-blend-mode:normal}
+.token-team-tint.north{opacity:1}
 .token-art,.token-digit,.token-number{pointer-events:none}
 .piece>.piece-circle,.moving-token>.piece-circle,.death-token>.piece-circle,.lesson-piece>.piece-circle,.preview-ghost>.piece-circle,.lesson-preview-piece>.piece-circle{fill:none;stroke:none;filter:none}
 .piece.north>.piece-circle,.piece.south>.piece-circle,.moving-token.north>.piece-circle,.moving-token.south>.piece-circle,.death-ghost .death-token>.piece-circle{fill:none}
@@ -388,7 +388,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
-    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.32</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-11T23:37:45.754Z">Сборка 12.11.2026, 02:37:45 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="topbar-tools"><div class="top-meta"><span class="status-dot"></span> <span id="mode-caption">2 игрока на одном экране</span> <span class="version" id="app-version"><span><span id="version-number">v0.1.36</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T10:42:46.842Z">Сборка 12.11.2026, 13:42:46 МСК</span></span></div><div class="heading-actions"><button id="rules-open" class="button outline">Об игре</button><button id="settings-open" class="button outline settings-gear" title="Настройки партии" aria-label="Настройки партии"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="20.00,12.00 21.81,13.95 21.24,15.83 18.65,16.44 17.66,17.66 17.56,20.31 15.83,21.24 13.56,19.85 12.00,20.00 10.05,21.81 8.17,21.24 7.56,18.65 6.34,17.66 3.69,17.56 2.76,15.83 4.15,13.56 4.00,12.00 2.19,10.05 2.76,8.17 5.35,7.56 6.34,6.34 6.44,3.69 8.17,2.76 10.44,4.15 12.00,4.00 13.95,2.19 15.83,2.76 16.44,5.35 17.66,6.34 20.31,6.44 21.24,8.17 19.85,10.44"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   </header>
   <div id="update-notice" class="update-notice" role="status" hidden>Доступны обновления. Начните новую игру, чтобы они вступили в силу.</div>
   <main>
@@ -1786,7 +1786,9 @@ function veteranWreath() {
 function renderTokenBody(appearance, displayTeam = 0) {
   const side = displayTeam ? 'south' : 'north';
   const body = tokenArtwork('body',tokenX(30),tokenY(30),180*TOKEN_UNIT_SCALE,180*TOKEN_UNIT_SCALE,'token-body-image');
-  const tint = `<circle class="token-team-tint ${side}" cx="0" cy="0" r="${87*TOKEN_UNIT_SCALE}"/>`;
+  const surfaceId = `token-surface-${++tokenMaskSequence}`;
+  const colors = displayTeam ? ['#c33f00', '#ab3300', '#802700'] : ['#58b4df', '#4c9fc9', '#387d9f'];
+  const tint = `<defs><radialGradient id="${surfaceId}" cx="43%" cy="40%" r="75%"><stop offset="0" stop-color="${colors[0]}"/><stop offset=".6" stop-color="${colors[1]}"/><stop offset="1" stop-color="${colors[2]}"/></radialGradient></defs><circle class="token-team-tint ${side}" cx="0" cy="0" r="${85.5*TOKEN_UNIT_SCALE}" fill="url(#${surfaceId})"/>`;
   const icon = appearance.type && TOKEN_ART['type-'+appearance.type]
     ? tokenTypeIcon(appearance.type)
     : `<g transform="translate(${tokenX(65)},${tokenY(63)}) scale(${110/24*TOKEN_UNIT_SCALE})">${appearance.icon || ''}</g>`;
