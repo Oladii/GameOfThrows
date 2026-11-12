@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 // Frozen revision-13 combat fixture; current flag coverage is tested separately.
-import { PREVIOUS_MELEE_CONFIG as DEFAULT_CONFIG, DEFAULT_CONFIG as CURRENT_CONFIG, PREVIOUS_SUPPORT_CONFIG, PREVIOUS_ARCHER_CONFIG, PREVIOUS_SMALL_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
+import { PREVIOUS_MELEE_CONFIG as DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG as CURRENT_CONFIG, PREVIOUS_SUPPORT_CONFIG, PREVIOUS_ARCHER_CONFIG, PREVIOUS_SMALL_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
 import { clone, createGame, effective, resolve } from '../dist/engine.js';
 
 const p = (id, type, team, q, r, veteran = false) => ({ id, type, team, q, r, ...(veteran ? { reachedFarEdge: true } : {}) });
@@ -12,7 +12,7 @@ test('variant A changes only shield attack, reach and the personal veteran attac
   expected.stats.shield.damage = 5;
   expected.stats.shield.range = 2;
   expected.shieldPromotion.damageBonus = 1;
-  assert.equal(BALANCE_REVISION, 16);
+  assert.equal(BALANCE_REVISION, 21);
   assert.deepEqual(DEFAULT_CONFIG, expected);
   assert.deepEqual(createGame(DEFAULT_CONFIG), createGame(PREVIOUS_SUPPORT_CONFIG));
   assert.equal(createGame(DEFAULT_CONFIG).pieces.length, 28);

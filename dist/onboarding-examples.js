@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, LABELS } from './rules.js';
+import { PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG, LABELS } from './rules.js';
 import { renderTokenBody } from './token-presentation.js';
 import { clone, cells, key, distance, reachable, movementPath, analyze, auraReaches, attacks, inspectCell, move, resolve } from './engine.js';
 import { auraCircleMarkup, renderDeathEffects, renderMovingToken, unitAppearance, attackReachPresentation } from './board-presentation.js';
@@ -10,7 +10,7 @@ const lessonPiece = (id, type, team, q, r) => ({ id, type, team, q, r });
 const lessonPosition = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
 // Current-balance positions shared by the movement and unit tutorials.
 export function supportLessonPieces(type) {
-  if (type === 'attackLamp') return [lessonPiece('blue','archer',0,-1,0),lessonPiece('support',type,0,3,-3),lessonPiece('guard','shield',0,-2,0),lessonPiece('enemy','archer',1,2,0),lessonPiece('flag','defenseLamp',1,2,-1),lessonPiece('second','archer',0,-1,3),lessonPiece('wall','shield',1,3,0)];
+  if (type === 'attackLamp') return [lessonPiece('blue','archer',0,0,-1),lessonPiece('support',type,0,2,-2),lessonPiece('guard','shield',0,-2,0),lessonPiece('enemy','archer',1,2,-1),lessonPiece('flag','defenseLamp',1,-3,3),lessonPiece('second','archer',0,-1,3),lessonPiece('wall','shield',1,3,0)];
   if (type === 'scoutLamp') return [lessonPiece('blue','archer',0,-2,0),lessonPiece('support',type,0,2,-2),lessonPiece('enemy','archer',1,3,0),lessonPiece('second','archer',0,0,3),lessonPiece('wall','shield',1,3,-1)];
   return [lessonPiece('blue','shield',0,1,0),lessonPiece('support','defenseLamp',0,-2,-1),lessonPiece('enemy','shield',1,2,0),{...lessonPiece('enemyVeteran','shield',1,3,-1),reachedFarEdge:true},lessonPiece('second','archer',0,2,-2),lessonPiece('guard','shield',0,0,1)];
 }
@@ -46,7 +46,7 @@ export function createMoveLesson(index = 0, { advanced = false, selected = false
     lesson.title = 'Щит закрывает тех, кто за ним';
     if (shieldRemoved) pieces = pieces.filter(piece => piece.id !== 'wall');
     lesson.description = 'Щит закрывает вражеского лукаря. Убери щитовика кнопкой и посмотри, кому теперь достанется стрела.';
-    lesson.hint = 'Разведчик даёт нашему лукарю дальность до врага. Можно также выбрать лукаря и проверить другие позиции.';
+    lesson.hint = 'Командир даёт нашему лукарю дальность до врага. Можно также выбрать лукаря и проверить другие позиции.';
   } else if (index === 3) {
     pieces = [lessonPiece('blue', 'archer', 0, -3, 0), lessonPiece('enemy', 'shield', 1, 2, 0)];
     lesson.title = 'Найди клетку, с которой достаёт стрела';
@@ -204,7 +204,7 @@ export function createCombatLesson(index, options = {}) {
     ? [lessonPiece('blue', 'shield', 0, 0, 0), lessonPiece('enemy', 'archer', 1, 0, 3)]
     : index === 1
       ? [lessonPiece('blue', 'archer', 0, -2, -1), lessonPiece('enemy', 'archer', 1, 0, 0), ...(options.secondArcher === false ? [] : [lessonPiece('second', 'archer', 0, 0, -2)])]
-      : [lessonPiece('blue', 'shield', 0, 0, 0), lessonPiece('enemy', 'shield', 1, 0, 2), lessonPiece('drum','attackLamp',0,-1,0), lessonPiece('enemyDrum','attackLamp',1,1,2)];
+      : [lessonPiece('blue', 'shield', 0, 0, 0), lessonPiece('enemy', 'shield', 1, 0, 2), lessonPiece('drum','attackLamp',0,-1,1), lessonPiece('enemyDrum','attackLamp',1,1,2)];
   const lesson = createPositionLesson(pieces, 'blue', options);
   Object.assign(lesson, { index: 8 + index, exampleNumber: index + 1, exampleTotal: 3 });
   if (index !== 1) Object.assign(lesson, { point: verticalLessonPoint, rotation: 0, viewBox: '70 10 420 390' });

@@ -1,7 +1,7 @@
 // Revision 11 regression; the later support buff is covered separately.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {PREVIOUS_ARCHER_CONFIG as DEFAULT_CONFIG,DEFAULT_CONFIG as CURRENT_CONFIG,PREVIOUS_SMALL_CONFIG,updateSavedBalance} from '../dist/rules.js';
+import {PREVIOUS_ARCHER_CONFIG as DEFAULT_CONFIG,PREVIOUS_LOCAL_CONFIG as CURRENT_CONFIG,PREVIOUS_SMALL_CONFIG,updateSavedBalance} from '../dist/rules.js';
 import {clone,createGame,resolve,reachable,move,effective,validateConfig} from '../dist/engine.js';
 const p=(id,type,team,q,r)=>({id,type,team,q,r});
 const state=pieces=>({pieces,turn:0,ply:0,winner:null});

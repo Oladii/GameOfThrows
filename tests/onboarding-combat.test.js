@@ -28,7 +28,7 @@ test('sum example starts nonlethal and requires movement, with two shots killing
   const one = createCombatLesson(1, { advanced: true, destination, secondArcher: false });
   assert.equal(one.report.get('enemy').incoming, 2);
   assert.ok(one.position.pieces.some(p => p.id === 'enemy'));
-  assert.equal(analyze(one.position, one.config).get('enemy').fortitude, 4);
+  assert.equal(analyze(one.position, one.config).get('enemy').fortitude, 3);
 });
 
 test('vertical shield example starts apart and a real approach ends with both deaths at once', () => {

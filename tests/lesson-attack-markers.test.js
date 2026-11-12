@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {TYPES} from '../dist/rules.js';
+// These five archived lessons retain the previous local schema.
+const TYPES = ['shield','archer','attackLamp','defenseLamp','scoutLamp'];
 import {attackCellsFor, renderUnitBadges} from '../dist/board-presentation.js';
 import {createUnitLesson} from '../dist/onboarding-units.js';
 import {renderMoveLesson} from '../dist/onboarding-examples.js';

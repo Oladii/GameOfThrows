@@ -803,3 +803,19 @@ test('a late refusal from one drainer cannot block a queue fully acknowledged by
   assert.equal((await harness.storage.get(owner.status.gameId)).blocked, undefined);
   owner.close(); slow.close();
 });
+
+test('archive roundtrip retains the complete local13 army and optional universal aura fields', async () => {
+  const harness=archiveHarness(), recorder=new GameRecorder(harness.options);
+  const config=archiveCopy(DEFAULT_CONFIG), state=createGame(config);
+  await recorder.start({...archiveFixture(),config,state});
+  await recorder.record('restore',{config,state});
+  const [stored]=await harness.storage.list();
+  assert.deepEqual(stored.create.initial.config,config);
+  assert.deepEqual(stored.create.initial.state,archiveCopy(state));
+  assert.deepEqual(stored.events[0].payload.config,config);
+  assert.equal(stored.create.initial.config.army.horns,1);
+  assert.equal(stored.create.initial.config.drumMoveAllies,true);
+  assert.deepEqual(stored.create.initial.config.stats.horn,DEFAULT_CONFIG.stats.horn);
+  assert.equal(stored.create.initial.state.pieces.filter(p=>p.type==='horn').length,2);
+  recorder.close();
+});

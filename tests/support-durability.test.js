@@ -2,8 +2,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {PREVIOUS_SUPPORT_CONFIG as DEFAULT_CONFIG,DEFAULT_CONFIG as CURRENT_CONFIG,PREVIOUS_ARCHER_CONFIG,updateSavedBalance} from '../dist/rules.js';
+import {PREVIOUS_SUPPORT_CONFIG as DEFAULT_CONFIG,PREVIOUS_LOCAL_CONFIG as CURRENT_CONFIG,PREVIOUS_ARCHER_CONFIG,updateSavedBalance} from '../dist/rules.js';
 import {clone,analyze,validateConfig} from '../dist/engine.js';
+import {COMMANDER_ICON_PATH,renderTokenBody} from '../dist/token-presentation.js';
 
 test('all three support types gain exactly one fortitude after the archer upgrade',()=>{
  const expected=clone(PREVIOUS_ARCHER_CONFIG);
@@ -21,10 +22,11 @@ test('support survives a bare arrow and a banner protects it from a supported ar
  assert.equal(info([target,enemy,drum]).dead,true);
  assert.deepEqual([info([target,enemy,drum,banner]).fortitude,info([target,enemy,drum,banner]).incoming,info([target,enemy,drum,banner]).dead],[4,3,false]);
 });
-test('the scout uses binoculars again on every surface sharing the icon map',()=>{
+test('the commander uses the shared helmet on every current token surface',()=>{
  const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
- const icon=app.match(/scoutLamp: '([^']*)'/)[1];
- assert.match(icon,/<circle cx="6" cy="16" r="4"\/>/);
- assert.match(icon,/<circle cx="18" cy="16" r="4"\/>/);
- assert.doesNotMatch(icon,/rotate\(-35/);
+ assert.match(app,/scoutLamp: COMMANDER_ICON_PATH/);
+ const token=renderTokenBody({type:'scoutLamp',veteran:false},0);
+ assert.ok(token.includes(COMMANDER_ICON_PATH));
+ assert.match(token,/class="piece-icon"/);
+ assert.doesNotMatch(token,/data-artwork="type-scoutLamp"/);
 });

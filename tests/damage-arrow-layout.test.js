@@ -4,11 +4,35 @@ import assert from 'node:assert/strict';
 import { PREVIOUS_SUPPORT_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
 import { analyze } from '../dist/engine.js';
 import { lethalAttackPresentation, layoutDamageArrows, renderDamageArrows, MAX_DAMAGE_ARROW_BEND } from '../dist/board-presentation.js';
+import { tokenBadgeBounds } from '../dist/token-presentation.js';
 
 const point=p=>({x:p.q,y:p.r});
 const piece=(id,q,r)=>({id,q,r});
 const arrow=(source,target,damage=20)=>({source,target,damage});
 const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+
+test('an adjacent diagonal hit keeps its contribution clear of both unit stat badges and incoming damage',()=>{
+  const source=piece('source',0,0),target=piece('target',-1,1);
+  const hex=p=>({x:Math.sqrt(3)*33*(p.q+p.r/2),y:49.5*p.r});
+  for (const damage of [5,15,105]) {
+    const report=new Map([source,target].map(p=>[p.id,{damage,fortitude:damage+2,incoming:damage,dead:false}]));
+    const edges=layoutDamageArrows([arrow(source,target,damage)],hex,{pieces:[source,target],report});
+    checkLocal(edges);
+    for (const endpoint of [source,target]) {
+      const at=hex(endpoint);
+      for (const b of tokenBadgeBounds(report.get(endpoint.id))) assert.equal(overlap(edges[0].label,
+        {left:at.x+b.left,right:at.x+b.right,top:at.y+b.top,bottom:at.y+b.bottom}),false);
+    }
+  }
+});
+
+test('preview tokens are painted between arrow shafts and unobstructed contribution labels',()=>{
+  const source=piece('source',0,0),target=piece('target',-1,1);
+  const html=renderDamageArrows([arrow(source,target,5)],p=>({x:p.q*57,y:p.r*49.5}),
+    {previewMarkup:'<g class="preview-ghost"></g>'});
+  assert.ok(html.indexOf('class="attack-ray"')<html.indexOf('class="preview-ghost"'));
+  assert.ok(html.indexOf('class="preview-ghost"')<html.indexOf('class="attack-ray-label"'));
+});
 function checkDistinct(edges) {
   for(let i=0;i<edges.length;i++)for(let j=i+1;j<edges.length;j++)assert.equal(overlap(edges[i].label,edges[j].label),false,`${edges[i].source.id}:${edges[i].target.id} overlaps ${edges[j].source.id}:${edges[j].target.id}`);
 }

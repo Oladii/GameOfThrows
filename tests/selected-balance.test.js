@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { DEFAULT_CONFIG, BALANCE_REVISION, updateSavedBalance, PREVIOUS_AREA_CONFIG, PREVIOUS_SCOUT_CONFIG } from '../dist/rules.js';
+import { PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG, BALANCE_REVISION, updateSavedBalance, PREVIOUS_AREA_CONFIG, PREVIOUS_SCOUT_CONFIG } from '../dist/rules.js';
 import { clone, createGame, validateConfig } from '../dist/engine.js';
 import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 
 const selected = JSON.parse(fs.readFileSync(new URL('../balanced-small-numbers.json', import.meta.url), 'utf8'));
 
-test('new local defaults match the selected balance preset and deployment', () => {
-  assert.equal(BALANCE_REVISION, 16);
+test('archived revision-19 local defaults match the selected balance preset and deployment', () => {
+  assert.equal(BALANCE_REVISION, 21);
   assert.deepEqual(DEFAULT_CONFIG, selected.config);
   assert.deepEqual(clone(createGame(DEFAULT_CONFIG)), selected.state);
 });

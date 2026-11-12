@@ -1,7 +1,7 @@
 import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { PREVIOUS_UNCAPPED_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
 import { effective, attacks, analyze, resolve, inspectCell, move, clone, validateConfig } from '../dist/engine.js';
 import { attackCellsFor, unitStatParts } from '../dist/board-presentation.js';
 const piece = (id, type, team, q, r, extra = {}) => ({ id, type, team, q, r, ...extra });

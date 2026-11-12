@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG, TEAM_NAMES, LABELS } from '../dist/rules.js';
 import { analyze, inspectCell, cells, key, shieldCanRetreat } from '../dist/engine.js';
-import { renderDamageArrows } from '../dist/board-presentation.js';
+import { renderDamageArrows, ATTACK_TEAM_COLORS } from '../dist/board-presentation.js';
 
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
 function declaration(name) {
@@ -24,7 +24,7 @@ function setup() {
   const context = vm.createContext({ config, state, report: analyze(state, config), selected: null, hover: null, inspection: null,
     boardFocus: '0,1', restoringBoardFocus: false, fieldView: null, movement: null, combat: null, currentDeaths: [],
     available: [], editor: false, playMode: 'local', humanTeam: 0, gamePhase: 'playing', reviewingTurn: false,
-    TEAM_NAMES, LABELS, cells, key, shieldCanRetreat, inspectCell, renderDamageArrows, ICON_PATHS: {},
+    TEAM_NAMES, LABELS, cells, key, shieldCanRetreat, inspectCell, renderDamageArrows, ATTACK_TEAM_COLORS, ICON_PATHS: {},
     $: node, document: { activeElement: cell, querySelectorAll: () => [] },
     visibleState: () => state, isBotTurn: () => false, paintAuras() {}, paintAttackReach() {}, renderInspector() {},
     point: p => ({ x: p.q * 57, y: p.r * 49.5 }), polygon: () => '',

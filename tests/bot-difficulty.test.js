@@ -83,6 +83,7 @@ test('new game discards even older or custom characteristics and returning resto
   assert.deepEqual(clone(ui.context.config), DEFAULT_CONFIG);
   assert.equal(ui.saved().gameVersion, '0.1.20');
   assert.equal(ui.context.state.ply, 0);
+  assert.equal(ui.context.state.pieces.length, 26);
   assert.equal(ui.context.state.pieces.filter(p => p.type === 'scoutLamp').length, 2);
   assert.deepEqual(clone(ui.saved().previousGame.snapshot), before);
   ui.context.previousGame = ui.run('readPreviousGame(JSON.parse(JSON.stringify(previousGame)))');
@@ -130,4 +131,13 @@ test('easy performs a shallower legal search; hard retains the former search set
   assert.ok(easy.stats.nodes < hard.stats.nodes);
   for (const result of [easy, hard]) assert.equal(move(state, config, result.action.id, result.action.to).state.ply, 1);
   assert.deepEqual(hard.action, chooseBotAction(state, config, { depth: 4, seed: 39 }).action);
+});
+
+test('local13 reset defaults restores all 26 standard pieces from a custom setup', () => {
+  const ui=setup();ui.context.config.army.horns=0;ui.context.config.army.shields=1;
+  ui.context.state=createGame(ui.context.config);
+  ui.run('resetNewGameDefaults()');
+  assert.deepEqual(clone(ui.context.config),DEFAULT_CONFIG);
+  assert.deepEqual(clone(ui.context.state),clone(createGame(DEFAULT_CONFIG)));
+  assert.equal(ui.context.state.pieces.length,26);
 });

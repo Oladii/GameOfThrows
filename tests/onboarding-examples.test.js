@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
 import { cells, distance, movementPath, validateConfig, validateState, inspectCell, resolve, move, analyze, reachable } from '../dist/engine.js';
 import { MOVE_LESSONS, createMoveLesson, renderMoveLesson, renderMoveExamples } from '../dist/onboarding-examples.js';
 const icons = Object.fromEntries(['shield', 'archer', 'attackLamp', 'defenseLamp'].map(type => [type, '<path d="M1 1h1"/>']));
@@ -270,7 +270,7 @@ test('only the first example shows step numbers, and no example draws combat arr
 test('the fifth example lets the drummer enable a safe lethal shot against an enemy archer', () => {
   const initial = createMoveLesson(4, { aura: 'attack' });
   assert.equal(initial.position.pieces.find(piece => piece.id === 'enemy').type, 'archer');
-  assert.equal(initial.canHit, true); assert.equal(initial.report.get('enemy').incoming, initial.report.get('blue').damage + initial.report.get('second').damage); assert.equal(initial.report.get('enemy').dead, false);
+  assert.equal(initial.canHit, true); assert.equal(initial.report.get('enemy').incoming, initial.report.get('blue').damage); assert.equal(initial.report.get('enemy').dead, false);
   const preview = createMoveLesson(4, { aura: 'attack', selected: true, previewPlacement: { q: 1, r: -2 } });
   assert.equal(preview.canHit, true); assert.equal(preview.report.get('enemy').dead, true);
   assert.equal(preview.report.get('blue').dead, false); assert.equal(preview.report.get('blue').incoming, DEFAULT_CONFIG.stats.archer.damage);

@@ -75,7 +75,7 @@ test('the veteran reference separates permanent power and ally aura, including l
   vm.runInContext(app.slice(app.indexOf('function shieldPromotionDescription('), app.indexOf('function shieldDescriptionMarkup(')), context);
   const description = context.shieldPromotionDescription();
   assert.match(description, /Урон: 6, дальность: 3, стойкость: 6/);
-  assert.match(description, /союзникам \+1 к урону, \+1 к дальности и \+1 к стойкости только броненосцев/);
+  assert.match(description, /союзникам \+1 к урону, \+1 к дальности и \+1 к стойкости/);
   context.config = structuredClone(PREVIOUS_FORMATION_CONFIG);
   delete context.config.shieldPromotion.allies;
   assert.match(context.shieldPromotionDescription(), /союзникам \+9 к урону, \+2 к дальности и \+9 к стойкости/);
@@ -91,7 +91,7 @@ test('settings expose independent veteran bonuses and preserve legacy values whe
   for (const legacy of [false, true]) {
     const config = structuredClone(legacy ? PREVIOUS_FORMATION_CONFIG : DEFAULT_CONFIG);
     if (legacy) { delete config.shieldPromotion.allies; delete config.victoryCondition; delete config.deploymentOffset; }
-    const form = { elements: Object.fromEntries(['geometry', 'size', 'auraDefenseCap', 'victoryCondition', 'deploymentOffset'].map(name => [name, { value: '' }])) };
+    const form = { elements: Object.fromEntries(['geometry', 'size', 'auraDefenseCap', 'victoryCondition', 'deploymentOffset', 'drumShieldMoveBonus'].map(name => [name, { value: '' }])) };
     const nodes = { '#settings-form': form, '#size-label': {}, '#settings-error': {} };
     for (const id of ['army-inputs', 'stats-table', 'promotion-inputs', 'promotion-allies-inputs', 'experiment-inputs']) nodes['#' + id] = {
       set innerHTML(html) {
@@ -105,13 +105,13 @@ test('settings expose independent veteran bonuses and preserve legacy values whe
     vm.runInContext(app.slice(app.indexOf('const statFields ='), app.indexOf("$('#settings-open').addEventListener")), context);
     context.fillSettings(config);
     assert.equal(String(form.elements.deploymentOffset.value), '0');
-    assert.equal(form.elements.victoryCondition.value, legacy ? 'all-units' : 'combat-units');
+    assert.equal(form.elements.victoryCondition.value, legacy ? 'all-units' : 'flag-or-combat');
     assert.equal(form.elements['shieldPromotion.damageBonus'].value, legacy ? '9' : '1');
     assert.equal(form.elements['shieldPromotion.allies.damageBonus'].value, legacy ? '9' : '1');
     const next = context.settingsFromForm();
     assert.equal(next.shieldPromotion.damageBonus, legacy ? 9 : 1);
     assert.equal(next.shieldPromotion.allies.damageBonus, legacy ? 9 : 1);
     assert.equal(next.shieldPromotion.allies.defenseBonus, legacy ? 9 : 1);
-    assert.equal(next.victoryCondition, legacy ? 'all-units' : 'combat-units');
+    assert.equal(next.victoryCondition, legacy ? 'all-units' : 'flag-or-combat');
   }
 });

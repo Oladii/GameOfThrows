@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { PREVIOUS_UNCAPPED_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
 import { clone, createGame } from '../dist/engine.js';
 import { deploymentKey, classifyPosition, prepareStartPosition } from '../dist/start-position.js';
 

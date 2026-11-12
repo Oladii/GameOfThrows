@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DEFAULT_CONFIG, PREVIOUS_CENTERLESS_CONFIG, PREVIOUS_AREA_CONFIG, PREVIOUS_SCOUT_CONFIG, upgradeScoutFieldPreset, updateSavedBalance} from '../dist/rules.js';
+import {PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG, PREVIOUS_CENTERLESS_CONFIG, PREVIOUS_AREA_CONFIG, PREVIOUS_SCOUT_CONFIG, upgradeScoutFieldPreset, updateSavedBalance} from '../dist/rules.js';
 import {clone,cells,createGame,validateConfig,analyze,effective,move} from '../dist/engine.js';
 import {alliedBonusDetails} from '../dist/board-presentation.js';
 import {createUnitLesson} from '../dist/onboarding-units.js';

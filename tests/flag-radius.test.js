@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 // Frozen revision-14 flag expansion; current adjacent shields are tested separately.
-import { PREVIOUS_FLAG_CONFIG as DEFAULT_CONFIG, DEFAULT_CONFIG as CURRENT_CONFIG, PREVIOUS_MELEE_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
+import { PREVIOUS_FLAG_CONFIG as DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG as CURRENT_CONFIG, PREVIOUS_MELEE_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
 import { clone, createGame, validateConfig, cells, auraReaches, effective, resolve } from '../dist/engine.js';
 
 const piece = (id, type, team, q, r) => ({ id, type, team, q, r });
@@ -9,7 +9,7 @@ const position = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
 
 test('revision 14 extends only the flag radius and preserves the entire 28-unit deployment', () => {
   const expected = clone(PREVIOUS_MELEE_CONFIG); expected.stats.defenseLamp.aura = 3;
-  assert.equal(BALANCE_REVISION, 16);
+  assert.equal(BALANCE_REVISION, 21);
   assert.deepEqual(DEFAULT_CONFIG, expected);
   assert.deepEqual(createGame(DEFAULT_CONFIG), createGame(PREVIOUS_MELEE_CONFIG));
   assert.equal(createGame(DEFAULT_CONFIG).pieces.length, 28);

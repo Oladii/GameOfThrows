@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { DEFAULT_CONFIG, TYPES } from '../dist/rules.js';
+import { PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG, TYPES } from '../dist/rules.js';
 import { move, reachable, shieldCanRetreat, analyze } from '../dist/engine.js';
 import { createUnitLesson, renderUnitExamples, badgeExamples } from '../dist/onboarding-units.js';
 import { createPositionLesson, renderMoveLesson } from '../dist/onboarding-examples.js';

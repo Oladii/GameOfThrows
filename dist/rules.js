@@ -1,5 +1,5 @@
-export const TYPES = ['shield', 'archer', 'attackLamp', 'defenseLamp', 'scoutLamp'];
-export const LABELS = { shield: 'Броненосец', archer: 'Лукарь', attackLamp: 'Барабанщик', defenseLamp: 'Знаменосец', scoutLamp: 'Разведчик' };
+export const TYPES = ['shield', 'archer', 'attackLamp', 'defenseLamp', 'scoutLamp', 'horn'];
+export const LABELS = { shield: 'Броненосец', archer: 'Лукарь', attackLamp: 'Барабанщик', defenseLamp: 'Знаменосец', scoutLamp: 'Командир', horn: 'Горнист' };
 export const TEAM_NAMES = ['Север', 'Юг'];
 export const DEFAULT_CONFIG = {
   "version": 1,
@@ -14,7 +14,10 @@ export const DEFAULT_CONFIG = {
     "defenseLamps": 1,
     "scoutLamps": 1,
     "centralShields": 1,
-    "rearArchers": 2
+    "rearArchers": 0,
+    "rearShields": 0,
+    "rearSupportOffset": 1,
+    "horns": 1
   },
   "shieldPromotion": {
     "aura": 1,
@@ -44,7 +47,7 @@ export const DEFAULT_CONFIG = {
       "move": 2,
       "damage": 2,
       "range": 4,
-      "fortitude": 4,
+      "fortitude": 3,
       "aura": 0,
       "damageBonus": 0,
       "rangeBonus": 0,
@@ -56,6 +59,114 @@ export const DEFAULT_CONFIG = {
       "range": 0,
       "fortitude": 3,
       "aura": 2,
+      "damageBonus": 0,
+      "rangeBonus": 0,
+      "defenseBonus": 0
+    },
+    "defenseLamp": {
+      "move": 2,
+      "damage": 0,
+      "range": 0,
+      "fortitude": 3,
+      "aura": 3,
+      "damageBonus": 0,
+      "rangeBonus": 0,
+      "defenseBonus": 1
+    },
+    "scoutLamp": {
+      "move": 2,
+      "damage": 3,
+      "range": 1,
+      "fortitude": 3,
+      "aura": 2,
+      "damageBonus": 0,
+      "rangeBonus": 1,
+      "defenseBonus": 0
+    },
+    "horn": {
+      "move": 2,
+      "damage": 0,
+      "range": 0,
+      "fortitude": 3,
+      "aura": 2,
+      "damageBonus": 1,
+      "rangeBonus": 0,
+      "defenseBonus": 0
+    }
+  },
+  "experiments": {
+    "squareDiagonals": true,
+    "lampShieldBlocking": true,
+    "allyShotsPass": true,
+    "aurasThroughShields": true,
+    "allowPass": false
+  },
+  "victoryCondition": "flag-or-combat",
+  "deploymentOffset": 0,
+  "shieldDefenseOnly": false,
+  "drumShieldMoveBonus": 1,
+  "centerArchers": true,
+  "drumMoveAllies": true
+};
+
+// Preserve the previous local preset for historical migrations and regressions.
+export const PREVIOUS_LOCAL_CONFIG = {
+  "version": 1,
+  "geometry": "hex",
+  "size": 5,
+  "auraDefenseCap": -1,
+  "army": {
+    "groups": 2,
+    "shields": 2,
+    "archers": 2,
+    "attackLamps": 1,
+    "defenseLamps": 1,
+    "scoutLamps": 1,
+    "centralShields": 1,
+    "rearArchers": 0,
+    "rearShields": 0,
+    "rearSupportOffset": 1
+  },
+  "shieldPromotion": {
+    "aura": 1,
+    "damageBonus": 1,
+    "rangeBonus": 2,
+    "defenseBonus": 1,
+    "maxRange": 3,
+    "allies": {
+      "aura": 1,
+      "damageBonus": 1,
+      "defenseBonus": 1,
+      "rangeBonus": 1
+    }
+  },
+  "stats": {
+    "shield": {
+      "move": 1,
+      "damage": 5,
+      "range": 1,
+      "fortitude": 5,
+      "aura": 1,
+      "damageBonus": 0,
+      "rangeBonus": 0,
+      "defenseBonus": 1
+    },
+    "archer": {
+      "move": 2,
+      "damage": 2,
+      "range": 4,
+      "fortitude": 3,
+      "aura": 0,
+      "damageBonus": 0,
+      "rangeBonus": 0,
+      "defenseBonus": 0
+    },
+    "attackLamp": {
+      "move": 2,
+      "damage": 0,
+      "range": 0,
+      "fortitude": 3,
+      "aura": 1,
       "damageBonus": 1,
       "rangeBonus": 0,
       "defenseBonus": 0
@@ -88,9 +199,11 @@ export const DEFAULT_CONFIG = {
     "aurasThroughShields": true,
     "allowPass": false
   },
-  "victoryCondition": "combat-units",
+  "victoryCondition": "flag-or-combat",
   "deploymentOffset": 0,
-  "shieldDefenseOnly": true
+  "shieldDefenseOnly": true,
+  "drumShieldMoveBonus": 1,
+  "centerArchers": true
 };
 
 // Frozen historical defaults keep old saves and earlier migration stages unchanged.
@@ -112,7 +225,10 @@ export const PREVIOUS_FLAG_CONFIG = {"version":1,"geometry":"hex","size":5,"aura
 
 // Frozen revision 15: identical deployment and combat stats, with the former defense cap.
 export const PREVIOUS_ADJACENT_CONFIG = {"version":1,"geometry":"hex","size":5,"auraDefenseCap":2,"army":{"groups":2,"shields":2,"archers":2,"attackLamps":1,"defenseLamps":1,"scoutLamps":1,"centralShields":1,"rearArchers":2},"shieldPromotion":{"aura":1,"damageBonus":1,"rangeBonus":2,"defenseBonus":1,"maxRange":3,"allies":{"aura":1,"damageBonus":1,"defenseBonus":1,"rangeBonus":1}},"stats":{"shield":{"move":1,"damage":5,"range":1,"fortitude":5,"aura":1,"damageBonus":0,"rangeBonus":0,"defenseBonus":1},"archer":{"move":2,"damage":2,"range":4,"fortitude":4,"aura":0,"damageBonus":0,"rangeBonus":0,"defenseBonus":0},"attackLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":2,"damageBonus":1,"rangeBonus":0,"defenseBonus":0},"defenseLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":3,"damageBonus":0,"rangeBonus":0,"defenseBonus":1},"scoutLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":2,"damageBonus":0,"rangeBonus":1,"defenseBonus":0}},"experiments":{"squareDiagonals":true,"lampShieldBlocking":true,"allyShotsPass":true,"aurasThroughShields":true,"allowPass":false},"victoryCondition":"combat-units","deploymentOffset":0,"shieldDefenseOnly":true};
-export const BALANCE_REVISION = 16;
+export const PREVIOUS_UNCAPPED_CONFIG = {"version":1,"geometry":"hex","size":5,"auraDefenseCap":-1,"army":{"groups":2,"shields":2,"archers":2,"attackLamps":1,"defenseLamps":1,"scoutLamps":1,"centralShields":1,"rearArchers":2},"shieldPromotion":{"aura":1,"damageBonus":1,"rangeBonus":2,"defenseBonus":1,"maxRange":3,"allies":{"aura":1,"damageBonus":1,"defenseBonus":1,"rangeBonus":1}},"stats":{"shield":{"move":1,"damage":5,"range":1,"fortitude":5,"aura":1,"damageBonus":0,"rangeBonus":0,"defenseBonus":1},"archer":{"move":2,"damage":2,"range":4,"fortitude":4,"aura":0,"damageBonus":0,"rangeBonus":0,"defenseBonus":0},"attackLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":2,"damageBonus":1,"rangeBonus":0,"defenseBonus":0},"defenseLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":3,"damageBonus":0,"rangeBonus":0,"defenseBonus":1},"scoutLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":2,"damageBonus":0,"rangeBonus":1,"defenseBonus":0}},"experiments":{"squareDiagonals":true,"lampShieldBlocking":true,"allyShotsPass":true,"aurasThroughShields":true,"allowPass":false},"victoryCondition":"combat-units","deploymentOffset":0,"shieldDefenseOnly":true};
+export const PREVIOUS_DRUM_CONFIG = {"version":1,"geometry":"hex","size":5,"auraDefenseCap":-1,"army":{"groups":2,"shields":2,"archers":2,"attackLamps":1,"defenseLamps":1,"scoutLamps":1,"centralShields":1,"rearArchers":1,"rearShields":1},"shieldPromotion":{"aura":1,"damageBonus":1,"rangeBonus":2,"defenseBonus":1,"maxRange":3,"allies":{"aura":1,"damageBonus":1,"defenseBonus":1,"rangeBonus":1}},"stats":{"shield":{"move":1,"damage":5,"range":1,"fortitude":5,"aura":1,"damageBonus":0,"rangeBonus":0,"defenseBonus":1},"archer":{"move":2,"damage":2,"range":4,"fortitude":3,"aura":0,"damageBonus":0,"rangeBonus":0,"defenseBonus":0},"attackLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":1,"damageBonus":1,"rangeBonus":0,"defenseBonus":0},"defenseLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":3,"damageBonus":0,"rangeBonus":0,"defenseBonus":1},"scoutLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":2,"damageBonus":0,"rangeBonus":1,"defenseBonus":0}},"experiments":{"squareDiagonals":true,"lampShieldBlocking":true,"allyShotsPass":true,"aurasThroughShields":true,"allowPass":false},"victoryCondition":"flag-or-combat","deploymentOffset":0,"shieldDefenseOnly":true,"drumShieldMoveBonus":1};
+export const PREVIOUS_SMALL_ARMY_CONFIG = {"version":1,"geometry":"hex","size":5,"auraDefenseCap":-1,"army":{"groups":2,"shields":2,"archers":2,"attackLamps":1,"defenseLamps":1,"scoutLamps":1,"centralShields":1,"rearArchers":0,"rearShields":0,"rearSupportOffset":1},"shieldPromotion":{"aura":1,"damageBonus":1,"rangeBonus":2,"defenseBonus":1,"maxRange":3,"allies":{"aura":1,"damageBonus":1,"defenseBonus":1,"rangeBonus":1}},"stats":{"shield":{"move":1,"damage":5,"range":1,"fortitude":5,"aura":1,"damageBonus":0,"rangeBonus":0,"defenseBonus":1},"archer":{"move":2,"damage":2,"range":4,"fortitude":3,"aura":0,"damageBonus":0,"rangeBonus":0,"defenseBonus":0},"attackLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":1,"damageBonus":1,"rangeBonus":0,"defenseBonus":0},"defenseLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":3,"damageBonus":0,"rangeBonus":0,"defenseBonus":1},"scoutLamp":{"move":2,"damage":0,"range":0,"fortitude":3,"aura":2,"damageBonus":0,"rangeBonus":1,"defenseBonus":0}},"experiments":{"squareDiagonals":true,"lampShieldBlocking":true,"allyShotsPass":true,"aurasThroughShields":true,"allowPass":false},"victoryCondition":"flag-or-combat","deploymentOffset":0,"shieldDefenseOnly":true,"drumShieldMoveBonus":1};
+export const BALANCE_REVISION = 21;
 export const PREVIOUS_AREA_CONFIG = {"version":1,"geometry":"hex","size":4,"auraDefenseCap":-1,"army":{"groups":2,"shields":2,"archers":2,"attackLamps":1,"defenseLamps":1},"shieldPromotion":{"aura":1,"damageBonus":9,"rangeBonus":2,"defenseBonus":9,"maxRange":3},"stats":{"shield":{"move":2,"damage":15,"range":1,"fortitude":15,"aura":1,"damageBonus":0,"rangeBonus":0,"defenseBonus":9},"archer":{"move":2,"damage":8,"range":3,"fortitude":6,"aura":1,"damageBonus":4,"rangeBonus":0,"defenseBonus":0},"attackLamp":{"move":2,"damage":0,"range":0,"fortitude":5,"aura":2,"damageBonus":4,"rangeBonus":1,"defenseBonus":0},"defenseLamp":{"move":2,"damage":0,"range":0,"fortitude":5,"aura":1,"damageBonus":0,"rangeBonus":0,"defenseBonus":2}},"experiments":{"squareDiagonals":true,"lampShieldBlocking":true,"allyShotsPass":true,"aurasThroughShields":true,"allowPass":false}};
 const PREVIOUS_STATS = {"shield": {"move": 1, "damage": 4, "range": 1, "fortitude": 4, "aura": 1, "damageBonus": 0, "rangeBonus": 0, "defenseBonus": 1}, "archer": {"move": 2, "damage": 2, "range": 4, "fortitude": 2, "aura": 0, "damageBonus": 0, "rangeBonus": 0, "defenseBonus": 0}, "attackLamp": {"move": 2, "damage": 0, "range": 0, "fortitude": 3, "aura": 2, "damageBonus": 2, "rangeBonus": 1, "defenseBonus": 0}, "defenseLamp": {"move": 2, "damage": 0, "range": 0, "fortitude": 3, "aura": 2, "damageBonus": 0, "rangeBonus": 0, "defenseBonus": 1}};
 const PREVIOUS_PROMOTION = {"aura": 1, "damageBonus": 1, "rangeBonus": 1, "defenseBonus": 1, "maxRange": 2};
@@ -123,6 +239,14 @@ const SOLID_AURA_CHANGES = {"attackLamp":{"aura":2}};
 export function updateSavedBalance(config, revision) {
   const next = JSON.parse(JSON.stringify(config));
   if ((revision ?? 0) >= BALANCE_REVISION) return next;
+  // Arm only the existing local13 commander's former 0/0 profile. Preserve
+  // every other stat and the saved position; explicit custom attack stays put.
+  const current13 = { groups: 2, shields: 2, archers: 2, attackLamps: 1, defenseLamps: 1, scoutLamps: 1, centralShields: 1, rearArchers: 0, rearShields: 0, horns: 1 };
+  if (revision === 20 && Object.entries(current13).every(([field, value]) => next.army?.[field] === value)
+      && next.stats.scoutLamp?.damage === 0 && next.stats.scoutLamp?.range === 0) {
+    next.stats.scoutLamp.damage = 3;
+    next.stats.scoutLamp.range = 1;
+  }
   if ((revision ?? 0) < 1) {
     if (next.stats.shield.aura === 0 && next.stats.shield.defenseBonus === 0) {
       next.stats.shield.aura = 1;
@@ -166,7 +290,10 @@ export function updateSavedBalance(config, revision) {
   const meleePreset = (revision ?? 0) < 13 && sameSettings(supportPreset, PREVIOUS_SUPPORT_CONFIG) ? JSON.parse(JSON.stringify(PREVIOUS_MELEE_CONFIG)) : supportPreset;
   const flagPreset = (revision ?? 0) < 14 && sameSettings(meleePreset, PREVIOUS_MELEE_CONFIG) ? JSON.parse(JSON.stringify(PREVIOUS_FLAG_CONFIG)) : meleePreset;
   const adjacentPreset = (revision ?? 0) < 15 && sameSettings(flagPreset, PREVIOUS_FLAG_CONFIG) ? JSON.parse(JSON.stringify(PREVIOUS_ADJACENT_CONFIG)) : flagPreset;
-  return (revision ?? 0) < 16 && sameSettings(adjacentPreset, PREVIOUS_ADJACENT_CONFIG) ? JSON.parse(JSON.stringify(DEFAULT_CONFIG)) : adjacentPreset;
+  const uncappedPreset = (revision ?? 0) < 16 && sameSettings(adjacentPreset, PREVIOUS_ADJACENT_CONFIG) ? JSON.parse(JSON.stringify(PREVIOUS_UNCAPPED_CONFIG)) : adjacentPreset;
+  const drumPreset = (revision ?? 0) < 17 && sameSettings(uncappedPreset, PREVIOUS_UNCAPPED_CONFIG) ? JSON.parse(JSON.stringify(PREVIOUS_DRUM_CONFIG)) : uncappedPreset;
+  const smallArmyPreset = (revision ?? 0) < 18 && sameSettings(drumPreset, PREVIOUS_DRUM_CONFIG) ? JSON.parse(JSON.stringify(PREVIOUS_SMALL_ARMY_CONFIG)) : drumPreset;
+  return (revision ?? 0) < 19 && sameSettings(smallArmyPreset, PREVIOUS_SMALL_ARMY_CONFIG) ? JSON.parse(JSON.stringify(PREVIOUS_LOCAL_CONFIG)) : smallArmyPreset;
 }
 
 function sameSettings(a, b) {
@@ -186,5 +313,5 @@ export function upgradeScoutFieldPreset(config) {
 // Only the complete previous standard preset adopts the selected balance.
 // Explicit rule fields, imports and custom values remain as supplied.
 export function upgradeSelectedBalancePreset(config) {
-  return JSON.parse(JSON.stringify(sameSettings(config, PREVIOUS_SCOUT_CONFIG) ? DEFAULT_CONFIG : config));
+  return JSON.parse(JSON.stringify(sameSettings(config, PREVIOUS_SCOUT_CONFIG) ? PREVIOUS_LOCAL_CONFIG : config));
 }

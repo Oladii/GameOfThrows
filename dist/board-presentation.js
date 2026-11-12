@@ -1,8 +1,11 @@
 import { cells, attacks, effective, shieldCanRetreat, key } from './engine.js';
-import { renderTokenBody, renderTokenBadges, renderDeathSkull } from './token-presentation.js';
+import { renderTokenBody, renderTokenBadges, renderDeathSkull, tokenBadgeBounds } from './token-presentation.js';
 
-export const AURA_COLORS = { attack: '#c96060', defense: '#5d89bd', combined: '#9770be' };
+export const ATTACK_TEAM_COLORS = ['#4c9fc9', '#ab3300'];
+export const AURA_COLORS = { attack: '#c96060', defense: '#5d89bd', combined: '#9770be', move: '#70935e', horn: '#9770be' };
 export function auraKind(source, config) {
+  if (source.type === 'horn') return 'horn';
+  if (source.type === 'attackLamp' && config.drumShieldMoveBonus > 0 && !config.stats.attackLamp.damageBonus && !config.stats.attackLamp.rangeBonus) return 'move';
   return shieldCanRetreat(source, config) ? 'combined' : ['shield', 'defenseLamp'].includes(source.type) ? 'defense' : 'attack';
 }
 export function unitAppearance(piece, config, icons, displayTeam = piece.team) {
@@ -25,7 +28,7 @@ export function auraCircleMarkup(source, position, config, point, spacing) {
   const diagonal = config.geometry === 'square' && config.experiments.squareDiagonals ? Math.SQRT2 : 1;
   const extent = radius * spacing * diagonal + spacing * .1;
   const color = AURA_COLORS[auraKind(source, config)];
-  return `<g class="aura-circles" data-aura-origin="${source.q},${source.r}" data-aura-radius="${radius}" aria-hidden="true"><circle class="aura-ring" cx="${x}" cy="${y}" r="${extent}" stroke="${color}" fill="${color}"/></g>`;
+  return `<g class="aura-circles" data-aura-kind="${auraKind(source, config)}" data-aura-origin="${source.q},${source.r}" data-aura-radius="${radius}" aria-hidden="true"><circle class="aura-ring" cx="${x}" cy="${y}" r="${extent}" stroke="${color}" fill="${color}"/></g>`;
 }
 
 export const skullShape = () => '<path class="skull-head" d="M8 1.5c-3.4 0-5.5 2.4-5.5 5.3 0 2 1.2 3.4 2.5 3.9V14h6v-3.3c1.3-.5 2.5-1.9 2.5-3.9C13.5 3.9 11.4 1.5 8 1.5Z"/><circle class="skull-eye" cx="5.5" cy="6.8" r="1.4"/><circle class="skull-eye" cx="10.5" cy="6.8" r="1.4"/><path class="skull-nose" d="m8 8.6-1.2 1.8h2.4Z"/><path class="skull-teeth" d="M7 11.5V14m2-2.5V14"/>';
@@ -114,7 +117,7 @@ export function lethalAttackPresentation(position, report, deaths) {
 
 export const MAX_DAMAGE_ARROW_BEND = 32;
 
-export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null } = {}) {
+export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report = null } = {}) {
   const edges = arrows.map((arrow, order) => {
     const { source, target } = arrow;
     const start = point(source), end = point(target), length = Math.hypot(end.x - start.x, end.y - start.y);
@@ -138,6 +141,12 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null }
   const obstacles = [...new Map([...pieces, ...arrows.flatMap(a => [a.source,a.target])].map(p => [p.id,p])).values()].map(p => {
     const c = point(p); return { id:p.id,left:c.x-32, right:c.x+32, top:c.y-30, bottom:c.y+24 };
   });
+  const badgeObstacles = report ? [...new Map(arrows.flatMap(a => [a.source,a.target]).map(p => [p.id,p])).values()].flatMap(p => {
+    const info = report.get(p.id);
+    if (!info) return [];
+    const c = point(p);
+    return tokenBadgeBounds(info).map(b => ({ id: p.id, left: c.x + b.left, right: c.x + b.right, top: c.y + b.top, bottom: c.y + b.bottom }));
+  }) : [];
   const placed = [];
   const overlapArea = (a,b) => Math.max(0,Math.min(a.right,b.right+3)-Math.max(a.left,b.left-3))
     * Math.max(0,Math.min(a.bottom,b.bottom+3)-Math.max(a.top,b.top-3));
@@ -163,7 +172,8 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null }
         const p=at(t,control),label=boxAt(p.x,p.y);
         const overflow = bounds ? Math.max(0,bounds.left-label.left)+Math.max(0,label.right-bounds.right)
           +Math.max(0,bounds.top-label.top)+Math.max(0,label.bottom-bounds.bottom) : 0;
-        const pieceOverlap = obstacles.filter(other => other.id !== edge.source.id && other.id !== edge.target.id)
+        const pieceOverlap = [...obstacles.filter(other => other.id !== edge.source.id && other.id !== edge.target.id),
+          ...badgeObstacles.filter(other => other.id === edge.source.id || other.id === edge.target.id)]
           .reduce((sum,other) => sum+overlapArea(label,other),0);
         candidates.push({label,control,t,clear:overflow===0&&pieceOverlap===0,
           cost:overflow*100000+pieceOverlap*100+Math.abs(bend-offset)*.01+Math.abs(t-.55)});
@@ -221,16 +231,16 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null }
   return edges;
 }
 
-export function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null } = {}) {
+export function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '' } = {}) {
   const points = board.map(point), bounds = points.length ? { left:Math.min(...points.map(p=>p.x))-32,right:Math.max(...points.map(p=>p.x))+32,top:Math.min(...points.map(p=>p.y))-32,bottom:Math.max(...points.map(p=>p.y))+32 } : null;
   // Lay out the complete group before revealing it so existing arrows and
   // their labels stay in place when the next contribution appears.
-  const edges = layoutDamageArrows(arrows,point,{pieces,bounds}).filter(e => visibleCount === null || e.order < visibleCount);
+  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report}).filter(e => visibleCount === null || e.order < visibleCount);
   const reveal = e => visibleCount !== null && e.order === visibleCount - 1 ? ' data-revealing="true"' : '';
-  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}" marker-end="url(#damage-arrow)"><title>${e.damage} урона</title></path></g>`).join('');
+  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"><title>${e.damage} урона</title></path></g>`).join('');
   // Labels go above every shaft, so a later arrow cannot paint over a number.
   const labels = edges.map(e => `<g class="attack-ray-label" data-source="${e.source.id}" data-target="${e.target.id}"${reveal(e)}>${numberBadge(e.damage,e.label.x,e.label.y,'ray',9)}</g>`).join('');
-  return rays+labels;
+  return rays+previewMarkup+labels;
 }
 export function attackCellsFor(piece, position, config) {
   if (!piece) return [];
@@ -255,8 +265,9 @@ export function alliedBonusDetails(piece, position, config) {
     const source = position.pieces.find(p => p.id === id);
     const veteran = shieldCanRetreat(source, config);
     const aura = veteran ? config.shieldPromotion.allies ?? config.shieldPromotion : config.stats[source.type];
-    const offensive = veteran || ['attackLamp', 'archer', 'scoutLamp'].includes(source.type);
+    const offensive = veteran || ['attackLamp', 'horn', 'archer', 'scoutLamp'].includes(source.type);
     const raw = {
+      ...(source.type === 'attackLamp' && (config.drumMoveAllies || piece.type === 'shield') && config.drumShieldMoveBonus ? { move: config.drumShieldMoveBonus } : {}),
       damage: offensive ? aura.damageBonus : 0,
       range: offensive && piece.type !== 'shield' ? aura.rangeBonus : 0,
       fortitude: (veteran || ['shield', 'defenseLamp'].includes(source.type)) && (!config.shieldDefenseOnly || source.type !== 'shield' || piece.type === 'shield') ? aura.defenseBonus : 0

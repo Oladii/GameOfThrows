@@ -1,4 +1,4 @@
-import { TYPES, LABELS, DEFAULT_CONFIG } from './rules.js';
+import { TYPES, LABELS, PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG } from './rules.js';
 import { renderTokenBody } from './token-presentation.js';
 import { clone, analyze, cells, auraReaches, shieldCanRetreat } from './engine.js';
 import { createPositionLesson, renderMoveLesson, supportLessonPieces } from './onboarding-examples.js';
@@ -62,12 +62,12 @@ export function createUnitLesson(type, options = {}) {
     lesson.hint = 'Держи дистанцию. Вражеский щит перекрывает стрелы.';
   } else if (type === 'attackLamp' || type === 'scoutLamp') {
     lesson.description = [
-      `Ходит до ${stats.move} клеток.`,
-      `Аура радиуса ${stats.aura}: ${type === 'scoutLamp' ? '+' + stats.rangeBonus + ' к дальности' : '+' + stats.damageBonus + ' к урону'} союзников.`
+      `Ходит до ${stats.move} клеток.${stats.damage > 0 && stats.range > 0 ? ` Атакует самостоятельно: урон ${stats.damage}, дальность ${stats.range}.` : ''}`,
+      `Аура радиуса ${stats.aura}: ${type === 'scoutLamp' ? '+' + stats.rangeBonus + ' к дальности' : '+' + stats.damageBonus + ' к урону'} союзников.${type === 'attackLamp' && lesson.config.drumShieldMoveBonus ? ` Броненосец, начинающий действие в ауре, получает +${lesson.config.drumShieldMoveBonus} к шагу.` : ''}`
     ].join('\n');
     lesson.facts = [['Дальность союзника', String(ally.range)], ['Урон по врагу', String(enemy.incoming)], [LABELS[type], hero.dead ? 'Погибнет' : 'Выживет']];
     lesson.feedback = hero.dead ? 'Здесь фигура погибнет. Попробуй другую клетку.' : enemy.dead ? 'Усиление сработало: союзник уничтожит врага.' : 'Подойди к союзнику, чтобы усилить его.';
-    lesson.hint = type === 'scoutLamp' ? 'Не увеличивает дальность броненосцев. Атакует только рядом с ветераном.' : 'Сам себя не усиливает. Атакует только рядом с ветераном.';
+    lesson.hint = type === 'scoutLamp' ? `Не увеличивает дальность броненосцев. ${stats.damage > 0 && stats.range > 0 ? 'Может атаковать самостоятельно.' : 'Атакует только рядом с ветераном.'}` : 'Сам себя не усиливает. Атакует только рядом с ветераном.';
   } else {
     lesson.description = [
       `Ходит до ${stats.move} клеток.`,
@@ -81,7 +81,7 @@ export function createUnitLesson(type, options = {}) {
     const fallen = lesson.deaths.map(piece => `${piece.team ? 'противник' : 'союзник'} — ${LABELS[piece.type].toLowerCase()}`);
     lesson.feedback = `Расчёт завершён. ${fallen.length ? 'Погибли: ' + fallen.join('; ') + '.' : 'Все фигуры выжили.'} Верни исходную позицию и сравни с другим ходом.`;
     lesson.facts = lesson.facts.map(([name, value]) => [name, value === 'Погибнет' ? 'Погиб' : value === 'Выживет' ? 'Выжил' : value]);
-  } else if (!lesson.selected) lesson.feedback = type === 'shield' ? 'Выбери оранжевую фигуру <strong>со щитом.</strong> Подведи её к ветерану так, чтобы уничтожить врага и выжить. Наведи на клетку для прогноза, нажми — для хода.' : ({archer: 'Выбери оранжевую фигуру с луком. Найди клетку, с которой она уничтожит врага и выживет.', attackLamp: 'Выбери оранжевую фигуру с барабаном. Усиль союзника, чтобы его урона хватило для победы над врагом.', scoutLamp: 'Выбери оранжевую фигуру с биноклем. Увеличь дальность союзника, чтобы он достал врага.', defenseLamp: 'Выбери оранжевую фигуру с флагом. Прикрой союзника аурой, чтобы он пережил удар.'}[type]);
+  } else if (!lesson.selected) lesson.feedback = type === 'shield' ? 'Выбери оранжевую фигуру <strong>со щитом.</strong> Подведи её к ветерану так, чтобы уничтожить врага и выжить. Наведи на клетку для прогноза, нажми — для хода.' : ({archer: 'Выбери оранжевую фигуру с луком. Найди клетку, с которой она уничтожит врага и выживет.', attackLamp: 'Выбери оранжевую фигуру с барабаном. Усиль союзника, чтобы его урона хватило для победы над врагом.', scoutLamp: 'Выбери оранжевую фигуру со шлемом. Увеличь дальность союзника, чтобы он достал врага.', defenseLamp: 'Выбери оранжевую фигуру с флагом. Прикрой союзника аурой, чтобы он пережил удар.'}[type]);
   if (type === 'shield' && lesson.selectedId === 'veteran') {
     const blueAlive = lesson.position.pieces.some(piece => piece.id === 'blue');
     const allied = promotion.allies ?? promotion;
@@ -94,8 +94,8 @@ export function createUnitLesson(type, options = {}) {
 
 export function renderUnitExamples(states, icons, renderBadges = () => '', animation = null) {
   const badges = `<section class="lesson-scene badge-guide" aria-labelledby="badge-guide-title"><div class="lesson-scene-heading"><h4 id="badge-guide-title">Значения на бейджах</h4><p><strong>Слева — сила атаки:</strong> сколько урона наносит фигура.<br><strong>Справа — полная стойкость:</strong> с усилениями союзников, без вычитания урона.<br><strong>Сверху — угроза:</strong> в покое мишень отмечает несмертельный обстрел; при выборе и наведении вместо неё показан входящий урон со знаком минус. Смертельная угроза всегда отмечена черепом сверху.</p></div><div class="badge-examples">${badgeExamples().map(example => `<figure><svg viewBox="-38 -32 76 70" role="img" aria-label="${example.label}: атака ${example.info.damage}, ${example.explanation}"><g class="lesson-piece lesson-friendly${example.info.dead ? ' lesson-fatal' : ''}">${renderTokenBody({type:'shield',icon:icons.shield,veteran:false},1)}${renderBadges(example.info, { showIncoming: true })}</g></svg><figcaption><strong>${example.label}</strong><span>${example.explanation}</span></figcaption></figure>`).join('')}</div><p class="badge-guide-note">Это прогноз, а не запас здоровья. После каждого хода стойкость и угрозы считаются заново: прошлый урон не накапливается.</p></section>`;
-  return '<div class="lesson-page">' + badges + TYPES.map(type => {
+  return '<div class="lesson-page">' + badges + TYPES.filter(type => DEFAULT_CONFIG.stats[type]).map(type => {
     const sceneKey = `unit-${type}`;
     return renderMoveLesson(createUnitLesson(type, states[sceneKey] || {}), icons, renderBadges, animation?.sceneKey === sceneKey ? animation : null);
-  }).join('') + '</div><p class="lesson-footnote">Пять учебных позиций с игровыми параметрами. Выбор показывает ауру и доступные клетки; наведение — прогноз, нажатие — ход и расчёт боя. Текущая партия не меняется.</p>';
+  }).join('') + '</div><p class="lesson-footnote">Исторические учебные позиции для прежних правил. Они не входят в текущий плейтест. Выбор показывает ауру и доступные клетки; наведение — прогноз, нажатие — ход и расчёт боя. Текущая партия не меняется.</p>';
 }

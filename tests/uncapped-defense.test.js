@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG, PREVIOUS_ADJACENT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
+import { PREVIOUS_UNCAPPED_CONFIG as DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG as CURRENT_CONFIG, PREVIOUS_ADJACENT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
 import { clone, createGame, effective } from '../dist/engine.js';
 
 const piece = (id, type, q, r, extra = {}) => ({ id, type, team: 0, q, r, ...extra });
@@ -30,10 +30,10 @@ test('veteran personal fortitude and every external defense source add together;
 test('only the exact former standard setup migrates to uncapped defense; all numbers and deployment are preserved', () => {
   const old = clone(PREVIOUS_ADJACENT_CONFIG), expected = clone(old);
   expected.auraDefenseCap = -1;
-  assert.equal(BALANCE_REVISION, 16);
+  assert.equal(BALANCE_REVISION, 21);
   assert.deepEqual(DEFAULT_CONFIG, expected);
   assert.deepEqual(createGame(DEFAULT_CONFIG), createGame(old));
-  assert.deepEqual(updateSavedBalance(old, 15), DEFAULT_CONFIG);
+  assert.deepEqual(updateSavedBalance(old, 15), CURRENT_CONFIG);
   assert.deepEqual(old, PREVIOUS_ADJACENT_CONFIG);
   assert.deepEqual(updateSavedBalance(old, 16), old);
   for (const change of [c => c.auraDefenseCap = 1, c => c.stats.archer.damage++, c => c.army.archers++]) {

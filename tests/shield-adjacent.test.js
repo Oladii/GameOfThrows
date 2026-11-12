@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PREVIOUS_ADJACENT_CONFIG as DEFAULT_CONFIG, DEFAULT_CONFIG as CURRENT_CONFIG, PREVIOUS_FLAG_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
+import { PREVIOUS_ADJACENT_CONFIG as DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG as CURRENT_CONFIG, PREVIOUS_FLAG_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
 import { clone, createGame, analyze, effective, resolve, validateConfig } from '../dist/engine.js';
 const p = (id,type,team,q,r,veteran=false) => ({ id,type,team,q,r,...(veteran ? {reachedFarEdge:true} : {}) });
 const state = pieces => ({ pieces,turn:0,ply:0,winner:null });
 
 test('current shields attack adjacent cells only while all other settings and the deployment stay intact', () => {
   const expected=clone(PREVIOUS_FLAG_CONFIG); expected.stats.shield.range=1;
-  assert.equal(BALANCE_REVISION,16); assert.deepEqual(DEFAULT_CONFIG,expected);
+  assert.equal(BALANCE_REVISION,21); assert.deepEqual(DEFAULT_CONFIG,expected);
   assert.deepEqual(createGame(DEFAULT_CONFIG),createGame(PREVIOUS_FLAG_CONFIG));
   const shield=p('s','shield',0,0,0), adjacent=p('near','archer',1,0,1), distant=p('far','archer',1,0,2);
   assert.equal(analyze(state([shield,adjacent]),DEFAULT_CONFIG).get('near').incoming,5);

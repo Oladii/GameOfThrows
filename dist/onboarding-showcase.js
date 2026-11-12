@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, LABELS, TEAM_NAMES } from './rules.js';
+import { PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG, LABELS, TEAM_NAMES } from './rules.js';
 import { renderTokenBody } from './token-presentation.js';
 import { clone, cells, analyze, inspectCell, movementPath, move } from './engine.js';
 import { lessonPolygonPoints } from './onboarding-examples.js';
@@ -100,6 +100,8 @@ export const SHOWCASE_MOVES = [
 let showcaseFrames = null;
 function buildShowcaseFrames() {
   const config = clone(DEFAULT_CONFIG); config.geometry = 'hex'; config.size = 3;
+  // This small battle demonstrates combat; match-ending flag rules are taught separately.
+  config.victoryCondition = 'combat-units';
   const initial = { pieces: [
     showcasePiece('n-left', 'shield', 0, -1, -2), showcasePiece('n-archer', 'archer', 0, 0, -2),
     showcasePiece('n-shield', 'shield', 0, 1, -2), showcasePiece('n-bow', 'archer', 0, 2, -2), showcasePiece('n-right', 'shield', 0, 3, -2),

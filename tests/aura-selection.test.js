@@ -20,7 +20,7 @@ function setup(pieces) {
   return {context,config,state,layer,legend,paint:()=>vm.runInContext('paintAuras()',context)};
 }
 test('selected auras are circles with effect colors and a boundary just beyond the outer-cell centre',()=>{
-  for(const team of [0,1])for(const type of ['shield','archer','attackLamp','defenseLamp'])for(const veteran of [false,true]){
+  for(const team of [0,1])for(const type of ['shield','archer','attackLamp','defenseLamp','scoutLamp','horn'])for(const veteran of [false,true]){
     const source={...piece('a',type,team),reachedFarEdge:veteran},ui=setup([source,piece('b','attackLamp',1-team,3,0)]);
     ui.context.selected='a';ui.paint();
     const promoted=type==='shield'&&veteran, radius=effective(source,ui.state,ui.config).aura;
@@ -29,8 +29,9 @@ test('selected auras are circles with effect colors and a boundary just beyond t
     if(radius===0){assert.equal(ui.legend.hidden,true);continue;}
     for(const c of circles){const lastCentre=radius*Math.sqrt(3)*33;assert.ok(Number(c[1])>lastCentre);assert.ok(Number(c[1])<lastCentre+10);}
     assert.ok(ui.layer.innerHTML.includes(`data-aura-origin="0,0"`));
-    const kind=promoted?'combined':['shield','defenseLamp'].includes(type)?'defense':'attack';
+    const kind=promoted?'combined':type==='horn'?'horn':type==='attackLamp'?'move':['shield','defenseLamp'].includes(type)?'defense':'attack';
     assert.ok(circles.some(c=>c[2]===AURA_COLORS[kind]));
+    if(type==='horn'){assert.equal(AURA_COLORS.horn,'#9770be');assert.match(ui.legend.innerHTML,/> Урон<\/span>/);}
     assert.ok(!ui.layer.innerHTML.includes('polygon'));
     assert.equal(ui.legend.hidden,false);
   }
@@ -50,7 +51,7 @@ test('all-aura view shows both sources; attack view and zero radii hide rings',(
   ui.context.fieldView=null;ui.config.stats.archer.aura=0;ui.paint();assert.equal(ui.layer.innerHTML,'');
 });
 test('square circles reach the furthest covered cell centres with and without diagonals',()=>{
-  const ui=setup([piece('a','attackLamp',0,3,3)]);ui.config.geometry='square';ui.context.selected='a';
+  const ui=setup([piece('a','attackLamp',0,3,3)]);ui.config.geometry='square';ui.config.stats.attackLamp.aura=2;ui.context.selected='a';
   for(const diagonal of [false,true]){ui.config.experiments.squareDiagonals=diagonal;ui.paint();const radius=Number(ui.layer.innerHTML.match(/<circle[^>]*r="([^"]+)"/)[1]);assert.equal(radius,2*59*(diagonal?Math.SQRT2:1)+5.9);}
 });
 test('tutorial aura circles use the same renderer and follow hover, committed selection, and deselection',()=>{

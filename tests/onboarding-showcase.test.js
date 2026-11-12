@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
 import { analyze, move, reachable, validateState } from '../dist/engine.js';
 import { createShowcaseBattle, renderShowcaseBattle, SHOWCASE_MOVES, showcasePoint } from '../dist/onboarding-showcase.js';
 

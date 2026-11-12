@@ -1,7 +1,7 @@
 import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG, PREVIOUS_SCOUT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
+import { PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG, PREVIOUS_SCOUT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
 import { clone, cells, distance, createGame, createScenario, analyze, inspectCell, attacks, auraReaches, resolve, effective, reachable, move, pass, validateState, validateConfig, shieldCanRetreat } from '../dist/engine.js';
 // Fix the combat fixture so future balance tuning does not rewrite aura tests.
 const config = () => { const c = clone(REVISION_FOUR_CONFIG); c.stats.shield.fortitude = 3; c.stats.archer.fortitude = 1; c.stats.attackLamp.fortitude = 2; c.stats.defenseLamp.fortitude = 2; c.stats.shield.damage = 3; c.stats.archer.damage = 1; c.stats.attackLamp.damage = 2; c.stats.attackLamp.range = 3; c.stats.attackLamp.damageBonus = 1; return c; };

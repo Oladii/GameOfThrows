@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import { PREVIOUS_FORMATION_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
 import { analyze, inspectCell, resolve, isLethalDamage, move, effective, key, movementPath, cells } from '../dist/engine.js';
 import { renderTokenBody, renderTokenNumber } from '../dist/token-presentation.js';
-import { durabilityDisplay, renderUnitBadges, attackCellsFor, unitStatParts, alliedBonusDetails, unitAppearance, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape, attackReachPresentation } from '../dist/board-presentation.js';
+import { ATTACK_TEAM_COLORS, durabilityDisplay, renderUnitBadges, attackCellsFor, unitStatParts, alliedBonusDetails, unitAppearance, renderMovingToken, renderDeathEffects, attackMarkerRotation, skullShape, attackReachPresentation } from '../dist/board-presentation.js';
 import { LABELS } from '../dist/rules.js';
 const piece = (id, type, team, q, r) => ({id, type, team, q, r});
 const position = pieces => ({pieces, turn:0, ply:0, winner:null});
@@ -122,7 +122,7 @@ test('all terrain paints before tokens, with clickable accessible cells under th
   const config = structuredClone(DEFAULT_CONFIG), state = position([piece('s','shield',0,0,0),piece('a','archer',1,0,1)]);
   const svg = { contains: () => false, setAttribute() {}, innerHTML: '' }, legend = {};
   const context = vm.createContext({ config, visibleState:()=>state, cells, key, available:[], selected:null, boardFocus:null, fieldView:'', report:analyze(state,config),
-    ICON_PATHS:{}, unitAppearance, TEAM_NAMES:['Север','Юг'], LABELS, shieldCanRetreat:()=>false, unitBadges:renderUnitBadges, renderTokenBody,
+    ATTACK_TEAM_COLORS, ICON_PATHS:{}, unitAppearance, TEAM_NAMES:['Север','Юг'], LABELS, shieldCanRetreat:()=>false, unitBadges:renderUnitBadges, renderTokenBody,
     combat:null,movement:null,currentDeaths:[],renderDeathEffects,lastMoveTrace:()=>'',movingTokenMarkup:()=>'',editor:false,document:{activeElement:null},$:selector=>selector==='#board'?svg:legend });
   for (const name of ['point','polygon']) vm.runInContext(appSource.split('\n').find(line=>line.startsWith(`function ${name}(`)),context);
   vm.runInContext(appSource.slice(appSource.indexOf('function boardMarkup('),appSource.indexOf('function paintAuras(')),context);

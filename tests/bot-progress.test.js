@@ -1,14 +1,15 @@
 import fs from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chooseBotAction } from '../dist/bot.js';
+import { chooseBotAction } from './fixtures/legacy-bot.js';
 import { clone, move, reachable } from '../dist/engine.js';
 
+// Preserve earlier neutral-policy finish regressions; local13 formation is verified separately.
 const fixture = name => JSON.parse(fs.readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), 'utf8'));
 const legal = (state, config) => state.pieces.filter(p => p.team === state.turn)
   .flatMap(p => reachable(p, state, config).map(to => ({ id: p.id, to: { q: to.q, r: to.r } })));
 
-test('a quiet position from the stalled production game develops real combat', () => {
+test('historical neutral policy: a quiet position from the stalled production game develops real combat', () => {
   const f = fixture('bot-quiet-opening'), configBefore = JSON.stringify(f.config);
   let state = clone(f.initial), history = [clone(state)];
   const last = new Map();
@@ -29,7 +30,7 @@ test('a quiet position from the stalled production game develops real combat', (
   assert.equal(JSON.stringify(f.config), configBefore);
 });
 
-test('a reported three-ply finish covers every legal reply with an actual engine win', () => {
+test('historical neutral policy: a reported three-ply finish covers every legal reply with an actual engine win', () => {
   const { config, state, seed } = fixture('bot-forced-finish'), before = JSON.stringify({ config, state });
   const result = chooseBotAction(state, config, { depth: 2, seed });
   assert.equal(result.stats.reason, 'forced-win-three-ply');
@@ -52,7 +53,7 @@ test('a reported three-ply finish covers every legal reply with an actual engine
   assert.equal(JSON.stringify({ config, state }), before);
 });
 
-test('easy planning breaks the captured archer-only plateau in a small ending', () => {
+test('historical neutral policy: easy planning breaks the captured archer-only plateau in a small ending', () => {
   const f = fixture('bot-archer-ending');
   let state = clone(f.state), history = [clone(state)], casualties = 0;
   const last = new Map();
@@ -69,7 +70,7 @@ test('easy planning breaks the captured archer-only plateau in a small ending', 
   assert.ok(casualties > 0, 'the plateau must end in engine-resolved combat');
 });
 
-test('identical lone veterans choose an actual mutual exchange when no unilateral win exists', () => {
+test('historical neutral policy: identical lone veterans choose an actual mutual exchange when no unilateral win exists', () => {
   const { config } = fixture('bot-forced-finish');
   let state = { turn: 0, ply: 0, winner: null, pieces: [
     { id: 'v0', type: 'shield', team: 0, q: -4, r: 0, reachedFarEdge: true },

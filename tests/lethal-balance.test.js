@@ -1,7 +1,7 @@
 import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG, PREVIOUS_SCOUT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
+import { DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, PREVIOUS_SCOUT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
 import { clone, createGame, analyze, effective, resolve, move, reachable, validateConfig } from '../dist/engine.js';
 import { durabilityDisplay } from '../dist/board-presentation.js';
 
@@ -16,7 +16,7 @@ const actions = (s, c) => s.pieces.filter(p => p.team === s.turn)
 
 test('new default opening has no lethal threats and no first move can kill an enemy', () => {
   const c = clone(DEFAULT_CONFIG), start = createGame(c);
-  assert.equal(start.pieces.length, 28);
+  assert.equal(start.pieces.length, 26);
   for (const team of [0, 1]) {
     const s = { ...clone(start), turn: team }, report = analyze(s, c);
     assert.equal([...report.values()].filter(i => i.dead).length, 0);
@@ -30,8 +30,8 @@ test('new default opening has no lethal threats and no first move can kill an en
 
 test('one-time migration fixes revision-three defaults, keeps custom values and never changes explicit imports', () => {
   const old = oldConfig(), before = clone(old), next = updateSavedBalance(old, 3);
-  assert.equal(BALANCE_REVISION, 16);
-  assert.deepEqual(next, DEFAULT_CONFIG);
+  assert.equal(BALANCE_REVISION, 21);
+  assert.deepEqual(next, PREVIOUS_LOCAL_CONFIG);
   assert.deepEqual(old, before);
   assert.deepEqual(updateSavedBalance(next, BALANCE_REVISION), next);
   const custom = oldConfig();
