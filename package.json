@@ -1,11 +1,21 @@
 {
   "name": "lamps-tactics-prototype",
-  "version": "0.1.66",
+  "version": "0.1.71",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
     "build": "node build.mjs",
     "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "radix-ui": "1.6.7",
+    "lucide-react": "1.31.0",
+    "class-variance-authority": "0.7.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
   }
 }

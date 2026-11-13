@@ -4,10 +4,11 @@ import { createCombatLesson, lessonPoint, renderMoveLesson } from '../dist/onboa
 import { reachable } from '../dist/engine.js';
 import { tutorialCases } from './fixtures/tutorial-cases.js';
 
-test('all16 current exercises face the opponent upwards and have an upward legal solution',()=>{
+test('exercises advance upwards except the guided veteran retreat',()=>{
   for(const {key,make}of tutorialCases()){
     const lesson=make({}),point=lesson.point||lessonPoint,mover=lesson.before.pieces.find(p=>p.id===lesson.moverId),enemy=lesson.before.pieces.find(p=>p.id==='enemy'),goal=lesson.solution[0].to;
-    assert.ok(point(enemy).y<point(mover).y,key+': opponent above controlled unit');assert.ok(point(goal).y<point(mover).y,key+': solution goes upwards');assert.ok(reachable(mover,lesson.before,lesson.config).some(p=>p.q===goal.q&&p.r===goal.r),key+': solution is legal');
+    if(key==='unit-shield'){assert.ok(point(goal).y<point(mover).y,'shield reaches the far edge upwards');}
+    else{assert.ok(point(enemy).y<point(mover).y,key+': opponent above controlled unit');assert.ok(point(goal).y<point(mover).y,key+': solution goes upwards');}assert.ok(reachable(mover,lesson.before,lesson.config).some(p=>p.q===goal.q&&p.r===goal.r),key+': solution is legal');
   }
 });
 

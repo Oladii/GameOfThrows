@@ -1,21 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { TYPES } from '../dist/rules.js';
 import { attackCellsFor,renderUnitBadges } from '../dist/board-presentation.js';
-import { createUnitLesson } from '../dist/onboarding-units.js';
-import { renderMoveLesson } from '../dist/onboarding-examples.js';
+import { inspectCell } from '../dist/engine.js';
+import { ShowcaseBattle, UNIT_BATTLE_SCENES, renderShowcaseBattle } from '../dist/onboarding-showcase.js';
 const keys=html=>[...html.matchAll(/data-threat-cell="([^"]+)"/g)].map(match=>match[1]).sort();
-test('all six current unit markers match native attack cells in selected and forecast positions and leave allies unmarked',()=>{
-  for(const type of TYPES)for(const preview of [false,true]){
-    const initial=createUnitLesson(type),lesson=createUnitLesson(type,{selected:true,...(preview?{destination:initial.solution[0].to}:{})}),state=lesson.previewPosition,piece=state.pieces.find(p=>p.id===lesson.selectedId);
-    const friendly=new Set([...state.pieces,...lesson.position.pieces].filter(p=>p.team===piece.team).map(p=>`${p.q},${p.r}`)),expected=attackCellsFor(piece,state,lesson.config).map(p=>`${p.q},${p.r}`).filter(key=>!friendly.has(key)).sort();
-    const html=renderMoveLesson(lesson,{});assert.deepEqual(keys(html),expected,type);if(expected.length)assert.match(html,/attack-target-(?:weapon|fill|outline) south/);
-    if(['attackLamp','defenseLamp','horn'].includes(type))assert.equal(expected.length,0,'unarmed support has no weapon markers');if(type==='scoutLamp')assert.ok(expected.length>0,'commander attacks independently');
+
+test('all four demo attack markers match native attack cells for selection and forecasts',()=>{
+  for(const sceneKey of UNIT_BATTLE_SCENES){
+    const battle=new ShowcaseBattle({sceneKey});
+    for(const piece of battle.position.pieces.filter(p=>p.team===1))for(const preview of [false,true]){
+      battle.clearSelection();battle.selectPiece(piece.id);
+      const destination=preview?battle.previewMoves[0]:null;
+      if(destination)battle.preview(destination);
+      const state=destination?inspectCell(battle.position,battle.config,destination,piece.id).position:battle.position;
+      const source=state.pieces.find(p=>p.id===piece.id);
+      const friendly=new Set([...state.pieces,...battle.position.pieces].filter(p=>p.team===1).map(p=>`${p.q},${p.r}`));
+      const expected=attackCellsFor(source,state,battle.config).map(p=>`${p.q},${p.r}`).filter(key=>!friendly.has(key)).sort();
+      const html=renderShowcaseBattle(battle,{});
+      assert.deepEqual(keys(html),expected,`${sceneKey}:${piece.id}:${preview}`);
+      if(expected.length)assert.match(html,/attack-target-(?:weapon|fill|outline) south/);
+    }
   }
-  const lethal=renderMoveLesson(createUnitLesson('shield',{selected:true,destination:{q:0,r:2}}),{},renderUnitBadges);assert.match(lethal,/incoming-indicator lethal/);assert.deepEqual(keys(renderMoveLesson(createUnitLesson('shield'),{})),[]);
+  const lethal=new ShowcaseBattle({sceneKey:'unit-drum-shield'});
+  lethal.selectPiece('blue');lethal.preview({q:0,r:0});
+  assert.match(renderShowcaseBattle(lethal,{},renderUnitBadges),/incoming-indicator lethal/);
 });
-test('each current figure has a concrete interactive objective and live previews update the attack layer',()=>{
-  for(const type of TYPES){const lesson=createUnitLesson(type);assert.ok(lesson.objective.length>25);assert.ok(lesson.feedback.length>30);assert.equal(lesson.success,false);}
-  const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8'),refresh=app.slice(app.indexOf('function refreshOnboardingMovePreview('),app.indexOf('function onboardingPreviewTarget('));assert.match(refresh,/\.lesson-attack-reach/);
+
+test('each demo has a prescribed action and live forecasts update the shared battle layers',()=>{
+  for(const sceneKey of UNIT_BATTLE_SCENES){const battle=new ShowcaseBattle({sceneKey});assert.ok(battle.copy[0][0].length>30);assert.ok(battle.expectedAction);}
+  const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
+  const refresh=app.slice(app.indexOf('function refreshShowcasePreview('),app.indexOf('function previewShowcaseMove('));
+  assert.match(refresh,/'effects','overlays'/);
 });

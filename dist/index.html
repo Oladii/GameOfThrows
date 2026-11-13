@@ -12,7 +12,7 @@
 <body>
   <div id="update-notice" class="update-notice" role="status" hidden>Обновлены правила игры. Они применятся в новой партии.</div>
   <header class="topbar">
-    <a class="brand" href="/" aria-label="Game Of Trows — главная"><span class="brand-mark">✳</span><span>Game Of Trows<span class="brand-sub">ТАКТИЧЕСКАЯ ЛАБОРАТОРИЯ</span></span></a>
+    <a class="brand" href="/" aria-label="Game Of Trows — главная"><span class="brand-mark" aria-hidden="true"><img src="./brand/logo-target-sword-v3-tripod.png" alt="" width="1281" height="1227"></span><span>Game Of Trows</span></a>
     <div class="topbar-tools"><div class="heading-actions"><button id="rules-open" class="button outline">Как играть</button></div></div>
   </header>
   <main>
@@ -38,12 +38,12 @@
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.66</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-12T23:39:20.513Z">Сборка 13.11.2026, 02:39:20 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.71</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-13T23:10:59.802Z">Сборка 14.11.2026, 02:10:59 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
         <div class="scoreboard" id="scoreboard"></div>
-        <div class="board-wrap"><svg id="board" focusable="false" tabindex="-1" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Поле игры" aria-describedby="board-keyboard-help" xmlns="http://www.w3.org/2000/svg"></svg><p id="board-keyboard-help">Стрелки перемещают фокус по клеткам. Enter или пробел выбирает фигуру или делает ход. Tab выходит с поля.</p></div>
+        <div class="board-wrap"><svg id="board" focusable="false" tabindex="-1" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Поле игры" aria-describedby="board-keyboard-help" xmlns="http://www.w3.org/2000/svg"></svg><p id="board-keyboard-help">Стрелки перемещают фокус по клеткам. Enter или пробел выбирает фигуру или делает ход.</p></div>
         <div class="board-footer"><div class="overlays" role="group" aria-label="Подсветка поля"><button id="show-attacks" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать атаки обеих команд">Атаки</button><button id="show-auras" class="overlay-button" type="button" aria-pressed="false" aria-label="Показать ауры обеих команд">Ауры</button></div><div class="turn-actions"><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Попросить совет</button><button id="undo" class="button subtle" title="Отменить последнее действие"><svg class="undo-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 3-5 5 5 5"/><path d="M4 8h10a6 6 0 0 1 0 12"/></svg><span>Отменить ход</span></button><button id="replay-combat" class="button subtle history-arrow combat-replay" type="button" title="Повторить последний расчёт" aria-label="Повторить последний расчёт" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg></button><button id="review-previous" class="button subtle history-arrow" title="Показать позицию перед последним ходом" aria-label="Показать последний ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Вернуться к текущей позиции" aria-label="Вернуться к текущей позиции" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
         <div class="board-legend-slot">
         <div id="attack-legend" class="attack-legend" hidden></div>
@@ -57,20 +57,18 @@
     <div id="start-settings" class="start-settings">
       <div class="start-fields">
         <div class="play-mode-field"><label class="field-label" for="play-mode">Режим игры</label><select id="play-mode"><option value="local">Вдвоём на одном экране</option><option value="bot">Против бота</option></select></div>
+        <div class="first-move-field"><label class="field-label" for="first-move">Первый ход</label><select id="first-move"><option value="north">Север</option><option value="south">Юг</option><option value="random">Случайно</option></select></div>
         <div id="human-side-field" hidden>
           <div><label class="field-label" for="human-side">Ваша сторона</label><select id="human-side"><option value="0">Север · синие</option><option value="1">Юг · оранжевые</option></select></div>
-          <div><label class="field-label" for="bot-difficulty">Сложность бота</label><select id="bot-difficulty"><option value="easy" selected>Лёгкий</option><option value="hard">Сложный</option></select></div>
-          <p class="muted tiny">Лёгкий — для знакомства с игрой. Сложный — для более серьёзного соперника.</p>
+          <div><label class="field-label" for="bot-difficulty">Сложность бота</label><select id="bot-difficulty"><option value="training" selected>Неопытный</option><option value="easy">Дерётся</option><option value="hard">Больно дерётся</option></select></div>
         </div>
-        <div class="first-move-field"><label class="field-label" for="first-move">Первый ход</label><select id="first-move"><option value="north">Север</option><option value="south">Юг</option><option value="random">Случайно</option></select></div>
         <div class="position-field"><label class="field-label" for="position-kind">Расстановка и правила</label><select id="position-kind"><option value="default">Стандартные</option><option value="custom">Свои</option></select></div>
       </div>
       <div class="custom-game-actions"><button id="configure-position" class="button outline full" disabled hidden>Расставить фигуры</button><button id="settings-open" class="button outline full" type="button" disabled hidden>Параметры боя</button></div>
     </div>
     <div class="start-dialog-footer"><div class="start-dialog-actions">
       <button id="start-game" class="button primary">Начать <span aria-hidden="true">↗</span></button>
-      <button id="cancel-new-game" class="button subtle" hidden>Вернуться к партии</button>
-    </div><button id="onboarding-open" class="onboarding-entry">Обучение с примерами</button></div>
+    </div></div>
   </dialog>
   <dialog id="settings-dialog"><form id="settings-form">
     <div class="dialog-header"><div><h2>Параметры боя</h2></div><button type="button" class="icon-button close-dialog" aria-label="Закрыть настройки"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
@@ -79,15 +77,13 @@
     <details class="experiment-details"><summary>Дополнительные правила</summary><div id="experiment-inputs" class="check-list"></div><p class="muted small">Все фигуры атакуют по прямым лучам сетки через грани клеток. Если обе армии одновременно выполняют условие поражения, объявляется ничья.</p></details>
     <p id="settings-error" class="form-error" aria-live="polite"></p><div class="dialog-footer"><button type="button" id="reset-defaults" class="button subtle">Исходные значения</button><button type="submit" class="button primary">Сохранить настройки</button></div>
   </form></dialog>
-  <dialog id="rules-dialog" aria-labelledby="about-title"><div class="dialog-header"><div><h2 id="about-title">Сила — в построении</h2></div><button type="button" class="icon-button close-dialog" aria-label="Закрыть об игре"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
-    <div class="about-switch" role="group" aria-label="Способ знакомства с игрой"><button id="about-guide-tab" class="button" aria-pressed="true" aria-controls="onboarding">Обучение с примерами</button><button id="about-reference-tab" class="button" aria-pressed="false" aria-controls="rules-reference">Все правила</button></div>
+  <dialog id="rules-dialog" aria-label="Как играть"><button type="button" class="icon-button close-dialog" aria-label="Закрыть обучение"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     <section id="onboarding" aria-label="Знакомство с игрой">
       <nav id="onboarding-progress" class="onboarding-progress" aria-label="Шаги знакомства"></nav>
-      <div id="onboarding-body" class="onboarding-body" tabindex="-1" role="region" aria-labelledby="onboarding-title"></div>
-      <div class="onboarding-footer"><button id="onboarding-back" class="button outline">Назад</button><span id="onboarding-count" class="muted small"></span><button id="onboarding-next" class="button primary">Далее →</button></div>
+      <div id="onboarding-body" class="onboarding-body" tabindex="-1" role="region" aria-label="Цель игры"></div>
     </section>
     <div id="rules-reference" class="rules-content" hidden>
-    <p class="reference-intro">Справочник по текущим настройкам партии. Интерактивные примеры доступны на вкладке «Обучение с примерами». В стандартной расстановке — 13 фигур у каждой стороны: 5 броненосцев, 4 лукаря и 4 фигуры поддержки.</p>
+    <p class="reference-intro">Справочник по текущим настройкам партии. Интерактивные примеры доступны по кнопке «Как играть». В стандартной расстановке — 13 фигур у каждой стороны: 5 броненосцев, 4 лукаря и 4 фигуры поддержки.</p>
     <h3>Цель игры</h3>
     <p id="about-victory">Армия проигрывает, когда у неё не остаётся ни броненосцев, ни лукарей. Если обе армии теряют их одновременно — ничья.</p>
     <p>Сила армии — в построении: Броненосцы прикрывают союзников, барабан ускоряет строй, горн усиливает атаку, знамя защищает, а командир увеличивает дальность.</p>
@@ -119,6 +115,7 @@
     <ol><li>Выберите режим, свою сторону и первого игрока.</li><li>Оставьте «Стандартные» или выберите «Свои» → «Расставить фигуры» → «Готово».</li><li>Нажмите «Начать». Для следующей партии нажмите «Новая игра».</li></ol>
   </div></dialog>
   <div id="toast" role="status" class="toast" hidden></div>
-  <script type="module" src="/app.js"></script>
+  <script src="/game-selects.js"></script>
+<script type="module" src="/app.js"></script>
 </body>
 </html>

@@ -8,10 +8,10 @@ import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty 
 import { classifyPosition, prepareStartPosition } from './start-position.js';
 import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION } from './move-animation.js';
 import { GameRecorder } from './game-archive.js';
-import { inspectionDamageArrows, renderHintArrow, renderUnitBadges, lethalAttackPresentation, renderDamageArrows, attackCellsFor, unitStatParts, alliedBonusDetails, ATTACK_TEAM_COLORS, AURA_COLORS, auraKind, auraCircleMarkup, skullShape, renderDeathEffects, renderMovingToken, unitAppearance, attackMarkerRotation, attackReachPresentation } from './board-presentation.js';
+import { hexGridPoint, hexGridPolygon, inspectionDamageArrows, renderHintArrow, renderUnitBadges, lethalAttackPresentation, renderDamageArrows, attackCellsFor, unitStatParts, alliedBonusDetails, ATTACK_TEAM_COLORS, AURA_COLORS, auraKind, auraCircleMarkup, skullShape, renderDeathEffects, renderMovingToken, unitAppearance, attackMarkerRotation, attackReachPresentation } from './board-presentation.js';
 import { createMoveLesson, renderMoveLesson, renderMoveExamples, createCombatLesson, renderCombatExamples, lessonPoint } from './onboarding-examples.js';
-import { createUnitLesson, renderUnitExamples } from './onboarding-units.js';
-import { createShowcaseBattle, renderShowcaseBattle } from './onboarding-showcase.js';
+import { renderUnitExamples } from './onboarding-units.js';
+import { createShowcaseBattle, renderShowcaseBattle, ShowcaseBattle } from './onboarding-showcase.js';
 const $ = selector => document.querySelector(selector);
 const CURRENT_GAME_VERSION = $('#version-number').textContent.replace(/^v/, '');
 const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
@@ -68,6 +68,7 @@ let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, latestRulesVersion
 let firstMove = 'random';
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
+let startPreferences = null;
 let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
 const botRunner = new BotRunner();
 const hintRunner = new BotRunner();
@@ -158,7 +159,14 @@ const combatAnimator = new CombatAnimator((phase, frame) => {
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
 function currentSnapshot() { return clone({ config, state, log, positionKind, gameVersion }); }
 function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); if (history.length > 40) history.shift(); }
-function save() { try { localStorage.setItem(STORAGE, JSON.stringify({ ...currentSnapshot(), history, firstMove, playMode, humanTeam, botDifficulty, lastTurn, gamePhase, editor, previousGame, balanceRevision: BALANCE_REVISION, presetRevision: PRESET_REVISION, startPrefsRevision: START_PREFS_REVISION })); return true; } catch { if (ready) toast('Не удалось сохранить позицию в браузере.'); return false; } }
+function currentStartPreferences() { return readStartPreferences({ firstMove, playMode, humanTeam, botDifficulty, positionKind, customSetup: positionKind === 'custom' ? { config, state } : null }); }
+function save() {
+  try {
+    if (gamePhase === 'setup') startPreferences = currentStartPreferences();
+    localStorage.setItem(STORAGE, JSON.stringify({ ...currentSnapshot(), history, firstMove, playMode, humanTeam, botDifficulty, startPreferences, lastTurn, gamePhase, editor, previousGame, balanceRevision: BALANCE_REVISION, presetRevision: PRESET_REVISION, startPrefsRevision: START_PREFS_REVISION }));
+    return true;
+  } catch { if (ready) toast('Не удалось сохранить позицию в браузере.'); return false; }
+}
 function normalizeUnitNames(value) {
   const commanderForms = { '': 'командир', а: 'командира', у: 'командиру', ом: 'командиром', е: 'командире', и: 'командиры', ов: 'командиров', ам: 'командирам', ами: 'командирами', ах: 'командирах' };
   value = value.replace(/([Рр])азведчик(ами|ов|ом|ам|ах|а|у|и|е)?/g, (_, initial, ending = '') => { const name = commanderForms[ending]; return initial === 'Р' ? name[0].toUpperCase() + name.slice(1) : name; });
@@ -187,6 +195,25 @@ function readPreviousGame(value) {
     const snapshot = readSnapshot(value.snapshot);
     return { snapshot, history: (Array.isArray(value.history) ? value.history.slice(-40) : []).map(readSnapshot), lastTurn: readLastTurn(value.lastTurn, snapshot.config, snapshot.state), playMode: value.playMode === 'bot' ? 'bot' : 'local', humanTeam: value.humanTeam === 1 ? 1 : 0, botDifficulty: readBotDifficulty(value.botDifficulty), firstMove: ['north', 'south', 'random'].includes(value.firstMove) ? value.firstMove : 'north' };
   } catch { return null; }
+}
+function readStartPreferences(value) {
+  const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const preferences = {
+    playMode: input.playMode === 'local' ? 'local' : 'bot',
+    humanTeam: input.humanTeam === 0 ? 0 : 1,
+    firstMove: ['north', 'south', 'random'].includes(input.firstMove) ? input.firstMove : 'random',
+    botDifficulty: readBotDifficulty(input.botDifficulty),
+    positionKind: 'default', customSetup: null
+  };
+  if (input.positionKind === 'custom' && input.customSetup) {
+    try {
+      const customConfig = validateConfig(input.customSetup.config);
+      const customState = validateState(input.customSetup.state, customConfig);
+      preferences.positionKind = 'custom';
+      preferences.customSetup = { config: customConfig, state: { ...customState, ply: 0, winner: null } };
+    } catch { /* Invalid custom data must not discard the other preferences. */ }
+  }
+  return preferences;
 }
 function pendingSetupBalance(input, revision) {
   const updated = updateSavedBalance(input, revision);
@@ -226,6 +253,12 @@ try {
       checkpoint(); config = validateConfig(updatedBalance); state = createGame(config); log = []; lastTurn = null; balanceUpdated = true;
       gameVersion = CURRENT_GAME_VERSION;
     }
+    // Migrate existing choices, but never mistake an unfinished battle for a
+    // reusable custom starting position. Running games keep their own settings.
+    startPreferences = readStartPreferences(saved.startPreferences ?? {
+      firstMove, playMode, humanTeam, botDifficulty,
+      ...(gamePhase === 'setup' ? { positionKind, customSetup: { config, state } } : {})
+    });
   }
 } catch { toast('Сохранённая позиция не прошла проверку. Загружена исходная расстановка.'); }
 function resetNewGameDefaults() {
@@ -233,9 +266,18 @@ function resetNewGameDefaults() {
   gameVersion = CURRENT_GAME_VERSION;
   positionKind = 'default'; history = []; log = []; lastTurn = null; selected = null;
 }
-// Use the defaults of the newly loaded release, rather than the release
-// that saved the setup immediately before navigation.
-if (freshNewGameRequested && gamePhase === 'setup' && previousGame) resetNewGameDefaults();
+function applyStartPreferences() {
+  const preferences = readStartPreferences(startPreferences ?? { firstMove, playMode, humanTeam, botDifficulty });
+  ({ firstMove, playMode, humanTeam, botDifficulty } = preferences);
+  resetNewGameDefaults();
+  if (preferences.positionKind === 'custom') {
+    config = clone(preferences.customSetup.config); state = clone(preferences.customSetup.state); positionKind = 'custom';
+  }
+  startPreferences = preferences;
+}
+// Standard setups use this release's rules; explicitly chosen custom setups
+// and the player's other start selections survive the refresh.
+if (freshNewGameRequested && gamePhase === 'setup' && previousGame) applyStartPreferences();
 function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
 function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && lastTurn ? lastTurn.before.state : state; }
@@ -294,7 +336,7 @@ function queueBot() {
 function startBot() {
   const requestedState = state, requestedConfig = config, recent = recentBotHistory(), lastActions = new Map();
   for (const entry of recent) if (entry.action?.id) lastActions.set(entry.action.id, entry.action);
-  botRunner.run({ state, config, options: { depth: BOT_DIFFICULTIES[botDifficulty].depth, seed: 17001, previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
+  botRunner.run({ state, config, options: { ...BOT_DIFFICULTIES[botDifficulty], seed: 17001, previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
     if (state !== requestedState || config !== requestedConfig || !isBotTurn() || editor || reviewingTurn) return;
     if (!result?.action) { botIssue = 'У бота нет допустимого хода. Можно разрешить пропуск в настройках или исследовать позицию в редакторе.'; render(); return; }
     try {
@@ -307,8 +349,8 @@ function startBot() {
     } catch { botIssue = 'Не удалось применить ход бота. Попробуйте ещё раз.'; render(); }
   }, error => { botIssue = error.message || 'Не удалось запустить бота. Попробуйте ещё раз.'; render(); });
 }
-function point(c) { return config.geometry === 'hex' ? { x: Math.sqrt(3) * 33 * (c.q + c.r / 2), y: 49.5 * c.r } : { x: c.q * 59, y: c.r * 59 }; }
-function polygon(c) { const { x, y } = point(c); return config.geometry === 'hex' ? Array.from({ length: 6 }, (_, i) => `${x + 32 * Math.cos((60 * i - 30) * Math.PI / 180)},${y + 32 * Math.sin((60 * i - 30) * Math.PI / 180)}`).join(' ') : `${x-28},${y-28} ${x+28},${y-28} ${x+28},${y+28} ${x-28},${y+28}`; }
+function point(c) { return config.geometry === 'hex' ? hexGridPoint(c) : { x: c.q * 59, y: c.r * 59 }; }
+function polygon(c) { const { x, y } = point(c); return config.geometry === 'hex' ? hexGridPolygon({ x, y }) : `${x-28},${y-28} ${x+28},${y-28} ${x+28},${y+28} ${x-28},${y+28}`; }
 function boardMarkup() {
   const restoreFocus = $('#board').contains(document.activeElement) && document.activeElement?.hasAttribute('data-cell');
   const state = visibleState();
@@ -558,11 +600,11 @@ function render(deaths = []) {
   $('#settings-open').hidden = positionKind !== 'custom';
   $('#new-game').disabled = Boolean(movement || combat);
   $('#new-game').hidden = gamePhase !== 'playing';
-  $('#cancel-new-game').hidden = !previousGame;
   $('#position-kind').value = positionKind;
+  globalThis.window?.gameSelects?.sync();
   $('#configure-position').disabled = positionKind !== 'custom';
   $('#configure-position').hidden = positionKind !== 'custom';
-  $('#mode-caption').textContent = playMode === 'bot' ? `Против ${botDifficulty === 'easy' ? 'лёгкого' : 'сложного'} бота` : '2 игрока на одном экране';
+  $('#mode-caption').textContent = playMode === 'bot' ? `Бот · ${BOT_DIFFICULTIES[botDifficulty].label}` : '2 игрока на одном экране';
   hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
@@ -712,8 +754,7 @@ async function openNewGame() {
   if (gamePhase !== 'playing' || refreshingNewGame || movement || combat) return;
   const backup = { snapshot: currentSnapshot(), history: clone(history), lastTurn: clone(lastTurn), playMode, humanTeam, firstMove, botDifficulty };
   resetBotContext(); previousGame = backup; gamePhase = 'setup'; editor = false;
-  playMode = 'bot'; humanTeam = 1; firstMove = 'random'; botDifficulty = DEFAULT_BOT_DIFFICULTY;
-  resetNewGameDefaults();
+  applyStartPreferences();
   const canRefresh = Boolean($('#bot-worker-source')) && ['http:', 'https:'].includes(location.protocol);
   refreshingNewGame = canRefresh; render();
   if (canRefresh && save()) {
@@ -728,6 +769,7 @@ function startGame() {
   if (gamePhase !== 'setup' || editor || refreshingNewGame) return;
   try {
     const next = prepareStartPosition(state, config, startingTeam());
+    startPreferences = currentStartPreferences();
     resetBotContext(); state = next; gamePhase = 'playing'; positionKind = classifyPosition(state, config); gameVersion = CURRENT_GAME_VERSION;
     archiveRecorder.start(archiveGameMetadata());
     history = []; log = []; previousGame = null; selected = null; $('#start-dialog').close(); render();
@@ -753,7 +795,6 @@ function returnToGame() {
   previousGame = null; gamePhase = 'playing'; editor = false; selected = null; $('#start-dialog').close(); render();
   archiveRecorder.resume(archiveGameMetadata());
 }
-$('#cancel-new-game').addEventListener('click', returnToGame);
 $('#start-dialog').addEventListener('cancel', event => { event.preventDefault(); dismissDialog(event.currentTarget); });
 $('#first-move').addEventListener('change', event => { if (gamePhase !== 'setup') return; firstMove = event.target.value; save(); });
 $('#play-mode').addEventListener('change', event => { if (gamePhase !== 'setup') return; resetBotContext(false); playMode = event.target.value; selected = null; render(); });
@@ -803,7 +844,7 @@ function fillSettings(c) {
   $('#experiment-inputs').innerHTML = experimentFields.map(([name, label]) => `<label><input type="checkbox" name="experiment.${name}" ${c.experiments[name] ? 'checked' : ''}>${label}</label>`).join('');
   if ($('#drum-move-label')) $('#drum-move-label').textContent = `Барабан: бонус шага ${c.drumMoveAllies ? 'всех союзников' : 'броненосцев'}`;
   if ($('#drum-move-help')) $('#drum-move-help').textContent = `Дополнительный шаг получает ${c.drumMoveAllies ? 'любая союзная фигура, начинающая' : 'союзный броненосец, начинающий'} действие в ауре барабана. Дальность перемещения сохраняется до конца этого действия.`;
-  $('#settings-error').textContent = ''; updateSizeLabel();
+  $('#settings-error').textContent = ''; updateSizeLabel(); globalThis.window?.gameSelects?.sync();
 }
 function updateSizeLabel() { const form = $('#settings-form'), hex = form.elements.geometry.value === 'hex'; $('#size-label').textContent = hex ? 'Радиус поля' : 'Сторона поля'; form.elements.size.min = hex ? 3 : 6; form.elements.size.max = hex ? 6 : 12; }
 function settingsFromForm() {
@@ -850,74 +891,77 @@ function renderAbout() {
 }
 $('#reset-defaults').addEventListener('click', () => fillSettings(DEFAULT_CONFIG));
 
-const onboardingSteps = ['Идея', 'Фигуры', 'Ход', 'Бой', 'Старт'];
+const onboardingSteps = ['Цель игры', 'Фигуры'];
 let onboardingStep = 0, onboardingDamage = 2;
 let onboardingExamples = {};
-let onboardingShowcaseStep = 0;
+let onboardingShowcase = null;
+let onboardingUnitBattles = {};
 let onboardingAnimation = null;
 let onboardingPreviewByKeyboard = false;
-function onboardingUnit(type) { return `<span class="onboarding-unit">${icon(type)}</span>`; }
-function renderOnboarding() {
-  $('#onboarding-progress').innerHTML = onboardingSteps.map((label, index) => `<button type="button" data-onboarding-step="${index}"${index === onboardingStep ? ' aria-current="step"' : ''} aria-label="Шаг ${index + 1}: ${label}"><span class="step-number">${index + 1}</span>${label}</button>`).join('');
-  const heading = (title, text) => `<h3 id="onboarding-title">${title}</h3>${text ? `<p>${text}</p>` : ''}`;
-  let content = '';
-  if (onboardingStep === 0) content = heading('Вы командуете армией', '13 фигур на сторону: 5 броненосцев, 4 лукаря и 4 фигуры поддержки. Ваша задача — сохранить строй и найти выгодный ход.') +
-    `<p>Уничтожьте вражеский флаг или всех броненосцев и лукарей. После каждого хода обе армии атакуют автоматически. Одновременное поражение — ничья.</p><p>Листайте бой стрелками, затем попробуйте учебные ходы. Примеры используют стандартные параметры этой версии и не меняют вашу партию.</p>` +
-    `<div class="onboarding-formation">${[['shield', 'Прикрывает союзников'], ['archer', 'Бьёт издалека'], ['attackLamp', 'Добавляет шаг'], ['horn', 'Усиливает урон'], ['defenseLamp', 'Усиливает защиту'], ['scoutLamp', 'Атакует и даёт дальность']].map(([type, role]) => `<div>${onboardingUnit(type)}<strong>${LABELS[type]}</strong><br>${role}</div>`).join('')}</div>` + renderShowcaseBattle(onboardingShowcaseStep, ICON_PATHS, unitBadges, onboardingAnimation?.sceneKey === 'showcase' ? onboardingAnimation : null);
-  if (onboardingStep === 1) content = heading('У каждой фигуры своя работа', 'Шесть фигур — шесть задач. Выберите фигуру, наведите на доступную клетку для прогноза и нажмите, чтобы сделать ход. «Сбросить» возвращает исходную позицию. Командир атакует на 2 клетки; ауры эту дальность не увеличивают, а барабан по-прежнему добавляет ему шаг.') + renderUnitExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
-  if (onboardingStep === 2) {
-    content = heading('Один ход меняет всё построение', 'Шесть примеров: пробуйте ходы и смотрите, что изменится.') + renderMoveExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
-  }
-  if (onboardingStep === 3) content = heading('Вы двигаете — армия атакует', 'После каждого хода обе армии атакуют автоматически. Уйдите из-под обстрела, сложите урон, обменяйтесь ударами и уничтожьте флаг в четырёх примерах.') + renderCombatExamples(onboardingExamples, ICON_PATHS, unitBadges, onboardingAnimation);
-  if (onboardingStep === 4) content = heading('Теперь можно попробовать партию', 'Для начала достаточно одного решения: куда передвинуть фигуру, чтобы сохранить поддержку и достать противника.') +
-    `<ol class="onboarding-checklist">${(editor ? ['Закончите расстановку кнопкой «Готово».', 'В подготовке выберите режим и нажмите «Начать».', 'Выберите свою фигуру, посмотрите подсветку и сделайте ход.'] : gamePhase === 'setup' ? ['Выберите режим: против бота или вдвоём. Для первой партии оставьте позицию «Стандартные».', 'Выберите первый ход и свою сторону, если играете против бота. Нажмите «Начать».', 'Нажмите на свою фигуру, затем на доступную пустую клетку.'] : ['Продолжайте текущую партию: окно знакомства её не сбрасывает.', 'Выберите свою фигуру и посмотрите доступные клетки.', 'Передвиньте фигуру. Если сейчас ход бота, дождитесь его ответа.']).map(text => `<li>${text}</li>`).join('')}</ol><div class="onboarding-note"><strong>Подсказки всегда рядом.</strong> Снизу слева — сила атаки, справа — полная стойкость. Сверху — входящий урон со знаком минус или череп при смертельной угрозе. Выбор фигуры показывает её дальность значками меча или стрелы. «Ауры» показывает поддержку, «Атаки» — угрозы. Стрелки ← и → позволяют посмотреть последний ход; «Отменить ход» возвращает позицию.</div>`;
-  $('#onboarding-body').innerHTML = content;
-  $('#onboarding-body').scrollTop = 0;
-  $('#onboarding-back').disabled = onboardingStep === 0;
-  $('#onboarding-count').textContent = `${onboardingStep + 1} из ${onboardingSteps.length}`;
-  $('#onboarding-next').textContent = onboardingStep === 4 ? (editor ? 'К расстановке →' : gamePhase === 'setup' ? 'К подготовке →' : 'Вернуться к партии →') : 'Далее →';
+function onboardingUnit(type) {
+  const piece = { id: 'guide-card', type, team: 1, q: 0, r: 0 };
+  const position = { pieces: [piece], turn: 1, ply: 0, winner: null };
+  const info = analyze(position, DEFAULT_CONFIG).get(piece.id);
+  const appearance = unitAppearance(piece, DEFAULT_CONFIG, ICON_PATHS);
+  return `<svg class="onboarding-unit-token" viewBox="-38 -38 76 76" role="img" aria-label="${LABELS[type]}: урон ${info.damage}, стойкость ${info.fortitude}"><g class="piece south">${renderTokenBody(appearance, 1)}${unitBadges(info, { showIncoming: false, pieceType: type })}</g></svg>`;
 }
-function showAboutView(guide) {
-  if (cancelOnboardingAnimation()) redrawOnboarding();
-  $('#onboarding').hidden = !guide;
-  $('#rules-reference').hidden = guide;
-  $('#about-guide-tab').setAttribute('aria-pressed', String(guide));
-  $('#about-reference-tab').setAttribute('aria-pressed', String(!guide));
+function suppressGuideTabStops() {
+  $('#rules-dialog').querySelectorAll?.('button,a,input,select,textarea,summary,[tabindex]').forEach(element => {
+    if (element.closest?.('[data-slot="tabs"], [data-onboarding-step], .showcase-board, .close-dialog')) return;
+    element.setAttribute('tabindex', '-1');
+  });
+}
+function renderOnboardingFormation() {
+  return `<div class="onboarding-formation">${[
+    ['shield', 'Прикрывает союзников, любит ходить черепахой'],
+    ['archer', 'Бьёт издалека, любит слушать горн и командира'],
+    ['scoutLamp', 'Увеличивает дальность стрельбы лукарей'],
+    ['attackLamp', 'Помогает ходить на два шага вместо одного'],
+    ['horn', 'Усиливает урон'],
+    ['defenseLamp', 'Если потеряешь — проиграешь.']
+  ].map(([type, description]) => `<div class="onboarding-unit-card">${onboardingUnit(type)}<strong>${LABELS[type]}</strong><p>${description}</p></div>`).join('')}</div>`;
+}
+function renderOnboarding() {
+  if (onboardingStep === 0) onboardingShowcase?.resume();
+  if (globalThis.window?.gameTabs) globalThis.window.gameTabs.render(onboardingSteps, onboardingStep, step => goToOnboardingStep(step, true));
+  else $('#onboarding-progress').innerHTML = onboardingSteps.map((label, index) => `<button type="button" data-onboarding-step="${index}"${index === onboardingStep ? ' aria-current="step"' : ''} aria-label="Шаг ${index + 1}: ${label}"><span class="step-number">${index + 1}</span>${label}</button>`).join('');
+  let content = '';
+  if (onboardingStep === 0) content =
+    '<ul class="onboarding-principles" id="onboarding-title"><li>Уничтожь вражеский флаг и не потеряй свой.</li><li>Показывать своим фишкам кого бить — не надо.</li><li>Обе армии автоматически атакуют доступные цели в конце хода.</li><li>Урон складывается, но не накапливается между ходами. Если долго бить стальной щит палкой — щит не сломается.</li></ul>' +
+    renderShowcaseBattle(onboardingShowcase || createShowcaseBattle(), ICON_PATHS, unitBadges);
+  if (onboardingStep === 1) content = renderUnitExamples(onboardingUnitBattles, ICON_PATHS, unitBadges);
+  $('#onboarding-body').innerHTML = content;
+  $('#onboarding-body').setAttribute('aria-label', onboardingSteps[onboardingStep]);
+  suppressGuideTabStops();
+  $('#onboarding-body').scrollTop = 0;
 }
 function openAbout() {
   cancelOnboardingAnimation();
   cancelBot(); cancelMovement(); renderAbout();
   onboardingStep = 0; onboardingDamage = 2;
-  onboardingExamples = {}; onboardingShowcaseStep = 0;
-  renderOnboarding(); showAboutView(true); $('#rules-dialog').showModal(); render();
+  onboardingExamples = {}; onboardingShowcase = null; onboardingUnitBattles = {};
+  renderOnboarding(); $('#rules-dialog').showModal(); render();
+  suppressGuideTabStops();
   $('#onboarding-body').focus({ preventScroll: true });
 }
-function goToOnboardingStep(step) {
+function goToOnboardingStep(step, keepTabFocus = false) {
   cancelOnboardingAnimation();
   onboardingPreviewByKeyboard = false;
   onboardingStep = Math.max(0, Math.min(onboardingSteps.length - 1, step));
-  renderOnboarding(); $('#onboarding-body').focus();
+  renderOnboarding(); if (!keepTabFocus) $('#onboarding-body').focus();
 }
 $('#rules-dialog').addEventListener('cancel', event => event.preventDefault());
-$('#about-guide-tab').addEventListener('click', () => showAboutView(true));
-$('#about-reference-tab').addEventListener('click', () => showAboutView(false));
-$('#onboarding-progress').addEventListener('click', event => { const button = event.target.closest('[data-onboarding-step]'); if (button) goToOnboardingStep(Number(button.dataset.onboardingStep)); });
-$('#onboarding-back').addEventListener('click', () => goToOnboardingStep(onboardingStep - 1));
-$('#onboarding-next').addEventListener('click', () => {
-  if (onboardingStep < onboardingSteps.length - 1) return goToOnboardingStep(onboardingStep + 1);
-  $('#rules-dialog').close();
-  requestAnimationFrame(() => {
-    if (gamePhase === 'setup' && !editor) openStartSettings();
-    const target = editor ? $('#editor-done') : gamePhase === 'setup' ? $('#start-game') : $('#board .cell[tabindex="0"]');
-    target?.focus(); target?.scrollIntoView({ block: 'nearest' });
-  });
+$('#rules-dialog').addEventListener('keydown', event => {
+  if (event.key === 'Tab' && !event.target.closest?.('[data-slot="tabs"], [data-onboarding-step], .showcase-board, .close-dialog')) { event.preventDefault(); event.stopPropagation(); $('#onboarding-progress [role="tab"][aria-selected="true"], #onboarding-progress [data-onboarding-step][aria-current="step"]')?.focus(); }
 });
+$('#onboarding-progress').addEventListener('click', event => { const button = event.target.closest('[data-onboarding-step]'); if (button) goToOnboardingStep(Number(button.dataset.onboardingStep)); });
 function onboardingLessonModel(sceneKey, example) {
-  if (sceneKey.startsWith('unit-')) return createUnitLesson(sceneKey.slice(5), example);
   if (['8', '9', '10', '11'].includes(sceneKey)) return createCombatLesson(Number(sceneKey) - 8, example);
   return createMoveLesson(sceneKey.startsWith('4-') ? 4 : Number(sceneKey), { ...example, aura: sceneKey === '4-defense' ? 'defense' : 'attack' });
 }
 function cancelOnboardingAnimation() {
+  onboardingShowcase?.stop();
+  Object.values(onboardingUnitBattles).forEach(battle=>battle.stop());
   const previous = onboardingAnimation;
   onboardingAnimation = null;
   previous?.animator.cancel();
@@ -929,7 +973,7 @@ function redrawOnboarding() {
 }
 function presentOnboardingAction(sceneKey) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
-  const lesson = sceneKey === 'showcase' ? createShowcaseBattle(onboardingShowcaseStep) : onboardingLessonModel(sceneKey, onboardingExamples[sceneKey]);
+  const lesson = onboardingLessonModel(sceneKey, onboardingExamples[sceneKey]);
   const plan = lesson.path.length > 1 ? createMovementPlan(lesson.path.map(lesson.point || lessonPoint)) : null;
   if (!plan && !lesson.deaths.length) return false;
   const presentation = { sceneKey, phase: 'idle', frame: null, animator: null };
@@ -938,8 +982,6 @@ function presentOnboardingAction(sceneKey) {
     presentation.phase = phase;
     if (phase === 'idle') onboardingAnimation = null;
     redrawOnboarding();
-    const target = sceneKey === 'showcase' ? '[data-showcase-action="next"]:not(:disabled),[data-showcase-action="prev"]:not(:disabled)' : `[data-lesson-scene="${sceneKey}"] [data-lesson-action="reset"]`;
-    $('#onboarding-body').querySelector(target)?.focus({ preventScroll: true });
   }, frame => {
     if (onboardingAnimation !== presentation) return;
     presentation.frame = frame;
@@ -950,15 +992,58 @@ function presentOnboardingAction(sceneKey) {
   presentation.animator.start(plan, lesson.deaths.length > 0);
   return true;
 }
-function updateShowcaseBattle(button) {
-  const action = button.dataset.showcaseAction;
-  if (!['prev', 'next'].includes(action) || button.disabled || onboardingAnimation && action === 'next') return;
-  const next = Math.max(0, Math.min(createShowcaseBattle().total, onboardingShowcaseStep + (action === 'next' ? 1 : -1)));
-  if (next === onboardingShowcaseStep) return;
-  cancelOnboardingAnimation();
-  onboardingShowcaseStep = next;
-  if (action === 'prev' || !presentOnboardingAction('showcase')) redrawOnboarding();
-  $('#onboarding-body').querySelector(`[data-showcase-action="${action}"]:not(:disabled)`)?.focus({ preventScroll: true });
+function showcaseSceneKey(element) {
+  return element?.closest?.('[data-showcase-battle]')?.dataset.showcaseBattle || 'main';
+}
+function showcaseScene(sceneKey) {
+  return $('#onboarding-body').querySelector(`[data-showcase-battle="${sceneKey}"]`);
+}
+function redrawShowcase(sceneKey='main') {
+  const battle=sceneKey==='main'?onboardingShowcase:onboardingUnitBattles[sceneKey];
+  if (onboardingStep !== (sceneKey==='main'?0:1) || !battle) return;
+  const scene=showcaseScene(sceneKey);
+  if (!scene) return;
+  const scroll = $('#onboarding-body').scrollTop;
+  const focused = document.activeElement?.closest?.('[data-showcase-cell]');
+  const focusCell=focused&&showcaseSceneKey(focused)===sceneKey?focused.dataset.showcaseCell:null;
+  scene.outerHTML = renderShowcaseBattle(battle, ICON_PATHS, unitBadges);
+  $('#onboarding-body').scrollTop = scroll;
+  if (focusCell) showcaseScene(sceneKey)?.querySelector(`[data-showcase-cell="${focusCell}"]`)?.focus({preventScroll:true});
+}
+function ensureShowcaseBattle(sceneKey='main') {
+  const create=()=>new ShowcaseBattle({
+    sceneKey:sceneKey==='main'?null:sceneKey,
+    onChange:()=>redrawShowcase(sceneKey),onPreview:()=>refreshShowcasePreview(sceneKey),
+    reducedMotion:()=>matchMedia('(prefers-reduced-motion: reduce)').matches,
+    onFrame:frame=>{
+      const token=showcaseScene(sceneKey)?.querySelector(`#${sceneKey==='main'?'training':sceneKey}-moving-token`);
+      if(token)token.setAttribute('transform',`translate(${frame.x},${frame.y})`);
+    }
+  });
+  if(sceneKey==='main')return onboardingShowcase ||= create();
+  return onboardingUnitBattles[sceneKey] ||= create();
+}
+function updateShowcaseBattle(control) {
+  if (control.disabled) return;
+  onboardingPreviewByKeyboard = false;
+  const battle=ensureShowcaseBattle(showcaseSceneKey(control));
+  if (control.dataset.showcasePiece) {
+    const piece = battle.viewedPosition.pieces.find(piece => piece.id === control.dataset.showcasePiece);
+    if (piece) battle.focusCell = `${piece.q},${piece.r}`;
+    battle.selectPiece(control.dataset.showcasePiece);
+  }
+  else if (control.dataset.showcaseCell !== undefined) {
+    const [q, r] = control.dataset.showcaseCell.split(',').map(Number);
+    battle.focusCell = `${q},${r}`;
+    const occupant = battle.viewedPosition.pieces.find(piece => piece.q === q && piece.r === r);
+    if (occupant) { battle.selectPiece(occupant.id); return; }
+    const destination = { q, r };
+    if (!battle.previewMoves.some(cell => cell.q === q && cell.r === r)) battle.clearSelection();
+    else if (!battle.moveTo(destination)) battle.preview(destination);
+  } else if (control.dataset.showcaseAction === 'undo') battle.undo();
+  else if (control.dataset.showcaseAction === 'previous') battle.review(-1);
+  else if (control.dataset.showcaseAction === 'next') battle.review(1);
+  else if (control.dataset.showcaseAction === 'restart') battle.restart();
 }
 function updateOnboardingLesson(button) {
   const sceneKey = button.closest('[data-lesson-scene]')?.dataset.lessonScene;
@@ -967,21 +1052,18 @@ function updateOnboardingLesson(button) {
   if (onboardingAnimation && data.lessonAction !== 'reset') return true;
   if (data.lessonAction === 'reset') cancelOnboardingAnimation();
   const example = onboardingExamples[sceneKey] ||= { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null };
-  let selector;
   if (data.lessonUnit) {
     onboardingPreviewByKeyboard = false;
-    const currentSelection = example.selectedId || (sceneKey === 'unit-shield' ? 'blue' : data.lessonUnit);
+    const currentSelection = example.selectedId || data.lessonUnit;
     example.selected = !example.selected || currentSelection !== data.lessonUnit;
     example.selectedId = example.selected ? data.lessonUnit : null;
     example.previewPlacement = null;
     if (!example.advanced) example.destination = null;
-    selector = `[data-lesson-unit="${data.lessonUnit}"]`;
   } else if (data.lessonPlace) {
     if (!example.selected || example.advanced) return true;
     const [q, r] = data.lessonPlace.split(',').map(Number);
     if (!onboardingLessonModel(sceneKey, example).available.some(cell => cell.q === q && cell.r === r)) return true;
     example.placement = { q, r }; example.previewPlacement = null; example.advanced = true; example.selected = false;
-    selector = '[data-lesson-action="reset"]';
   } else if (data.lessonCell) {
     if (!example.selected || example.advanced) return true;
     const [q, r] = data.lessonCell.split(',').map(Number);
@@ -989,23 +1071,18 @@ function updateOnboardingLesson(button) {
     if (!lesson.available.some(cell => cell.q === q && cell.r === r)) return true;
     example.movedId = lesson.moverId;
     example.destination = { q, r }; example.advanced = true; example.selected = false; example.selectedId = null;
-    selector = '[data-lesson-action="reset"]';
   } else if (data.lessonAction === 'remove-shield' && sceneKey === '2') {
     if (example.advanced || example.shieldRemoved) return true;
     example.shieldRemoved = true; example.selected = false; example.previewPlacement = null;
     if (!example.advanced) example.destination = null;
-    selector = '[data-lesson-action="reset"]';
   } else if (data.lessonAction === 'toggle-archer' && sceneKey === '9') {
     cancelOnboardingAnimation();
     Object.assign(example, { selected: false, advanced: false, destination: null, secondArcher: example.secondArcher === false });
-    selector = '[data-lesson-action="toggle-archer"]';
   } else if (data.lessonAction === 'reset') {
     Object.assign(example, { selected: false, selectedId: null, movedId: null, advanced: false, destination: null, placement: null, previewPlacement: null, shieldRemoved: false, secondArcher: true });
-    selector = '[data-lesson-unit]';
   } else return false;
   const isAction = data.lessonCell || data.lessonPlace || data.lessonAction === 'remove-shield';
   if (!isAction || !presentOnboardingAction(sceneKey)) redrawOnboarding();
-  $('#onboarding-body').querySelector(`[data-lesson-scene="${sceneKey}"] ${selector}`)?.focus({ preventScroll: true });
   return true;
 }
 function refreshOnboardingMovePreview(sceneKey) {
@@ -1067,14 +1144,57 @@ function clearOnboardingMovePreview(event) {
   example.destination = null; example.previewPlacement = null;
   refreshOnboardingMovePreview(sceneKey);
 }
+function refreshShowcasePreview(sceneKey='main') {
+  const scene=showcaseScene(sceneKey),battle=sceneKey==='main'?onboardingShowcase:onboardingUnitBattles[sceneKey];
+  if (!scene || !battle) return;
+  const prefix=sceneKey==='main'?'training':sceneKey;
+  const template = document.createElement('template');
+  template.innerHTML = renderShowcaseBattle(battle, ICON_PATHS, unitBadges);
+  for(const suffix of ['effects','overlays'])scene.querySelector(`#${prefix}-${suffix}`).innerHTML=template.content.querySelector(`#${prefix}-${suffix}`).innerHTML;
+  scene.querySelectorAll('[data-showcase-cell]').forEach(cell => {
+    const source = template.content.querySelector(`[data-showcase-cell="${cell.dataset.showcaseCell}"]`);
+    cell.setAttribute('class', source.getAttribute('class'));
+  });
+  // Keep hit targets in place while updating the regular battle forecast.
+  scene.querySelectorAll('[data-showcase-piece]').forEach(piece => {
+    const source = template.content.querySelector(`[data-showcase-piece="${piece.dataset.showcasePiece}"]`);
+    piece.innerHTML = source.innerHTML;
+    piece.setAttribute('class', source.getAttribute('class'));
+  });
+}
+function previewShowcaseMove(event) {
+  const scene=event.target.closest?.('[data-showcase-battle]');
+  if(!scene)return;
+  const battle=ensureShowcaseBattle(scene.dataset.showcaseBattle||'main');
+  if (battle.busy) return;
+  const cell = event.target.closest?.('[data-showcase-cell]');
+  const unit = event.target.closest?.('[data-showcase-piece]');
+  if (event.type === 'focusin' && (cell || unit)) onboardingPreviewByKeyboard = true;
+  else if (onboardingPreviewByKeyboard) {
+    if (event.type !== 'pointermove' || !event.movementX && !event.movementY) return;
+    onboardingPreviewByKeyboard = false;
+  }
+  const [q, r] = cell ? cell.dataset.showcaseCell.split(',').map(Number) : [];
+  const piece = unit && battle.viewedPosition.pieces.find(piece => piece.id === unit.dataset.showcasePiece);
+  battle.preview(cell ? { q, r } : piece || null);
+}
+$('#onboarding-body').addEventListener('pointerover', previewShowcaseMove);
+$('#onboarding-body').addEventListener('pointermove', previewShowcaseMove);
+$('#onboarding-body').addEventListener('focusin', previewShowcaseMove);
+$('#onboarding-body').addEventListener('pointerout', event => {
+  if (onboardingPreviewByKeyboard) return;
+  const scene=event.target.closest?.('[data-showcase-battle]');
+  if(scene&&scene!==event.relatedTarget?.closest?.('[data-showcase-battle]'))ensureShowcaseBattle(scene.dataset.showcaseBattle||'main').preview(null);
+});
 $('#onboarding-body').addEventListener('pointerover', previewOnboardingMove);
 $('#onboarding-body').addEventListener('pointermove', previewOnboardingMove);
 $('#onboarding-body').addEventListener('focusin', previewOnboardingMove);
 $('#onboarding-body').addEventListener('pointerout', clearOnboardingMovePreview);
 $('#onboarding-body').addEventListener('focusout', clearOnboardingMovePreview);
 $('#onboarding-body').addEventListener('click', event => {
-  const showcaseButton = event.target.closest('[data-showcase-action]');
-  if (showcaseButton?.dataset.showcaseAction) { updateShowcaseBattle(showcaseButton); return; }
+  const showcaseButton = event.target.closest('[data-showcase-action],[data-showcase-piece],[data-showcase-cell]');
+  if (showcaseButton && (showcaseButton.dataset.showcaseAction || showcaseButton.dataset.showcasePiece || showcaseButton.dataset.showcaseCell !== undefined)) { updateShowcaseBattle(showcaseButton); return; }
+  if (event.target.closest('.showcase-field')?.closest('[data-showcase-battle]')?.dataset.showcaseBattle !== undefined) { ensureShowcaseBattle(showcaseSceneKey(event.target)).clearSelection(); return; }
   const button = event.target.closest('button,[data-lesson-cell],[data-lesson-unit],[data-lesson-place]');
   if (onboardingAnimation && button?.dataset.lessonAction !== 'reset') return;
   const sceneKey = button?.closest('[data-lesson-scene]')?.dataset.lessonScene;
@@ -1095,23 +1215,33 @@ $('#onboarding-body').addEventListener('click', event => {
   }
 });
 $('#onboarding-body').addEventListener('keydown', event => {
-  if (['ArrowLeft', 'ArrowRight'].includes(event.key) && (onboardingStep === 0 || event.target.closest('[data-showcase-battle]'))) {
-    event.preventDefault();
-    $('#onboarding-body').querySelector('[data-showcase-battle]')?.scrollIntoView({ block: 'nearest' });
-    $('#onboarding-body').querySelector(`[data-showcase-action="${event.key === 'ArrowRight' ? 'next' : 'prev'}"]`)?.click();
+  const trainingCell = event.target.closest('[data-showcase-cell]');
+  if (trainingCell?.dataset?.showcaseCell !== undefined) {
+    if (['Enter', ' '].includes(event.key)) { event.preventDefault(); updateShowcaseBattle(trainingCell); }
+    else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const battle = ensureShowcaseBattle(showcaseSceneKey(trainingCell));
+      onboardingPreviewByKeyboard = true;
+      const [q, r] = trainingCell.dataset.showcaseCell.split(',').map(Number);
+      const target = boardNavigationTarget(cells(battle.config), {q,r}, event.key, battle.config.geometry, event.ctrlKey || event.metaKey);
+      battle.focusCell = `${target.q},${target.r}`;
+      const scene = trainingCell.closest('[data-showcase-battle]');
+      scene.querySelectorAll('[data-showcase-cell]').forEach(cell => cell.setAttribute('tabindex', cell.dataset.showcaseCell === battle.focusCell ? '0' : '-1'));
+      scene.querySelector(`[data-showcase-cell="${battle.focusCell}"]`)?.focus({preventScroll:true});
+      battle.preview(target);
+    }
     return;
   }
   if (!['Enter', ' '].includes(event.key)) return;
   const cell = event.target.closest('[data-lesson-cell],[data-lesson-unit],[data-lesson-place]'); if (!cell) return;
   event.preventDefault(); updateOnboardingLesson(cell);
 });
-$('#onboarding-open').addEventListener('click', openAbout);
 
 $('#rules-open').addEventListener('click', openAbout);
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { if (dialog.id === 'rules-dialog') cancelOnboardingAnimation(); render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
-document.addEventListener('keydown', event => { deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Tab' && !event.target.closest('dialog')) { event.preventDefault(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; presentKills(completed.before, completed.forecast, completed.deaths); } if (event.matches && onboardingAnimation) onboardingAnimation.animator.finish(); });
 let attackReachInView = true;
@@ -1126,6 +1256,7 @@ document.addEventListener('visibilitychange', updateAttackReachPlayback);
 updateAttackReachPlayback();
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
 ready = true; render();
+globalThis.window?.gameSelects?.mount();
 void checkGameVersion();
 setInterval(() => { void checkGameVersion(); }, 60000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkGameVersion(); });

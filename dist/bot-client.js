@@ -1,9 +1,10 @@
-export const DEFAULT_BOT_DIFFICULTY = 'easy';
+export const DEFAULT_BOT_DIFFICULTY = 'training';
 export const BOT_DIFFICULTIES = Object.freeze({
-  easy: Object.freeze({ label: 'Лёгкий', depth: 2 }),
-  hard: Object.freeze({ label: 'Сложный', depth: 4 })
+  training: Object.freeze({ label: 'Неопытный', depth: 2, forgiving: true }),
+  easy: Object.freeze({ label: 'Дерётся', depth: 2 }),
+  hard: Object.freeze({ label: 'Больно дерётся', depth: 4 })
 });
-export function readBotDifficulty(value) { return value === 'hard' ? 'hard' : DEFAULT_BOT_DIFFICULTY; }
+export function readBotDifficulty(value) { return typeof value === 'string' && Object.hasOwn(BOT_DIFFICULTIES, value) ? value : DEFAULT_BOT_DIFFICULTY; }
 
 export function createBotWorker() {
   const embedded = document.querySelector('#bot-worker-source');

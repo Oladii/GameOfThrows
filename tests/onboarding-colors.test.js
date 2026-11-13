@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createUnitLesson } from '../dist/onboarding-units.js';
 import { createMoveLesson, renderMoveLesson } from '../dist/onboarding-examples.js';
 import { unitAppearance, renderMovingToken, renderDeathEffects } from '../dist/board-presentation.js';
 
@@ -9,7 +8,7 @@ test('training moves and death effects display the controlled army as the orange
   assert.ok(/class="moving-token south(?: fatal)?"/.test(moving));
   assert.ok(moving.includes('rotate(180 0 '));
   assert.ok(moving.includes('Ваши — Юг'));
-  const defeat = createUnitLesson('archer', { advanced: true, destination: { q: 0, r: -1 } });
+  const defeat = createMoveLesson(2, { advanced: true, destination: { q: 0, r: -1 } });
   const death = renderMoveLesson(defeat, {}, () => '', { phase: 'deaths' });
   assert.ok(death.includes('class="death-ghost south"'));
   assert.ok(!death.includes('class="death-ghost north"'));

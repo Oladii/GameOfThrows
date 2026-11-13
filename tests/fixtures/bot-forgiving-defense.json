@@ -1,0 +1,154 @@
+{
+  "state": {
+    "pieces": [
+      {
+        "id": "p1",
+        "type": "attackLamp",
+        "team": 0,
+        "q": 3,
+        "r": -4,
+        "group": null
+      },
+      {
+        "id": "p2",
+        "type": "attackLamp",
+        "team": 1,
+        "q": -3,
+        "r": 4,
+        "group": null
+      },
+      {
+        "id": "p3",
+        "type": "defenseLamp",
+        "team": 0,
+        "q": -1,
+        "r": -2,
+        "group": null
+      },
+      {
+        "id": "p4",
+        "type": "defenseLamp",
+        "team": 1,
+        "q": -1,
+        "r": 3,
+        "group": null
+      },
+      {
+        "id": "p6",
+        "type": "scoutLamp",
+        "team": 1,
+        "q": -2,
+        "r": 3,
+        "group": null
+      },
+      {
+        "id": "p7",
+        "type": "shield",
+        "team": 0,
+        "q": -2,
+        "r": -1,
+        "group": 1
+      },
+      {
+        "id": "p8",
+        "type": "shield",
+        "team": 1,
+        "q": 1,
+        "r": 2,
+        "group": 1
+      },
+      {
+        "id": "p9",
+        "type": "shield",
+        "team": 0,
+        "q": -1,
+        "r": -1,
+        "group": 1
+      },
+      {
+        "id": "p10",
+        "type": "shield",
+        "team": 1,
+        "q": 1,
+        "r": 1,
+        "group": 1
+      },
+      {
+        "id": "p14",
+        "type": "archer",
+        "team": 1,
+        "q": 2,
+        "r": 0,
+        "group": 1
+      },
+      {
+        "id": "p18",
+        "type": "shield",
+        "team": 1,
+        "q": -3,
+        "r": 2,
+        "group": 2
+      },
+      {
+        "id": "p19",
+        "type": "archer",
+        "team": 0,
+        "q": 0,
+        "r": -3,
+        "group": 2
+      },
+      {
+        "id": "p20",
+        "type": "archer",
+        "team": 1,
+        "q": 0,
+        "r": 3,
+        "group": 2
+      },
+      {
+        "id": "p21",
+        "type": "archer",
+        "team": 0,
+        "q": -1,
+        "r": -3,
+        "group": 2
+      },
+      {
+        "id": "p22",
+        "type": "archer",
+        "team": 1,
+        "q": 1,
+        "r": 0,
+        "group": 2
+      },
+      {
+        "id": "p23",
+        "type": "shield",
+        "team": 0,
+        "q": -2,
+        "r": 0,
+        "group": null
+      },
+      {
+        "id": "p25",
+        "type": "horn",
+        "team": 0,
+        "q": 1,
+        "r": -4,
+        "group": null
+      },
+      {
+        "id": "p26",
+        "type": "horn",
+        "team": 1,
+        "q": -1,
+        "r": 4,
+        "group": null
+      }
+    ],
+    "turn": 1,
+    "ply": 17,
+    "winner": null
+  },
+  "seed": 17001
+}

@@ -1,3 +1,4 @@
+import './ui/build.mjs';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('./', import.meta.url));
@@ -7,17 +8,20 @@ const { version } = JSON.parse(await fs.readFile(root + 'package.json', 'utf8'))
 const [tokenAssets, tokenPresentation] = await Promise.all(['token-assets.js','token-presentation.js'].map(read));
 const builtAt = new Date();
 const buildLabel = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(builtAt);
-const html = sourceHtml.replace(/(<span id="version-number">)[^<]*(<\/span>)/, (_, start, end) => `${start}v${version}${end}`).replace(/<span id="version-build"[^>]*>[^<]*<\/span>/, `<span id="version-build" data-built-at="${builtAt.toISOString()}">Сборка ${buildLabel} МСК</span>`);
+const html = sourceHtml.replace(/(<span id="version-number"[^>]*>)[^<]*(<\/span>)/, (_, start, end) => `${start}v${version}${end}`).replace(/<span id="version-build"[^>]*>[^<]*<\/span>/, `<span id="version-build" data-built-at="${builtAt.toISOString()}">Сборка ${buildLabel} МСК</span>`);
 await fs.writeFile(root + 'dist/index.html', html);
 const strip = code => code.replace(/^import .*?;\n/gm, '').replace(/^export /gm, '');
 const script = [rules, engine, client, startPosition, moveAnimation, gameArchive, tokenAssets, tokenPresentation, boardPresentation, onboardingExamples, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, hint, app].map(strip).join('\n').replaceAll('</script', '<\\/script');
 const workerSource = JSON.stringify([rules, engine, defensiveSelection, formationStrategy, bot, worker].map(strip).join('\n')).replaceAll('<', '\\u003c');
 let illustratedHtml = html;
+const brandIcon = await fs.readFile(root + 'dist/brand/logo-target-sword-v3-tripod.png');
+illustratedHtml = illustratedHtml.replaceAll('src="./brand/logo-target-sword-v3-tripod.png"', 'src="data:image/png;base64,' + brandIcon.toString('base64') + '"');
 for (const name of ['stats.svg', 'overlays.svg', 'board.svg']) {
   const svg = await read('guide/' + name);
   illustratedHtml = illustratedHtml.replaceAll('src="./guide/' + name + '"', 'src="data:image/svg+xml;base64,' + Buffer.from(svg, 'utf8').toString('base64') + '"');
 }
-const standalone = illustratedHtml.replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${css}\n</style>`).replace('<script type="module" src="/app.js"></script>', () => `<script id="bot-worker-source" type="application/json">${workerSource}</script>\n<script type="module">\n${script}\n</script>`).replace('href="/" aria-label="Game Of Trows — главная"', 'href="#" aria-label="Game Of Trows — главная"');
+const selectBundle = (await read('game-selects.js')).replaceAll('</script', '<\\/script');
+const standalone = illustratedHtml.replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${css}\n</style>`).replace('<script type="module" src="/app.js"></script>', () => `<script id="bot-worker-source" type="application/json">${workerSource}</script>\n<script>${selectBundle}</script>\n<script type="module">\n${script}\n</script>`).replace('href="/" aria-label="Game Of Trows — главная"', 'href="#" aria-label="Game Of Trows — главная"');
 await fs.mkdir(root + 'docs', { recursive: true });
 await Promise.all([
   fs.writeFile(root + 'Lamps.html', standalone),

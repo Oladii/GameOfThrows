@@ -2,6 +2,11 @@ import { cells, attacks, effective, shieldCanRetreat, archerHasEdgeBonus, key } 
 import { renderTokenBody, renderTokenBadges, renderDeathSkull, tokenBadgeBounds } from './token-presentation.js';
 
 export const ATTACK_TEAM_COLORS = ['#4c9fc9', '#ab3300'];
+export const hexGridPoint = cell => ({ x: Math.sqrt(3) * 33 * (cell.q + cell.r / 2), y: 49.5 * cell.r });
+export const hexGridPolygon = point => Array.from({ length: 6 }, (_, i) => {
+  const angle = (60 * i - 30) * Math.PI / 180;
+  return `${point.x + 32 * Math.cos(angle)},${point.y + 32 * Math.sin(angle)}`;
+}).join(' ');
 export const AURA_COLORS = { attack: '#c96060', defense: '#5d89bd', combined: '#9770be', move: '#70935e', horn: '#9770be' };
 export function auraKind(source, config) {
   if (source.type === 'horn') return 'horn';

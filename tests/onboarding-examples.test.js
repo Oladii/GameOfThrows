@@ -8,8 +8,8 @@ import { tutorialCases } from './fixtures/tutorial-cases.js';
 
 const sameCell=(a,b)=>a.q===b.q&&a.r===b.r;
 
-test('all16 current tutorial scenes have unchanged game stats, an unmet goal, legal solution, truthful forecast and native result',()=>{
-  const defaults=clone(DEFAULT_CONFIG),cases=tutorialCases();assert.equal(cases.length,16);assert.equal(MOVE_LESSONS.length,6);
+test('remaining movement and combat position examples have unchanged game stats, an unmet goal, legal solution, truthful forecast and native result',()=>{
+  const defaults=clone(DEFAULT_CONFIG),cases=tutorialCases();assert.equal(cases.length,10);assert.equal(MOVE_LESSONS.length,6);
   for(const {key,make}of cases){
     const initial=make({}),before=clone(initial.before),config=clone(initial.config),solution=initial.solution[0];
     assert.equal(initial.success,false,key);assert.equal(initial.previewSuccess,false,key);assert.ok(initial.objective.length>25,key);assert.ok(initial.feedback.length>30,key);
@@ -30,7 +30,7 @@ test('all16 current tutorial scenes have unchanged game stats, an unmet goal, le
 
 test('movement starts unselected and only selection reveals legal controls; reset clears the forecast',()=>{
   const initial=createMoveLesson(0),html=renderMoveLesson(initial,{});assert.deepEqual(initial.available,[]);assert.deepEqual(initial.path,[]);assert.equal(initial.destination,null);
-  assert.match(html,/data-lesson-unit="blue" role="button" tabindex="0" aria-pressed="false"/);assert.match(html,/data-lesson-action="reset"/);
+  assert.match(html,/data-lesson-unit="blue" role="button" tabindex="-1" aria-pressed="false"/);assert.match(html,/data-lesson-action="reset"/);
   assert.doesNotMatch(html,/data-lesson-selected-unit|class="lesson-path-number"|class="lesson-path"| lesson-available/);
   const active=createMoveLesson(0,{selected:true});assert.ok(active.available.length);assert.match(renderMoveLesson(active,{}),/data-lesson-selected-unit="blue"/);
   assert.equal(createMoveLesson(0,{destination:{q:-2,r:3}}).destination,null);

@@ -8,16 +8,16 @@ import { classifyPosition, prepareStartPosition } from '../dist/start-position.j
 import { needsNewGame } from '../dist/new-game-refresh.js';
 const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
 const plain=value=>JSON.parse(JSON.stringify(value));
-const pendingHelper=app.slice(app.indexOf('function pendingSetupBalance('),app.indexOf("try {\n  const raw = localStorage.getItem(STORAGE);"));
+const pendingHelper=app.slice(app.indexOf('function readStartPreferences('),app.indexOf("try {\n  const raw = localStorage.getItem(STORAGE);"));
 const loadBlock=app.slice(app.indexOf("try {\n  const raw = localStorage.getItem(STORAGE);"),app.indexOf('\nfunction resetNewGameDefaults()'));
-const resetDeclaration=app.slice(app.indexOf('function resetNewGameDefaults()'),app.indexOf('\n// Use the defaults of the newly loaded release'));
+const resetDeclaration=app.slice(app.indexOf('function resetNewGameDefaults()'),app.indexOf('\n// Standard setups use this release'));
 function setup(overrides={}){
   const config=clone(PREVIOUS_UNCAPPED_CONFIG),state=createGame(config);
   const snapshot={config,state,log:[],positionKind:'default',gameVersion:'0.1.36'};
   const saved={...snapshot,balanceRevision:16,presetRevision:1,startPrefsRevision:1,gamePhase:'setup',editor:false,history:[],lastTurn:null,...overrides};
   let checkpoints=0;
   const readSnapshot=value=>({...clone(value),config:validateConfig(value.config),state:validateState(value.state,value.config)});
-  const context=vm.createContext({DEFAULT_CONFIG,PREVIOUS_LOCAL_CONFIG,BALANCE_REVISION,updateSavedBalance,upgradeSelectedBalancePreset,clone,validateConfig,createGame,classifyPosition,
+  const context=vm.createContext({DEFAULT_CONFIG,PREVIOUS_LOCAL_CONFIG,BALANCE_REVISION,updateSavedBalance,upgradeSelectedBalancePreset,clone,validateConfig,validateState,createGame,classifyPosition,startPreferences:null,
     config:clone(DEFAULT_CONFIG),state:createGame(DEFAULT_CONFIG),history:[],log:[],lastTurn:null,previousGame:null,selected:null,
     STORAGE:'lamps-prototype-v1',CURRENT_GAME_VERSION:'0.1.39',PRESET_REVISION:1,START_PREFS_REVISION:2,
     firstMove:'random',playMode:'bot',humanTeam:1,botDifficulty:'easy',readBotDifficulty:value=>value||'easy',gameVersion:'0.1.39',gamePhase:'setup',positionKind:'default',editor:false,
@@ -30,7 +30,7 @@ function setup(overrides={}){
 test('release39 selects existing production saves while localhost and standalone keep the local profile',()=>{
   const declaration=app.match(/^const archiveIsSite = .*;$/m)[0]+'\n'+app.match(/^const STORAGE = .*;$/m)[0]+'\nSTORAGE';
   for(const [origin,pathname,expected]of [['https://oladii.github.io','/GameOfThrows/','lamps-prototype-v1'],['http://127.0.0.1:35810','/','lamps-local-playtest13-v1'],['null','/Lamps.html','lamps-local-playtest13-v1']])assert.equal(vm.runInNewContext(declaration,{location:{origin,pathname}}),expected);
-  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.66');
+  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.71');
 });
 
 test('a fully known production revision16 standard pending setup upgrades to current13',()=>{
@@ -71,13 +71,29 @@ test('active games keep their selected first move and turn; current-revision exp
   assert.equal(legacy.context.firstMove,'random');assert.equal(legacy.context.playMode,'bot');assert.equal(legacy.context.humanTeam,1);
 });
 
+test('reloading retains next-game preferences separately from the restored battle settings',()=>{
+  const config=clone(DEFAULT_CONFIG),state=createGame(config);state.ply=12;
+  const preferences={playMode:'local',humanTeam:0,firstMove:'north',botDifficulty:'training',positionKind:'default',customSetup:null};
+  const ui=setup({config,state,balanceRevision:23,startPrefsRevision:2,gamePhase:'playing',playMode:'bot',humanTeam:1,firstMove:'south',botDifficulty:'hard',startPreferences:preferences});
+  assert.deepEqual(plain(ui.context.startPreferences),preferences);
+  assert.equal(ui.context.playMode,'bot');assert.equal(ui.context.botDifficulty,'hard');
+  assert.equal(ui.context.firstMove,'south');assert.deepEqual(plain(ui.context.state),state);
+});
+
+test('old running saves migrate their explicit choices without treating the battle as a custom start',()=>{
+  const config=clone(DEFAULT_CONFIG),state=createGame(config);state.ply=16;
+  const ui=setup({config,state,balanceRevision:23,startPrefsRevision:2,gamePhase:'playing',positionKind:'custom',playMode:'local',humanTeam:0,firstMove:'north',botDifficulty:'hard'});
+  assert.deepEqual(plain(ui.context.startPreferences),{playMode:'local',humanTeam:0,firstMove:'north',botDifficulty:'hard',positionKind:'default',customSetup:null});
+  assert.deepEqual(plain(ui.context.state),state);
+});
+
 test('starting a random game rolls exactly once and fixes that turn for the running game',()=>{
   const startingTeam=app.split('\n').find(line=>line.startsWith('function startingTeam('));
   const startGame=app.slice(app.indexOf('function startGame()'),app.indexOf("\n$('#start-setup').addEventListener"));
   for(const [roll,expected]of [[0.1,0],[0.9,1]]){
     let rolls=0,starts=0;
     const context=vm.createContext({config:clone(DEFAULT_CONFIG),state:createGame(DEFAULT_CONFIG),firstMove:'random',gamePhase:'setup',editor:false,refreshingNewGame:false,history:[],log:[],previousGame:null,selected:null,
-      Math:{random:()=>{rolls++;return roll;},floor:Math.floor},prepareStartPosition,resetBotContext(){},classifyPosition,CURRENT_GAME_VERSION:'0.1.39',gameVersion:'0.1.37',archiveGameMetadata:()=>({}),archiveRecorder:{start(){starts++;}},$:()=>({close(){}}),render(){},toast:message=>{throw Error(message);}});
+      Math:{random:()=>{rolls++;return roll;},floor:Math.floor},prepareStartPosition,currentStartPreferences:()=>({firstMove:'random'}),resetBotContext(){},classifyPosition,CURRENT_GAME_VERSION:'0.1.39',gameVersion:'0.1.37',archiveGameMetadata:()=>({}),archiveRecorder:{start(){starts++;}},$:()=>({close(){}}),render(){},toast:message=>{throw Error(message);}});
     vm.runInContext(startingTeam+'\n'+startGame+'\nstartGame();startGame();',context);
     assert.equal(rolls,1);assert.equal(starts,1);assert.equal(context.state.turn,expected);assert.equal(context.gamePhase,'playing');
   }

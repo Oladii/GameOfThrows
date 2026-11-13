@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { createEndgameTablebase } from '../endgame-tablebase.mjs';
 import { clone, move, reachable, validateConfig, effective } from '../dist/engine.js';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
-const archived = JSON.parse(fs.readFileSync(new URL('./fixtures/stalled-endgame.json', import.meta.url), 'utf8'));
+const archived = JSON.parse(fs.readFileSync(new URL('../../outputs/playtest-2026-11-05-shield-promotion-range/matches.json', import.meta.url), 'utf8'));
 
 test('tablebase finishes the actual stalled three-piece ending against the most delaying replies', () => {
   const config = validateConfig(archived.protocol.config); config.stats.archer.fortitude = 2;

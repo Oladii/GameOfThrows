@@ -101,6 +101,16 @@ function tieNoise(seed, ply, action) {
   return ((hash >>> 0) / 4294967296) * .001;
 }
 
+// A separate position-based roll leaves ordinary search and tie-breaking intact.
+// The same position, ply and seed reproduce the same teaching decision.
+function forgivenessRoll(state, config, seed) {
+  let hash = 2166136261;
+  for (const char of `${seed}:${state.ply}:${botPositionKey(state, config)}:forgive`) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  hash = Math.imul(hash ^ hash >>> 16, 0x21f0aaad);
+  hash = Math.imul(hash ^ hash >>> 15, 0x735a2d97);
+  return ((hash ^ hash >>> 15) >>> 0) / 4294967296;
+}
+
 function alphaBeta(node, remaining, alpha, beta, context) {
   context.visit(remaining);
   if (remaining === 0 || node.terminal) return node.immediate;
@@ -218,7 +228,7 @@ function coordinationRoutes(state, config) {
 
 /**
  * Pure browser/worker entry point. Options are structured-cloneable:
- * {depth: 2..4, seed, previousStates: [State, ...],
+ * {depth: 2..4, seed, forgiving: boolean, previousStates: [State, ...],
  *  seenPositions: [[positionKey,count]],
  *  lastActions: [[pieceId,{from:{q,r},to:{q,r}}]]}.
  * Small endings extend the easy planning horizon to three half-moves.
@@ -229,6 +239,7 @@ function coordinationRoutes(state, config) {
 function chooseBotAction(inputState, inputConfig, options = {}) {
   const started = performance.now(), config = validateConfig(inputConfig), state = validateState(inputState, config);
   const adviceDiversity = options.adviceDiversity === true;
+  const forgiving = options.forgiving === true && !adviceDiversity;
   const choiceSeed = options.seed ?? 17001;
   // Randomness chooses from the shortlist; it never changes the search or its beam.
   const depth = options.depth ?? 4, seed = adviceDiversity ? 17001 : choiceSeed;
@@ -244,7 +255,11 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
   for (const [key, count] of historicalCounts) seen.set(key, Math.max(seen.get(key) || 0, count));
   const lastActions = new Map(Array.isArray(options.lastActions) ? options.lastActions : []);
   const stats = { depth, maxDepth: 0, nodes: 0, visits: 0, legalMoves: 0, rootCandidates: 0, score: null, elapsedMs: 0 };
-  const finish = (action, reason) => ({ action: action === null ? null : action.pass ? { pass: true } : { id: action.id, to: { q: action.to.q, r: action.to.r } }, stats: { ...stats, elapsedMs: performance.now() - started, ...(reason ? { reason } : {}) } });
+  if (forgiving) stats.forgiveness = { applied: false, considered: false, probability: .8, candidates: 0, replies: 0 };
+  const showcaseCandidates = [];
+  const publicAction = action => action === null ? null : action.pass ? { pass: true } : { id: action.id, to: { q: action.to.q, r: action.to.r } };
+  const finish = (action, reason) => ({ action: publicAction(action), stats: { ...stats, elapsedMs: performance.now() - started, ...(reason ? { reason } : {}) },
+    ...(options.showcaseCandidates ? { candidates: [...showcaseCandidates].sort((a, b) => b.score - a.score).slice(0, 8).map(entry => publicAction(entry.action)) } : {}) });
   if (state.winner !== null) return finish(null, 'finished');
   const team = state.turn;
   // A preparation in a small ending needs its own follow-up after the
@@ -382,6 +397,7 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
     const node = { ...candidate, pathKeys: [botPositionKey(candidate.outcome.state, config)] };
     const bonus = adviceDiversity ? 0 : candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
     const score = alphaBeta(node, searchDepth - 1, adviceDiversity ? -Infinity : bestScore + candidate.penalty - bonus, Infinity, context) - candidate.penalty + bonus;
+    if (options.showcaseCandidates) showcaseCandidates.push({ action: candidate.action, score });
     if (adviceDiversity) adviceScores.set(candidate, score);
     if (score > bestScore) { best = candidate; bestScore = score; }
   }
@@ -411,6 +427,7 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
           const node = { ...candidate, pathKeys: [botPositionKey(candidate.outcome.state, config)] };
           const bonus = adviceDiversity ? 0 : candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
           const score = alphaBeta(node, searchDepth - 1, adviceDiversity ? -Infinity : bestScore + candidate.penalty - bonus, Infinity, context) - candidate.penalty + bonus;
+          if (options.showcaseCandidates) showcaseCandidates.push({ action: candidate.action, score });
           if (adviceDiversity) adviceScores.set(candidate, score);
           if (score > bestScore) { best = candidate; bestScore = score; }
         }
@@ -449,6 +466,67 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
       stats.defense.selectedSafeRank = ranked.indexOf(best) + 1;
       stats.defense.selectedOutsideOldBeam = !beam.includes(best);
       stats.defense.checked = checked.size;
+    }
+    if (forgiving && Math.abs(bestScore) < 1e6 && stats.defense.status !== 'no-safe-root') {
+      // A considerate opponent keeps its tactical knowledge and defence, but
+      // often declines an attack. It becomes gentler when ahead or just after
+      // the learner lost a piece. Immediate/proven wins already returned above.
+      const captured = best.outcome.deaths.filter(piece => piece.team !== team);
+      const info = stats.forgiveness;
+      const material = side => state.pieces.filter(piece => piece.team === side)
+        .reduce((sum, piece) => sum + 100 * PIECE_VALUES[piece.type], 0);
+      info.materialLead = material(team) - material(1 - team);
+      const recent = Array.isArray(options.previousStates) ? options.previousStates : [];
+      info.recentOpponentLoss = recent.some(previous => previous.ply < state.ply
+        && state.ply - previous.ply <= 4 && previous.pieces.some(piece => piece.team !== team
+          && !state.pieces.some(current => current.id === piece.id)));
+      info.probability = info.recentOpponentLoss ? 1 : info.materialLead >= 300 ? .95 : .8;
+      const pressure = candidate => coordinationPressure(candidate.outcome.state, candidate.outcome.evaluationReport, team);
+      info.pressureBefore = pressure(best);
+      info.roll = forgivenessRoll(state, config, choiceSeed);
+      if ((captured.length || info.pressureBefore > 8) && info.roll < info.probability) {
+        info.considered = true;
+        // Give up an opportunity, not our pieces: at most 600 material points
+        // and 80 positional points, with every immediate enemy reply checked.
+        info.maxGap = Math.min(600, captured.reduce((sum, piece) => sum + 100 * PIECE_VALUES[piece.type], 0)) + 80;
+        info.bestScore = bestScore;
+        const quiet = ranked.filter(candidate => candidate !== best && !candidate.terminal
+          && !candidate.action.pass && candidate.penalty === 0 && candidate.outcome.deaths.length === 0
+          && (captured.length || pressure(candidate) < info.pressureBefore - 4)).slice(0, ROOT_BEAM * 3);
+        let alternative = null, alternativeScore = -Infinity, alternativePressure = Infinity;
+        for (const candidate of quiet) {
+          info.candidates++;
+          const replies = legalActions(candidate.outcome.state);
+          if (!replies.length) continue;
+          let safe = true;
+          for (const action of replies) {
+            const reply = simulate(candidate.outcome.state, action); info.replies++;
+            if (reply.state.winner === 1 - team || reply.state.winner === 'draw' || reply.deaths.some(piece => piece.team === team)) { safe = false; break; }
+          }
+          if (!safe) continue;
+          checked.set(candidate, { safe: true, status: 'safe-one-reply', replies: replies.length });
+          const node = { ...candidate, pathKeys: [botPositionKey(candidate.outcome.state, config)] };
+          // Full-window search: a cutoff bound cannot measure how much worse
+          // an alternative is than the ordinary move.
+          const bonus = candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
+          const score = alphaBeta(node, searchDepth - 1, -Infinity, Infinity, context) - candidate.penalty + bonus;
+          if (Math.abs(score) >= 1e6 || score > bestScore || bestScore - score > info.maxGap) continue;
+          const candidatePressure = pressure(candidate);
+          if (candidatePressure < alternativePressure || (candidatePressure === alternativePressure && score > alternativeScore)) {
+            alternative = candidate; alternativeScore = score; alternativePressure = candidatePressure;
+          }
+        }
+        if (alternative) {
+          info.applied = true; info.skippedCaptures = captured.map(piece => piece.id);
+          info.pressureAfter = alternativePressure;
+          info.selectedScore = alternativeScore; info.gap = bestScore - alternativeScore;
+          best = alternative; bestScore = alternativeScore;
+          stats.defense.status = inspect(best).status;
+          stats.defense.selectedSafeRank = ranked.indexOf(best) + 1;
+          stats.defense.selectedOutsideOldBeam = !beam.includes(best);
+        }
+        stats.defense.checked = checked.size;
+      }
     }
     stats.defense.nodes = stats.nodes - startNodes;
     stats.defense.replies = [...checked.values()].reduce((sum, result) => sum + result.replies, 0);
