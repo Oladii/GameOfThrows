@@ -509,6 +509,8 @@ body:has(#rules-dialog[open]){overflow:hidden}
 /* Focus never adds a visual ring; selection and hover have their own game styles. */
 :focus,:focus-visible{outline:none!important}
 
+.badge-guide>.lesson-scene-heading{padding:0;margin-bottom:20px}
+
 </style>
 </head>
 <body>
@@ -540,7 +542,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.73</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-13T23:19:41.351Z">Сборка 14.11.2026, 02:19:41 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.74</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-13T23:22:57.266Z">Сборка 14.11.2026, 02:22:57 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -2868,7 +2870,7 @@ function badgeExamples(){
 }
 
 function renderUnitExamples(battles={},icons={},renderBadges=()=>''){
-  const badges=`<section class="lesson-scene badge-guide" aria-labelledby="badge-guide-title"><div class="lesson-scene-heading"><h4 id="badge-guide-title">Значения на бейджах</h4><p><strong>Слева — сила атаки:</strong> сколько урона наносит фигура.<br><strong>Справа — полная стойкость:</strong> с усилениями союзников, без вычитания урона.<br><strong>Сверху — под угрозой:</strong> при выборе и наведении показан входящий урон; смертельная угроза отмечается черепом.</p></div><div class="badge-examples">${badgeExamples().map(example=>`<figure><svg viewBox="-38 -32 76 70" role="img" aria-label="${example.label}: ${example.explanation}"><g class="lesson-piece lesson-friendly${example.info.dead?' lesson-fatal':''}">${renderTokenBody({type:'shield',icon:icons.shield,veteran:false},1)}${renderBadges(example.info,{showIncoming:example.showIncoming})}</g></svg><figcaption><strong>${example.label}</strong><span>${example.explanation}</span></figcaption></figure>`).join('')}</div></section>`;
+  const badges=`<section class="badge-guide" aria-labelledby="badge-guide-title"><div class="lesson-scene-heading"><h4 id="badge-guide-title">Значения на бейджах</h4><p><strong>Слева — сила атаки:</strong> сколько урона наносит фигура.<br><strong>Справа — полная стойкость:</strong> с усилениями союзников, без вычитания урона.<br><strong>Сверху — под угрозой:</strong> при выборе и наведении показан входящий урон; смертельная угроза отмечается черепом.</p></div><div class="lesson-scene"><div class="badge-examples">${badgeExamples().map(example=>`<figure><svg viewBox="-38 -32 76 70" role="img" aria-label="${example.label}: ${example.explanation}"><g class="lesson-piece lesson-friendly${example.info.dead?' lesson-fatal':''}">${renderTokenBody({type:'shield',icon:icons.shield,veteran:false},1)}${renderBadges(example.info,{showIncoming:example.showIncoming})}</g></svg><figcaption><strong>${example.label}</strong><span>${example.explanation}</span></figcaption></figure>`).join('')}</div></div></section>`;
   return '<div class="lesson-page">'+badges+UNIT_BATTLE_SCENES.map(key=>renderShowcaseBattle(battles[key]||createUnitBattle(key),icons,renderBadges)).join('')+'</div><p class="lesson-footnote">Все примеры используют характеристики текущей игры. Выбери фигуру, сравни прогноз и выполни подсказанный ход. Ваша партия не меняется.</p>';
 }
 

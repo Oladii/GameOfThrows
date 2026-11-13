@@ -498,3 +498,5 @@ body:has(#rules-dialog[open]){overflow:hidden}
 
 /* Focus never adds a visual ring; selection and hover have their own game styles. */
 :focus,:focus-visible{outline:none!important}
+
+.badge-guide>.lesson-scene-heading{padding:0;margin-bottom:20px}
