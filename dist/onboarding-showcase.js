@@ -12,9 +12,7 @@ export const TRAINING_ACTIONS = [
 ];
 export const TRAINING_COPY = [
   ['Следуй советам и победишь!',
-    'Выбери левого броненосца и подведи его к вражескому броненосцу.',
-    'Лучники держат под перекрёстным огнём щитовиков.',
-    'Первым ходом атакуем броненосцем броненосца противника. Вместе с лукарем они нанесут достаточно урона, чтобы вывести его из игры. Действуй!'],
+    'Лучники держат под перекрёстным огнём щитовиков. Первым ходом атакуем броненосцем броненосца противника. Вместе с лукарем они нанесут достаточно урона, чтобы вывести его из игры. Действуй!'],
   ['Вражеский броненосец уничтожен: броненосец и лукарь сложили урон. Теперь враг контратакует — ставит оставшегося броненосца между двумя нашими.',
     'Он ударит по обоим. Наш левый выдержит 5 урона при стойкости 6. Правый получит ещё и 2 урона от лукаря: всего 7 против стойкости 6 — и погибнет.',
     'Вражеский броненосец тоже погибнет под ответным огнём. Атаки происходят одновременно: фигура успевает ударить, даже если в этом же бою погибает.'],
@@ -292,7 +290,7 @@ export function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}
   const viewedPly = battle.reviewIndex ?? battle.position.ply;
   const advicePly = battle.presentation?.before.ply ?? viewedPly;
   const advice = (battle.copy||TRAINING_COPY)[Math.min((battle.copy||TRAINING_COPY).length-1, advicePly)];
-  const action=battle.sceneKey&&!battle.busy&&battle.reviewIndex===null?battle.actions[viewedPly]:null;
+  const action=!battle.busy&&battle.reviewIndex===null&&position.turn===1&&position.winner===null?(battle.actions||TRAINING_ACTIONS)[viewedPly]:null;
   const guideSource=action&&position.pieces.find(piece=>piece.id===action.id);
   const guide=guideSource?renderHintArrow(guideSource,action.to,showcasePoint):'';
   const disabled = condition => condition ? ' disabled' : '';
@@ -309,5 +307,5 @@ export function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}
       </div>${battle.position.winner !== null ? '<button class="button primary training-restart" type="button" data-showcase-action="restart">Сыграть ещё раз</button>' : ''}</div>`}
     </div></div></section>`;
   // All SVG references and update targets stay local when several battles share a page.
-  return battle.sceneKey?markup.replace(/(id="|url\(#)training-/g,`$1${battle.sceneKey}-`).replaceAll('showcase-title',`${battle.sceneKey}-title`).replaceAll('hint-arrow-head',`${battle.sceneKey}-hint-arrow-head`):markup;
+  return battle.sceneKey?markup.replace(/(id="|url\(#)training-/g,`$1${battle.sceneKey}-`).replaceAll('showcase-title',`${battle.sceneKey}-title`).replaceAll('hint-arrow-head',`${battle.sceneKey}-hint-arrow-head`):markup.replaceAll('hint-arrow-head','training-hint-arrow-head');
 }

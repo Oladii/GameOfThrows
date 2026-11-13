@@ -113,7 +113,7 @@ test('training shows incoming preview damage with normal range and aura presenta
   assert.doesNotMatch(html,/Показательный бой|Хватит|Поехали|Начать обучение|НАЧАЛО ОБУЧЕНИЯ|training-advice-title|showcase-legend|Попросить совет|Повторить учебный расчёт|>Атаки<|>Ауры</);
   assert.doesNotMatch(html,/lesson-available|Предпросмотр другого хода/);
   assert.doesNotMatch(html,/data-source=/);
-  assert.doesNotMatch(html,/training-hint-arrow-head/);
+  assert.match(html,/training-hint-arrow-head/);
   battle.selectPiece('s-shield-left'); battle.preview(TRAINING_ACTIONS[0].to);
   html=renderShowcaseBattle(battle,{},renderUnitBadges);
   assert.match(html,/training-preview-token/);
@@ -256,11 +256,13 @@ test('play again appears after victory and restores an isolated initial lesson',
   assert.deepEqual(battle.position, initial); assert.equal(pending.size,0);
 });
 
-test('advice arrows stay hidden on both player turns, during forecasts and after victory', () => {
-  const { battle, play, reply } = lesson();
-  const noArrows = () => assert.doesNotMatch(renderShowcaseBattle(battle,{},renderUnitBadges), /class="hint-trace"|training-hint-arrow-head/);
-  noArrows(); play(); noArrows(); reply(); noArrows();
-  assert.equal(battle.position.ply,2);
-  battle.selectPiece('s-bow-right'); battle.preview(battle.previewMoves[0]); noArrows();
-  battle.clearSelection(); play(); noArrows();
+test('training advice arrow appears immediately on player turns and hides during combat, history and victory',()=>{
+  const {battle,play,reply}=lesson();
+  const visible=()=>assert.match(renderShowcaseBattle(battle,{},renderUnitBadges),/class="hint-trace"/);
+  const hidden=()=>assert.doesNotMatch(renderShowcaseBattle(battle,{},renderUnitBadges),/class="hint-trace"/);
+  visible();assert.equal(battle.selectedId,null);
+  play();hidden();reply();visible();
+  battle.review(-1);hidden();battle.review(1);visible();
+  battle.selectPiece('s-bow-right');battle.preview(battle.previewMoves[0]);visible();
+  battle.clearSelection();play();assert.equal(battle.position.winner,1);hidden();
 });
