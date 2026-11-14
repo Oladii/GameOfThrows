@@ -820,7 +820,7 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 .panel-actions+.selection-panel{padding-top:12px}
 .selection-panel .piece-heading{margin:0 0 8px}
 
-/* Main game composition: controls and information on the left, field on the right. */
+/* Main game composition: reference left, field center, multiplayer right. */
 .topbar{height:72px;min-height:72px;max-height:72px;padding:0 24px;justify-content:center;align-items:center;flex-wrap:nowrap;border:0}
 main{padding:0 24px 24px}
 .arena{padding-inline:var(--arena-inset);padding-bottom:var(--arena-inset)}
@@ -829,12 +829,15 @@ main{padding:0 24px 24px}
 .board-footer{justify-content:space-between;padding-bottom:0}
 .board-footer>.turn-actions{justify-content:flex-end;margin-left:auto}
 @media(min-width:701px){
-.workspace{grid-template-columns:320px minmax(0,1fr);gap:20px}
+.workspace{grid-template-columns:320px minmax(0,1fr) 320px;gap:20px}
 .left-panel{grid-column:1;grid-row:1}
 .arena{grid-column:2;grid-row:1}
+.multiplayer-panel{grid-column:3;grid-row:1}
 }
 @media(min-width:1001px){
 :root{--game-height:calc(100dvh - 96px)}
+.multiplayer-panel{max-height:var(--game-height);overflow:auto;scrollbar-width:none}
+.multiplayer-panel::-webkit-scrollbar{display:none}
 }
 @media(max-width:700px){
 .topbar{padding:0 16px}
@@ -848,7 +851,9 @@ main{padding:0 14px 14px}
 .board-footer>.turn-actions{flex:1 1 100%}
 }
 
-/* Room controls share the game's quiet sidebar, with team colors on the seats. */
+/* Room controls use a dedicated sidebar with the same spacing as the reference. */
+.multiplayer-panel{min-width:0;padding-top:0}
+.online-room .multiplayer-panel>.panel-actions{display:none}
 .room-panel{margin:0 0 22px;font-size:13px;line-height:1.5;min-width:0}
 .room-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .room-heading h2{margin:0;font-size:19px;line-height:1.3;letter-spacing:-.02em}
