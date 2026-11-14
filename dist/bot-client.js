@@ -39,9 +39,9 @@ export class BotRunner {
         if (event.data.error) finish(onError, new Error(event.data.error));
         else finish(onResult, event.data.result);
       };
-      worker.onerror = event => { event.preventDefault?.(); finish(onError, new Error('Не удалось рассчитать ход бота.')); };
-      worker.onmessageerror = () => finish(onError, new Error('Не удалось прочитать ответ бота.'));
-      this.timer = setTimeout(() => finish(onError, new Error('Бот не успел рассчитать ход. Попробуйте ещё раз.')), this.timeoutMs);
+      worker.onerror = event => { event.preventDefault?.(); finish(onError, new Error('Не удалось рассчитать ход бота')); };
+      worker.onmessageerror = () => finish(onError, new Error('Не удалось прочитать ответ бота'));
+      this.timer = setTimeout(() => finish(onError, new Error('Бот не успел рассчитать ход. Попробуй ещё раз')), this.timeoutMs);
       worker.postMessage({ ...request, id });
     } catch (error) { this.cancel(); onError(error); }
   }

@@ -18,7 +18,7 @@ test('the left panel alternates between the reference and selected figure, prese
   assert.equal(nodes['#reference-panel'].hidden, false); assert.equal(nodes['#selection-panel'].hidden, true);
   context.selected = 'own'; context.renderInspector({});
   assert.equal(nodes['#reference-panel'].hidden, true); assert.equal(nodes['#selection-panel'].hidden, false);
-  assert.ok(nodes['#inspector'].innerHTML.includes('Броненосец'));
+  assert.ok(nodes['#inspector'].innerHTML.includes('Щитоносец'));
   assert.equal(nodes['.left-panel'].scrollTop, 0);
   nodes['.left-panel'].scrollTop = 140;
   const preview = structuredClone(state); preview.pieces[0].r = 0;
@@ -78,10 +78,10 @@ test('the veteran reference separates permanent power and ally aura, including l
   vm.runInContext(app.slice(app.indexOf('function shieldPromotionDescription('), app.indexOf('function shieldDescriptionMarkup(')), context);
   const description = context.shieldPromotionDescription();
   assert.match(description, /Урон: 6, дальность: 3, стойкость: 6/);
-  assert.match(description, /союзникам \+1 к урону, \+1 к дальности и \+1 к стойкости/);
+  assert.match(description, /союзникам \+1 к урону, \+1 к дальности и \+1 к стойкости/);
   context.config = structuredClone(PREVIOUS_FORMATION_CONFIG);
   delete context.config.shieldPromotion.allies;
-  assert.match(context.shieldPromotionDescription(), /союзникам \+9 к урону, \+2 к дальности и \+9 к стойкости/);
+  assert.match(context.shieldPromotionDescription(), /союзникам \+9 к урону, \+2 к дальности и \+9 к стойкости/);
   assert.ok(!app.includes('Ничья — тоже поражение'));
 });
 

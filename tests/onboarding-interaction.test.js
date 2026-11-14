@@ -99,7 +99,7 @@ test('seven demos keep their own positions, restart independently and reset on r
   ui.click('unit-archer-veteran', { showcasePiece: 'blue' });
   ui.click('unit-archer-veteran', { showcaseCell: '0,-3' }); ui.flush();
   assert.match(ui.html('unit-archer-veteran'), /data-ply="1"/);
-  assert.match(ui.html('unit-archer-veteran'), /уничтожил флаг/);
+  assert.match(ui.html('unit-archer-veteran'), /уничтожил знамя/);
   for (const key of UNIT_BATTLE_SCENES.filter(key => key !== 'unit-archer-veteran')) assert.match(ui.html(key), /data-ply="0"/);
   ui.click('unit-shield', { showcaseAction: 'restart' });
   assert.match(ui.html('unit-archer-veteran'), /data-ply="1"/);

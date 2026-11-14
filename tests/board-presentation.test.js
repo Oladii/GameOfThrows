@@ -134,7 +134,7 @@ test('all terrain paints before tokens, with clickable accessible cells under th
   assert.equal((html.match(/role="button"/g)||[]).length,cells(config).length);
   assert.match(html,/id="board-pieces" pointer-events="none"/);
   assert.match(html,/aria-describedby="cell-stats-0,0"/);
-  assert.match(html,/Броня: /);
+  assert.match(html,/Стойкость: /);
 });
 test('Belwe numerals keep their size for one and two digits, with a smaller incoming value', () => {
   const a=renderTokenNumber(8,0,0,'attack'), b=renderTokenNumber(88,0,0,'fort');

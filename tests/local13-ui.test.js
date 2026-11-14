@@ -126,7 +126,7 @@ test('commander inspector distinguishes an independent attack from historical su
       assert.match(nodes['#inspector'].innerHTML, /Дальность не увеличивается от аур/);
     }
     else {
-      assert.match(nodes['#inspector'].innerHTML, /Может атаковать только рядом с союзным ветераном/);
+      assert.match(nodes['#inspector'].innerHTML, /Может атаковать только рядом с союзным ветераном/);
       assert.doesNotMatch(nodes['#inspector'].innerHTML, /Атакует самостоятельно/);
     }
   }
@@ -151,7 +151,7 @@ test('loading revision20 arms the current commander without rebuilding the posit
   let notification = '';
   context.toast = message => { notification = message; };
   vm.runInContext(app.slice(app.lastIndexOf('if (balanceUpdated) toast(')), context);
-  assert.equal(notification, 'Командир: атака 3, дальность 2. Расстановка сохранена.');
+  assert.equal(notification, 'Командир: урон 3, дальность 2. Расстановка сохранена');
 });
 
 

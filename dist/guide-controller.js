@@ -23,7 +23,7 @@ export function createGuideController({ document: doc = globalThis.document, win
     else $('#onboarding-progress').innerHTML = onboardingSteps.map((label, index) => `<button type="button" data-onboarding-step="${index}"${index === onboardingStep ? ' aria-current="step"' : ''} aria-label="Шаг ${index + 1}: ${label}"><span class="step-number">${index + 1}</span>${label}</button>`).join('');
     let content = '';
     if (onboardingStep === 0) content =
-      '<ul class="onboarding-principles" id="onboarding-title"><li>Уничтожь вражеский флаг и не потеряй свой.</li><li>Показывать своим фишкам кого бить — не надо.</li><li>Обе армии автоматически атакуют доступные цели в конце хода.</li><li>Урон складывается, но не накапливается между ходами. Если долго бить стальной щит палкой — щит не сломается.</li></ul>' +
+      '<ul class="onboarding-principles" id="onboarding-title"><li>Уничтожь вражеское знамя и не потеряй своё</li><li>Показывать своим фишкам кого бить — не надо</li><li>Обе армии автоматически атакуют доступные цели в конце хода</li><li>Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход</li></ul>' +
       renderShowcaseBattle(ensureShowcaseBattle('main'), icons, renderBadges);
     if (onboardingStep === 1) content = renderUnitExamples(onboardingUnitBattles, icons, renderBadges);
     $('#onboarding-body').innerHTML = content;

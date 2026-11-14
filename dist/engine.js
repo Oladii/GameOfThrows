@@ -33,31 +33,31 @@ export function distance(a, b, config) {
 }
 export function validateConfig(input) {
   const config = clone(input);
-  if (!config || !['hex', 'square'].includes(config.geometry)) throw new Error('Неизвестный тип поля.');
-  const number = (n, min, max, label) => { if (!Number.isInteger(n) || n < min || n > max) throw new Error(`${label}: нужно целое число от ${min} до ${max}.`); };
+  if (!config || !['hex', 'square'].includes(config.geometry)) throw new Error('Неизвестный тип поля');
+  const number = (n, min, max, label) => { if (!Number.isInteger(n) || n < min || n > max) throw new Error(`${label}: нужно целое число от ${min} до ${max}`); };
   number(config.size, config.geometry === 'hex' ? 3 : 6, config.geometry === 'hex' ? 6 : 12, 'Размер поля');
   if (config.archerEdgeDamageBonus !== undefined) number(config.archerEdgeDamageBonus, 0, 20, 'Усиление лукаря за край');
   config.auraDefenseCap ??= -1;
-  number(config.auraDefenseCap, -1, 20, 'Предел защиты от аур');
+  number(config.auraDefenseCap, -1, 20, 'Предел бонуса стойкости от аур');
   if (config.drumShieldMoveBonus !== undefined) number(config.drumShieldMoveBonus, 0, 6, 'Бонус шага от барабана');
-  if (config.drumMoveAllies !== undefined && typeof config.drumMoveAllies !== 'boolean') throw new Error('Неверное правило шага союзников.');
-  if (config.centerArchers !== undefined && typeof config.centerArchers !== 'boolean') throw new Error('Неверная расстановка лукарей.');
-  if (config.shieldDefenseOnly !== undefined && typeof config.shieldDefenseOnly !== 'boolean') throw new Error('Неверное правило защиты броненосцев.');
-  if (config.victoryCondition !== undefined && !['all-units', 'combat-units', 'flag-or-combat'].includes(config.victoryCondition)) throw new Error('Неизвестное условие окончания партии.');
+  if (config.drumMoveAllies !== undefined && typeof config.drumMoveAllies !== 'boolean') throw new Error('Неверное правило шага союзников');
+  if (config.centerArchers !== undefined && typeof config.centerArchers !== 'boolean') throw new Error('Неверная расстановка лукарей');
+  if (config.shieldDefenseOnly !== undefined && typeof config.shieldDefenseOnly !== 'boolean') throw new Error('Неверное правило защиты щитоносцев');
+  if (config.victoryCondition !== undefined && !['all-units', 'combat-units', 'flag-or-combat'].includes(config.victoryCondition)) throw new Error('Неизвестное условие окончания партии');
   if (config.deploymentOffset !== undefined) number(config.deploymentOffset, 0, 1, 'Отступ начальной расстановки');
-  if (!config.army || !config.stats || !config.experiments) throw new Error('Неполные настройки.');
+  if (!config.army || !config.stats || !config.experiments) throw new Error('Неполные настройки');
   // Historical saves have no scout; extend the schema without adding units to a running game.
   config.army.scoutLamps ??= 0;
   config.stats.scoutLamp ??= clone(PREVIOUS_SCOUT_CONFIG.stats.scoutLamp);
   for (const field of ['groups', 'shields', 'archers', 'attackLamps', 'defenseLamps', 'scoutLamps']) number(config.army[field], 0, field === 'groups' ? 6 : 12, 'Состав армии');
-  for (const field of ['centralShields', 'rearArchers', 'rearShields']) if (config.army[field] !== undefined) number(config.army[field], 0, 12, 'Фигуры в центре');
+  for (const field of ['centralShields', 'rearArchers', 'rearShields']) if (config.army[field] !== undefined) number(config.army[field], 0, 12, 'Фигуры в центре');
   if (config.army.rearSupportOffset !== undefined) number(config.army.rearSupportOffset, 0, 1, 'Отступ поддержки');
   if (config.army.horns !== undefined) number(config.army.horns, 0, 12, 'Горны');
   for (const type of TYPES) {
     // Old imported configurations may omit the horn schema when no horns are present.
     if (type === 'horn' && !config.stats.horn && !(config.army.horns > 0)) continue;
     const stats = config.stats[type];
-    if (!stats) throw new Error('В настройках отсутствует тип фигуры.');
+    if (!stats) throw new Error('В настройках отсутствует тип фигуры');
     for (const field of ['move', 'damage', 'range', 'fortitude', 'aura', 'damageBonus', 'rangeBonus', 'defenseBonus']) {
       number(stats[field], field === 'move' ? 1 : 0, field === 'move' ? 6 : 20, `${type}.${field}`);
     }
@@ -71,36 +71,36 @@ export function validateConfig(input) {
     defenseLamp: ['damage', 'range', 'damageBonus', 'rangeBonus']
   };
   for (const [type, fields] of Object.entries(unsupported)) for (const field of fields) {
-    if (config.stats[type][field] !== 0) throw new Error(`${type} не поддерживает параметр ${field}: требуется 0.`);
+    if (config.stats[type][field] !== 0) throw new Error(`${type} не поддерживает параметр ${field}: требуется 0`);
   }
   config.shieldPromotion ??= clone(PREVIOUS_SCOUT_CONFIG.shieldPromotion);
   config.shieldPromotion.maxRange ??= PREVIOUS_SCOUT_CONFIG.shieldPromotion.maxRange;
   for (const field of ['aura', 'damageBonus', 'rangeBonus', 'defenseBonus', 'maxRange']) number(config.shieldPromotion[field], 0, 20, `shieldPromotion.${field}`);
   if (config.shieldPromotion.allies !== undefined) {
-    if (!config.shieldPromotion.allies || typeof config.shieldPromotion.allies !== 'object' || Array.isArray(config.shieldPromotion.allies)) throw new Error('Неверная аура ветерана для союзников.');
+    if (!config.shieldPromotion.allies || typeof config.shieldPromotion.allies !== 'object' || Array.isArray(config.shieldPromotion.allies)) throw new Error('Неверная аура ветерана для союзников');
     for (const field of ['aura', 'damageBonus', 'rangeBonus', 'defenseBonus']) number(config.shieldPromotion.allies[field], 0, 20, `shieldPromotion.allies.${field}`);
   }
-  for (const field of Object.keys(DEFAULT_CONFIG.experiments)) if (typeof config.experiments[field] !== 'boolean') throw new Error('Неверный переключатель правила.');
+  for (const field of Object.keys(DEFAULT_CONFIG.experiments)) if (typeof config.experiments[field] !== 'boolean') throw new Error('Неверный переключатель правила');
   config.version = 1;
   return config;
 }
 export function validateState(input, config) {
   const state = clone(input);
-  if (!state || !Array.isArray(state.pieces) || ![0, 1].includes(state.turn)) throw new Error('Неверная позиция.');
-  if (!Number.isInteger(state.ply) || state.ply < 0) throw new Error('Неверный номер хода.');
+  if (!state || !Array.isArray(state.pieces) || ![0, 1].includes(state.turn)) throw new Error('Неверная позиция');
+  if (!Number.isInteger(state.ply) || state.ply < 0) throw new Error('Неверный номер хода');
   const board = new Set(cells(config).map(c => key(c.q, c.r))), positions = new Set(), ids = new Set();
   for (const p of state.pieces) {
-    if (!p || !TYPES.includes(p.type) || ![0, 1].includes(p.team) || typeof p.id !== 'string' || !/^[\w-]{1,60}$/.test(p.id)) throw new Error('Неверная фигура.');
+    if (!p || !TYPES.includes(p.type) || ![0, 1].includes(p.team) || typeof p.id !== 'string' || !/^[\w-]{1,60}$/.test(p.id)) throw new Error('Неверная фигура');
     const pos = key(p.q, p.r);
-    if (!Number.isInteger(p.q) || !Number.isInteger(p.r) || !board.has(pos) || positions.has(pos) || ids.has(p.id)) throw new Error('Позиция содержит пересечение фигур или клетку вне поля.');
+    if (!Number.isInteger(p.q) || !Number.isInteger(p.r) || !board.has(pos) || positions.has(pos) || ids.has(p.id)) throw new Error('Позиция содержит пересечение фигур или клетку вне поля');
     positions.add(pos); ids.add(p.id);
-    if (p.group != null && (!Number.isInteger(p.group) || p.group < 1 || p.group > 100)) throw new Error('Неверная группа.');
-    if (p.reachedFarEdge !== undefined && (p.type !== 'shield' || typeof p.reachedFarEdge !== 'boolean')) throw new Error('Неверный признак достижения края броненосцем.');
+    if (p.group != null && (!Number.isInteger(p.group) || p.group < 1 || p.group > 100)) throw new Error('Неверная группа');
+    if (p.reachedFarEdge !== undefined && (p.type !== 'shield' || typeof p.reachedFarEdge !== 'boolean')) throw new Error('Неверный признак достижения края щитоносцем');
     if (shieldCanRetreat(p, config)) p.reachedFarEdge = true;
-    if (p.archerReachedFarEdge !== undefined && (p.type !== 'archer' || typeof p.archerReachedFarEdge !== 'boolean')) throw new Error('Неверный признак достижения края лукарем.');
+    if (p.archerReachedFarEdge !== undefined && (p.type !== 'archer' || typeof p.archerReachedFarEdge !== 'boolean')) throw new Error('Неверный признак достижения края лукарем');
     if (archerHasEdgeBonus(p, config)) p.archerReachedFarEdge = true;
   }
-  if (![null, 0, 1, 'draw'].includes(state.winner)) throw new Error('Неверный результат партии.');
+  if (![null, 0, 1, 'draw'].includes(state.winner)) throw new Error('Неверный результат партии');
   if (['combat-units', 'flag-or-combat'].includes(config.victoryCondition)) state.winner = winnerForPieces(state.pieces, config);
   return state;
 }
@@ -299,11 +299,11 @@ export function createSearchMovement(config) {
     move: (state, id, destination) => moveWithReachable(state, config, id, destination, cachedReachable) };
 }
 function moveWithReachable(state, config, id, destination, getReachable) {
-  if (state.winner !== null || ['combat-units', 'flag-or-combat'].includes(config.victoryCondition) && winnerForPieces(state.pieces, config) !== null) throw new Error('Партия завершена. Можно отменить ход или открыть расстановку.');
+  if (state.winner !== null || ['combat-units', 'flag-or-combat'].includes(config.victoryCondition) && winnerForPieces(state.pieces, config) !== null) throw new Error('Партия завершена. Можно отменить ход или открыть расстановку');
   const piece = state.pieces.find(p => p.id === id);
-  if (!piece || piece.team !== state.turn) throw new Error('Сейчас ход другой команды.');
+  if (!piece || piece.team !== state.turn) throw new Error('Сейчас ход другой команды');
   const route = getReachable(piece, state, config).find(c => c.q === destination.q && c.r === destination.r);
-  if (!route) throw new Error('На эту клетку нельзя пойти.');
+  if (!route) throw new Error('На эту клетку нельзя пойти');
   const next = clone(state), moving = next.pieces.find(p => p.id === id);
   moving.q = destination.q; moving.r = destination.r;
   if (route.reachedFarEdge) moving.reachedFarEdge = true;
@@ -313,8 +313,8 @@ function moveWithReachable(state, config, id, destination, getReachable) {
   return { ...outcome, action: { team: piece.team, type: piece.type, from: { q: piece.q, r: piece.r }, to: destination } };
 }
 export function pass(state, config) {
-  if (!config.experiments.allowPass) throw new Error('Пропуск хода выключен в настройках эксперимента.');
-  if (state.winner !== null || ['combat-units', 'flag-or-combat'].includes(config.victoryCondition) && winnerForPieces(state.pieces, config) !== null) throw new Error('Партия завершена.');
+  if (!config.experiments.allowPass) throw new Error('Пропуск хода выключен в настройках эксперимента');
+  if (state.winner !== null || ['combat-units', 'flag-or-combat'].includes(config.victoryCondition) && winnerForPieces(state.pieces, config) !== null) throw new Error('Партия завершена');
   const outcome = resolve(state, config);
   outcome.state.turn = 1 - state.turn; outcome.state.ply = state.ply + 1;
   return outcome;
@@ -324,9 +324,9 @@ export function createGame(input) {
   const config = validateConfig(input), board = cells(config), pieces = [];
   const army = config.army, centralShields = army.centralShields ?? 0, rearArchers = army.rearArchers ?? 0, rearShields = army.rearShields ?? 0;
   const total = army.groups * (army.shields + army.archers) + army.attackLamps + army.defenseLamps + army.scoutLamps + centralShields + rearArchers + rearShields + (army.horns ?? 0);
-  if (!total) throw new Error('Добавьте хотя бы одну фигуру в армию.');
+  if (!total) throw new Error('Добавь хотя бы одну фигуру в армию');
   const side = board.filter(c => config.geometry === 'hex' ? c.r < 0 : c.r < Math.floor(config.size / 2));
-  if (total > side.length) throw new Error(`Армия из ${total} фигур не помещается на своей половине (${side.length} клеток). Увеличьте поле или уменьшите состав.`);
+  if (total > side.length) throw new Error(`Армия из ${total} фигур не помещается на своей половине (${side.length} клеток). Увеличь поле или уменьши состав`);
   const occupied = new Set(), rowTarget = config.geometry === 'hex' ? -2 : Math.floor(config.size / 2) - 2;
   const centerX = c => config.geometry === 'hex' ? c.q + c.r / 2 : c.q - (config.size - 1) / 2;
   let id = 0;
@@ -355,7 +355,7 @@ export function createGame(input) {
     const rearSteps = config.geometry === 'hex' ? [0, 1] : config.experiments.squareDiagonals ? [0, -1, 1] : [0];
     for (const p of supports) {
       const cell = rearSteps.map(dq => ({ q: p.q + dq, r: p.r - 1 })).find(c => side.some(s => s.q === c.q && s.r === c.r) && !occupied.has(key(c.q, c.r)));
-      if (!cell) throw new Error('Поддержку нельзя сдвинуть назад на одну клетку. Увеличьте поле или уменьшите состав.');
+      if (!cell) throw new Error('Поддержку нельзя сдвинуть назад на одну клетку. Увеличь поле или уменьши состав');
       occupied.add(key(cell.q, cell.r));
       const reflected = pieces[pieces.indexOf(p) + 1];
       Object.assign(p, cell); Object.assign(reflected, mirror(cell, config));
@@ -410,7 +410,7 @@ export function createGame(input) {
     if ((army.horns ?? 0) > 0 && Object.is(piece.q, -0)) piece.q = 0;
     piece.r += piece.team === 0 ? -offset : offset;
     const pos = key(piece.q, piece.r);
-    if (!boardKeys.has(pos) || deployed.has(pos)) throw new Error('Начальная расстановка с выбранным отступом не помещается на поле. Увеличьте поле, уменьшите армию или измените отступ.');
+    if (!boardKeys.has(pos) || deployed.has(pos)) throw new Error('Начальная расстановка с выбранным отступом не помещается на поле. Увеличь поле, уменьши армию или измени отступ');
     deployed.add(pos);
   }
   return { pieces, turn: 0, ply: 0, winner: ['combat-units', 'flag-or-combat'].includes(config.victoryCondition) ? winnerForPieces(pieces, config) : null };
@@ -420,6 +420,6 @@ export function createScenario(name, config) {
   const row = config.geometry === 'hex' ? 0 : Math.floor(config.size / 2);
   const offset = config.geometry === 'hex' ? -3 : 0;
   const specs = name === 'adjacent' ? [[0, 'archer', 0], [1, 'archer', 0], [2, 'shield', 0], [3, 'shield', 1], [4, 'archer', 1], [5, 'archer', 1]] : [[0, 'archer', 0], [1, 'archer', 0], [2, 'shield', 0], [4, 'shield', 1], [5, 'archer', 1], [6, 'archer', 1]];
-  if (config.geometry === 'square' && config.size < 7 && name !== 'adjacent') throw new Error('Для этого сценария нужен квадрат хотя бы 7 × 7.');
+  if (config.geometry === 'square' && config.size < 7 && name !== 'adjacent') throw new Error('Для этого сценария нужен квадрат хотя бы 7 × 7');
   return { pieces: specs.map(([q, type, team], i) => ({ id: `s${i}`, q: q + offset, r: row, team, type, group: 1 })), turn: 0, ply: 0, winner: null };
 }
