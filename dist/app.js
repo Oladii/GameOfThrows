@@ -308,19 +308,21 @@ function presentKills(before, forecast, deaths) {
   // death effect and fades while each contribution still appears in order.
   combatAnimator.startSequence(presentation.groups);
 }
-function canReplayLastCombat() {
-  return Boolean(lastTurn && gamePhase === 'playing' && !editor && !reviewingTurn && !movement && !combat && !currentDeaths.length
-    && lastTurn.before.state.pieces.length > state.pieces.length);
-}
-function replayLastCombat() {
-  if (!canReplayLastCombat()) return;
-  const { before, action } = lastTurn;
+function combatReplayContext() {
+  const turn = reviewingTurn ? reviewTurn : lastTurn;
+  if (!turn?.action || gamePhase !== 'playing' || editor || reviewLoading || movement || combat || currentDeaths.length) return null;
+  const { before, action } = turn;
   const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
     : inspectCell(before.state, before.config, action.to, action.id);
   const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
-  if (!deaths.length) return;
+  return deaths.length ? { before, forecast, deaths } : null;
+}
+function canReplayCombat() { return Boolean(combatReplayContext()); }
+function replayCombat() {
+  const replay = combatReplayContext();
+  if (!replay) return;
   cancelBot(); selected = null;
-  presentKills(before, forecast, deaths);
+  presentKills(replay.before, replay.forecast, replay.deaths);
 }
 function lastTurnFromHistory() { const entry = history.at(-1); return entry?.action ? readLastTurn({ before: entry, action: entry.action }) : null; }
 function recentBotHistory() {
@@ -469,7 +471,7 @@ function renderInspector(context) {
   const position = context.isPreview && context.piece?.id === selected ? context.position : visibleState();
   const piece = position.pieces.find(p => p.id === selected), panel = $('#inspector');
   const pieceId = piece?.id || '';
-  $('#reference-panel').hidden = Boolean(piece) || Boolean(hint);
+  $('#sidebar-overview').hidden = Boolean(piece) || Boolean(hint);
   $('#selection-panel').hidden = !piece || Boolean(hint);
   if (panel.dataset.pieceId !== pieceId) { panel.dataset.pieceId = pieceId; $('.left-panel').scrollTop = 0; }
   if (!piece) {
@@ -608,10 +610,10 @@ function render(deaths = []) {
   $('#pass-turn').disabled = !humanCanMove();
   $('#undo').disabled = Boolean(movement || combat) || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor);
   $('#undo').title = playMode === 'bot' && !editor ? 'Отменить свой ход и ответ бота' : 'Отменить последнее действие';
-  $('#replay-combat').disabled = !canReplayLastCombat();
+  $('#replay-combat').disabled = !canReplayCombat();
   $('#review-previous').disabled = !canReviewPrevious();
   $('#review-previous').setAttribute('aria-pressed', String(reviewingTurn));
-  $('#review-current').disabled = !reviewingTurn || reviewLoading;
+  $('#review-current').disabled = !reviewingTurn || reviewLoading || Boolean(movement || combat || currentDeaths.length);
   $('#resume-bot').hidden = !isBotTurn() || reviewingTurn || editor || (!botIssue && !botSuspended);
   $('#resume-bot').disabled = Boolean(movement || combat);
   $('#resume-bot').textContent = botIssue ? 'Повторить ход бота' : 'Ход бота';
@@ -799,13 +801,14 @@ $('#editor-done').addEventListener('click', () => {
   try { state = validateState(state, config); positionKind = 'custom'; editor = false; history = []; log = []; selected = null; render(); openStartSettings(); }
   catch (error) { toast(error.message); }
 });
-$('#replay-combat').addEventListener('click', replayLastCombat);
+$('#replay-combat').addEventListener('click', replayCombat);
 function canReviewPrevious() {
   if (gamePhase !== 'playing' || editor || movement || combat || currentDeaths.length || reviewLoading) return false;
   const ply = visibleState().ply;
   return playMode === 'online' ? ply > 0 : history.some(entry => entry.action && entry.state.ply < ply);
 }
 async function stepReview(direction) {
+  if (movement || combat || currentDeaths.length) return;
   if (direction < 0 ? !canReviewPrevious() : !reviewingTurn || reviewLoading) return;
   const ply = visibleState().ply + direction, request = ++reviewRequest;
   cancelBot(); selected = null;

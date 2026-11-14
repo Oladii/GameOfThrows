@@ -381,3 +381,17 @@ test('local history retains and traverses more than forty moves', async () => {
   for (let ply = 1; ply <= 45; ply++) { await ui.context.stepReview(1); assert.equal(ui.context.visibleState().ply, ply); }
   assert.equal(ui.context.reviewingTurn, false);
 });
+
+test('history arrows cannot change the selected turn while its combat replay runs', async () => {
+  const ui=setupReview();
+  ui.context.state.ply=5;
+  ui.context.reviewingTurn=true;
+  ui.context.reviewTurn={before:{state:{...ui.context.state,ply:2}},action:{pass:true}};
+  ui.context.combat={visiblePosition:ui.context.reviewTurn.before.state};
+  const selection=ui.context.reviewTurn;
+  await ui.context.stepReview(-1); await ui.context.stepReview(1);
+  assert.equal(ui.context.reviewTurn,selection);
+  assert.equal(ui.context.canReviewPrevious(),false);
+  vm.runInContext(app.split('\n').find(line=>line.includes("$('#review-current').disabled =")),ui.context);
+  assert.equal(ui.$('#review-current').disabled,true);
+});

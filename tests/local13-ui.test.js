@@ -117,7 +117,7 @@ test('commander inspector distinguishes an independent attack from historical su
   for (const input of [DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG]) {
     const config = structuredClone(input);
     const state = position([{ id: 'commander', type: 'scoutLamp', team: 0, q: 0, r: 0 }]);
-    const nodes = { '#inspector': { innerHTML: '', dataset: {} }, '#reference-panel': {}, '#selection-panel': {}, '.left-panel': { scrollTop: 0 } };
+    const nodes = { '#inspector': { innerHTML: '', dataset: {} }, '#sidebar-overview': {}, '#selection-panel': {}, '.left-panel': { scrollTop: 0 } };
     const context = vm.createContext({ hint: null, config, selected: 'commander', movement: null, combat: null, visibleState: () => state, effective, shieldCanRetreat, archerHasEdgeBonus, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg/>', plural: () => 'клетки', $: selector => nodes[selector] });
     vm.runInContext(app.slice(app.indexOf('function renderInspector('), app.indexOf('function shieldPromotionDescription(')), context);
     context.renderInspector({});

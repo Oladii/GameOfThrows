@@ -9,15 +9,15 @@ import { renderTokenBody } from '../dist/token-presentation.js';
 
 test('the left panel alternates between the reference and selected figure, preserving scroll for previews', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
-  const nodes = { '#inspector': { innerHTML: '', dataset: {} }, '#reference-panel': { hidden: false }, '#selection-panel': { hidden: true }, '.left-panel': { scrollTop: 180 } };
+  const nodes = { '#inspector': { innerHTML: '', dataset: {} }, '#sidebar-overview': { hidden: false }, '#selection-panel': { hidden: true }, '.left-panel': { scrollTop: 180 } };
   const state = { pieces: [{ id: 'own', type: 'shield', team: 1, q: 0, r: 1 }, { id: 'ally', type: 'defenseLamp', team: 1, q: 1, r: 1 }], turn: 1, ply: 0, winner: null };
   const context = vm.createContext({ playMode: 'local', humanTeam: 0, hint: null, $: selector => nodes[selector], selected: null, movement: null, combat: null, config: structuredClone(DEFAULT_CONFIG), visibleState: () => state,
     effective, shieldCanRetreat, archerHasEdgeBonus, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg></svg>', plural: () => 'клетка' });
   vm.runInContext(app.slice(app.indexOf('function renderInspector('), app.indexOf('function shieldPromotionDescription(')), context);
   context.renderInspector({});
-  assert.equal(nodes['#reference-panel'].hidden, false); assert.equal(nodes['#selection-panel'].hidden, true);
+  assert.equal(nodes['#sidebar-overview'].hidden, false); assert.equal(nodes['#selection-panel'].hidden, true);
   context.selected = 'own'; context.renderInspector({});
-  assert.equal(nodes['#reference-panel'].hidden, true); assert.equal(nodes['#selection-panel'].hidden, false);
+  assert.equal(nodes['#sidebar-overview'].hidden, true); assert.equal(nodes['#selection-panel'].hidden, false);
   assert.ok(nodes['#inspector'].innerHTML.includes('Броненосец'));
   assert.equal(nodes['.left-panel'].scrollTop, 0);
   nodes['.left-panel'].scrollTop = 140;
@@ -43,7 +43,7 @@ test('the left panel alternates between the reference and selected figure, prese
   vm.runInContext(app.slice(app.indexOf('function highlightSources()'), app.indexOf('function paintAttackReach(')), context);
   context.selected = null; context.highlightSources();
   assert.equal(badge.outerHTML, '<g class="unit-badges">updated</g>');
-  assert.equal(nodes['#reference-panel'].hidden, false); assert.equal(nodes['#selection-panel'].hidden, true);
+  assert.equal(nodes['#sidebar-overview'].hidden, false); assert.equal(nodes['#selection-panel'].hidden, true);
   assert.equal(nodes['#inspector'].innerHTML, '');
 });
 

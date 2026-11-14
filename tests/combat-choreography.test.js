@@ -99,7 +99,7 @@ function presentationHarness(mode='local') {
     setTimeout:(fn,ms)=>time.setTimer(fn,ms),highlightSources(){},moveAnimator:{cancel(){}},startBot(){botStarts++;},
     CombatAnimator:class extends CombatAnimator{constructor(onPhase,onFrame){super(onPhase,onFrame,time);}},
     render(){snapshots.push({phase:context.combat?.phase||'idle',state:structuredClone(context.visibleState())});context.queueBot();}});
-  for(const name of ['visibleState','isBotTurn','humanCanMove','queueBot','presentKills','canReplayLastCombat','replayLastCombat','cancelMovement'])vm.runInContext(declaration(name),context);
+  for(const name of ['visibleState','isBotTurn','humanCanMove','queueBot','presentKills','combatReplayContext','canReplayCombat','replayCombat','cancelMovement'])vm.runInContext(declaration(name),context);
   const start=source.indexOf('const combatAnimator = new CombatAnimator('),end=source.indexOf('function toast(',start);
   vm.runInContext(source.slice(start,end),context);
   return {context,time,before,result,forecast,snapshots,start(){context.presentKills(before,forecast,result.deaths);},botStarts:()=>botStarts,botCancels:()=>botCancels,notices,action};
@@ -194,7 +194,7 @@ test('replaying the last calculation restores its victims temporarily and leaves
   ui.context.history=[structuredClone(ui.before)];ui.context.log=[{text:'Committed move',detail:'Two deaths'}];
   const actualState=ui.context.state, persisted=JSON.stringify({state:actualState,before:ui.before,log:ui.context.log,history:ui.context.history,lastTurn:ui.context.lastTurn});
   for(let repeat=0;repeat<2;repeat++) {
-    ui.context.replayLastCombat();assert.equal(ui.context.combat.phase,'dimming');
+    ui.context.replayCombat();assert.equal(ui.context.combat.phase,'dimming');
     assert.equal(ui.context.visibleState().pieces.length,4);assert.equal(ui.context.humanCanMove(),false);
     assert.equal(ui.context.combat.position.pieces.find(p=>p.id==='mover').r,1,'replay starts after movement');
     ui.time.advance(COMBAT_DIM_DURATION+ARROW_REVEAL_INTERVAL+ATTACK_HOLD_DURATION+DEATH_EFFECT_DURATION);
@@ -207,8 +207,8 @@ test('replaying the last calculation restores its victims temporarily and leaves
 test('replay blocks duplicate clicks and postpones the pending bot until the presentation is finished', () => {
   const ui=presentationHarness('bot');ui.context.lastTurn={before:ui.before,action:ui.action};
   ui.context.queueBot();assert.notEqual(ui.context.botTimer,null);
-  ui.context.replayLastCombat();const presentation=ui.context.combat;
-  ui.context.replayLastCombat();assert.equal(ui.context.combat,presentation);assert.equal(ui.botCancels(),1);
+  ui.context.replayCombat();const presentation=ui.context.combat;
+  ui.context.replayCombat();assert.equal(ui.context.combat,presentation);assert.equal(ui.botCancels(),1);
   ui.time.advance(420);assert.equal(ui.botStarts(),0);
   ui.time.advance(10000);assert.equal(ui.botStarts(),1);
 });
@@ -217,13 +217,13 @@ test('replay supports a saved pass calculation and disables its button when nobo
   const ui=presentationHarness();ui.before.state=ui.forecast.position;ui.before.config.experiments.allowPass=true;
   ui.context.state=pass(ui.before.state,ui.before.config).state;
   ui.context.lastTurn=JSON.parse(JSON.stringify({before:ui.before,action:{pass:true}}));
-  ui.context.replayLastCombat();assert.equal(ui.context.combat.deaths.length,2);
+  ui.context.replayCombat();assert.equal(ui.context.combat.deaths.length,2);
   ui.time.advance(10000);assert.equal(ui.context.combat,null);
   const peaceful=presentationHarness();peaceful.before.config.experiments.allowPass=true;
   peaceful.context.state=pass(peaceful.before.state,peaceful.before.config).state;
   peaceful.context.lastTurn={before:peaceful.before,action:{pass:true}};
   // The unchanged pre-move geometry has no lethal attack.
-  peaceful.context.replayLastCombat();assert.equal(peaceful.context.combat,null);
+  peaceful.context.replayCombat();assert.equal(peaceful.context.combat,null);
   assert.deepEqual(peaceful.notices,[]);assert.equal(peaceful.botCancels(),0);
   const button={disabled:false};peaceful.context.$=()=>button;
   vm.runInContext(source.match(/  \$\('#replay-combat'\)\.disabled = [^\n]+/)[0],peaceful.context);
@@ -233,10 +233,53 @@ test('replay supports a saved pass calculation and disables its button when nobo
   assert.equal(readyButton.disabled,false);
 });
 
-test('replay is unavailable before a move, during setup, editing, history review, movement and death effects', () => {
-  const fresh=presentationHarness();fresh.context.replayLastCombat();assert.equal(fresh.context.combat,null);
-  for(const [field,value] of [['gamePhase','setup'],['editor',true],['reviewingTurn',true],['movement',{}],['currentDeaths',[{}]]]) {
+test('replay is unavailable before a move, during setup, editing, missing history selection, loading, movement and death effects', () => {
+  const fresh=presentationHarness();fresh.context.replayCombat();assert.equal(fresh.context.combat,null);
+  for(const [field,value] of [['gamePhase','setup'],['editor',true],['reviewingTurn',true],['reviewLoading',true],['movement',{}],['currentDeaths',[{}]]]) {
     const ui=presentationHarness();ui.context.lastTurn={before:ui.before,action:ui.action};ui.context[field]=value;
-    ui.context.replayLastCombat();assert.equal(ui.context.combat,null);assert.equal(ui.botCancels(),0);
+    ui.context.replayCombat();assert.equal(ui.context.combat,null);assert.equal(ui.botCancels(),0);
   }
+});
+
+test('history replays the selected combat for players, spectators and local games, then restores that selection', () => {
+  for (const [mode, seat] of [['online',0],['online',1],['online',null],['local',null],['bot',null]]) {
+    const ui=presentationHarness(mode);
+    ui.context.roomView={selfSeat:seat,canMove:true};
+    ui.context.reviewingTurn=true;
+    ui.context.reviewTurn={before:ui.before,action:ui.action};
+    // The live position and its most recent action are unrelated to this battle.
+    ui.context.state={...ui.result.state,ply:12};
+    ui.context.lastTurn={before:{...ui.before,state:ui.context.state},action:{pass:true}};
+    ui.context.history=[structuredClone(ui.before)]; ui.context.log=[{text:'Later move'}];
+    const saved=JSON.stringify({state:ui.context.state,history:ui.context.history,log:ui.context.log,lastTurn:ui.context.lastTurn,reviewTurn:ui.context.reviewTurn});
+    for(let repeat=0;repeat<2;repeat++) {
+      assert.equal(ui.context.canReplayCombat(),true);
+      ui.context.replayCombat();
+      assert.equal(ui.context.combat.before,ui.before);
+      assert.deepEqual(Array.from(ui.context.combat.deaths,p=>p.id).sort(),ui.result.deaths.map(p=>p.id).sort());
+      assert.equal(ui.context.combat.position.pieces.find(p=>p.id==='mover').r,1);
+      assert.equal(ui.context.canReplayCombat(),false);
+      assert.equal(ui.context.humanCanMove(),false);
+      ui.time.advance(10000);
+      assert.equal(ui.context.combat,null);
+      assert.equal(ui.context.visibleState(),ui.before.state);
+      assert.equal(ui.context.reviewingTurn,true);
+      assert.equal(ui.botStarts(),0);
+      assert.equal(JSON.stringify({state:ui.context.state,history:ui.context.history,log:ui.context.log,lastTurn:ui.context.lastTurn,reviewTurn:ui.context.reviewTurn}),saved);
+    }
+  }
+});
+
+test('a peaceful selected turn cannot replay casualties from a later battle; historical passes use their own position', () => {
+  const ui=presentationHarness();
+  ui.context.lastTurn={before:ui.before,action:ui.action};
+  ui.context.reviewingTurn=true;
+  ui.context.reviewTurn={before:ui.before,action:{pass:true}};
+  assert.equal(ui.context.canReplayCombat(),false);
+  ui.context.replayCombat(); assert.equal(ui.context.combat,null);
+  ui.context.reviewTurn={before:{...ui.before,state:ui.forecast.position},action:{pass:true}};
+  assert.equal(ui.context.canReplayCombat(),true);
+  ui.context.replayCombat(); assert.equal(ui.context.combat.deaths.length,2);
+  ui.time.advance(10000);
+  assert.equal(ui.context.visibleState(),ui.forecast.position);
 });
