@@ -986,7 +986,7 @@ function renderScoreboard(position) {
     }).join('');
     const turnLabel = !online ? 'ТВОЙ ХОД' : !seated ? 'Ходят' : roomView.selfSeat === team ? 'Ваш ход' : 'Ход соперника';
     const waitingLabel = !online || position.winner !== null ? ' ' : !seated ? 'Ждут хода противника' : roomView.selfSeat === team ? 'Ожидаем ход соперника' : 'Ждут пока вы походите';
-    const turn = gamePhase === 'setup' ? online ? '' : 'РАССТАНОВКА' : combat || currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПРОСМОТР ХОДА' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : turnLabel : waitingLabel;
+    const turn = gamePhase === 'setup' ? online ? '' : 'РАССТАНОВКА' : combat || currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? '' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : turnLabel : waitingLabel;
     const offline = online && seat && (!snapshot.participants.some(person => person.guestId === seat.guestId && person.present) || roomView.selfSeat === team && roomView.status !== 'connected');
     if (online) {
       const canStand = roomView?.status === 'connected' && !roomView.pending && !roomConnecting;
