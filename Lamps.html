@@ -822,7 +822,6 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 .topbar{height:auto;min-height:76px;padding:16px;gap:14px;flex-wrap:wrap}
 .topbar .brand{font-size:18px;letter-spacing:1px}
 .guide-toolbar{margin-bottom:18px}}
-.topbar #rules-open{border-color:var(--ink)}
 .topbar #new-game{border-color:var(--ink)}
 .left-panel{padding-top:0;scrollbar-gutter:auto;scrollbar-width:none}
 .left-panel::-webkit-scrollbar{display:none}
@@ -835,8 +834,9 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 .topbar{height:72px;min-height:72px;max-height:72px;padding:0 24px;justify-content:center;align-items:center;flex-wrap:nowrap;border:0}
 main{padding:0 24px 24px}
 .arena{padding-inline:var(--arena-inset);padding-bottom:var(--arena-inset)}
-.panel-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:0 0 20px;width:100%;flex-shrink:0}
-.panel-actions>.button{flex:1;min-width:0;min-height:42px;padding:10px 12px;border:1.5px solid var(--ink);font-size:13px;font-weight:600}
+.panel-actions,.room-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.panel-actions{margin:0 0 20px;width:100%;flex-shrink:0}
+.panel-actions>.button{flex:1;min-width:0;min-height:42px;padding:10px 12px;font-size:13px;font-weight:600}
 .board-footer{justify-content:space-between;padding-bottom:0}
 .board-footer>.turn-actions{justify-content:flex-end;margin-left:auto}
 @media(min-width:701px){
@@ -867,27 +867,28 @@ main{padding:0 14px 14px}
 .online-room .multiplayer-panel>.panel-actions{display:none}
 .room-panel{margin:0 0 22px;font-size:13px;line-height:1.5;min-width:0}
 .room-panel h2{margin:0 0 16px;font-size:19px;line-height:1.3;letter-spacing:-.02em}
-.room-link-row{display:flex;gap:7px;margin-bottom:16px}
-.room-link-row .button{font-size:13px;min-height:42px;padding:10px 12px;margin:0}
-.room-player-actions{display:flex;flex-direction:column}
-.room-player-actions .button{min-height:42px;font-size:13px}
+#room-connected{display:contents}
+.room-actions .button{margin:0;min-height:42px;padding:10px 12px;font-size:13px}
 .room-note{margin:16px 0 0;color:#596158;font-size:12px;line-height:1.5}
 #room-error{margin:16px 0 0;line-height:1.5}
 #room-retry{margin-top:12px;min-height:40px;font-size:12px}
-#room-leave{margin-top:8px;min-height:42px;font-size:13px}
 .online-room :is(button,input,select,a,[tabindex]):focus-visible{outline:2px solid var(--ink)!important;outline-offset:3px}
 .online-room .room-panel ::selection{background:#d9e3c9;color:var(--ink)}
 .online-room.room-waiting .board-footer{display:none}
-.online-room.room-waiting .arena{height:auto;min-height:0;align-self:start}
+
 .online-room .team-card{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:18px 44px;align-content:start;gap:6px;height:90px;min-height:90px;padding:10px 12px}
-.online-room .team-title{display:block;font-size:12px;line-height:1.5}
+.online-room .team-title{display:block;font-size:12px;font-weight:600;line-height:18px;color:var(--blue)}
+.online-room .south .team-title{color:var(--rust)}
 .online-room .team-title .team-dot{display:inline-block;margin-right:6px}
-.online-room .turn-tag{font-size:10px;line-height:12px;letter-spacing:0;min-height:12px;margin:0}
-.online-room .team-card-body{min-width:0}
+.online-room .turn-tag{font-size:12px;line-height:16px;font-weight:400;letter-spacing:0;min-height:16px;margin:0;opacity:1}
+.online-room .team-card-body{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:16px 20px;gap:8px}
+.online-room .team-card-body:has(.team-card-action){display:block}
 .online-room .team-card-action{height:44px;display:flex;align-items:center}
-.online-room .team-card-details{display:flex;flex-direction:column;justify-content:space-between;min-width:0}
-.online-room .team-card-details .team-count{font-size:11px;line-height:16px}
-.online-room .team-card-details .team-roster{flex-basis:auto}
+.online-room .team-card-details{display:contents}
+.online-room .team-card-details .team-count{font-size:12px;line-height:16px;font-weight:400;font-variant-numeric:tabular-nums;text-align:right}
+.online-room .team-card-details .team-roster{grid-column:1/-1;align-items:center;flex-basis:auto}
+.online-room .team-unit{font-size:12px;line-height:20px;font-weight:500}
+.online-room .team-unit svg{width:16px;height:16px}
 .online-room .team-card-action .button{height:36px;min-height:36px;padding:8px 10px;font-size:12px;margin:0}
 
 </style>
@@ -919,23 +920,25 @@ main{padding:0 14px 14px}
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T22:53:46.014Z">Сборка 15.11.2026, 01:53:46 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T23:09:21.059Z">Сборка 15.11.2026, 02:09:21 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
         <div class="scoreboard" id="scoreboard"></div>
         <div class="board-wrap"><svg id="board" focusable="false" tabindex="-1" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Поле игры" aria-describedby="board-keyboard-help" xmlns="http://www.w3.org/2000/svg"></svg><p id="board-keyboard-help">Стрелки перемещают фокус по клеткам. Enter или пробел выбирает фигуру или делает ход.</p></div>
-        <div class="board-footer"><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Попросить совет</button><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие"><svg class="undo-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 3-5 5 5 5"/><path d="M4 8h10a6 6 0 0 1 0 12"/></svg><span>Отменить ход</span></button><button id="replay-combat" class="button subtle combat-replay" type="button" title="Повторить последний расчёт" aria-label="Повторить последний расчёт" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg><span>Повторить расчёт</span></button><button id="review-previous" class="button subtle history-arrow" title="Показать позицию перед последним ходом" aria-label="Показать последний ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Вернуться к текущей позиции" aria-label="Вернуться к текущей позиции" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
+        <div class="board-footer"><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Попросить совет</button><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие"><svg class="undo-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 3-5 5 5 5"/><path d="M4 8h10a6 6 0 0 1 0 12"/></svg><span>Отменить ход</span></button><button id="replay-combat" class="button subtle combat-replay" type="button" title="Повторить последний расчёт" aria-label="Повторить последний расчёт" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg><span>Повторить расчёт</span></button><button id="review-previous" class="button subtle history-arrow" title="Предыдущий ход" aria-label="Предыдущий ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Следующий ход" aria-label="Следующий ход" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
       </section>
       <aside class="multiplayer-panel" aria-label="Мультиплеер">
         <div class="panel-actions"><button id="room-open" class="button outline" type="button">Играть по ссылке</button></div>
         <section id="room-panel" class="room-panel" aria-labelledby="room-title" hidden>
           <h2 id="room-title">Игровая комната</h2>
-          <div id="room-connected" hidden>
-            <div class="room-link-row"><button id="room-copy" class="button outline full" type="button">Копировать ссылку на комнату</button></div>
-            <div class="room-player-actions"><button id="room-finish" class="button subtle full" type="button" hidden>Завершить игру</button></div>
+          <div class="room-actions">
+            <div id="room-connected" hidden>
+              <button id="room-copy" class="button outline full" type="button">Копировать ссылку на комнату</button>
+              <button id="room-finish" class="button subtle full" type="button" hidden>Завершить игру</button>
+            </div>
+            <button id="room-leave" class="button subtle full" type="button">Выйти из игровой комнаты</button>
           </div>
-          <button id="room-leave" class="button subtle full" type="button">Выйти из игровой комнаты</button>
           <p id="room-participants" class="room-note" hidden></p>
           <p id="room-error" class="form-error" role="alert" hidden></p>
           <button id="room-retry" class="button outline full" type="button" hidden>Повторить подключение</button>
@@ -3898,6 +3901,7 @@ class MultiplayerClient {
   createRoom(body) { return this.request('/api/rooms', { method: 'POST', body }); }
   joinRoom(roomId, body) { return this.request(this.roomPath(roomId) + '/join', { method: 'POST', body }); }
   readRoom(roomId) { return this.request(this.roomPath(roomId)); }
+  readHistory(roomId, matchId, ply) { return this.request(this.roomPath(roomId) + '/history?' + new URLSearchParams({ matchId, ply })); }
   presence(roomId, body) { return this.request(this.roomPath(roomId) + '/presence', { method: 'POST', body }); }
   leaveRoom(roomId, body) { return this.request(this.roomPath(roomId) + '/leave', { method: 'POST', body }); }
   command(roomId, body) { return this.request(this.roomPath(roomId) + '/commands', { method: 'POST', body }); }
@@ -4097,6 +4101,15 @@ class MultiplayerSession {
     return this.#command('move', { id: action.id, to: action.to });
   }
   endMatch() { return this.#command('finish', {}); }
+  async historyPosition(ply) {
+    const snapshot = this.#snapshot, generation = this.#generation;
+    if (!snapshot?.matchId || !this.#current(generation) || this.#status === 'closed') throw new MultiplayerError('not_joined');
+    const position = await this.#client.readHistory(snapshot.roomId, snapshot.matchId, ply);
+    if (!this.#current(generation) || this.#snapshot?.matchId !== snapshot.matchId) throw new MultiplayerError('session_closed');
+    if (position?.roomId !== snapshot.roomId || position.matchId !== snapshot.matchId || position.ply !== ply ||
+      position.state?.ply !== ply || !Array.isArray(position.state?.pieces)) throw new MultiplayerError('invalid_response');
+    return position;
+  }
   async leave() {
     if (!this.#snapshot) { this.stop(); return; }
     if (this.#pending) throw new MultiplayerError('command_pending');
@@ -4174,6 +4187,7 @@ let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
 let startPreferences = null;
 let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
+let reviewTurn = null, reviewLoading = false, reviewRequest = 0;
 const ROOM_STORAGE = 'trows-online-room-v1';
 let roomSession = null, roomView = null, roomLocalGame = null, roomTarget = null, roomSnapshot = null, roomConnecting = false, roomLeaving = false, roomError = '';
 const botRunner = new BotRunner();
@@ -4264,7 +4278,7 @@ const combatAnimator = new CombatAnimator((phase, frame) => {
 }, () => {});
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
 function currentSnapshot() { return clone({ config, state, log, positionKind, gameVersion }); }
-function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); if (history.length > 40) history.shift(); }
+function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); }
 function currentStartPreferences() { return readStartPreferences({ firstMove, playMode, humanTeam, botDifficulty, positionKind, customSetup: positionKind === 'custom' ? { config, state } : null }); }
 function save() {
   if (playMode === 'online') return true;
@@ -4300,7 +4314,7 @@ function readPreviousGame(value) {
   if (!value) return null;
   try {
     const snapshot = readSnapshot(value.snapshot);
-    return { snapshot, history: (Array.isArray(value.history) ? value.history.slice(-40) : []).map(readSnapshot), lastTurn: readLastTurn(value.lastTurn, snapshot.config, snapshot.state), playMode: value.playMode === 'bot' ? 'bot' : 'local', humanTeam: value.humanTeam === 1 ? 1 : 0, botDifficulty: readBotDifficulty(value.botDifficulty), firstMove: ['north', 'south', 'random'].includes(value.firstMove) ? value.firstMove : 'north' };
+    return { snapshot, history: (Array.isArray(value.history) ? value.history : []).map(readSnapshot), lastTurn: readLastTurn(value.lastTurn, snapshot.config, snapshot.state), playMode: value.playMode === 'bot' ? 'bot' : 'local', humanTeam: value.humanTeam === 1 ? 1 : 0, botDifficulty: readBotDifficulty(value.botDifficulty), firstMove: ['north', 'south', 'random'].includes(value.firstMove) ? value.firstMove : 'north' };
   } catch { return null; }
 }
 function readStartPreferences(value) {
@@ -4346,7 +4360,7 @@ try {
     }
     editor = gamePhase === 'setup' && saved.editor === true;
     previousGame = gamePhase === 'setup' ? readPreviousGame(saved.previousGame) : null;
-    history = (Array.isArray(saved.history) ? saved.history.slice(-40) : []).map(readSnapshot);
+    history = (Array.isArray(saved.history) ? saved.history : []).map(readSnapshot);
     lastTurn = readLastTurn(saved.lastTurn || saved.lastBotTurn) || lastTurnFromHistory();
     // Arm the existing local13 commander without rebuilding the saved position.
     if (saved.balanceRevision === 20 || saved.balanceRevision === 21) {
@@ -4387,12 +4401,12 @@ function applyStartPreferences() {
 if (freshNewGameRequested && gamePhase === 'setup' && previousGame) applyStartPreferences();
 function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
-function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && lastTurn ? lastTurn.before.state : state; }
+function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && (reviewTurn || lastTurn) ? (reviewTurn || lastTurn).before.state : state; }
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
-function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
+function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
 function cancelMovement() { moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
-function resetBotContext(clearLastTurn = true) { clearHint(); cancelBot(); cancelMovement(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
+function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function presentMove(before, action, deaths) {
   cancelMovement();
   const piece = action && !action.pass ? before.state.pieces.find(p => p.id === action.id) : null;
@@ -4429,7 +4443,7 @@ function replayLastCombat() {
 function lastTurnFromHistory() { const entry = history.at(-1); return entry?.action ? readLastTurn({ before: entry, action: entry.action }) : null; }
 function recentBotHistory() {
   const recent = []; let ply = state.ply;
-  for (let index = history.length - 1; index >= 0; index--) {
+  for (let index = history.length - 1; index >= 0 && recent.length < 40; index--) {
     const entry = history[index];
     if (entry.state.ply !== ply - 1 || JSON.stringify(entry.config) !== JSON.stringify(config)) break;
     recent.unshift(entry); ply--;
@@ -4504,17 +4518,18 @@ function paintAuras() {
   if (layer.auraMarkup !== markup) { layer.innerHTML = markup; layer.auraMarkup = markup; }
 }
 function lastMoveTrace() {
-  if (gamePhase !== 'playing' || !reviewingTurn || !lastTurn || lastTurn.action.pass) return '';
-  const source = lastTurn.before.state.pieces.find(p => p.id === lastTurn.action.id);
-  const route = source ? movementPath(source, lastTurn.before.state, config, lastTurn.action.to) : [];
-  const points = (route.length > 1 ? route : [lastTurn.action.from, lastTurn.action.to]).map(point);
+  const turn = reviewTurn || lastTurn;
+  if (gamePhase !== 'playing' || !reviewingTurn || !turn?.action || turn.action.pass) return '';
+  const source = turn.before.state.pieces.find(p => p.id === turn.action.id);
+  const route = source ? movementPath(source, turn.before.state, config, turn.action.to) : [];
+  const points = (route.length > 1 ? route : [turn.action.from, turn.action.to]).map(point);
   const from = points[0], to = points.at(-1), start = { ...from }, end = { ...to };
   const next = points[1], prior = points.at(-2), firstLength = Math.hypot(next.x - from.x, next.y - from.y), lastLength = Math.hypot(to.x - prior.x, to.y - prior.y);
   if (!firstLength || !lastLength) return '';
   start.x += (next.x - from.x) / firstLength * 25; start.y += (next.y - from.y) / firstLength * 25;
   end.x -= (to.x - prior.x) / lastLength * 25; end.y -= (to.y - prior.y) / lastLength * 25;
-  const path = [start, ...points.slice(1, -1), end].map(p => `${p.x},${p.y}`).join(' '), color = lastTurn.before.state.turn ? '#af6a4b' : '#3e607c';
-  return `<g class="last-move-trace" style="--move-color:${color}" aria-hidden="true"><title>Последнее перемещение</title><defs><marker id="last-move-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker></defs><circle cx="${from.x}" cy="${from.y}" r="25"/><polyline points="${path}" marker-end="url(#last-move-arrow)"/><circle class="move-arrival" cx="${to.x}" cy="${to.y}" r="26"/></g>`;
+  const path = [start, ...points.slice(1, -1), end].map(p => `${p.x},${p.y}`).join(' '), color = turn.before.state.turn ? '#af6a4b' : '#3e607c';
+  return `<g class="last-move-trace" style="--move-color:${color}" aria-hidden="true"><title>Перемещение в просматриваемом ходе</title><defs><marker id="last-move-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker></defs><circle cx="${from.x}" cy="${from.y}" r="25"/><polyline points="${path}" marker-end="url(#last-move-arrow)"/><circle class="move-arrival" cx="${to.x}" cy="${to.y}" r="26"/></g>`;
 }
 function movingTokenMarkup() {
   if (!movement) return '';
@@ -4712,15 +4727,16 @@ function render(deaths = []) {
   $('#undo').disabled = Boolean(movement || combat) || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor);
   $('#undo').title = playMode === 'bot' && !editor ? 'Отменить свой ход и ответ бота' : 'Отменить последнее действие';
   $('#replay-combat').disabled = !canReplayLastCombat();
-  $('#review-previous').disabled = Boolean(movement || combat) || !lastTurn || gamePhase !== 'playing' || reviewingTurn;
+  $('#review-previous').disabled = !canReviewPrevious();
   $('#review-previous').setAttribute('aria-pressed', String(reviewingTurn));
-  $('#review-current').disabled = !reviewingTurn;
+  $('#review-current').disabled = !reviewingTurn || reviewLoading;
   $('#resume-bot').hidden = !isBotTurn() || reviewingTurn || editor || (!botIssue && !botSuspended);
   $('#resume-bot').disabled = Boolean(movement || combat);
   $('#resume-bot').textContent = botIssue ? 'Повторить ход бота' : 'Ход бота';
-  const lastAction = lastTurn?.action;
-  const lastPiece = lastAction && !lastAction.pass ? lastTurn.before.state.pieces.find(p => p.id === lastAction.id) : null;
-  const lastMoveText = lastAction ? lastAction.pass ? `Последний ход: ${TEAM_NAMES[lastTurn.before.state.turn]} · пропуск.` : `Последний ход: ${TEAM_NAMES[lastTurn.before.state.turn]} · ${LABELS[lastPiece?.type] || 'Фигура'} · ${positionText(lastAction.from)} → ${positionText(lastAction.to)}.` : 'Сделайте ход. Стрелки рядом с «Отменить» позволяют посмотреть предыдущую позицию.';
+  const shownTurn = reviewingTurn ? reviewTurn || lastTurn : lastTurn;
+  const lastAction = shownTurn?.action;
+  const lastPiece = lastAction && !lastAction.pass ? shownTurn.before.state.pieces.find(p => p.id === lastAction.id) : null;
+  const lastMoveText = lastAction ? lastAction.pass ? `Ход: ${TEAM_NAMES[shownTurn.before.state.turn]} · пропуск.` : `Ход: ${TEAM_NAMES[shownTurn.before.state.turn]} · ${LABELS[lastPiece?.type] || 'Фигура'} · ${positionText(lastAction.from)} → ${positionText(lastAction.to)}.` : 'Сделайте ход. Стрелки рядом с «Отменить» позволяют посмотреть предыдущую позицию.';
   $('#bot-status').textContent = combat ? 'Расчёт боя…' : movement ? `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]} перемещается…` : currentDeaths.length ? 'Расчёт боя…' : editor ? 'Бот не ходит в редакторе.' : reviewingTurn ? lastMoveText : botIssue || (isBotTurn() ? botSuspended ? 'Ход бота приостановлен. Нажмите «Ход бота», чтобы продолжить.' : $('dialog[open]') ? 'Бот ждёт закрытия окна.' : 'Бот выбирает ход…' : lastMoveText);
   let boardMessage = editor ? 'Выберите фигуру в палитре и нажмите на пустую клетку. Для удаления выберите фигуру и нажмите Backspace или используйте ластик.' : selected && p?.team === state.turn ? 'Подсвечены пустые клетки, до которых можно пройти. Наведите на клетку для прогноза.' : 'Выберите свою фигуру, затем подсвеченную клетку.';
   if (!editor && selected && p?.team === state.turn && p.type === 'shield') boardMessage = shieldCanRetreat(p, config) ? `Край достигнут: ход во все стороны, постоянные +${config.shieldPromotion.damageBonus} к урону и +${config.shieldPromotion.defenseBonus} к стойкости, дальность до ${config.shieldPromotion.maxRange}; аура атаки и защиты — ${(config.shieldPromotion.allies ?? config.shieldPromotion).aura} ${plural((config.shieldPromotion.allies ?? config.shieldPromotion).aura, ['клетка', 'клетки', 'клеток'])}.` : 'Броненосец ходит вперёд и вбок. Завершив ход на противоположном краю поля, навсегда получает ход назад.';
@@ -4729,7 +4745,7 @@ function render(deaths = []) {
   else if (!editor && !selected && lastAction) boardMessage = `${lastMoveText} Выберите свою фигуру.`;
   if (!editor && p && p.team !== state.turn && !isBotTurn()) boardMessage = `Выбрана фигура команды «${TEAM_NAMES[p.team]}». Сейчас ходит «${TEAM_NAMES[state.turn]}» — выберите ${state.turn === 0 ? 'синюю' : 'красную'} фигуру.`;
   if (gamePhase === 'setup') boardMessage = editor ? 'Выберите фигуру и пустую клетку для перестановки. Палитра добавляет фигуры. «Готово» завершает настройку позиции.' : '';
-  if (reviewingTurn) boardMessage = `Просмотр перед последним ходом. ${lastMoveText} Нажмите →, чтобы вернуться к партии.`;
+  if (reviewingTurn) boardMessage = `Просмотр истории. ${lastMoveText} Стрелки переключают позиции. Escape возвращает к партии.`;
   if (currentDeaths.length) boardMessage = 'Расчёт боя: погибшие фигуры удаляются одновременно.';
   if (movement) boardMessage = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(lastAction.from)} → ${positionText(lastAction.to)}. Движение…`;
   if (combat) boardMessage = combat.phase === 'dimming' ? 'Выделяем участников расчёта боя.' : combat.phase === 'attacks' ? 'Стрелки по очереди показывают вклад в смертельный урон каждой цели.' : 'Показ гибели. Ход перейдёт другой стороне после завершения расчёта.';
@@ -4902,8 +4918,40 @@ $('#editor-done').addEventListener('click', () => {
   catch (error) { toast(error.message); }
 });
 $('#replay-combat').addEventListener('click', replayLastCombat);
-$('#review-previous').addEventListener('click', () => { if (!lastTurn || gamePhase !== 'playing' || reviewingTurn || movement || combat) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
-$('#review-current').addEventListener('click', () => { if (!reviewingTurn) return; reviewingTurn = false; selected = null; render(); });
+function canReviewPrevious() {
+  if (gamePhase !== 'playing' || editor || movement || combat || currentDeaths.length || reviewLoading) return false;
+  const ply = visibleState().ply;
+  return playMode === 'online' ? ply > 0 : history.some(entry => entry.action && entry.state.ply < ply);
+}
+async function stepReview(direction) {
+  if (direction < 0 ? !canReviewPrevious() : !reviewingTurn || reviewLoading) return;
+  const ply = visibleState().ply + direction, request = ++reviewRequest;
+  cancelBot(); selected = null;
+  if (ply >= state.ply) { reviewingTurn = false; reviewTurn = null; render(); return; }
+  let turn;
+  if (lastTurn?.before.state.ply === ply) turn = lastTurn;
+  else if (playMode !== 'online') {
+    const entry = history.find(item => item.action && item.state.ply === ply);
+    if (entry) turn = { before: entry, action: entry.action };
+  } else {
+    const session = roomSession, snapshot = roomSnapshot;
+    reviewLoading = true; render();
+    try {
+      const position = await session.historyPosition(ply);
+      if (request !== reviewRequest || playMode !== 'online' || session !== roomSession ||
+        snapshot.matchId !== roomSnapshot?.matchId || snapshot.revision !== roomSnapshot?.revision) return;
+      turn = { before: { ...currentSnapshot(), state: position.state }, action: position.action };
+    } catch {
+      if (request === reviewRequest) toast('Не удалось загрузить ход. Попробуйте ещё раз.');
+    } finally {
+      if (request === reviewRequest) { reviewLoading = false; render(); }
+    }
+  }
+  if (!turn || request !== reviewRequest) return;
+  reviewTurn = turn; reviewingTurn = true; render();
+}
+$('#review-previous').addEventListener('click', () => stepReview(-1));
+$('#review-current').addEventListener('click', () => stepReview(1));
 $('#resume-bot').addEventListener('click', () => { botIssue = ''; botSuspended = false; render(); });
 document.querySelector('.team-select').addEventListener('click', event => { const b = event.target.closest('[data-team]'); if (b) { editorTeam = Number(b.dataset.team); selected = null; render(); } });
 $('#piece-palette').addEventListener('click', event => { const b = event.target.closest('[data-tool]'); if (b) { tool = b.dataset.tool; selected = null; render(); } });
@@ -4974,6 +5022,7 @@ function applyRoomView(view) {
     && action.matchId === next.matchId && next.state.ply === previous.state.ply + 1
     && JSON.stringify(action.beforeState) === JSON.stringify(previous.state));
   cancelMovement(); clearTimeout(deathEffectTimer); currentDeaths = []; clearHint();
+  reviewRequest++; reviewLoading = false; reviewTurn = null;
   reviewingTurn = false; selected = null; hover = null; inspection = null; lastTurn = null;
   roomSnapshot = next; roomTarget = next.roomId;
   config = clone(next.config); state = next.state ? clone(next.state) : createGame(config);
@@ -5029,7 +5078,7 @@ async function leaveOnlineRoom() {
   if (roomLocalGame) ({ config, state, history, log, playMode, humanTeam, firstMove, botDifficulty, gamePhase, positionKind, previousGame, startPreferences, lastTurn, gameVersion, editor } = roomLocalGame);
   else { playMode = 'bot'; gamePhase = 'setup'; resetNewGameDefaults(); }
   roomLocalGame = null; roomView = null; roomSnapshot = null; roomTarget = null; roomError = ''; roomConnecting = false; roomLeaving = false; $('#room-leave').disabled = false;
-  reviewingTurn = false; selected = null; render(); $('#room-open').focus();
+  reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); $('#room-open').focus();
 }
 function renderScoreboard(position) {
   const online = playMode === 'online', snapshot = roomView?.snapshot;
@@ -5170,7 +5219,7 @@ createGuideController({ icons: ICON_PATHS, renderBadges: unitBadges,
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
-document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog')) { event.preventDefault(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
+document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog')) { event.preventDefault(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; presentKills(completed.before, completed.forecast, completed.deaths); } });
 let attackReachInView = true;

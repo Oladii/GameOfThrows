@@ -193,6 +193,15 @@ export class MultiplayerSession {
     return this.#command('move', { id: action.id, to: action.to });
   }
   endMatch() { return this.#command('finish', {}); }
+  async historyPosition(ply) {
+    const snapshot = this.#snapshot, generation = this.#generation;
+    if (!snapshot?.matchId || !this.#current(generation) || this.#status === 'closed') throw new MultiplayerError('not_joined');
+    const position = await this.#client.readHistory(snapshot.roomId, snapshot.matchId, ply);
+    if (!this.#current(generation) || this.#snapshot?.matchId !== snapshot.matchId) throw new MultiplayerError('session_closed');
+    if (position?.roomId !== snapshot.roomId || position.matchId !== snapshot.matchId || position.ply !== ply ||
+      position.state?.ply !== ply || !Array.isArray(position.state?.pieces)) throw new MultiplayerError('invalid_response');
+    return position;
+  }
   async leave() {
     if (!this.#snapshot) { this.stop(); return; }
     if (this.#pending) throw new MultiplayerError('command_pending');

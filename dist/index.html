@@ -37,23 +37,25 @@
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T22:53:46.014Z">Сборка 15.11.2026, 01:53:46 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T23:09:21.059Z">Сборка 15.11.2026, 02:09:21 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
         <div class="scoreboard" id="scoreboard"></div>
         <div class="board-wrap"><svg id="board" focusable="false" tabindex="-1" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Поле игры" aria-describedby="board-keyboard-help" xmlns="http://www.w3.org/2000/svg"></svg><p id="board-keyboard-help">Стрелки перемещают фокус по клеткам. Enter или пробел выбирает фигуру или делает ход.</p></div>
-        <div class="board-footer"><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Попросить совет</button><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие"><svg class="undo-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 3-5 5 5 5"/><path d="M4 8h10a6 6 0 0 1 0 12"/></svg><span>Отменить ход</span></button><button id="replay-combat" class="button subtle combat-replay" type="button" title="Повторить последний расчёт" aria-label="Повторить последний расчёт" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg><span>Повторить расчёт</span></button><button id="review-previous" class="button subtle history-arrow" title="Показать позицию перед последним ходом" aria-label="Показать последний ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Вернуться к текущей позиции" aria-label="Вернуться к текущей позиции" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
+        <div class="board-footer"><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Попросить совет</button><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие"><svg class="undo-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 3-5 5 5 5"/><path d="M4 8h10a6 6 0 0 1 0 12"/></svg><span>Отменить ход</span></button><button id="replay-combat" class="button subtle combat-replay" type="button" title="Повторить последний расчёт" aria-label="Повторить последний расчёт" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg><span>Повторить расчёт</span></button><button id="review-previous" class="button subtle history-arrow" title="Предыдущий ход" aria-label="Предыдущий ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Следующий ход" aria-label="Следующий ход" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
       </section>
       <aside class="multiplayer-panel" aria-label="Мультиплеер">
         <div class="panel-actions"><button id="room-open" class="button outline" type="button">Играть по ссылке</button></div>
         <section id="room-panel" class="room-panel" aria-labelledby="room-title" hidden>
           <h2 id="room-title">Игровая комната</h2>
-          <div id="room-connected" hidden>
-            <div class="room-link-row"><button id="room-copy" class="button outline full" type="button">Копировать ссылку на комнату</button></div>
-            <div class="room-player-actions"><button id="room-finish" class="button subtle full" type="button" hidden>Завершить игру</button></div>
+          <div class="room-actions">
+            <div id="room-connected" hidden>
+              <button id="room-copy" class="button outline full" type="button">Копировать ссылку на комнату</button>
+              <button id="room-finish" class="button subtle full" type="button" hidden>Завершить игру</button>
+            </div>
+            <button id="room-leave" class="button subtle full" type="button">Выйти из игровой комнаты</button>
           </div>
-          <button id="room-leave" class="button subtle full" type="button">Выйти из игровой комнаты</button>
           <p id="room-participants" class="room-note" hidden></p>
           <p id="room-error" class="form-error" role="alert" hidden></p>
           <button id="room-retry" class="button outline full" type="button" hidden>Повторить подключение</button>

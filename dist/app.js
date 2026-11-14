@@ -69,6 +69,7 @@ let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
 let startPreferences = null;
 let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
+let reviewTurn = null, reviewLoading = false, reviewRequest = 0;
 const ROOM_STORAGE = 'trows-online-room-v1';
 let roomSession = null, roomView = null, roomLocalGame = null, roomTarget = null, roomSnapshot = null, roomConnecting = false, roomLeaving = false, roomError = '';
 const botRunner = new BotRunner();
@@ -159,7 +160,7 @@ const combatAnimator = new CombatAnimator((phase, frame) => {
 }, () => {});
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
 function currentSnapshot() { return clone({ config, state, log, positionKind, gameVersion }); }
-function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); if (history.length > 40) history.shift(); }
+function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); }
 function currentStartPreferences() { return readStartPreferences({ firstMove, playMode, humanTeam, botDifficulty, positionKind, customSetup: positionKind === 'custom' ? { config, state } : null }); }
 function save() {
   if (playMode === 'online') return true;
@@ -195,7 +196,7 @@ function readPreviousGame(value) {
   if (!value) return null;
   try {
     const snapshot = readSnapshot(value.snapshot);
-    return { snapshot, history: (Array.isArray(value.history) ? value.history.slice(-40) : []).map(readSnapshot), lastTurn: readLastTurn(value.lastTurn, snapshot.config, snapshot.state), playMode: value.playMode === 'bot' ? 'bot' : 'local', humanTeam: value.humanTeam === 1 ? 1 : 0, botDifficulty: readBotDifficulty(value.botDifficulty), firstMove: ['north', 'south', 'random'].includes(value.firstMove) ? value.firstMove : 'north' };
+    return { snapshot, history: (Array.isArray(value.history) ? value.history : []).map(readSnapshot), lastTurn: readLastTurn(value.lastTurn, snapshot.config, snapshot.state), playMode: value.playMode === 'bot' ? 'bot' : 'local', humanTeam: value.humanTeam === 1 ? 1 : 0, botDifficulty: readBotDifficulty(value.botDifficulty), firstMove: ['north', 'south', 'random'].includes(value.firstMove) ? value.firstMove : 'north' };
   } catch { return null; }
 }
 function readStartPreferences(value) {
@@ -241,7 +242,7 @@ try {
     }
     editor = gamePhase === 'setup' && saved.editor === true;
     previousGame = gamePhase === 'setup' ? readPreviousGame(saved.previousGame) : null;
-    history = (Array.isArray(saved.history) ? saved.history.slice(-40) : []).map(readSnapshot);
+    history = (Array.isArray(saved.history) ? saved.history : []).map(readSnapshot);
     lastTurn = readLastTurn(saved.lastTurn || saved.lastBotTurn) || lastTurnFromHistory();
     // Arm the existing local13 commander without rebuilding the saved position.
     if (saved.balanceRevision === 20 || saved.balanceRevision === 21) {
@@ -282,12 +283,12 @@ function applyStartPreferences() {
 if (freshNewGameRequested && gamePhase === 'setup' && previousGame) applyStartPreferences();
 function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
-function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && lastTurn ? lastTurn.before.state : state; }
+function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && (reviewTurn || lastTurn) ? (reviewTurn || lastTurn).before.state : state; }
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
-function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
+function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
 function cancelMovement() { moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
-function resetBotContext(clearLastTurn = true) { clearHint(); cancelBot(); cancelMovement(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
+function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function presentMove(before, action, deaths) {
   cancelMovement();
   const piece = action && !action.pass ? before.state.pieces.find(p => p.id === action.id) : null;
@@ -324,7 +325,7 @@ function replayLastCombat() {
 function lastTurnFromHistory() { const entry = history.at(-1); return entry?.action ? readLastTurn({ before: entry, action: entry.action }) : null; }
 function recentBotHistory() {
   const recent = []; let ply = state.ply;
-  for (let index = history.length - 1; index >= 0; index--) {
+  for (let index = history.length - 1; index >= 0 && recent.length < 40; index--) {
     const entry = history[index];
     if (entry.state.ply !== ply - 1 || JSON.stringify(entry.config) !== JSON.stringify(config)) break;
     recent.unshift(entry); ply--;
@@ -399,17 +400,18 @@ function paintAuras() {
   if (layer.auraMarkup !== markup) { layer.innerHTML = markup; layer.auraMarkup = markup; }
 }
 function lastMoveTrace() {
-  if (gamePhase !== 'playing' || !reviewingTurn || !lastTurn || lastTurn.action.pass) return '';
-  const source = lastTurn.before.state.pieces.find(p => p.id === lastTurn.action.id);
-  const route = source ? movementPath(source, lastTurn.before.state, config, lastTurn.action.to) : [];
-  const points = (route.length > 1 ? route : [lastTurn.action.from, lastTurn.action.to]).map(point);
+  const turn = reviewTurn || lastTurn;
+  if (gamePhase !== 'playing' || !reviewingTurn || !turn?.action || turn.action.pass) return '';
+  const source = turn.before.state.pieces.find(p => p.id === turn.action.id);
+  const route = source ? movementPath(source, turn.before.state, config, turn.action.to) : [];
+  const points = (route.length > 1 ? route : [turn.action.from, turn.action.to]).map(point);
   const from = points[0], to = points.at(-1), start = { ...from }, end = { ...to };
   const next = points[1], prior = points.at(-2), firstLength = Math.hypot(next.x - from.x, next.y - from.y), lastLength = Math.hypot(to.x - prior.x, to.y - prior.y);
   if (!firstLength || !lastLength) return '';
   start.x += (next.x - from.x) / firstLength * 25; start.y += (next.y - from.y) / firstLength * 25;
   end.x -= (to.x - prior.x) / lastLength * 25; end.y -= (to.y - prior.y) / lastLength * 25;
-  const path = [start, ...points.slice(1, -1), end].map(p => `${p.x},${p.y}`).join(' '), color = lastTurn.before.state.turn ? '#af6a4b' : '#3e607c';
-  return `<g class="last-move-trace" style="--move-color:${color}" aria-hidden="true"><title>Последнее перемещение</title><defs><marker id="last-move-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker></defs><circle cx="${from.x}" cy="${from.y}" r="25"/><polyline points="${path}" marker-end="url(#last-move-arrow)"/><circle class="move-arrival" cx="${to.x}" cy="${to.y}" r="26"/></g>`;
+  const path = [start, ...points.slice(1, -1), end].map(p => `${p.x},${p.y}`).join(' '), color = turn.before.state.turn ? '#af6a4b' : '#3e607c';
+  return `<g class="last-move-trace" style="--move-color:${color}" aria-hidden="true"><title>Перемещение в просматриваемом ходе</title><defs><marker id="last-move-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker></defs><circle cx="${from.x}" cy="${from.y}" r="25"/><polyline points="${path}" marker-end="url(#last-move-arrow)"/><circle class="move-arrival" cx="${to.x}" cy="${to.y}" r="26"/></g>`;
 }
 function movingTokenMarkup() {
   if (!movement) return '';
@@ -607,15 +609,16 @@ function render(deaths = []) {
   $('#undo').disabled = Boolean(movement || combat) || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor);
   $('#undo').title = playMode === 'bot' && !editor ? 'Отменить свой ход и ответ бота' : 'Отменить последнее действие';
   $('#replay-combat').disabled = !canReplayLastCombat();
-  $('#review-previous').disabled = Boolean(movement || combat) || !lastTurn || gamePhase !== 'playing' || reviewingTurn;
+  $('#review-previous').disabled = !canReviewPrevious();
   $('#review-previous').setAttribute('aria-pressed', String(reviewingTurn));
-  $('#review-current').disabled = !reviewingTurn;
+  $('#review-current').disabled = !reviewingTurn || reviewLoading;
   $('#resume-bot').hidden = !isBotTurn() || reviewingTurn || editor || (!botIssue && !botSuspended);
   $('#resume-bot').disabled = Boolean(movement || combat);
   $('#resume-bot').textContent = botIssue ? 'Повторить ход бота' : 'Ход бота';
-  const lastAction = lastTurn?.action;
-  const lastPiece = lastAction && !lastAction.pass ? lastTurn.before.state.pieces.find(p => p.id === lastAction.id) : null;
-  const lastMoveText = lastAction ? lastAction.pass ? `Последний ход: ${TEAM_NAMES[lastTurn.before.state.turn]} · пропуск.` : `Последний ход: ${TEAM_NAMES[lastTurn.before.state.turn]} · ${LABELS[lastPiece?.type] || 'Фигура'} · ${positionText(lastAction.from)} → ${positionText(lastAction.to)}.` : 'Сделайте ход. Стрелки рядом с «Отменить» позволяют посмотреть предыдущую позицию.';
+  const shownTurn = reviewingTurn ? reviewTurn || lastTurn : lastTurn;
+  const lastAction = shownTurn?.action;
+  const lastPiece = lastAction && !lastAction.pass ? shownTurn.before.state.pieces.find(p => p.id === lastAction.id) : null;
+  const lastMoveText = lastAction ? lastAction.pass ? `Ход: ${TEAM_NAMES[shownTurn.before.state.turn]} · пропуск.` : `Ход: ${TEAM_NAMES[shownTurn.before.state.turn]} · ${LABELS[lastPiece?.type] || 'Фигура'} · ${positionText(lastAction.from)} → ${positionText(lastAction.to)}.` : 'Сделайте ход. Стрелки рядом с «Отменить» позволяют посмотреть предыдущую позицию.';
   $('#bot-status').textContent = combat ? 'Расчёт боя…' : movement ? `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]} перемещается…` : currentDeaths.length ? 'Расчёт боя…' : editor ? 'Бот не ходит в редакторе.' : reviewingTurn ? lastMoveText : botIssue || (isBotTurn() ? botSuspended ? 'Ход бота приостановлен. Нажмите «Ход бота», чтобы продолжить.' : $('dialog[open]') ? 'Бот ждёт закрытия окна.' : 'Бот выбирает ход…' : lastMoveText);
   let boardMessage = editor ? 'Выберите фигуру в палитре и нажмите на пустую клетку. Для удаления выберите фигуру и нажмите Backspace или используйте ластик.' : selected && p?.team === state.turn ? 'Подсвечены пустые клетки, до которых можно пройти. Наведите на клетку для прогноза.' : 'Выберите свою фигуру, затем подсвеченную клетку.';
   if (!editor && selected && p?.team === state.turn && p.type === 'shield') boardMessage = shieldCanRetreat(p, config) ? `Край достигнут: ход во все стороны, постоянные +${config.shieldPromotion.damageBonus} к урону и +${config.shieldPromotion.defenseBonus} к стойкости, дальность до ${config.shieldPromotion.maxRange}; аура атаки и защиты — ${(config.shieldPromotion.allies ?? config.shieldPromotion).aura} ${plural((config.shieldPromotion.allies ?? config.shieldPromotion).aura, ['клетка', 'клетки', 'клеток'])}.` : 'Броненосец ходит вперёд и вбок. Завершив ход на противоположном краю поля, навсегда получает ход назад.';
@@ -624,7 +627,7 @@ function render(deaths = []) {
   else if (!editor && !selected && lastAction) boardMessage = `${lastMoveText} Выберите свою фигуру.`;
   if (!editor && p && p.team !== state.turn && !isBotTurn()) boardMessage = `Выбрана фигура команды «${TEAM_NAMES[p.team]}». Сейчас ходит «${TEAM_NAMES[state.turn]}» — выберите ${state.turn === 0 ? 'синюю' : 'красную'} фигуру.`;
   if (gamePhase === 'setup') boardMessage = editor ? 'Выберите фигуру и пустую клетку для перестановки. Палитра добавляет фигуры. «Готово» завершает настройку позиции.' : '';
-  if (reviewingTurn) boardMessage = `Просмотр перед последним ходом. ${lastMoveText} Нажмите →, чтобы вернуться к партии.`;
+  if (reviewingTurn) boardMessage = `Просмотр истории. ${lastMoveText} Стрелки переключают позиции. Escape возвращает к партии.`;
   if (currentDeaths.length) boardMessage = 'Расчёт боя: погибшие фигуры удаляются одновременно.';
   if (movement) boardMessage = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(lastAction.from)} → ${positionText(lastAction.to)}. Движение…`;
   if (combat) boardMessage = combat.phase === 'dimming' ? 'Выделяем участников расчёта боя.' : combat.phase === 'attacks' ? 'Стрелки по очереди показывают вклад в смертельный урон каждой цели.' : 'Показ гибели. Ход перейдёт другой стороне после завершения расчёта.';
@@ -797,8 +800,40 @@ $('#editor-done').addEventListener('click', () => {
   catch (error) { toast(error.message); }
 });
 $('#replay-combat').addEventListener('click', replayLastCombat);
-$('#review-previous').addEventListener('click', () => { if (!lastTurn || gamePhase !== 'playing' || reviewingTurn || movement || combat) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
-$('#review-current').addEventListener('click', () => { if (!reviewingTurn) return; reviewingTurn = false; selected = null; render(); });
+function canReviewPrevious() {
+  if (gamePhase !== 'playing' || editor || movement || combat || currentDeaths.length || reviewLoading) return false;
+  const ply = visibleState().ply;
+  return playMode === 'online' ? ply > 0 : history.some(entry => entry.action && entry.state.ply < ply);
+}
+async function stepReview(direction) {
+  if (direction < 0 ? !canReviewPrevious() : !reviewingTurn || reviewLoading) return;
+  const ply = visibleState().ply + direction, request = ++reviewRequest;
+  cancelBot(); selected = null;
+  if (ply >= state.ply) { reviewingTurn = false; reviewTurn = null; render(); return; }
+  let turn;
+  if (lastTurn?.before.state.ply === ply) turn = lastTurn;
+  else if (playMode !== 'online') {
+    const entry = history.find(item => item.action && item.state.ply === ply);
+    if (entry) turn = { before: entry, action: entry.action };
+  } else {
+    const session = roomSession, snapshot = roomSnapshot;
+    reviewLoading = true; render();
+    try {
+      const position = await session.historyPosition(ply);
+      if (request !== reviewRequest || playMode !== 'online' || session !== roomSession ||
+        snapshot.matchId !== roomSnapshot?.matchId || snapshot.revision !== roomSnapshot?.revision) return;
+      turn = { before: { ...currentSnapshot(), state: position.state }, action: position.action };
+    } catch {
+      if (request === reviewRequest) toast('Не удалось загрузить ход. Попробуйте ещё раз.');
+    } finally {
+      if (request === reviewRequest) { reviewLoading = false; render(); }
+    }
+  }
+  if (!turn || request !== reviewRequest) return;
+  reviewTurn = turn; reviewingTurn = true; render();
+}
+$('#review-previous').addEventListener('click', () => stepReview(-1));
+$('#review-current').addEventListener('click', () => stepReview(1));
 $('#resume-bot').addEventListener('click', () => { botIssue = ''; botSuspended = false; render(); });
 document.querySelector('.team-select').addEventListener('click', event => { const b = event.target.closest('[data-team]'); if (b) { editorTeam = Number(b.dataset.team); selected = null; render(); } });
 $('#piece-palette').addEventListener('click', event => { const b = event.target.closest('[data-tool]'); if (b) { tool = b.dataset.tool; selected = null; render(); } });
@@ -869,6 +904,7 @@ function applyRoomView(view) {
     && action.matchId === next.matchId && next.state.ply === previous.state.ply + 1
     && JSON.stringify(action.beforeState) === JSON.stringify(previous.state));
   cancelMovement(); clearTimeout(deathEffectTimer); currentDeaths = []; clearHint();
+  reviewRequest++; reviewLoading = false; reviewTurn = null;
   reviewingTurn = false; selected = null; hover = null; inspection = null; lastTurn = null;
   roomSnapshot = next; roomTarget = next.roomId;
   config = clone(next.config); state = next.state ? clone(next.state) : createGame(config);
@@ -924,7 +960,7 @@ async function leaveOnlineRoom() {
   if (roomLocalGame) ({ config, state, history, log, playMode, humanTeam, firstMove, botDifficulty, gamePhase, positionKind, previousGame, startPreferences, lastTurn, gameVersion, editor } = roomLocalGame);
   else { playMode = 'bot'; gamePhase = 'setup'; resetNewGameDefaults(); }
   roomLocalGame = null; roomView = null; roomSnapshot = null; roomTarget = null; roomError = ''; roomConnecting = false; roomLeaving = false; $('#room-leave').disabled = false;
-  reviewingTurn = false; selected = null; render(); $('#room-open').focus();
+  reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); $('#room-open').focus();
 }
 function renderScoreboard(position) {
   const online = playMode === 'online', snapshot = roomView?.snapshot;
@@ -1065,7 +1101,7 @@ createGuideController({ icons: ICON_PATHS, renderBadges: unitBadges,
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
-document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog')) { event.preventDefault(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
+document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog')) { event.preventDefault(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; presentKills(completed.before, completed.forecast, completed.deaths); } });
 let attackReachInView = true;

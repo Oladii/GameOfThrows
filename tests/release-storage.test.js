@@ -109,3 +109,12 @@ test('revision21 commander range migration preserves a running turn, position, h
   assert.deepEqual(plain(ui.context.config),expected);assert.deepEqual(plain(ui.context.state),state);assert.deepEqual(plain(ui.context.history),history);assert.deepEqual(plain(ui.context.lastTurn),lastTurn);assert.equal(ui.context.state.turn,1);assert.equal(ui.context.firstMove,'north');assert.equal(ui.context.playMode,'local');assert.equal(ui.checkpoints(),0);
   for(const [damage,range] of [[2,1],[3,4]]){const custom=clone(config);Object.assign(custom.stats.scoutLamp,{damage,range});const saved=setup({config:custom,state,balanceRevision:21,startPrefsRevision:2,gamePhase:'playing'});assert.deepEqual(plain(saved.context.config),custom);assert.deepEqual(plain(saved.context.state),state);}
 });
+
+test('reloading a running local game retains its entire history beyond forty moves',()=>{
+  const config=clone(DEFAULT_CONFIG),initial=createGame(config);
+  const history=Array.from({length:45},(_,ply)=>({config,state:{...initial,ply,turn:ply%2},log:[],positionKind:'default',action:{pass:true}}));
+  const ui=setup({config,state:{...initial,ply:45},history,balanceRevision:BALANCE_REVISION,startPrefsRevision:2,gamePhase:'playing',playMode:'local'});
+  assert.equal(ui.context.history.length,45);
+  assert.equal(ui.context.history[0].state.ply,0);
+  assert.equal(ui.context.history.at(-1).state.ply,44);
+});

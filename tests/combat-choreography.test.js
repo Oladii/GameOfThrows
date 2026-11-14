@@ -93,7 +93,7 @@ function presentationHarness(mode='local') {
   const action={id:'mover',to:{q:0,r:1}}, result=move(before.state,config,action.id,action.to);
   const forecast=inspectCell(before.state,config,action.to,action.id), time=clock(), snapshots=[];
   let botStarts=0,botCancels=0;const notices=[];
-  const context=vm.createContext({config,state:result.state,combat:null,movement:null,currentDeaths:[],reviewingTurn:false,lastTurn:null,gamePhase:'playing',editor:false,playMode:mode,humanTeam:0,
+  const context=vm.createContext({config,state:result.state,combat:null,movement:null,currentDeaths:[],reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false,lastTurn:null,gamePhase:'playing',editor:false,playMode:mode,humanTeam:0,
     ready:true,botIssue:'',botSuspended:false,botTimer:null,botRunner:{active:false},$:()=>null,lethalAttackPresentation,analyze,inspectCell,selected:null,fieldView:null,
     toast(message){notices.push(message);},cancelBot(){botCancels++;time.clearTimer(context.botTimer);context.botTimer=null;},
     setTimeout:(fn,ms)=>time.setTimer(fn,ms),highlightSources(){},moveAnimator:{cancel(){}},startBot(){botStarts++;},

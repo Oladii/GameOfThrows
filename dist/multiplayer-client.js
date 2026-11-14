@@ -127,6 +127,7 @@ export class MultiplayerClient {
   createRoom(body) { return this.request('/api/rooms', { method: 'POST', body }); }
   joinRoom(roomId, body) { return this.request(this.roomPath(roomId) + '/join', { method: 'POST', body }); }
   readRoom(roomId) { return this.request(this.roomPath(roomId)); }
+  readHistory(roomId, matchId, ply) { return this.request(this.roomPath(roomId) + '/history?' + new URLSearchParams({ matchId, ply })); }
   presence(roomId, body) { return this.request(this.roomPath(roomId) + '/presence', { method: 'POST', body }); }
   leaveRoom(roomId, body) { return this.request(this.roomPath(roomId) + '/leave', { method: 'POST', body }); }
   command(roomId, body) { return this.request(this.roomPath(roomId) + '/commands', { method: 'POST', body }); }

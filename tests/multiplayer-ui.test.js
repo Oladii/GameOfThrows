@@ -26,7 +26,7 @@ function setup() {
     localStorage: { getItem: key => storage.get(key), setItem(key, value) { storage.set(key, value); } },
     playMode: 'online', gamePhase: 'playing', editor: false, positionKind: 'default', config: structuredClone(DEFAULT_CONFIG), state: createGame(DEFAULT_CONFIG),
     roomSession: null, roomView: null, roomLocalGame: null, roomTarget: null, roomSnapshot: null, roomConnecting: false, roomLeaving: false, roomError: '',
-    currentDeaths: [], deathEffectTimer: null, movement: null, combat: null, reviewingTurn: false, selected: null, hover: null, inspection: null,
+    currentDeaths: [], deathEffectTimer: null, movement: null, combat: null, reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false, selected: null, hover: null, inspection: null,
     lastTurn: null, history: [], log: [], gameVersion: 'test', CURRENT_GAME_VERSION: 'test', firstMove: 'north', humanTeam: 0,
     botDifficulty: 'training', previousGame: null, startPreferences: null, ready: true, available: [],
     clone: structuredClone, DEFAULT_CONFIG, TYPES, LABELS, icon: () => '<svg></svg>', createGame, hexGridPoint, TEAM_NAMES: ['Синие', 'Красные'], clearTimeout() {}, clearHint() {},
@@ -298,7 +298,7 @@ test('rejoining restores read-only last-turn controls and new server state ends 
     assert.deepEqual(plain(ui.context.lastTurn.before.state), before);
     assert.equal(ui.calls.some(call => call[0] === 'animation'), false, 'rejoin must not auto-animate history');
     ui.context.cancelBot = () => {};
-    vm.runInContext(declaration('visibleState') + '\n' + app.split("\n").filter(line => line.startsWith("$('#review-")).join("\n"), ui.context);
+    vm.runInContext(declaration('visibleState') + '\n' + source('function canReviewPrevious()', "$('#review-previous').addEventListener") + '\n' + app.split("\n").filter(line => line.startsWith("$('#review-")).join("\n"), ui.context);
     const confirmed = plain(ui.context.state);
     ui.$('#review-previous').events.click();
     assert.equal(ui.context.reviewingTurn, true); assert.equal(ui.context.humanCanMove(), false);
@@ -328,4 +328,56 @@ test('copy button copies only the invitation and reports clipboard failure', asy
   ui.context.navigator.clipboard.writeText = async () => { throw new Error('denied'); };
   await ui.$('#room-copy').events.click();
   assert.match(message, /Не удалось скопировать ссылку/);
+});
+
+function setupReview() {
+  const ui = setup(); ui.context.cancelBot = () => {};
+  vm.runInContext(declaration('visibleState') + '\n' + source('function canReviewPrevious()', "$('#review-previous').addEventListener"), ui.context);
+  return ui;
+}
+test('arrows traverse every online position both ways without changing the live match', async () => {
+  for (const seat of [0, 1, null]) {
+    const ui = setupReview(), positions = Array.from({ length: 45 }, (_, ply) => ({ ...createGame(DEFAULT_CONFIG), ply, turn: ply % 2 }));
+    const action = { id: 'piece', from: { q: 0, r: 0 }, to: { q: 0, r: 1 } };
+    const snap = snapshot({ phase: 'playing', revision: 50, matchId: 'match', state: positions[44], lastAction: { matchId: 'match', beforeState: positions[43], action } });
+    ui.context.applyRoomView(view(snap, seat));
+    const requested = [];
+    ui.context.roomSession = { async historyPosition(ply) { requested.push(ply); return { state: positions[ply], action }; } };
+    for (let ply = 43; ply >= 0; ply--) {
+      await ui.context.stepReview(-1);
+      assert.equal(ui.context.visibleState().ply, ply); assert.equal(ui.context.humanCanMove(), false);
+      assert.deepEqual(plain(ui.context.state), positions[44]);
+    }
+    assert.equal(ui.context.canReviewPrevious(), false);
+    await ui.context.stepReview(-1); assert.equal(ui.context.visibleState().ply, 0);
+    for (let ply = 1; ply <= 44; ply++) { await ui.context.stepReview(1); assert.equal(ui.context.visibleState().ply, ply); }
+    assert.equal(ui.context.reviewingTurn, false); assert.ok(requested.includes(0));
+  }
+});
+test('a delayed history reply cannot overwrite a newer server position; failed loads can retry', async () => {
+  const ui = setupReview(), state = { ...createGame(DEFAULT_CONFIG), ply: 4 };
+  const snap = snapshot({ phase: 'playing', revision: 6, matchId: 'match', state });
+  ui.context.applyRoomView(view(snap, 0));
+  let resolve;
+  ui.context.roomSession = { historyPosition: () => new Promise(done => { resolve = done; }) };
+  const pending = ui.context.stepReview(-1);
+  assert.equal(ui.context.reviewLoading, true); assert.equal(ui.context.humanCanMove(), false);
+  ui.context.applyRoomView(view({ ...snap, revision: 7, state: { ...state, ply: 5 } }, 0));
+  resolve({ state: { ...state, ply: 3 } }); await pending;
+  assert.equal(ui.context.visibleState().ply, 5); assert.equal(ui.context.reviewingTurn, false);
+  assert.equal(ui.context.reviewLoading, false);
+  ui.context.roomSession = { historyPosition: async () => { throw new Error('offline'); } };
+  await ui.context.stepReview(-1); assert.equal(ui.context.visibleState().ply, 5);
+  assert.equal(ui.context.reviewLoading, false); assert.equal(ui.context.canReviewPrevious(), true);
+});
+test('local history retains and traverses more than forty moves', async () => {
+  const ui = setupReview(); ui.context.playMode = 'local';
+  vm.runInContext(declaration('checkpoint'), ui.context);
+  const action = { pass: true };
+  for (let ply = 0; ply < 45; ply++) { ui.context.state.ply = ply; ui.context.checkpoint('human', action); }
+  ui.context.state.ply = 45;
+  assert.equal(ui.context.history.length, 45);
+  for (let ply = 44; ply >= 0; ply--) { await ui.context.stepReview(-1); assert.equal(ui.context.visibleState().ply, ply); }
+  for (let ply = 1; ply <= 45; ply++) { await ui.context.stepReview(1); assert.equal(ui.context.visibleState().ply, ply); }
+  assert.equal(ui.context.reviewingTurn, false);
 });
