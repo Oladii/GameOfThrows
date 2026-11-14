@@ -121,7 +121,7 @@ const appSource = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'u
 test('all terrain paints before tokens, with clickable accessible cells under the foreground', () => {
   const config = structuredClone(DEFAULT_CONFIG), state = position([piece('s','shield',0,0,0),piece('a','archer',1,0,1)]);
   const svg = { contains: () => false, setAttribute() {}, innerHTML: '' }, legend = {};
-  const context = vm.createContext({ config, visibleState:()=>state, cells, key, available:[], selected:null, boardFocus:null, fieldView:'', report:analyze(state,config),
+  const context = vm.createContext({ config, playMode:'local', visibleState:()=>state, cells, key, available:[], selected:null, boardFocus:null, fieldView:'', report:analyze(state,config),
     hexGridPoint, hexGridPolygon, ATTACK_TEAM_COLORS, ICON_PATHS:{}, unitAppearance, TEAM_NAMES:['Север','Юг'], LABELS, shieldCanRetreat:()=>false, archerHasEdgeBonus:()=>false, unitBadges:renderUnitBadges, renderTokenBody,
     combat:null,movement:null,currentDeaths:[],renderDeathEffects,hintTrace:()=>'',lastMoveTrace:()=>'',movingTokenMarkup:()=>'',editor:false,document:{activeElement:null},$:selector=>selector==='#board'?svg:legend });
   for (const name of ['point','polygon']) vm.runInContext(appSource.split('\n').find(line=>line.startsWith(`function ${name}(`)),context);

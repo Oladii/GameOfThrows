@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
 import { createGame, move, reachable } from '../dist/engine.js';
+import { hexGridPoint } from '../dist/board-presentation.js';
 
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
@@ -28,7 +29,7 @@ function setup() {
     currentDeaths: [], deathEffectTimer: null, movement: null, combat: null, reviewingTurn: false, selected: null, hover: null, inspection: null,
     lastTurn: null, history: [], log: [], gameVersion: 'test', CURRENT_GAME_VERSION: 'test', firstMove: 'north', humanTeam: 0,
     botDifficulty: 'training', previousGame: null, startPreferences: null, ready: true, available: [],
-    clone: structuredClone, DEFAULT_CONFIG, createGame, TEAM_NAMES: ['Север', 'Юг'], clearTimeout() {}, clearHint() {},
+    clone: structuredClone, DEFAULT_CONFIG, createGame, hexGridPoint, TEAM_NAMES: ['Север', 'Юг'], clearTimeout() {}, clearHint() {},
     plural(n, forms) { return n === 1 ? forms[0] : forms[2]; }, toast() {},
     cancelMovement() { calls.push(['cancel']); context.movement = null; context.combat = null; },
     resetBotContext() { context.lastTurn = null; context.reviewingTurn = false; context.movement = null; },
@@ -38,7 +39,7 @@ function setup() {
     move() { throw new Error('Online UI must not run a local move'); },
     checkpoint() { throw new Error('Online UI must not record local history'); }
   });
-  vm.runInContext(declaration('currentSnapshot') + '\n' + declaration('humanCanMove') + '\n'
+  vm.runInContext(declaration('point') + '\n' + declaration('currentSnapshot') + '\n' + declaration('humanCanMove') + '\n'
     + source('function savedRoomReference()', '\nconst statFields ='), context);
   return { context, $, storage, calls, location };
 }
@@ -61,6 +62,21 @@ test('spectator lobby has two seats, safe names and no player actions', () => {
   assert.equal(ui.$('[data-room-seat="1"]').querySelector('[data-claim-seat]').hidden, false);
   for (const id of ['room-ready', 'room-stand', 'room-finish']) assert.equal(ui.$('#' + id).hidden, true);
   assert.equal(ui.context.humanCanMove(), false);
+});
+
+test('each online player sees their army below the opponent, spectators keep South below', () => {
+  const ui = setup(), before = plain(ui.context.state);
+  const averageY = team => {
+    const army = ui.context.state.pieces.filter(piece => piece.team === team);
+    return army.reduce((sum, piece) => sum + ui.context.point(piece).y, 0) / army.length;
+  };
+  for (const seat of [0, 1, null]) {
+    ui.context.roomView = view(snapshot(), seat);
+    assert.ok(averageY(seat ?? 1) > averageY(seat === 0 ? 1 : 0));
+  }
+  ui.context.playMode = 'local'; ui.context.roomView = view(snapshot(), 0);
+  assert.ok(averageY(1) > averageY(0));
+  assert.deepEqual(plain(ui.context.state), before, 'orientation must not change game coordinates');
 });
 
 test('seated players can toggle readiness and stand only while waiting', async () => {

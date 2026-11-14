@@ -38,4 +38,19 @@ for (const geometry of ['hex', 'square']) {
     assert.equal(go(middle, 'End', true).r, Math.max(...board.map(cell => cell.r)));
     assert.deepEqual(go(middle, 'Unrelated'), middle);
   });
+
+  test(`${geometry}: rotated view keeps arrows and Home/End aligned with the screen`, () => {
+    const project = cell => geometry === 'hex' ? { x: -(cell.q + cell.r / 2), y: -cell.r * Math.sqrt(3) / 2 } : { x: -cell.q, y: -cell.r };
+    const rotatedGo = (cell, direction, wholeBoard = false) => boardNavigationTarget(board, cell, direction, geometry, wholeBoard, project);
+    const origin = { q: 1, r: 1 };
+    for (const [direction, axis, sign] of [['ArrowUp', 'y', -1], ['ArrowDown', 'y', 1], ['ArrowLeft', 'x', -1], ['ArrowRight', 'x', 1]]) {
+      assert.ok(sign * (project(rotatedGo(origin, direction))[axis] - project(origin)[axis]) > 0);
+    }
+    assert.deepEqual(rotatedGo(rotatedGo(origin, 'ArrowUp'), 'ArrowDown'), origin);
+    const row = board.filter(cell => cell.r === origin.r).sort((a, b) => project(a).x - project(b).x);
+    assert.deepEqual(rotatedGo(origin, 'Home'), row[0]);
+    assert.deepEqual(rotatedGo(origin, 'End'), row.at(-1));
+    assert.equal(rotatedGo(origin, 'Home', true).r, Math.max(...board.map(cell => cell.r)));
+    assert.equal(rotatedGo(origin, 'End', true).r, Math.min(...board.map(cell => cell.r)));
+  });
 }

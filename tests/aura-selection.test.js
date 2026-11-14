@@ -11,7 +11,7 @@ const piece = (id,type,team,q=0,r=0)=>({id,type,team,q,r});
 function setup(pieces) {
   const config=clone(DEFAULT_CONFIG), state={pieces,turn:0,ply:0,winner:null};
   const layer={innerHTML:''};
-  const context=vm.createContext({ hexGridPoint, combat: null,config,TEAM_NAMES,effective,shieldCanRetreat,AURA_COLORS,auraKind,auraCircleMarkup,selected:null,preview:null,
+  const context=vm.createContext({ hexGridPoint, playMode: 'local', combat: null,config,TEAM_NAMES,effective,shieldCanRetreat,AURA_COLORS,auraKind,auraCircleMarkup,selected:null,preview:null,
     visibleState:()=>state,$:selector=>{assert.equal(selector,'#aura-circles');return layer;}});
   context.inspectionContext=()=>context.preview||{position:state,isPreview:false};
   vm.runInContext(app.split('\n').find(line=>line.startsWith('function point(')),context);

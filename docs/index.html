@@ -938,7 +938,7 @@ main{padding:0 14px 14px}
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.78</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T21:34:01.936Z">Сборка 15.11.2026, 00:34:01 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.78</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T21:43:33.388Z">Сборка 15.11.2026, 00:43:33 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -3450,8 +3450,8 @@ function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}, rende
 }
 
 // Move focus without changing selection or the game position.
-function boardNavigationTarget(board, current, direction, geometry = 'hex', wholeBoard = false) {
-  const point = cell => geometry === 'hex' ? { x: cell.q + cell.r / 2, y: cell.r * Math.sqrt(3) / 2 } : { x: cell.q, y: cell.r };
+function boardNavigationTarget(board, current, direction, geometry = 'hex', wholeBoard = false, project = null) {
+  const point = project || (cell => geometry === 'hex' ? { x: cell.q + cell.r / 2, y: cell.r * Math.sqrt(3) / 2 } : { x: cell.q, y: cell.r });
   const origin = point(current);
   if (direction === 'Home' || direction === 'End') {
     const row = (wholeBoard ? board : board.filter(cell => cell.r === current.r)).slice().sort((a, b) => point(a).y - point(b).y || point(a).x - point(b).x);
@@ -4481,7 +4481,7 @@ function startBot() {
     } catch { botIssue = 'Не удалось применить ход бота. Попробуйте ещё раз.'; render(); }
   }, error => { botIssue = error.message || 'Не удалось запустить бота. Попробуйте ещё раз.'; render(); });
 }
-function point(c) { return config.geometry === 'hex' ? hexGridPoint(c) : { x: c.q * 59, y: c.r * 59 }; }
+function point(c) { const p = config.geometry === 'hex' ? hexGridPoint(c) : { x: c.q * 59, y: c.r * 59 }; return playMode === 'online' && roomView?.selfSeat === 0 ? { x: -p.x, y: -p.y } : p; }
 function polygon(c) { const { x, y } = point(c); return config.geometry === 'hex' ? hexGridPolygon({ x, y }) : `${x-28},${y-28} ${x+28},${y-28} ${x+28},${y+28} ${x-28},${y+28}`; }
 function boardMarkup() {
   const restoreFocus = $('#board').contains(document.activeElement) && document.activeElement?.hasAttribute('data-cell');
@@ -4830,7 +4830,7 @@ $('#board').addEventListener('keydown', event => {
   } else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
     event.preventDefault();
     const [q, r] = cell.dataset.cell.split(',').map(Number);
-    const target = boardNavigationTarget(cells(config), { q, r }, event.key, config.geometry, event.ctrlKey || event.metaKey);
+    const target = boardNavigationTarget(cells(config), { q, r }, event.key, config.geometry, event.ctrlKey || event.metaKey, point);
     focusBoardCell(key(target.q, target.r), true);
   }
 });

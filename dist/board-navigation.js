@@ -1,6 +1,6 @@
 // Move focus without changing selection or the game position.
-export function boardNavigationTarget(board, current, direction, geometry = 'hex', wholeBoard = false) {
-  const point = cell => geometry === 'hex' ? { x: cell.q + cell.r / 2, y: cell.r * Math.sqrt(3) / 2 } : { x: cell.q, y: cell.r };
+export function boardNavigationTarget(board, current, direction, geometry = 'hex', wholeBoard = false, project = null) {
+  const point = project || (cell => geometry === 'hex' ? { x: cell.q + cell.r / 2, y: cell.r * Math.sqrt(3) / 2 } : { x: cell.q, y: cell.r });
   const origin = point(current);
   if (direction === 'Home' || direction === 'End') {
     const row = (wholeBoard ? board : board.filter(cell => cell.r === current.r)).slice().sort((a, b) => point(a).y - point(b).y || point(a).x - point(b).x);
