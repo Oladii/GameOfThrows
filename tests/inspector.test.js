@@ -82,10 +82,6 @@ test('the veteran reference separates permanent power and ally aura, including l
   context.config = structuredClone(PREVIOUS_FORMATION_CONFIG);
   delete context.config.shieldPromotion.allies;
   assert.match(context.shieldPromotionDescription(), /союзникам \+9 к урону, \+2 к дальности и \+9 к стойкости/);
-  vm.runInContext(app.slice(app.indexOf('function victoryDescription('), app.indexOf('function renderAbout(')), context);
-  assert.match(context.victoryDescription(), /ни броненосцев, ни лукарей/);
-  delete context.config.victoryCondition;
-  assert.match(context.victoryDescription(), /все фигуры противника, включая поддержку/);
   assert.ok(!app.includes('Ничья — тоже поражение'));
 });
 

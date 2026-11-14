@@ -5,7 +5,6 @@ import vm from 'node:vm';
 import { DEFAULT_CONFIG, TEAM_NAMES } from '../dist/rules.js';
 import { clone, effective, shieldCanRetreat } from '../dist/engine.js';
 import { hexGridPoint, AURA_COLORS, auraKind, auraCircleMarkup } from '../dist/board-presentation.js';
-import { createMoveLesson, renderMoveLesson } from '../dist/onboarding-examples.js';
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
 const painter = app.slice(app.indexOf('function paintAuras() {'), app.indexOf('\nfunction lastMoveTrace()'));
 const piece = (id,type,team,q=0,r=0)=>({id,type,team,q,r});
@@ -53,16 +52,4 @@ test('all-aura view shows both sources; attack view and zero radii hide rings',(
 test('square circles reach the furthest covered cell centres with and without diagonals',()=>{
   const ui=setup([piece('a','attackLamp',0,3,3)]);ui.config.geometry='square';ui.config.stats.attackLamp.aura=2;ui.context.selected='a';
   for(const diagonal of [false,true]){ui.config.experiments.squareDiagonals=diagonal;ui.paint();const radius=Number(ui.layer.innerHTML.match(/<circle[^>]*r="([^"]+)"/)[1]);assert.equal(radius,2*59*(diagonal?Math.SQRT2:1)+5.9);}
-});
-test('tutorial aura circles use the same renderer and follow hover, committed selection, and deselection',()=>{
-  for(const aura of ['attack','defense']){
-    const destination=createMoveLesson(4,{aura}).solution[0].to;
-    for(const options of [{selected:true,previewPlacement:destination},{selected:true,placement:destination}]){
-      const lesson=createMoveLesson(4,{aura,...options}),html=renderMoveLesson(lesson,{});
-      assert.ok(html.includes(`data-aura-origin="${destination.q},${destination.r}"`));
-      assert.ok(html.includes('class="aura-ring"'));assert.ok(!html.includes('lesson-aura-overlay'));
-    }
-    const html=renderMoveLesson(createMoveLesson(4,{aura,placement:destination}),{});
-    assert.ok(!html.includes('class="aura-ring"'));
-  }
 });

@@ -3,15 +3,13 @@ import { boardNavigationTarget } from './board-navigation.js';
 import { renderTokenBody, HORN_ICON_PATH, COMMANDER_ICON_PATH } from './token-presentation.js';
 import { DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance, upgradeSelectedBalancePreset } from './rules.js';
 import { consumeNewGameRefresh, refreshNewGamePage, hasNewerGameVersion, needsNewGame, latestGameVersion } from './new-game-refresh.js';
-import { clone, key, cells, distance, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, isLethalDamage, auraReaches, reachable, movementPath, shieldCanRetreat, archerHasEdgeBonus, move, pass, resolve } from './engine.js';
+import { clone, key, cells, validateConfig, validateState, createGame, analyze, inspectCell, effective, attacks, reachable, movementPath, shieldCanRetreat, archerHasEdgeBonus, move, pass, resolve } from './engine.js';
 import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from './bot-client.js';
 import { classifyPosition, prepareStartPosition } from './start-position.js';
 import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION } from './move-animation.js';
 import { GameRecorder } from './game-archive.js';
-import { hexGridPoint, hexGridPolygon, inspectionDamageArrows, renderHintArrow, renderUnitBadges, lethalAttackPresentation, renderDamageArrows, attackCellsFor, unitStatParts, alliedBonusDetails, ATTACK_TEAM_COLORS, AURA_COLORS, auraKind, auraCircleMarkup, skullShape, renderDeathEffects, renderMovingToken, unitAppearance, attackMarkerRotation, attackReachPresentation } from './board-presentation.js';
-import { createMoveLesson, renderMoveLesson, renderMoveExamples, createCombatLesson, renderCombatExamples, lessonPoint } from './onboarding-examples.js';
-import { renderUnitExamples } from './onboarding-units.js';
-import { createShowcaseBattle, renderShowcaseBattle, ShowcaseBattle } from './onboarding-showcase.js';
+import { hexGridPoint, hexGridPolygon, inspectionDamageArrows, renderHintArrow, renderUnitBadges, lethalAttackPresentation, renderDamageArrows, unitStatParts, alliedBonusDetails, ATTACK_TEAM_COLORS, AURA_COLORS, auraKind, auraCircleMarkup, renderDeathEffects, renderMovingToken, unitAppearance, attackReachPresentation } from './board-presentation.js';
+import { createGuideController } from './guide-controller.js';
 const $ = selector => document.querySelector(selector);
 const CURRENT_GAME_VERSION = $('#version-number').textContent.replace(/^v/, '');
 const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
@@ -330,8 +328,8 @@ function recentBotHistory() {
   return recent;
 }
 function queueBot() {
-  if (!ready || !isBotTurn() || movement || combat || currentDeaths.length || reviewingTurn || botIssue || botSuspended || $('dialog[open]') || botRunner.active || botTimer !== null) return;
-  botTimer = setTimeout(() => { botTimer = null; if (isBotTurn() && !movement && !combat && !reviewingTurn && !$('dialog[open]')) startBot(); }, 420);
+  if (!ready || !isBotTurn() || movement || combat || currentDeaths.length || reviewingTurn || botIssue || botSuspended || $('#rules-dialog')?.hidden === false || $('dialog[open]') || botRunner.active || botTimer !== null) return;
+  botTimer = setTimeout(() => { botTimer = null; if (isBotTurn() && !movement && !combat && !reviewingTurn && $('#rules-dialog')?.hidden !== false && !$('dialog[open]')) startBot(); }, 420);
 }
 function startBot() {
   const requestedState = state, requestedConfig = config, recent = recentBotHistory(), lastActions = new Map();
@@ -367,7 +365,7 @@ function boardMarkup() {
   $('#attack-legend').hidden = !showAttacks;
   $('#attack-legend').innerHTML = `<span class="attack-team north">${TEAM_NAMES[0]}</span><span class="attack-team south">${TEAM_NAMES[1]}</span><span>${!attackSources.length ? 'Нет атакующих фигур' : showTeamDamage ? 'Суммарный урон каждой команды' : 'Зоны обеих команд · снимите выбор для чисел урона'}</span>`;
   const tokens = [], damageLabels = [];
-  $('#board').innerHTML = `<defs><clipPath id="aura-field-clip"><rect x="${minX}" y="${minY}" width="${maxX - minX}" height="${maxY - minY}"/></clipPath><filter id="damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${maxX - minX}" height="${maxY - minY}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="attack-overlap" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="50%" stop-color="#d6e6ef"/><stop offset="50%" stop-color="#f3d6c2"/></linearGradient>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>` + board.map(c => {
+  $('#board').innerHTML = `<defs><clipPath id="aura-field-clip">${board.map(cell => `<polygon points="${polygon(cell)}"/>`).join('')}</clipPath><filter id="damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${maxX - minX}" height="${maxY - minY}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="attack-overlap" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="50%" stop-color="#d6e6ef"/><stop offset="50%" stop-color="#f3d6c2"/></linearGradient>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>` + board.map(c => {
     const k = key(c.q, c.r), p = occupied.get(k), { x, y } = point(c);
     const classes = ['cell'];
     if (destinations.has(k) && !editor && selectedPiece?.team === state.turn) classes.push('reachable');
@@ -871,379 +869,15 @@ $('#settings-form').addEventListener('submit', event => {
     $('#settings-dialog').close(); render();
   } catch (error) { $('#settings-error').textContent = error.message; }
 });
-function victoryDescription() {
-  if (config.victoryCondition === 'flag-or-combat') return 'Армия проигрывает при уничтожении своего знамени или потере всех броненосцев и лукарей. Это может произойти и на своём ходу. Если обе стороны одновременно выполняют условие поражения — ничья.';
-  return config.victoryCondition === 'combat-units' ? 'Армия проигрывает, когда у неё не остаётся ни броненосцев, ни лукарей, даже если поддержка ещё на поле. Если обе армии одновременно теряют последних броненосцев и лукарей — ничья.' : 'Уничтожьте все фигуры противника, включая поддержку. Если обе стороны одновременно теряют все фигуры — ничья.';
-}
-function renderAbout() {
-  $('#about-victory').textContent = victoryDescription();
-  const commander = config.stats.scoutLamp;
-  if ($('#about-commander-combat')) $('#about-commander-combat').textContent = commander.damage > 0 && commander.range > 0 ? `Атакует самостоятельно: урон ${commander.damage}, дальность ${commander.range}. Дальность не увеличивается от аур.` : 'Может атаковать только под аурой союзного ветерана.';
-  $('#about-directions').textContent = config.geometry === 'hex' ? 'На шестиугольном поле атаки идут по шести прямым лучам через стороны клеток. Ауры барабана, горна, знамени и командира охватывают все клетки в пределах радиуса, включая клетки между лучами. Остальные ауры следуют направлениям сетки.' : `На квадратном поле атаки идут по ${config.experiments.squareDiagonals ? 'восьми направлениям, включая диагонали' : 'четырём направлениям через грани'}. Длина луча — число клеток от источника. Ауры барабана, горна, знамени и командира охватывают все клетки в пределах радиуса.`;
-  $('#about-archer-promotion').textContent = config.archerEdgeDamageBonus > 0 ? `За достижение противоположного края навсегда получает +${config.archerEdgeDamageBonus} к урону и венок. Бонус сохраняется после отхода, не складывается повторно и не даёт ауру ветерана.` : 'В правилах этой партии усиление лукаря за край не включено.';
-  $('#about-promotion').innerHTML = shieldDescriptionMarkup();
-  $('#about-stats').innerHTML = '<thead><tr><th>Фигура</th><th>Шаг</th><th>Урон</th><th>Дальность</th><th>Стойкость</th><th>Аура</th></tr></thead><tbody>' + TYPES.filter(type => config.stats[type]).map(type => { const stats = config.stats[type]; return `<tr><td>${LABELS[type]}</td><td>${stats.move}</td><td>${stats.damage || '—'}</td><td>${stats.range || '—'}</td><td>${stats.fortitude}</td><td>${stats.aura || '—'}</td></tr>`; }).join('') + '</tbody>';
-  const experiments = config.experiments;
-  $('#about-blocking').textContent = [experiments.lampShieldBlocking ? 'Вражеский броненосец перекрывает все атаки, проходящие через его клетку, и закрывает фигуры за собой.' : 'Вражеский броненосец перекрывает атаки лукарей и других броненосцев, проходящие через его клетку. Атаки барабана проходят через броненосцев.', experiments.allyShotsPass ? 'Свои фигуры не мешают союзным атакам.' : 'Свои фигуры перекрывают союзные атаки, проходящие через их клетки.'].join(' ');
-  $('#about-auras').textContent = [experiments.aurasThroughShields ? 'Ауры проходят через любые фигуры.' : 'Броненосцы обеих сторон перекрывают распространение аур через свои клетки. Другие фигуры аурам не мешают.', config.shieldDefenseOnly ? 'Защита от броненосцев и ветеранов усиливает только союзных броненосцев.' : '', config.auraDefenseCap < 0 ? 'Все полученные бонусы стойкости от аур складываются.' : `Общий бонус стойкости от аур не превышает +${config.auraDefenseCap}. Личное усиление броненосца после края считается отдельно.`].filter(Boolean).join(' ');
-  $('#about-pass').hidden = !experiments.allowPass;
-  $('#about-pass').textContent = experiments.allowPass ? 'Вместо перемещения можно пропустить ход. После пропуска обе стороны проходят обычный расчёт боя.' : 'Каждый ход требует перемещения: пропускать ход нельзя.';
-}
 $('#reset-defaults').addEventListener('click', () => fillSettings(DEFAULT_CONFIG));
-
-const onboardingSteps = ['Цель игры', 'Фигуры'];
-let onboardingStep = 0, onboardingDamage = 2;
-let onboardingExamples = {};
-let onboardingShowcase = null;
-let onboardingUnitBattles = {};
-let onboardingAnimation = null;
-let onboardingPreviewByKeyboard = false;
-function onboardingUnit(type) {
-  const piece = { id: 'guide-card', type, team: 1, q: 0, r: 0 };
-  const position = { pieces: [piece], turn: 1, ply: 0, winner: null };
-  const info = analyze(position, DEFAULT_CONFIG).get(piece.id);
-  const appearance = unitAppearance(piece, DEFAULT_CONFIG, ICON_PATHS);
-  return `<svg class="onboarding-unit-token" viewBox="-38 -38 76 76" role="img" aria-label="${LABELS[type]}: урон ${info.damage}, стойкость ${info.fortitude}"><g class="piece south">${renderTokenBody(appearance, 1)}${unitBadges(info, { showIncoming: false, pieceType: type })}</g></svg>`;
-}
-function suppressGuideTabStops() {
-  $('#rules-dialog').querySelectorAll?.('button,a,input,select,textarea,summary,[tabindex]').forEach(element => {
-    if (element.closest?.('[data-slot="tabs"], [data-onboarding-step], .showcase-board, .close-dialog')) return;
-    element.setAttribute('tabindex', '-1');
-  });
-}
-function renderOnboardingFormation() {
-  return `<div class="onboarding-formation">${[
-    ['shield', 'Прикрывает союзников, любит ходить черепахой'],
-    ['archer', 'Бьёт издалека, любит слушать горн и командира'],
-    ['scoutLamp', 'Увеличивает дальность стрельбы лукарей'],
-    ['attackLamp', 'Помогает ходить на два шага вместо одного'],
-    ['horn', 'Усиливает урон'],
-    ['defenseLamp', 'Если потеряешь — проиграешь.']
-  ].map(([type, description]) => `<div class="onboarding-unit-card">${onboardingUnit(type)}<strong>${LABELS[type]}</strong><p>${description}</p></div>`).join('')}</div>`;
-}
-function renderOnboarding() {
-  if (onboardingStep === 0) onboardingShowcase?.resume();
-  if (globalThis.window?.gameTabs) globalThis.window.gameTabs.render(onboardingSteps, onboardingStep, step => goToOnboardingStep(step, true));
-  else $('#onboarding-progress').innerHTML = onboardingSteps.map((label, index) => `<button type="button" data-onboarding-step="${index}"${index === onboardingStep ? ' aria-current="step"' : ''} aria-label="Шаг ${index + 1}: ${label}"><span class="step-number">${index + 1}</span>${label}</button>`).join('');
-  let content = '';
-  if (onboardingStep === 0) content =
-    '<ul class="onboarding-principles" id="onboarding-title"><li>Уничтожь вражеский флаг и не потеряй свой.</li><li>Показывать своим фишкам кого бить — не надо.</li><li>Обе армии автоматически атакуют доступные цели в конце хода.</li><li>Урон складывается, но не накапливается между ходами. Если долго бить стальной щит палкой — щит не сломается.</li></ul>' +
-    renderShowcaseBattle(onboardingShowcase || createShowcaseBattle(), ICON_PATHS, unitBadges);
-  if (onboardingStep === 1) content = renderUnitExamples(onboardingUnitBattles, ICON_PATHS, unitBadges);
-  $('#onboarding-body').innerHTML = content;
-  $('#onboarding-body').setAttribute('aria-label', onboardingSteps[onboardingStep]);
-  suppressGuideTabStops();
-  $('#onboarding-body').scrollTop = 0;
-}
-function openAbout() {
-  cancelOnboardingAnimation();
-  cancelBot(); cancelMovement(); renderAbout();
-  onboardingStep = 0; onboardingDamage = 2;
-  onboardingExamples = {}; onboardingShowcase = null; onboardingUnitBattles = {};
-  renderOnboarding(); $('#rules-dialog').showModal(); render();
-  suppressGuideTabStops();
-  $('#onboarding-body').focus({ preventScroll: true });
-}
-function goToOnboardingStep(step, keepTabFocus = false) {
-  cancelOnboardingAnimation();
-  onboardingPreviewByKeyboard = false;
-  onboardingStep = Math.max(0, Math.min(onboardingSteps.length - 1, step));
-  renderOnboarding(); if (!keepTabFocus) $('#onboarding-body').focus();
-}
-$('#rules-dialog').addEventListener('cancel', event => event.preventDefault());
-$('#rules-dialog').addEventListener('keydown', event => {
-  if (event.key === 'Tab' && !event.target.closest?.('[data-slot="tabs"], [data-onboarding-step], .showcase-board, .close-dialog')) { event.preventDefault(); event.stopPropagation(); $('#onboarding-progress [role="tab"][aria-selected="true"], #onboarding-progress [data-onboarding-step][aria-current="step"]')?.focus(); }
-});
-$('#onboarding-progress').addEventListener('click', event => { const button = event.target.closest('[data-onboarding-step]'); if (button) goToOnboardingStep(Number(button.dataset.onboardingStep)); });
-function onboardingLessonModel(sceneKey, example) {
-  if (['8', '9', '10', '11'].includes(sceneKey)) return createCombatLesson(Number(sceneKey) - 8, example);
-  return createMoveLesson(sceneKey.startsWith('4-') ? 4 : Number(sceneKey), { ...example, aura: sceneKey === '4-defense' ? 'defense' : 'attack' });
-}
-function cancelOnboardingAnimation() {
-  onboardingShowcase?.stop();
-  Object.values(onboardingUnitBattles).forEach(battle=>battle.stop());
-  const previous = onboardingAnimation;
-  onboardingAnimation = null;
-  previous?.animator.cancel();
-  return Boolean(previous);
-}
-function redrawOnboarding() {
-  const scroll = $('#onboarding-body').scrollTop;
-  renderOnboarding(); $('#onboarding-body').scrollTop = scroll;
-}
-function presentOnboardingAction(sceneKey) {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
-  const lesson = onboardingLessonModel(sceneKey, onboardingExamples[sceneKey]);
-  const plan = lesson.path.length > 1 ? createMovementPlan(lesson.path.map(lesson.point || lessonPoint)) : null;
-  if (!plan && !lesson.deaths.length) return false;
-  const presentation = { sceneKey, phase: 'idle', frame: null, animator: null };
-  presentation.animator = new CombatAnimator(phase => {
-    if (onboardingAnimation !== presentation) return;
-    presentation.phase = phase;
-    if (phase === 'idle') onboardingAnimation = null;
-    redrawOnboarding();
-  }, frame => {
-    if (onboardingAnimation !== presentation) return;
-    presentation.frame = frame;
-    const token = $('#onboarding-body').querySelector(`#lesson-moving-token-${sceneKey}`);
-    if (token) { token.setAttribute('transform', `translate(${frame.x},${frame.y})`); token.dataset.progress = String(frame.progress); }
-  });
-  onboardingAnimation = presentation;
-  presentation.animator.start(plan, lesson.deaths.length > 0);
-  return true;
-}
-function showcaseSceneKey(element) {
-  return element?.closest?.('[data-showcase-battle]')?.dataset.showcaseBattle || 'main';
-}
-function showcaseScene(sceneKey) {
-  return $('#onboarding-body').querySelector(`[data-showcase-battle="${sceneKey}"]`);
-}
-function redrawShowcase(sceneKey='main') {
-  const battle=sceneKey==='main'?onboardingShowcase:onboardingUnitBattles[sceneKey];
-  if (onboardingStep !== (sceneKey==='main'?0:1) || !battle) return;
-  const scene=showcaseScene(sceneKey);
-  if (!scene) return;
-  const scroll = $('#onboarding-body').scrollTop;
-  const focused = document.activeElement?.closest?.('[data-showcase-cell]');
-  const focusCell=focused&&showcaseSceneKey(focused)===sceneKey?focused.dataset.showcaseCell:null;
-  scene.outerHTML = renderShowcaseBattle(battle, ICON_PATHS, unitBadges);
-  $('#onboarding-body').scrollTop = scroll;
-  if (focusCell) showcaseScene(sceneKey)?.querySelector(`[data-showcase-cell="${focusCell}"]`)?.focus({preventScroll:true});
-}
-function ensureShowcaseBattle(sceneKey='main') {
-  const create=()=>new ShowcaseBattle({
-    sceneKey:sceneKey==='main'?null:sceneKey,
-    onChange:()=>redrawShowcase(sceneKey),onPreview:()=>refreshShowcasePreview(sceneKey),
-    reducedMotion:()=>matchMedia('(prefers-reduced-motion: reduce)').matches,
-    onFrame:frame=>{
-      const token=showcaseScene(sceneKey)?.querySelector(`#${sceneKey==='main'?'training':sceneKey}-moving-token`);
-      if(token)token.setAttribute('transform',`translate(${frame.x},${frame.y})`);
-    }
-  });
-  if(sceneKey==='main')return onboardingShowcase ||= create();
-  return onboardingUnitBattles[sceneKey] ||= create();
-}
-function updateShowcaseBattle(control) {
-  if (control.disabled) return;
-  onboardingPreviewByKeyboard = false;
-  const battle=ensureShowcaseBattle(showcaseSceneKey(control));
-  if (control.dataset.showcasePiece) {
-    const piece = battle.viewedPosition.pieces.find(piece => piece.id === control.dataset.showcasePiece);
-    if (piece) battle.focusCell = `${piece.q},${piece.r}`;
-    battle.selectPiece(control.dataset.showcasePiece);
-  }
-  else if (control.dataset.showcaseCell !== undefined) {
-    const [q, r] = control.dataset.showcaseCell.split(',').map(Number);
-    battle.focusCell = `${q},${r}`;
-    const occupant = battle.viewedPosition.pieces.find(piece => piece.q === q && piece.r === r);
-    if (occupant) { battle.selectPiece(occupant.id); return; }
-    const destination = { q, r };
-    if (!battle.previewMoves.some(cell => cell.q === q && cell.r === r)) battle.clearSelection();
-    else if (!battle.moveTo(destination)) battle.preview(destination);
-  } else if (control.dataset.showcaseAction === 'undo') battle.undo();
-  else if (control.dataset.showcaseAction === 'previous') battle.review(-1);
-  else if (control.dataset.showcaseAction === 'next') battle.review(1);
-  else if (control.dataset.showcaseAction === 'restart') battle.restart();
-}
-function updateOnboardingLesson(button) {
-  const sceneKey = button.closest('[data-lesson-scene]')?.dataset.lessonScene;
-  if (!sceneKey) return false;
-  const data = button.dataset;
-  if (onboardingAnimation && data.lessonAction !== 'reset') return true;
-  if (data.lessonAction === 'reset') cancelOnboardingAnimation();
-  const example = onboardingExamples[sceneKey] ||= { selected: false, advanced: false, destination: null, placement: null, previewPlacement: null };
-  if (data.lessonUnit) {
-    onboardingPreviewByKeyboard = false;
-    const currentSelection = example.selectedId || data.lessonUnit;
-    example.selected = !example.selected || currentSelection !== data.lessonUnit;
-    example.selectedId = example.selected ? data.lessonUnit : null;
-    example.previewPlacement = null;
-    if (!example.advanced) example.destination = null;
-  } else if (data.lessonPlace) {
-    if (!example.selected || example.advanced) return true;
-    const [q, r] = data.lessonPlace.split(',').map(Number);
-    if (!onboardingLessonModel(sceneKey, example).available.some(cell => cell.q === q && cell.r === r)) return true;
-    example.placement = { q, r }; example.previewPlacement = null; example.advanced = true; example.selected = false;
-  } else if (data.lessonCell) {
-    if (!example.selected || example.advanced) return true;
-    const [q, r] = data.lessonCell.split(',').map(Number);
-    const lesson = onboardingLessonModel(sceneKey, example);
-    if (!lesson.available.some(cell => cell.q === q && cell.r === r)) return true;
-    example.movedId = lesson.moverId;
-    example.destination = { q, r }; example.advanced = true; example.selected = false; example.selectedId = null;
-  } else if (data.lessonAction === 'remove-shield' && sceneKey === '2') {
-    if (example.advanced || example.shieldRemoved) return true;
-    example.shieldRemoved = true; example.selected = false; example.previewPlacement = null;
-    if (!example.advanced) example.destination = null;
-  } else if (data.lessonAction === 'toggle-archer' && sceneKey === '9') {
-    cancelOnboardingAnimation();
-    Object.assign(example, { selected: false, advanced: false, destination: null, secondArcher: example.secondArcher === false });
-  } else if (data.lessonAction === 'reset') {
-    Object.assign(example, { selected: false, selectedId: null, movedId: null, advanced: false, destination: null, placement: null, previewPlacement: null, shieldRemoved: false, secondArcher: true });
-  } else return false;
-  const isAction = data.lessonCell || data.lessonPlace || data.lessonAction === 'remove-shield';
-  if (!isAction || !presentOnboardingAction(sceneKey)) redrawOnboarding();
-  return true;
-}
-function refreshOnboardingMovePreview(sceneKey) {
-  const example = onboardingExamples[sceneKey];
-  const scene = $('#onboarding-body').querySelector(`[data-lesson-scene="${sceneKey}"]`);
-  if (!scene || !example?.selected || example.advanced) return;
-  const lesson = onboardingLessonModel(sceneKey, example);
-  const template = document.createElement('template');
-  template.innerHTML = renderMoveLesson(lesson, ICON_PATHS, unitBadges);
-  for (const selector of ['.lesson-attack-reach', '.lesson-lines', '.lesson-numbers', '.lesson-ghost', '.lesson-aura-circles', '.lesson-details dl', '.lesson-feedback', '.lesson-state']) {
-    scene.querySelector(selector).innerHTML = template.content.querySelector(selector).innerHTML;
-  }
-  const auraDefinitions = scene.querySelector('defs');
-  if (auraDefinitions) auraDefinitions.innerHTML = template.content.querySelector('defs').innerHTML;
-  scene.querySelectorAll('[data-lesson-position]').forEach(cell => {
-    const source = template.content.querySelector(`[data-lesson-position="${cell.dataset.lessonPosition}"]`);
-    for (const name of ['lesson-route']) cell.classList.toggle(name, source.classList.contains(name));
-    const overlay = cell.querySelector('.lesson-aura-overlay');
-    if (overlay) overlay.setAttribute('style', source.querySelector('.lesson-aura-overlay').getAttribute('style'));
-  });
-  scene.querySelectorAll('[data-lesson-piece]').forEach(piece => {
-    const source = template.content.querySelector(`[data-lesson-piece="${piece.dataset.lessonPiece}"]`);
-    piece.querySelector('.lesson-unit-badges').innerHTML = source.querySelector('.lesson-unit-badges').innerHTML;
-    piece.classList.toggle('lesson-preview-origin', source.classList.contains('lesson-preview-origin'));
-    piece.classList.toggle('lesson-fatal', source.classList.contains('lesson-fatal'));
-  });
-}
-function onboardingPreviewTarget(element) {
-  return element?.closest?.('[data-lesson-cell],[data-lesson-place]');
-}
-function previewOnboardingMove(event) {
-  if (onboardingAnimation) return;
-  const cell = onboardingPreviewTarget(event.target);
-  const sceneKey = cell?.closest('[data-lesson-scene]')?.dataset.lessonScene;
-  const example = onboardingExamples[sceneKey];
-  if (!sceneKey || !example?.selected || example.advanced) return;
-  if (event.type === 'focusin') onboardingPreviewByKeyboard = true;
-  else if (onboardingPreviewByKeyboard) {
-    // Scrolling a focused cell under a stationary mouse must not replace its forecast.
-    if (event.type !== 'pointermove' || !event.movementX && !event.movementY) return;
-    onboardingPreviewByKeyboard = false;
-  }
-  const property = cell.dataset.lessonPlace ? 'previewPlacement' : 'destination';
-  const [q, r] = (cell.dataset.lessonPlace || cell.dataset.lessonCell).split(',').map(Number);
-  if (example[property]?.q === q && example[property]?.r === r) return;
-  example[property] = { q, r };
-  refreshOnboardingMovePreview(sceneKey);
-}
-function clearOnboardingMovePreview(event) {
-  if (onboardingAnimation) return;
-  if (onboardingPreviewByKeyboard && event.type === 'pointerout') return;
-  const cell = onboardingPreviewTarget(event.target);
-  const sceneKey = cell?.closest('[data-lesson-scene]')?.dataset.lessonScene;
-  if (!sceneKey) return;
-  const next = onboardingPreviewTarget(event.relatedTarget);
-  if (next?.closest('[data-lesson-scene]')?.dataset.lessonScene === sceneKey) return;
-  const example = onboardingExamples[sceneKey];
-  if (!example?.selected || example.advanced || !example.destination && !example.previewPlacement) return;
-  example.destination = null; example.previewPlacement = null;
-  refreshOnboardingMovePreview(sceneKey);
-}
-function refreshShowcasePreview(sceneKey='main') {
-  const scene=showcaseScene(sceneKey),battle=sceneKey==='main'?onboardingShowcase:onboardingUnitBattles[sceneKey];
-  if (!scene || !battle) return;
-  const prefix=sceneKey==='main'?'training':sceneKey;
-  const template = document.createElement('template');
-  template.innerHTML = renderShowcaseBattle(battle, ICON_PATHS, unitBadges);
-  for(const suffix of ['effects','overlays'])scene.querySelector(`#${prefix}-${suffix}`).innerHTML=template.content.querySelector(`#${prefix}-${suffix}`).innerHTML;
-  scene.querySelectorAll('[data-showcase-cell]').forEach(cell => {
-    const source = template.content.querySelector(`[data-showcase-cell="${cell.dataset.showcaseCell}"]`);
-    cell.setAttribute('class', source.getAttribute('class'));
-  });
-  // Keep hit targets in place while updating the regular battle forecast.
-  scene.querySelectorAll('[data-showcase-piece]').forEach(piece => {
-    const source = template.content.querySelector(`[data-showcase-piece="${piece.dataset.showcasePiece}"]`);
-    piece.innerHTML = source.innerHTML;
-    piece.setAttribute('class', source.getAttribute('class'));
-  });
-}
-function previewShowcaseMove(event) {
-  const scene=event.target.closest?.('[data-showcase-battle]');
-  if(!scene)return;
-  const battle=ensureShowcaseBattle(scene.dataset.showcaseBattle||'main');
-  if (battle.busy) return;
-  const cell = event.target.closest?.('[data-showcase-cell]');
-  const unit = event.target.closest?.('[data-showcase-piece]');
-  if (event.type === 'focusin' && (cell || unit)) onboardingPreviewByKeyboard = true;
-  else if (onboardingPreviewByKeyboard) {
-    if (event.type !== 'pointermove' || !event.movementX && !event.movementY) return;
-    onboardingPreviewByKeyboard = false;
-  }
-  const [q, r] = cell ? cell.dataset.showcaseCell.split(',').map(Number) : [];
-  const piece = unit && battle.viewedPosition.pieces.find(piece => piece.id === unit.dataset.showcasePiece);
-  battle.preview(cell ? { q, r } : piece || null);
-}
-$('#onboarding-body').addEventListener('pointerover', previewShowcaseMove);
-$('#onboarding-body').addEventListener('pointermove', previewShowcaseMove);
-$('#onboarding-body').addEventListener('focusin', previewShowcaseMove);
-$('#onboarding-body').addEventListener('pointerout', event => {
-  if (onboardingPreviewByKeyboard) return;
-  const scene=event.target.closest?.('[data-showcase-battle]');
-  if(scene&&scene!==event.relatedTarget?.closest?.('[data-showcase-battle]'))ensureShowcaseBattle(scene.dataset.showcaseBattle||'main').preview(null);
-});
-$('#onboarding-body').addEventListener('pointerover', previewOnboardingMove);
-$('#onboarding-body').addEventListener('pointermove', previewOnboardingMove);
-$('#onboarding-body').addEventListener('focusin', previewOnboardingMove);
-$('#onboarding-body').addEventListener('pointerout', clearOnboardingMovePreview);
-$('#onboarding-body').addEventListener('focusout', clearOnboardingMovePreview);
-$('#onboarding-body').addEventListener('click', event => {
-  const showcaseButton = event.target.closest('[data-showcase-action],[data-showcase-piece],[data-showcase-cell]');
-  if (showcaseButton && (showcaseButton.dataset.showcaseAction || showcaseButton.dataset.showcasePiece || showcaseButton.dataset.showcaseCell !== undefined)) { updateShowcaseBattle(showcaseButton); return; }
-  if (event.target.closest('.showcase-field')?.closest('[data-showcase-battle]')?.dataset.showcaseBattle !== undefined) { ensureShowcaseBattle(showcaseSceneKey(event.target)).clearSelection(); return; }
-  const button = event.target.closest('button,[data-lesson-cell],[data-lesson-unit],[data-lesson-place]');
-  if (onboardingAnimation && button?.dataset.lessonAction !== 'reset') return;
-  const sceneKey = button?.closest('[data-lesson-scene]')?.dataset.lessonScene;
-  let cleared = false;
-  for (const [key, example] of Object.entries(onboardingExamples)) {
-    if (!example.selected || key === sceneKey && (button.dataset.lessonUnit || button.dataset.lessonCell || button.dataset.lessonPlace || button.dataset.lessonAction === 'reset')) continue;
-    example.selected = false; example.selectedId = null; example.previewPlacement = null;
-    if (!example.advanced) example.destination = null;
-    cleared = true;
-  }
-  if (button && updateOnboardingLesson(button)) return;
-  if (button?.dataset.damage) {
-    onboardingDamage = Number(button.dataset.damage);
-    renderOnboarding(); $('#onboarding-body').querySelector(`[data-damage="${button.dataset.damage}"]`)?.focus();
-  } else if (cleared) {
-    const scroll = $('#onboarding-body').scrollTop;
-    renderOnboarding(); $('#onboarding-body').scrollTop = scroll;
-  }
-});
-$('#onboarding-body').addEventListener('keydown', event => {
-  const trainingCell = event.target.closest('[data-showcase-cell]');
-  if (trainingCell?.dataset?.showcaseCell !== undefined) {
-    if (['Enter', ' '].includes(event.key)) { event.preventDefault(); updateShowcaseBattle(trainingCell); }
-    else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
-      event.preventDefault();
-      const battle = ensureShowcaseBattle(showcaseSceneKey(trainingCell));
-      onboardingPreviewByKeyboard = true;
-      const [q, r] = trainingCell.dataset.showcaseCell.split(',').map(Number);
-      const target = boardNavigationTarget(cells(battle.config), {q,r}, event.key, battle.config.geometry, event.ctrlKey || event.metaKey);
-      battle.focusCell = `${target.q},${target.r}`;
-      const scene = trainingCell.closest('[data-showcase-battle]');
-      scene.querySelectorAll('[data-showcase-cell]').forEach(cell => cell.setAttribute('tabindex', cell.dataset.showcaseCell === battle.focusCell ? '0' : '-1'));
-      scene.querySelector(`[data-showcase-cell="${battle.focusCell}"]`)?.focus({preventScroll:true});
-      battle.preview(target);
-    }
-    return;
-  }
-  if (!['Enter', ' '].includes(event.key)) return;
-  const cell = event.target.closest('[data-lesson-cell],[data-lesson-unit],[data-lesson-place]'); if (!cell) return;
-  event.preventDefault(); updateOnboardingLesson(cell);
-});
-
-$('#rules-open').addEventListener('click', openAbout);
-document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { if (dialog.id === 'rules-dialog') cancelOnboardingAnimation(); render(); }));
+createGuideController({ icons: ICON_PATHS, renderBadges: unitBadges,
+  beforeOpen: () => { cancelBot(); cancelMovement(); }, onClose: render });
+document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
-document.addEventListener('keydown', event => { if (event.key === 'Tab' && !event.target.closest('dialog')) { event.preventDefault(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
+document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && !event.target.closest('dialog')) { event.preventDefault(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; fieldView = null; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
-matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; presentKills(completed.before, completed.forecast, completed.deaths); } if (event.matches && onboardingAnimation) onboardingAnimation.animator.finish(); });
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; presentKills(completed.before, completed.forecast, completed.deaths); } });
 let attackReachInView = true;
 function updateAttackReachPlayback() {
   $('#board').classList.toggle('attack-reach-paused', document.hidden || !attackReachInView);

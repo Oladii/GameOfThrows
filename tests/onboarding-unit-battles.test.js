@@ -18,7 +18,7 @@ function setup(sceneKey, reducedMotion=true) {
   return {battle,timers,frames,settle,advance,play};
 }
 
-test('all four unit demos use the training battle renderer and only a reset control',()=>{
+test('all unit demos use the training battle renderer and only a reset control',()=>{
   const html=renderUnitExamples({}, {}, renderUnitBadges);
   for(const sceneKey of UNIT_BATTLE_SCENES){
     const markup=renderShowcaseBattle(createUnitBattle(sceneKey),{},renderUnitBadges);
@@ -148,5 +148,49 @@ test('horn damage and commander range are both necessary for the archer to kill 
   assert.equal(analyze(withoutCommander,battle.config).get('archer').range,4);
   assert.equal(analyze(withoutCommander,battle.config).get('enemy').incoming,0);
   play();assert.deepEqual(battle.position,expected.state);assert.equal(battle.position.winner,1);
+  battle.restart();assert.deepEqual(battle.position,initial);
+});
+
+
+test('archer starts one cell from the edge and kills the flag only after promotion on that single move',()=>{
+  const {battle,play}=setup('unit-archer-veteran');
+  const initial=structuredClone(battle.position),report=analyze(initial,battle.config);
+  assert.equal(initial.pieces.find(p=>p.id==='blue').r,-2);
+  assert.equal(battle.actions.length,1);
+  assert.equal(report.get('blue').damage,2);
+  assert.equal(report.get('enemy').fortitude,3);
+  assert.equal(report.get('enemy').incoming,2);assert.equal(report.get('enemy').dead,false);
+  const promoted=move(initial,battle.config,'blue',{q:0,r:-3});
+  assert.equal(promoted.report.get('blue').damage,5);
+  assert.equal(promoted.report.get('enemy').incoming,5);assert.equal(promoted.report.get('enemy').dead,true);
+  assert.equal(move(initial,{...battle.config,archerEdgeDamageBonus:0},'blue',{q:0,r:-3}).report.get('enemy').dead,false);
+  play();assert.deepEqual(battle.position,promoted.state);
+  assert.equal(battle.position.ply,1);assert.equal(battle.position.pieces[0].archerReachedFarEdge,true);assert.equal(battle.position.winner,1);
+  battle.restart();assert.deepEqual(battle.position,initial);
+});
+
+test('flag aura is the only difference between a surviving defender and lethal incoming damage',()=>{
+  const {battle,play}=setup('unit-flag-defense');
+  const initial=structuredClone(battle.position),before=analyze(initial,battle.config);
+  assert.equal(before.get('blue').incoming,5);
+  assert.equal(before.get('blue').fortitude,6);
+  assert.equal(before.get('blue').dead,false);
+  assert.equal(before.get('enemy').dead,false);
+  const action=battle.expectedAction;
+  assert.equal(action.id,'flag');
+  const kept=move(initial,battle.config,'flag',{q:1,r:1});
+  assert.equal(kept.report.get('blue').dead,false);
+  const forecast=inspectCell(initial,battle.config,action.to,action.id);
+  assert.equal(forecast.report.get('blue').incoming,5);
+  assert.equal(forecast.report.get('blue').fortitude,5);
+  assert.equal(forecast.report.get('blue').dead,true);
+  battle.selectPiece('flag');battle.preview(action.to);
+  assert.match(renderShowcaseBattle(battle,{},renderUnitBadges),/piece training-piece south fatal[^>]*data-showcase-piece="blue"/);
+  assert.deepEqual(battle.position,initial);
+  play();
+  assert.equal(battle.phase,'finished');
+  assert.equal(battle.position.pieces.some(p=>p.id==='blue'),false);
+  assert.ok(battle.position.pieces.some(p=>p.id==='flag'));
+  assert.ok(battle.position.pieces.some(p=>p.id==='enemy'));
   battle.restart();assert.deepEqual(battle.position,initial);
 });

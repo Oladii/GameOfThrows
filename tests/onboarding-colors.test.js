@@ -1,22 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMoveLesson, renderMoveLesson } from '../dist/onboarding-examples.js';
+import { createUnitBattle } from '../dist/onboarding-showcase.js';
 import { unitAppearance, renderMovingToken, renderDeathEffects } from '../dist/board-presentation.js';
 
-test('training moves and death effects display the controlled army as the orange South', () => {
-  const moving = renderMoveLesson(createMoveLesson(0), {}, () => '', { phase: 'movement' });
-  assert.ok(/class="moving-token south(?: fatal)?"/.test(moving));
-  assert.ok(moving.includes('rotate(180 0 '));
-  assert.ok(moving.includes('Ваши — Юг'));
-  const defeat = createMoveLesson(2, { advanced: true, destination: { q: 0, r: -1 } });
-  const death = renderMoveLesson(defeat, {}, () => '', { phase: 'deaths' });
-  assert.ok(death.includes('class="death-ghost south"'));
-  assert.ok(!death.includes('class="death-ghost north"'));
-  assert.ok(death.includes('rotate(180 0 '));
-});
-
 test('a display perspective does not change the real game teams, veteran status or default rendering', () => {
-  const lesson = createMoveLesson(0), archer = lesson.before.pieces.find(piece => piece.id === 'blue');
+  const lesson = createUnitBattle('unit-archer-veteran'), archer = { ...lesson.position.pieces.find(piece => piece.id === 'blue'), team: 0 };
   const original = structuredClone(archer);
   assert.ok(unitAppearance(archer, lesson.config, { archer: 'bow' }, 1).icon.includes('rotate(-90 12 12)'));
   assert.ok(unitAppearance(archer, lesson.config, { archer: 'bow' }).icon.includes('rotate(90 12 12)'));

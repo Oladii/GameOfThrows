@@ -1,5 +1,5 @@
 import { oneReplySafety } from './defensive-selection.mjs';
-import { analyze, cells, effective, attacks, isRay, distance, isLethalDamage, move, pass, reachable, shieldCanRetreat, archerHasEdgeBonus, validateConfig, validateState } from './engine.js';
+import { analyze, cells, effective, attacks, isRay, distance, isLethalDamage, createSearchMovement, pass, reachable, shieldCanRetreat, archerHasEdgeBonus, validateConfig, validateState } from './engine.js';
 export function createStrategyPolicy(PLAN){
 if(!['formation','ranged','veteran'].includes(PLAN))throw Error('Unknown plan');
 const key=p=>`${p.q},${p.r}`;
@@ -266,15 +266,16 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
   // opponent reply. The easy level keeps depth 2 on a full board.
   const searchDepth = depth === 2 && state.pieces.length <= 12 ? 3 : depth;
   stats.planningDepth = searchDepth;
+  const movement = createSearchMovement(config);
   const legalActions = position => {
     if (position.winner !== null) return [];
-    const actions = position.pieces.filter(p => p.team === position.turn).flatMap(p => reachable(p, position, config)
+    const actions = position.pieces.filter(p => p.team === position.turn).flatMap(p => movement.reachable(p, position)
       .map(to => ({ id: p.id, to: { q: to.q, r: to.r }, type: p.type, from: { q: p.q, r: p.r } })));
     return actions.length || !config.experiments.allowPass ? actions : [{ pass: true }];
   };
   const simulate = (position, action) => {
     stats.nodes++;
-    const outcome = action.pass ? pass(position, config) : move(position, config, action.id, action.to);
+    const outcome = action.pass ? pass(position, config) : movement.move(position, action.id, action.to);
     return { ...outcome, evaluationReport: outcome.deaths.length ? analyze(outcome.state, config) : outcome.report };
   };
   const plans = coordinationRoutes(state, config);

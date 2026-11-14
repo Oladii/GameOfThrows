@@ -7,7 +7,6 @@ import { analyze, effective, validateConfig, shieldCanRetreat, archerHasEdgeBonu
 import { alliedBonusDetails, unitAppearance, unitStatParts, auraKind, auraCircleMarkup } from '../dist/board-presentation.js';
 import { renderTokenBody, HORN_ICON_PATH, COMMANDER_ICON_PATH } from '../dist/token-presentation.js';
 import { renderUnitExamples } from '../dist/onboarding-units.js';
-import { renderMoveExamples, renderCombatExamples } from '../dist/onboarding-examples.js';
 import { createShowcaseBattle, renderShowcaseBattle } from '../dist/onboarding-showcase.js';
 
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
@@ -86,14 +85,11 @@ test('interactive training opens directly and production retains its original sa
   for(const [site,expected]of [[true,'lamps-prototype-v1'],[false,'lamps-local-playtest13-v1']]){const context=vm.createContext({ hint: null,archiveIsSite:site});assert.equal(vm.runInContext(storageDeclaration+'\nSTORAGE',context),expected);}
   assert.doesNotMatch(app, /localStorage\.(?:removeItem|clear)\(/);
   assert.doesNotMatch(app, /next\.stats\.attackLamp\.damage = 2/);
-  const openAbout = app.slice(app.indexOf('function openAbout()'), app.indexOf('function goToOnboardingStep('));
-  assert.match(openAbout, /renderOnboarding\(\)/);
-  assert.match(html, /<dialog id="rules-dialog" aria-label="Как играть">/);
+  assert.match(app, /createGuideController\(\{/);
+  assert.match(html, /<section id="rules-dialog" class="guide-screen" aria-label="Как играть" hidden>/);
   assert.doesNotMatch(html, /id="about-title"|class="about-switch"|id="about-guide-tab"|id="about-reference-tab"/);
   assert.doesNotMatch(html, /id="onboarding-open"|id="cancel-new-game"/);
   assert.match(html, /id="rules-open"/);
-  assert.match(html, /<strong>Горн<\/strong> усиливает урон союзников всех типов/);
-  assert.match(html, /<strong>Барабан<\/strong> добавляет союзникам всех типов шаг/);
 });
 
 
@@ -105,7 +101,6 @@ test('commander reuses the established helmet and keeps the scout mechanics iden
   assert.match(COMMANDER_ICON_PATH, /M3 9c0-4\.3 4-7 9-7/);
   assert.doesNotMatch(markup, /data-artwork="type-scoutLamp"/);
   assert.match(app, /scoutLamp: COMMANDER_ICON_PATH/);
-  assert.match(html, /<strong>Командир<\/strong> увеличивает дальность союзных лукарей/);
   assert.doesNotMatch(html, /[Рр]азведчик|бинокл/);
 });
 
@@ -160,26 +155,6 @@ test('loading revision20 arms the current commander without rebuilding the posit
 });
 
 
-test('tutorial has only two tabs and reuses the battle view for both shield demos', () => {
-  const nodes = Object.fromEntries(['rules-dialog', 'onboarding-progress', 'onboarding-body', 'onboarding-back', 'onboarding-count', 'onboarding-next', 'onboarding'].map(id => ['#' + id, { innerHTML: '', attrs: {}, setAttribute(name, value) { this.attrs[name] = value; } }]));
-  const context = vm.createContext({ hint: null, DEFAULT_CONFIG, LABELS, ICON_PATHS: {}, analyze, unitAppearance, renderTokenBody, createShowcaseBattle, unitBadges: () => '', renderUnitExamples, renderMoveExamples, renderCombatExamples, renderShowcaseBattle, gamePhase: 'playing', editor: false, $: selector => nodes[selector] });
-  vm.runInContext(app.slice(app.indexOf('const onboardingSteps ='), app.indexOf('function openAbout(')), context);
-  vm.runInContext('renderOnboarding()', context);
-  assert.match(nodes['#onboarding-body'].innerHTML, /data-showcase-action="undo"/);
-  assert.match(nodes['#onboarding-body'].innerHTML, /Уничтожь вражеский флаг и не потеряй свой\./);
-  assert.match(nodes['#onboarding-body'].innerHTML, /Обе армии автоматически атакуют доступные цели в конце хода\./);
-  const formation = vm.runInContext('renderOnboardingFormation()', context);
-  for (const type of TYPES) assert.ok(formation.includes(`aria-label="${LABELS[type]}: урон ${DEFAULT_CONFIG.stats[type].damage}, стойкость ${DEFAULT_CONFIG.stats[type].fortitude}"`));
-  assert.doesNotMatch(nodes['#onboarding-body'].innerHTML, /Исторические примеры|прежние правила/);
-  vm.runInContext('onboardingStep = 1; renderOnboarding()', context);
-  assert.deepEqual([...nodes['#onboarding-body'].innerHTML.matchAll(/data-showcase-battle="([^"]+)"/g)].map(m=>m[1]),['unit-shield','unit-shield-defense','unit-drum-shield','unit-archer','unit-flag-defense']);
-  assert.doesNotMatch(nodes['#onboarding-body'].innerHTML,/data-lesson-scene="unit-/);
-  assert.deepEqual(Array.from(vm.runInContext('onboardingSteps',context)),['Цель игры','Фигуры']);
-  vm.runInContext('onboardingStep = 1; renderOnboarding()', context);
-  assert.doesNotMatch(nodes['#onboarding-body'].innerHTML,/onboarding-checklist|data-lesson-scene="11"/);
-
-});
-
 test('the commander source panel keeps move, damage and defense bonuses while excluding range growth', () => {
   const target = { id: 'commander', type: 'scoutLamp', team: 0, q: 0, r: 0 };
   const state = position([target, { id: 'veteran', type: 'shield', team: 0, q: 1, r: 0, reachedFarEdge: true }, { id: 'drummer', type: 'attackLamp', team: 0, q: 0, r: 1 }]);
@@ -190,8 +165,6 @@ test('the commander source panel keeps move, damage and defense bonuses while ex
   assert.equal(veteran.bonuses.damage, 1);
   assert.equal(veteran.bonuses.fortitude, 1);
   assert.equal(details.find(detail => detail.source.id === 'drummer').bonuses.move, 1);
-  assert.match(html, /Дальность не увеличивается от аур/);
-  assert.match(html, /Броненосцы и командиры с собственной атакой не получают дополнительную дальность/);
   const legacy = structuredClone(PREVIOUS_LOCAL_CONFIG);
   const legacyDetails = alliedBonusDetails(target, state, legacy);
   assert.equal(legacyDetails.find(detail => detail.source.id === 'veteran').bonuses.range, 1);

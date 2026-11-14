@@ -16,7 +16,7 @@ function lesson() {
     }
     assert.equal(battle.presentation, null);
   };
-  const reply = () => { const [handle, callback] = [...pending][0]; pending.delete(handle); callback(); settle(); };
+  const reply = (proceed=true) => { const [handle, callback] = [...pending][0]; pending.delete(handle); callback(); if(proceed){assert.equal(battle.phase,'awaiting-combat');battle.continueCombat();settle();} };
   const play = () => { const action = TRAINING_ACTIONS[battle.position.ply]; battle.selectPiece(action.id); const accepted = battle.moveTo(action.to); if (accepted) settle(); return accepted; };
   return { battle, pending, play, reply, settle };
 }
@@ -80,36 +80,23 @@ test('only the recommended piece and cell can advance, with exactly one scripted
   battle.selectPiece('s-shield-left'); assert.equal(battle.selectedId,null);
   assert.equal(battle.moveTo(TRAINING_ACTIONS[2].to),false);
   reply(); assert.equal(battle.position.ply,2); assert.equal(pending.size,0);
-  assert.equal(play(),true); assert.equal(battle.position.winner,1); assert.equal(battle.history.length,4);
+  assert.equal(play(),true); assert.equal(battle.position.winner,1);
   assert.deepEqual(other.position,initial);
 });
 
-test('undo cancels a pending reply, including stale callbacks, and undoes complete player turns', () => {
-  const { battle,pending,play,reply } = lesson();
-  play(); const stale = [...pending.values()][0]; battle.undo(); stale();
-  assert.equal(battle.position.ply,0); assert.equal(pending.size,0); assert.equal(battle.history.length,1);
-  play(); reply(); battle.undo(); assert.equal(battle.position.ply,0);
-  play(); reply(); play(); battle.undo();
-  assert.equal(battle.position.ply,2); assert.equal(battle.position.winner,null); assert.equal(battle.history.length,3);
-  play(); assert.equal(battle.position.winner,1); battle.undo(); battle.undo(); assert.equal(battle.position.ply,0);
-});
-
-test('history is read only and leaving the guide suspends the reply until resuming', () => {
+test('leaving the guide suspends the reply until resuming', () => {
   const { battle,pending,play,reply } = lesson();
   play(); const stale = [...pending.values()][0]; battle.stop(); stale();
   assert.equal(battle.position.ply,1); assert.equal(battle.phase,'paused'); assert.equal(pending.size,0);
   battle.resume(); battle.resume(); assert.equal(pending.size,1); reply();
-  battle.review(-1); assert.equal(battle.viewedPosition.ply,1); assert.equal(battle.position.ply,2);
-  battle.review(-1); battle.selectPiece('s-shield-left');
-  assert.equal(battle.moveTo(TRAINING_ACTIONS[0].to),false); assert.equal(battle.position.ply,2);
-  battle.review(1); battle.review(1); assert.equal(battle.reviewIndex,null); play(); assert.equal(battle.position.winner,1);
+  assert.equal(battle.position.ply,2); play(); assert.equal(battle.position.winner,1);
 });
 
 test('training shows incoming preview damage with normal range and aura presentation', () => {
   const {battle}=lesson();
   let html=renderShowcaseBattle(battle,{},renderUnitBadges);
   assert.match(html,/>Учебный бой</); assert.match(html,/id="training-advice"/);
-  assert.deepEqual([...html.matchAll(/data-showcase-action="([^"]+)"/g)].map(match=>match[1]),['undo','previous','next']);
+  assert.deepEqual([...html.matchAll(/data-showcase-action="([^"]+)"/g)].map(match=>match[1]),[]);
   assert.doesNotMatch(html,/Показательный бой|Хватит|Поехали|Начать обучение|НАЧАЛО ОБУЧЕНИЯ|training-advice-title|showcase-legend|Попросить совет|Повторить учебный расчёт|>Атаки<|>Ауры</);
   assert.doesNotMatch(html,/lesson-available|Предпросмотр другого хода/);
   assert.doesNotMatch(html,/data-source=/);
@@ -126,18 +113,18 @@ test('training shows incoming preview damage with normal range and aura presenta
   assert.match(html,/data-aura-origin="-1,0"/);
 });
 
-test('undo during movement cancels animation without committing a delayed move', () => {
+test('restart during movement cancels animation without committing a delayed move', () => {
   let tick; let now=0;
   const battle=new ShowcaseBattle({clock:{now:()=>now,requestFrame:cb=>(tick=cb,1),cancelFrame:()=>{}}});
   battle.selectPiece('s-shield-left'); battle.moveTo(TRAINING_ACTIONS[0].to);
   assert.equal(battle.presentation.phase,'movement'); assert.equal(battle.position.ply,0);
-  const stale=tick; battle.undo(); now=1000; stale();
+  const stale=tick; battle.restart(); now=1000; stale();
   assert.equal(battle.position.ply,0); assert.equal(battle.presentation,null); assert.equal(battle.phase,'ready');
 });
 
 test('every legal move of every friendly piece can be previewed without advancing the lesson', () => {
   const { battle, pending } = lesson();
-  const snapshot = JSON.stringify({ position: battle.position, history: battle.history, phase: battle.phase });
+  const snapshot = JSON.stringify({ position: battle.position, phase: battle.phase });
   for (const piece of battle.position.pieces.filter(piece => piece.team === battle.position.turn)) {
     if (battle.selectedId) battle.clearSelection();
     battle.selectPiece(piece.id);
@@ -153,7 +140,7 @@ test('every legal move of every friendly piece can be previewed without advancin
       assert.match(html, /training-preview-token/);
       assert.match(html, new RegExp(`translate\\(${showcasePoint(destination).x},${showcasePoint(destination).y}\\)`));
       if (expected.report.get(piece.id).incoming > 0) assert.ok(html.includes(`forecast:${expected.report.get(piece.id).incoming}:${expected.report.get(piece.id).fortitude};`));
-      assert.equal(JSON.stringify({ position: battle.position, history: battle.history, phase: battle.phase }), snapshot);
+      assert.equal(JSON.stringify({ position: battle.position, phase: battle.phase }), snapshot);
       assert.equal(pending.size, 0);
       const approved = TRAINING_ACTIONS[0];
       if (piece.id !== approved.id || destination.q !== approved.to.q || destination.r !== approved.to.r) {
@@ -213,7 +200,7 @@ test('combat reveals the same lethal contributions in sequence and cancels pendi
   assert.equal(battle.position.ply,1);
   const html = renderShowcaseBattle(battle,{},renderUnitBadges);
   assert.doesNotMatch(html,/training-preview-token|data-source=/);
-  battle.undo(); assert.equal(pending.size,0); assert.equal(battle.position.ply,0);
+  battle.restart(); assert.equal(pending.size,0); assert.equal(battle.position.ply,0);
 });
 
 test('both armies reveal only the current combat group in sequence without changing damage or deaths', () => {
@@ -247,22 +234,46 @@ test('play again appears after victory and restores an isolated initial lesson',
   assert.equal(battle.position.winner, 1);
   assert.match(renderShowcaseBattle(battle,{},renderUnitBadges), /data-showcase-action="restart">Сыграть ещё раз/);
   battle.restart();
-  assert.deepEqual(battle.position, initial); assert.deepEqual(battle.history, [initial]);
+  assert.deepEqual(battle.position, initial);
   assert.equal(battle.selectedId,null); assert.equal(battle.previewCell,null); assert.equal(battle.hoverCell,null);
-  assert.equal(battle.reviewIndex,null); assert.equal(battle.presentation,null); assert.equal(pending.size,0);
+  assert.equal(battle.presentation,null); assert.equal(pending.size,0);
   assert.equal(battle.phase,'ready'); assert.equal(play(),true);
   const staleReply = [...pending.values()][0];
   battle.restart(); staleReply();
   assert.deepEqual(battle.position, initial); assert.equal(pending.size,0);
 });
 
-test('training advice arrow appears immediately on player turns and hides during combat, history and victory',()=>{
+test('training advice arrow appears immediately on player turns and hides during combat and victory',()=>{
   const {battle,play,reply}=lesson();
   const visible=()=>assert.match(renderShowcaseBattle(battle,{},renderUnitBadges),/class="hint-trace"/);
   const hidden=()=>assert.doesNotMatch(renderShowcaseBattle(battle,{},renderUnitBadges),/class="hint-trace"/);
   visible();assert.equal(battle.selectedId,null);
   play();hidden();reply();visible();
-  battle.review(-1);hidden();battle.review(1);visible();
   battle.selectPiece('s-bow-right');battle.preview(battle.previewMoves[0]);visible();
   battle.clearSelection();play();assert.equal(battle.position.winner,1);hidden();
+});
+
+
+test('enemy movement pauses before combat until the user presses Next, including across guide suspension',()=>{
+  const {battle,play,reply,pending,settle}=lesson();
+  play();reply(false);
+  const waiting=battle.presentation;
+  assert.equal(battle.phase,'awaiting-combat');assert.equal(pending.size,0);
+  assert.equal(battle.position.ply,1);
+  assert.ok(waiting.visiblePosition.pieces.some(p=>p.id==='s-shield-right'));
+  assert.ok(waiting.visiblePosition.pieces.some(p=>p.id==='n-shield-left'&&p.q===0&&p.r===0));
+  const html=renderShowcaseBattle(battle,{},renderUnitBadges);
+  assert.match(html,/<aside[^>]+>[\s\S]*data-showcase-action="continue">Дальше<\/button>[\s\S]*<\/aside>/);
+  assert.doesNotMatch(html,/training-controls|data-showcase-action="undo"|data-showcase-action="previous"|data-showcase-action="next"/);
+  battle.stop();battle.resume();assert.equal(battle.presentation,waiting);assert.equal(pending.size,0);
+  assert.equal(battle.moveTo(TRAINING_ACTIONS[2].to),false);
+  assert.equal(battle.continueCombat(),true);assert.equal(battle.continueCombat(),false);settle();
+  assert.equal(battle.position.ply,2);assert.ok(!battle.position.pieces.some(p=>p.id==='s-shield-right'));
+  assert.doesNotMatch(renderShowcaseBattle(battle),/data-showcase-action="continue"/);
+});
+
+test('reset discards a waiting enemy calculation and rejects its stale continuation',()=>{
+  const {battle,play,reply}=lesson();play();reply(false);
+  const stale=battle.presentation.proceedCombat;battle.restart();stale();
+  assert.equal(battle.position.ply,0);assert.equal(battle.presentation,null);assert.equal(battle.continueCombat(),false);
 });

@@ -127,10 +127,13 @@ export function isRay(a, b, config) {
   const dq = b.q - a.q, dr = b.r - a.r;
   return directions(config).some(([q, r]) => q === 0 ? dq === 0 && dr * r > 0 : r === 0 ? dr === 0 && dq * q > 0 : dq / q === dr / r && dq / q > 0);
 }
-function blocked(a, b, state, config, aura = false) {
+function blocked(a, b, state, config, aura = false, occupied) {
   if (aura && config.experiments.aurasThroughShields) return false;
-  const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p]));
-  for (const c of lineBetween(a, b, config).slice(1, -1)) {
+  const line = lineBetween(a, b, config);
+  if (line.length <= 2) return false;
+  occupied ??= new Map(state.pieces.map(p => [key(p.q, p.r), p]));
+  for (let i = 1; i < line.length - 1; i++) {
+    const c = line[i];
     const p = occupied.get(key(c.q, c.r));
     if (!p) continue;
     if (aura ? p.type === 'shield' : p.team !== a.team && p.type === 'shield' && (a.type !== 'attackLamp' || config.experiments.lampShieldBlocking)) return true;
@@ -138,15 +141,15 @@ function blocked(a, b, state, config, aura = false) {
   }
   return false;
 }
-export function auraReaches(source, target, state, config) {
+export function auraReaches(source, target, state, config, occupied) {
   // Empty cells still describe coverage; actual non-shield recipients get no ordinary shield aura.
   if (config.shieldDefenseOnly && source.type === 'shield' && target.type && target.type !== 'shield' && !shieldCanRetreat(source, config)) return false;
   const radius = shieldCanRetreat(source, config) ? alliedPromotionStats(config).aura : config.stats[source.type].aura;
   const separation = distance(source, target, config);
   const areaAura = ['attackLamp', 'defenseLamp', 'scoutLamp', 'horn'].includes(source.type);
-  return separation > 0 && separation <= radius && (areaAura || isRay(source, target, config)) && !blocked(source, target, state, config, true);
+  return separation > 0 && separation <= radius && (areaAura || isRay(source, target, config)) && !blocked(source, target, state, config, true, occupied);
 }
-export function effective(piece, state, config) {
+export function effective(piece, state, config, occupied) {
   const stats = config.stats[piece.type];
   const sources = [];
   const veteran = shieldCanRetreat(piece, config), promotion = promotionStats(config);
@@ -156,7 +159,7 @@ export function effective(piece, state, config) {
     const veteranSource = shieldCanRetreat(source, config);
     if (source.id === piece.id || source.team !== piece.team || !veteranSource && !['shield', 'archer', 'attackLamp', 'defenseLamp', 'scoutLamp', 'horn'].includes(source.type)) continue;
     const aura = veteranSource ? alliedPromotionStats(config) : config.stats[source.type];
-    if (!auraReaches(source, piece, state, config)) continue;
+    if (!auraReaches(source, piece, state, config, occupied)) continue;
     if (veteranSource) veteranSupport = true;
     sources.push(source.id);
     if (source.type === 'attackLamp' && (config.drumMoveAllies === true || piece.type === 'shield')) moveBonus += config.drumShieldMoveBonus ?? 0;
@@ -179,19 +182,20 @@ export function effective(piece, state, config) {
   const range = !canAttack ? 0 : armedCommander ? stats.range : support && stats.range === 0 ? Math.min(rangeBonus, 1) : piece.type === 'shield' ? Math.min(stats.range + rangeBonus, promotion.maxRange ?? PREVIOUS_SCOUT_CONFIG.shieldPromotion.maxRange) : stats.range + rangeBonus;
   return { damage, range, fortitude: stats.fortitude + defenseBonus, aura: veteran ? alliedPromotionStats(config).aura : stats.aura, move: stats.move + moveBonus, damageBonus: canAttack ? damageBonus : 0, rangeBonus: Math.max(0, range - stats.range), defenseBonus, sources };
 }
-export function attacks(attacker, target, state, config, stats = effective(attacker, state, config)) {
+export function attacks(attacker, target, state, config, stats = effective(attacker, state, config), occupied) {
   if (attacker.id === target.id || attacker.team === target.team || stats.damage <= 0) return false;
   if (distance(attacker, target, config) > stats.range) return false;
   if (!isRay(attacker, target, config)) return false;
-  return !blocked(attacker, target, state, config);
+  return !blocked(attacker, target, state, config, false, occupied);
 }
 export const isLethalDamage = (incoming, fortitude) => incoming > 0 && incoming >= fortitude;
 export function analyze(state, config) {
-  const result = new Map();
-  for (const piece of state.pieces) result.set(piece.id, { ...effective(piece, state, config), incoming: 0, attackers: [], dead: false });
+  // One occupancy index per calculation; positions remain editable between calls.
+  const result = new Map(), occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p]));
+  for (const piece of state.pieces) result.set(piece.id, { ...effective(piece, state, config, occupied), incoming: 0, attackers: [], dead: false });
   for (const attacker of state.pieces) for (const target of state.pieces) {
     const power = result.get(attacker.id);
-    if (attacks(attacker, target, state, config, power)) {
+    if (attacks(attacker, target, state, config, power, occupied)) {
       const record = result.get(target.id);
       record.incoming += power.damage;
       record.attackers.push({ id: attacker.id, damage: power.damage, type: attacker.type });
@@ -216,7 +220,11 @@ export function inspectCell(state, config, cell, selectedId = null, currentRepor
   return { piece: selected || null, position: state, report: currentReport, isPreview: false };
 }
 export function resolve(state, config) {
-  const next = clone(state), report = analyze(state, config);
+  return resolveOwnedState(clone(state), config, state);
+}
+// The caller owns this copy. A move already cloned its input before placement.
+function resolveOwnedState(next, config, state = next) {
+  const report = analyze(state, config);
   const deaths = state.pieces.filter(p => report.get(p.id).dead).map(p => ({ ...p, incoming: report.get(p.id).incoming, fortitude: report.get(p.id).fortitude }));
   const removed = new Set(deaths.map(p => p.id));
   next.pieces = next.pieces.filter(p => !removed.has(p.id));
@@ -224,11 +232,10 @@ export function resolve(state, config) {
   return { state: next, deaths, report };
 }
 function movementSearch(piece, state, config, includePath = false) {
-  const board = new Set(cells(config).map(c => key(c.q, c.r)));
   const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p]));
   const unlocked = shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config);
   // Fix the allowance at the start, even when the destination leaves the aura.
-  const movementAllowance = effective(piece, state, config).move;
+  const movementAllowance = effective(piece, state, config, occupied).move;
   const seen = new Set([`${key(piece.q, piece.r)}:${unlocked}`]), out = new Map(), queue = [{ q: piece.q, r: piece.r, steps: 0, unlocked }];
   const parents = includePath ? [-1] : null, endpoints = includePath ? new Map() : null;
   for (let i = 0; i < queue.length; i++) {
@@ -241,7 +248,10 @@ function movementSearch(piece, state, config, includePath = false) {
       // Shield promotion depends on the endpoint; it cannot unlock retreat mid-action.
       const routeUnlocked = piece.type === 'shield' ? unlocked : reached;
       const visit = `${pos}:${routeUnlocked}`;
-      if (!board.has(pos) || seen.has(visit)) continue;
+      const onBoard = Number.isInteger(q) && Number.isInteger(r) && (config.geometry === 'hex'
+        ? Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)) <= config.size
+        : q >= 0 && r >= 0 && q < config.size && r < config.size);
+      if (!onBoard || seen.has(visit)) continue;
       const blocking = occupied.get(pos);
       if (blocking && blocking.team !== piece.team) continue;
       seen.add(visit); queue.push({ q, r, steps: current.steps + 1, unlocked: routeUnlocked });
@@ -272,16 +282,33 @@ export function movementPath(piece, state, config, destination) {
   return path.reverse();
 }
 export function move(state, config, id, destination) {
+  return moveWithReachable(state, config, id, destination, reachable);
+}
+// Search positions and their configuration are immutable for one bot request.
+// Reuse each unit's routes when testing its many destinations; never retain this
+// cache across requests or use it for the mutable editor/preview state.
+export function createSearchMovement(config) {
+  const positions = new WeakMap();
+  const cachedReachable = (piece, state) => {
+    let units = positions.get(state);
+    if (!units) { units = new Map(); positions.set(state, units); }
+    if (!units.has(piece.id)) units.set(piece.id, reachable(piece, state, config));
+    return units.get(piece.id);
+  };
+  return { reachable: cachedReachable,
+    move: (state, id, destination) => moveWithReachable(state, config, id, destination, cachedReachable) };
+}
+function moveWithReachable(state, config, id, destination, getReachable) {
   if (state.winner !== null || ['combat-units', 'flag-or-combat'].includes(config.victoryCondition) && winnerForPieces(state.pieces, config) !== null) throw new Error('Партия завершена. Можно отменить ход или открыть расстановку.');
   const piece = state.pieces.find(p => p.id === id);
   if (!piece || piece.team !== state.turn) throw new Error('Сейчас ход другой команды.');
-  const route = reachable(piece, state, config).find(c => c.q === destination.q && c.r === destination.r);
+  const route = getReachable(piece, state, config).find(c => c.q === destination.q && c.r === destination.r);
   if (!route) throw new Error('На эту клетку нельзя пойти.');
   const next = clone(state), moving = next.pieces.find(p => p.id === id);
   moving.q = destination.q; moving.r = destination.r;
   if (route.reachedFarEdge) moving.reachedFarEdge = true;
   if (route.archerReachedFarEdge) moving.archerReachedFarEdge = true;
-  const outcome = resolve(next, config);
+  const outcome = resolveOwnedState(next, config);
   outcome.state.turn = 1 - state.turn; outcome.state.ply = state.ply + 1;
   return { ...outcome, action: { team: piece.team, type: piece.type, from: { q: piece.q, r: piece.r }, to: destination } };
 }

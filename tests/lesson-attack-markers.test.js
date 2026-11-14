@@ -29,7 +29,7 @@ test('all four demo attack markers match native attack cells for selection and f
 
 test('each demo has a prescribed action and live forecasts update the shared battle layers',()=>{
   for(const sceneKey of UNIT_BATTLE_SCENES){const battle=new ShowcaseBattle({sceneKey});assert.ok(battle.copy[0][0].length>30);assert.ok(battle.expectedAction);}
-  const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
+  const app=fs.readFileSync(new URL('../dist/guide-controller.js',import.meta.url),'utf8');
   const refresh=app.slice(app.indexOf('function refreshShowcasePreview('),app.indexOf('function previewShowcaseMove('));
   assert.match(refresh,/'effects','overlays'/);
 });
