@@ -122,7 +122,7 @@ test('all terrain paints before tokens, with clickable accessible cells under th
   const config = structuredClone(DEFAULT_CONFIG), state = position([piece('s','shield',0,0,0),piece('a','archer',1,0,1)]);
   const svg = { contains: () => false, setAttribute() {}, innerHTML: '' }, legend = {};
   const context = vm.createContext({ config, playMode:'local', visibleState:()=>state, cells, key, available:[], selected:null, boardFocus:null, fieldView:'', report:analyze(state,config),
-    hexGridPoint, hexGridPolygon, ATTACK_TEAM_COLORS, ICON_PATHS:{}, unitAppearance, TEAM_NAMES:['Север','Юг'], LABELS, shieldCanRetreat:()=>false, archerHasEdgeBonus:()=>false, unitBadges:renderUnitBadges, renderTokenBody,
+    hexGridPoint, hexGridPolygon, ATTACK_TEAM_COLORS, ICON_PATHS:{}, unitAppearance, TEAM_NAMES:['Синие','Красные'], LABELS, shieldCanRetreat:()=>false, archerHasEdgeBonus:()=>false, unitBadges:renderUnitBadges, renderTokenBody,
     combat:null,movement:null,currentDeaths:[],renderDeathEffects,hintTrace:()=>'',lastMoveTrace:()=>'',movingTokenMarkup:()=>'',editor:false,document:{activeElement:null},$:selector=>selector==='#board'?svg:legend });
   for (const name of ['point','polygon']) vm.runInContext(appSource.split('\n').find(line=>line.startsWith(`function ${name}(`)),context);
   vm.runInContext(appSource.slice(appSource.indexOf('function boardMarkup('),appSource.indexOf('function paintAuras(')),context);
@@ -178,7 +178,7 @@ test('the moving token keeps the destination threat before simultaneous deaths a
   const action = { id: 's', to: { q: 0, r: 1 } }, outcome = move(before.state,config,source.id,action.to);
   assert.equal(analyze(before.state,config).get('s').incoming, 0);
   assert.equal(outcome.report.get('s').dead, true);
-  const context = vm.createContext({ config, movement: null, inspectCell, movementPath, renderMovingToken,
+  const context = vm.createContext({ config, playMode: 'local', movement: null, inspectCell, movementPath, renderMovingToken,
     ICON_PATHS: {}, point: c => ({ x: c.q, y: c.r }), createMovementPlan: points => ({ points }),
     cancelMovement() {}, matchMedia: () => ({ matches: false }), render() {},
     sampleMovement: () => ({ x: 0, y: 0, progress: .2 }), moveAnimator: { active: false, start() {} } });
@@ -291,4 +291,27 @@ test('veteran ally details use the separate aura while personal stat calculation
   assert.equal(effective(support, state, config).range, 1, 'the selected aura still arms support');
   delete config.shieldPromotion.allies;
   assert.deepEqual(alliedBonusDetails(archer, state, config).find(({ source }) => source.id === veteran.id).bonuses, { damage: 9, range: 2, fortitude: 9 }, 'old saves report their actual flat aura');
+});
+
+
+test('archer facing follows board perspective without changing team colors', () => {
+  for (const team of [0, 1]) {
+    const archer = piece('archer', 'archer', team, 0, 0);
+    const standard = unitAppearance(archer, DEFAULT_CONFIG, {}, team);
+    const flipped = unitAppearance(archer, DEFAULT_CONFIG, {}, team, true);
+    assert.equal(standard.facingTeam, team);
+    assert.equal(flipped.facingTeam, 1 - team);
+    for (const appearance of [standard, flipped]) {
+      const html = renderTokenBody(appearance, team);
+      assert.ok(html.includes(`token-team-tint ${team ? 'south' : 'north'}`));
+      const glyph = html.match(/<g class="piece-icon"[^>]*>/)[0];
+      assert.equal(glyph.includes('rotate(180'), Boolean(appearance.facingTeam));
+    }
+    const moving = renderMovingToken(archer, {x: 1, y: 2, progress: .5}, {}, 'test', DEFAULT_CONFIG, team, null, true);
+    const death = renderDeathEffects([archer], hexGridPoint, '', {}, DEFAULT_CONFIG, undefined, true);
+    for (const html of [moving, death]) {
+      assert.equal(html.match(/<g class="piece-icon"[^>]*>/)[0].includes('rotate(180'), !Boolean(team));
+      assert.ok(html.includes(`token-team-tint ${team ? 'south' : 'north'}`));
+    }
+  }
 });

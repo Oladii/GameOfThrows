@@ -851,49 +851,30 @@ main{padding:0 14px 14px}
 .board-footer>.turn-actions{flex:1 1 100%}
 }
 
-/* Room controls use a dedicated sidebar with the same spacing as the reference. */
+/* Room controls stay beside the board; side selection uses the team headers. */
 .multiplayer-panel{min-width:0;padding-top:0}
 .online-room .multiplayer-panel>.panel-actions{display:none}
 .room-panel{margin:0 0 22px;font-size:13px;line-height:1.5;min-width:0}
-.room-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-.room-heading h2{margin:0;font-size:19px;line-height:1.3;letter-spacing:-.02em}
-.room-role{color:#596158;font-size:12px;white-space:nowrap}
-.room-status{margin:12px 0 18px;color:var(--ink)}
-.room-entry label,.room-invitation label{display:block;font-size:12px;font-weight:600;margin-bottom:7px}
-.room-entry input,.room-link-row input{box-sizing:border-box;width:100%;min-width:0;min-height:42px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;padding:10px 12px;caret-color:var(--ink)}
-.room-entry input::placeholder{color:#626e62;opacity:1}
-.room-entry .button{margin-top:10px}
-.room-link-row{display:flex;gap:7px}
-.room-link-row input{font-size:12px;text-overflow:ellipsis}
+.room-panel h2{margin:0 0 16px;font-size:19px;line-height:1.3;letter-spacing:-.02em}
+.room-link-row{display:flex;gap:7px;margin-bottom:16px}
+.room-link-row input{box-sizing:border-box;width:100%;min-width:0;min-height:42px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;padding:10px 12px;text-overflow:ellipsis;caret-color:var(--ink)}
 .room-link-row .button{font-size:12px;padding:9px 11px;flex-shrink:0}
-.room-seats{list-style:none;margin:20px 0 16px;padding:0;display:grid;gap:12px}
-.room-seat{padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-.room-seat.north{color:#2b637c}
-.room-seat.south{color:#98532a}
-.room-seat[data-self="true"]{border-color:currentColor}
-.room-seat-heading{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.room-seat-heading strong{font-size:14px}
-.room-seat-heading [data-seat-ready]{font-size:11px}
-.room-seat-name{display:block;margin-top:5px;font-size:14px;color:var(--ink);overflow-wrap:anywhere}
-.room-seat-connection{display:block;margin-top:2px;font-size:11px;min-height:16px}
-.room-seat .button{margin-top:10px;min-height:38px;font-size:12px}
-.room-player-actions{display:flex;gap:8px;flex-wrap:wrap}
-.room-player-actions .button{flex:1;min-height:42px;font-size:13px}
-.room-note{margin:12px 0 0;color:#596158;font-size:12px;line-height:1.5}
-#room-error{margin:14px 0 0;line-height:1.5}
-#room-retry,#room-leave{margin-top:14px;min-height:40px;font-size:12px}
+.room-player-actions{display:flex;flex-direction:column}
+.room-player-actions .button{min-height:42px;font-size:13px}
+.room-note{margin:16px 0 0;color:#596158;font-size:12px;line-height:1.5}
+#room-error{margin:16px 0 0;line-height:1.5}
+#room-retry{margin-top:12px;min-height:40px;font-size:12px}
+#room-leave{margin-top:8px;min-height:42px;font-size:13px}
+#room-finish{background:#edf0e6}
 .online-room :is(button,input,select,a,[tabindex]):focus-visible{outline:2px solid var(--ink)!important;outline-offset:3px}
 .online-room .room-panel ::selection{background:#d9e3c9;color:var(--ink)}
 .online-room .board-footer{display:none}
-@media(max-width:700px){
-.online-room .room-panel{grid-row:2;margin:0}
-.online-room .arena{grid-row:3}
-.online-room .panel-actions{flex-direction:row}
-.online-room .room-seats{grid-template-columns:repeat(2,minmax(0,1fr))}
-.online-room .room-seat{padding:12px}
-.online-room .room-seat-heading{align-items:flex-start;flex-direction:column;gap:2px}
-.online-room .room-seat-connection{min-height:32px}
-}
-@media(max-width:500px){
-.online-room .team-roster{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px}
-}
+.online-room.room-waiting .arena{height:auto;min-height:0;align-self:start}
+.online-room .team-card{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:64px 32px 36px;align-content:start;gap:8px;height:170px;min-height:170px;padding:10px 12px}
+.online-room .team-title{display:block;font-size:12px;line-height:1.5}
+.online-room .team-title .team-dot{display:inline-block;margin-right:6px}
+.online-room .turn-tag{font-size:10px;line-height:12px;letter-spacing:0;min-height:24px}
+.online-room .team-card-details{display:flex;flex-direction:column;justify-content:space-between;min-width:0}
+.online-room .team-card-details .team-count{font-size:11px;line-height:16px}
+.online-room .team-card-details .team-roster{flex-basis:auto}
+.online-room .team-card-action .button{height:36px;min-height:36px;padding:8px 10px;font-size:12px;margin:0}

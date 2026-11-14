@@ -47,7 +47,7 @@ export function createUnitBattle(sceneKey) {
       pieces: [piece('blue','shield',1,0,-1), piece('flag','defenseLamp',1,0,1), piece('enemy','shield',0,0,-2), piece('enemy-flag','defenseLamp',0,0,-3)],
       actions: [{id:'flag',to:{q:0,r:3}}],
       copy: [
-        ['Рядом с флагом стойкость нашего броненосца — 6: он выдерживает атаку в 5 урона. Выбери оранжевый флаг и отведи его на отмеченную клетку. Посмотри, что произойдёт с защитником.'],
+        ['Рядом с флагом стойкость нашего броненосца — 6: он выдерживает атаку в 5 урона. Выбери красный флаг и отведи его на отмеченную клетку. Посмотри, что произойдёт с защитником.'],
         ['Флаг отошёл, и броненосец потерял +1 к стойкости. Без ауры у него 5 стойкости против 5 урона — защитник погиб.']
       ]
     },
@@ -57,7 +57,7 @@ export function createUnitBattle(sceneKey) {
       pieces: [piece('blue','shield',1,0,-2), piece('enemy','shield',0,0,1)],
       actions: [{id:'blue',to:{q:0,r:-3}}, {id:'blue',to:{q:0,r:-2}}],
       copy: [
-        ['Выбери оранжевого броненосца возле края. Сделай ход вперёд на отмеченную стрелкой клетку, чтобы стать ветераном.'],
+        ['Выбери красного броненосца возле края. Сделай ход вперёд на отмеченную стрелкой клетку, чтобы стать ветераном.'],
         ['Броненосец достиг противоположного края и стал ветераном. Теперь выбери его и сделай ход на одну клетку назад. Ветеран поразит врага на расстоянии трёх клеток.'],
         ['Ветеран отступил на одну клетку и уничтожил врага дистанционной атакой. Венок и способности сохраняются после отхода от края.']
       ]
@@ -68,7 +68,7 @@ export function createUnitBattle(sceneKey) {
       pieces: [piece('blue','shield',1,1,0), piece('ally','archer',1,0,2), piece('enemy','archer',0,0,-2)],
       actions: [{id:'blue',to:{q:0,r:0}}],
       copy: [
-        ['Выбери оранжевого броненосца. Поставь его между двумя лукарями на отмеченную стрелкой клетку. Посмотри прогноз: броненосец примет выстрел и защитит союзника.'],
+        ['Выбери красного броненосца. Поставь его между двумя лукарями на отмеченную стрелкой клетку. Посмотри прогноз: броненосец примет выстрел и защитит союзника.'],
         ['Броненосец перекрыл стрелу и выдержал выстрел. Наш лукарь больше не получает урон. Его собственные стрелы проходят через союзный щит.']
       ]
     },
@@ -328,7 +328,7 @@ export function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}
     <h3 id="showcase-title">${battle.title||'Учебный бой'}</h3>${battle.description?`<p class="training-description">${battle.description}</p>`:''}
     <div class="lesson-scene training-card">
     <div class="training-layout"><div class="showcase-field">
-      <svg class="lesson-board showcase-board" viewBox="${minX} ${minY} ${width} ${height}" role="group" aria-label="${battle.title||'Учебный бой'}. 37 клеток. Север: ${counts[0]} фигур. Юг: ${counts[1]} фигур.">${defs}${tiles}<g id="training-overlays" pointer-events="none"><g clip-path="url(#training-field-clip)">${auras}</g>${reach.markup}</g><g id="training-units">${pieces}</g><g id="training-effects" pointer-events="none"><g class="attack-lines">${damageArrows}</g>${movement}${deathEffects}${guide}</g></svg>
+      <svg class="lesson-board showcase-board" viewBox="${minX} ${minY} ${width} ${height}" role="group" aria-label="${battle.title||'Учебный бой'}. 37 клеток. Синие: ${counts[0]} фигур. Красные: ${counts[1]} фигур.">${defs}${tiles}<g id="training-overlays" pointer-events="none"><g clip-path="url(#training-field-clip)">${auras}</g>${reach.markup}</g><g id="training-units">${pieces}</g><g id="training-effects" pointer-events="none"><g class="attack-lines">${damageArrows}</g>${movement}${deathEffects}${guide}</g></svg>
       </div><aside class="lesson-details training-advice" id="training-advice" aria-label="Подсказка к учебному бою" aria-live="polite">${advice.map(text => `<p>${text}</p>`).join('')}${battle.presentation?.phase==='awaiting-combat'?'<div class="unit-demo-controls"><button class="button primary" type="button" data-showcase-action="continue">Дальше</button></div>':battle.sceneKey?'<div class="unit-demo-controls"><button class="button outline" type="button" data-showcase-action="restart">Вернуть исходную позицию</button></div>':battle.position.winner!==null?'<div class="unit-demo-controls"><button class="button primary training-restart" type="button" data-showcase-action="restart">Сыграть ещё раз</button></div>':''}</aside>
     </div></div></section>`;
   // All SVG references and update targets stay local when several battles share a page.

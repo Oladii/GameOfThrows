@@ -13,10 +13,11 @@ export function auraKind(source, config) {
   if (source.type === 'attackLamp' && config.drumShieldMoveBonus > 0 && !config.stats.attackLamp.damageBonus && !config.stats.attackLamp.rangeBonus) return 'move';
   return shieldCanRetreat(source, config) ? 'combined' : ['shield', 'defenseLamp'].includes(source.type) ? 'defense' : 'attack';
 }
-export function unitAppearance(piece, config, icons, displayTeam = piece.team) {
+export function unitAppearance(piece, config, icons, displayTeam = piece.team, flipped = false) {
+  const facingTeam = flipped ? 1 - displayTeam : displayTeam;
   const veteran = config ? shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) : piece.type === 'shield' && piece.reachedFarEdge === true || piece.type === 'archer' && piece.archerReachedFarEdge === true;
   const glyph = icons[piece.type];
-  return { veteran, type:piece.type, icon: piece.type === 'archer' ? `<g transform="rotate(${displayTeam === 0 ? 90 : -90} 12 12)">${glyph || ''}</g>` : glyph };
+  return { veteran, facingTeam, type:piece.type, icon: piece.type === 'archer' ? `<g transform="rotate(${facingTeam === 0 ? 90 : -90} 12 12)">${glyph || ''}</g>` : glyph };
 }
 
 // Both weapon glyphs point up and right before rotation, at -45 degrees.
@@ -38,16 +39,16 @@ export function auraCircleMarkup(source, position, config, point, spacing) {
 
 export const skullShape = () => '<path class="skull-head" d="M8 1.5c-3.4 0-5.5 2.4-5.5 5.3 0 2 1.2 3.4 2.5 3.9V14h6v-3.3c1.3-.5 2.5-1.9 2.5-3.9C13.5 3.9 11.4 1.5 8 1.5Z"/><circle class="skull-eye" cx="5.5" cy="6.8" r="1.4"/><circle class="skull-eye" cx="10.5" cy="6.8" r="1.4"/><path class="skull-nose" d="m8 8.6-1.2 1.8h2.4Z"/><path class="skull-teeth" d="M7 11.5V14m2-2.5V14"/>';
 
-export function renderDeathEffects(deaths, point, polygonPoints, icons, config = null, displayTeamOf = piece => piece.team) {
+export function renderDeathEffects(deaths, point, polygonPoints, icons, config = null, displayTeamOf = piece => piece.team, flipped = false) {
   return deaths.map(piece => {
     const { x, y } = point(piece);
-    const displayTeam = displayTeamOf(piece), appearance = unitAppearance(piece, config, icons, displayTeam);
+    const displayTeam = displayTeamOf(piece), appearance = unitAppearance(piece, config, icons, displayTeam, flipped);
     return `<g transform="translate(${x},${y})"><polygon class="death-glow" points="${polygonPoints}"/><circle class="death-pulse" r="25"/><g class="death-ghost${appearance.veteran ? ' veteran' : ''} ${displayTeam === 0 ? 'north' : 'south'}"><g class="death-token">${renderTokenBody(appearance, displayTeam)}</g><g class="death-skull">${renderDeathSkull()}</g></g></g>`;
   }).join('');
 }
 
-export function renderMovingToken(piece, frame, icons, id = 'moving-token', config = null, displayTeam = piece.team, info = null) {
-  const appearance = unitAppearance(piece, config, icons, displayTeam);
+export function renderMovingToken(piece, frame, icons, id = 'moving-token', config = null, displayTeam = piece.team, info = null, flipped = false) {
+  const appearance = unitAppearance(piece, config, icons, displayTeam, flipped);
   return `<g id="${id}" class="moving-token${appearance.veteran ? ' veteran' : ''} ${displayTeam ? 'south' : 'north'}${info?.dead ? ' fatal' : ''}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true">${renderTokenBody(appearance, displayTeam)}${info ? renderUnitBadges(info, { showIncoming: true, pieceType: piece.type, veteran: appearance.veteran }) : ''}</g>`;
 }
 

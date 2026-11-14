@@ -13,7 +13,7 @@ function setup(victoryCondition = 'all-units') {
 }
 test('victory is written beside the turn counter with an inline result background',()=>{
   const ui=setup();
-  for(const [winner,label] of [[0,'Ход 66. Победа Севера'],[1,'Ход 66. Победа Юга'],['draw','Ход 66. Ничья']]) {
+  for(const [winner,label] of [[0,'Ход 66. Победа Синих'],[1,'Ход 66. Победа Красных'],['draw','Ход 66. Ничья']]) {
     ui.render(winner);assert.equal(ui.nodes['#move-counter'].textContent,label);assert.equal(Boolean(ui.nodes['.arena-top'].dataset.result),true);
   }
   ui.render(null);assert.equal(ui.nodes['#move-counter'].textContent,'Ход 66');assert.equal(ui.nodes['.arena-top'].dataset.result,'');
@@ -28,7 +28,7 @@ test('the result stays neutral through movement, combat, removal, setup and hist
 
 
 test('flag victories name the destroyed opposing flag for either winning team',()=>{
-  for(const [winner,label] of [[0,'Севера'],[1,'Юга']]) {
+  for(const [winner,label] of [[0,'Синих'],[1,'Красных']]) {
     const ui=setup('flag-or-combat');
     ui.render(winner,[{type:'defenseLamp',team:winner}]);
     assert.equal(ui.nodes['#move-counter'].textContent,`Ход 66. Победа ${label}. Флаг противника уничтожен`);
@@ -40,7 +40,7 @@ test('surviving combat units and legacy rules retain concise results',()=>{
   for(const winner of [0,1]) {
     const ui=setup('flag-or-combat');
     ui.render(winner,[{type:'defenseLamp',team:1-winner},{type:'archer',team:1-winner}]);
-    assert.equal(ui.nodes['#move-counter'].textContent,`Ход 66. Победа ${winner===0?'Севера':'Юга'}`);
+    assert.equal(ui.nodes['#move-counter'].textContent,`Ход 66. Победа ${winner===0?'Синих':'Красных'}`);
     for(const condition of ['combat-units','all-units',undefined]) {
       ui.context.config.victoryCondition=condition;ui.render(winner,[]);
       assert.ok(!ui.nodes['#move-counter'].textContent.includes('Флаг противника уничтожен'));
@@ -68,7 +68,7 @@ function checkEnding(condition, north, south, winner, reason) {
   assert.equal(result, winner, 'fixture outcome comes from the current engine');
   const ui = setup(condition);
   ui.render(result, pieces);
-  const label = winner === 'draw' ? 'Ничья' : `Победа ${winner === 0 ? 'Севера' : 'Юга'}`;
+  const label = winner === 'draw' ? 'Ничья' : `Победа ${winner === 0 ? 'Синих' : 'Красных'}`;
   assert.equal(ui.nodes['#move-counter'].textContent, `Ход 66. ${label}. ${reason}`);
   assert.equal(Boolean(ui.nodes['.arena-top'].dataset.result), true);
 }
@@ -87,9 +87,9 @@ test('support and an armed commander do not count as surviving shield or archer 
 test('destroyed flags take priority, and mixed draws identify both sides correctly', () => {
   checkEnding('flag-or-combat', aliveArmy, ['horn'], 0, 'Флаг противника уничтожен');
   checkEnding('flag-or-combat', ['archer'], ['shield'], 'draw', 'Флаги обеих сторон уничтожены');
-  checkEnding('flag-or-combat', ['archer'], ['defenseLamp'], 'draw', 'Флаг Севера уничтожен. У Юга остался только флаг');
-  checkEnding('flag-or-combat', ['defenseLamp', 'horn'], ['shield'], 'draw', 'У Севера не осталось броненосцев и лукарей. Флаг Юга уничтожен');
-  checkEnding('flag-or-combat', ['defenseLamp'], ['defenseLamp', 'horn'], 'draw', 'У Севера остался только флаг. У Юга не осталось броненосцев и лукарей');
+  checkEnding('flag-or-combat', ['archer'], ['defenseLamp'], 'draw', 'Флаг Синих уничтожен. У Красных остался только флаг');
+  checkEnding('flag-or-combat', ['defenseLamp', 'horn'], ['shield'], 'draw', 'У Синих не осталось броненосцев и лукарей. Флаг Красных уничтожен');
+  checkEnding('flag-or-combat', ['defenseLamp'], ['defenseLamp', 'horn'], 'draw', 'У Синих остался только флаг. У Красных не осталось броненосцев и лукарей');
 });
 test('combat-only rules explain lost combat units regardless of flags', () => {
   checkEnding('combat-units', ['shield'], ['defenseLamp'], 0, 'У противника не осталось броненосцев и лукарей');

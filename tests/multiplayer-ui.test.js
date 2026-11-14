@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { DEFAULT_CONFIG, TYPES, LABELS } from '../dist/rules.js';
 import { createGame, move, reachable } from '../dist/engine.js';
 import { hexGridPoint } from '../dist/board-presentation.js';
 
@@ -21,7 +21,7 @@ function node() {
 function setup() {
   const nodes = new Map(), storage = new Map(), calls = [], location = { href: 'http://localhost/?theme=light', protocol: 'http:' };
   const $ = selector => { if (!nodes.has(selector)) nodes.set(selector, node()); return nodes.get(selector); };
-  const context = vm.createContext({ $, URL, location, navigator: {}, ROOM_STORAGE: 'online', STORAGE: 'local',
+  const context = vm.createContext({ MultiplayerSession: class { create() { return Promise.resolve(); } join() { return Promise.resolve(); } stop() {} }, $, URL, location, navigator: {}, ROOM_STORAGE: 'online', STORAGE: 'local',
     document: { body: node(), querySelectorAll: () => [] }, window: { history: { replaceState(_state, _title, url) { location.href = url; } } },
     localStorage: { getItem: key => storage.get(key), setItem(key, value) { storage.set(key, value); } },
     playMode: 'online', gamePhase: 'playing', editor: false, positionKind: 'default', config: structuredClone(DEFAULT_CONFIG), state: createGame(DEFAULT_CONFIG),
@@ -29,8 +29,8 @@ function setup() {
     currentDeaths: [], deathEffectTimer: null, movement: null, combat: null, reviewingTurn: false, selected: null, hover: null, inspection: null,
     lastTurn: null, history: [], log: [], gameVersion: 'test', CURRENT_GAME_VERSION: 'test', firstMove: 'north', humanTeam: 0,
     botDifficulty: 'training', previousGame: null, startPreferences: null, ready: true, available: [],
-    clone: structuredClone, DEFAULT_CONFIG, createGame, hexGridPoint, TEAM_NAMES: ['Север', 'Юг'], clearTimeout() {}, clearHint() {},
-    plural(n, forms) { return n === 1 ? forms[0] : forms[2]; }, toast() {},
+    clone: structuredClone, DEFAULT_CONFIG, TYPES, LABELS, icon: () => '<svg></svg>', createGame, hexGridPoint, TEAM_NAMES: ['Синие', 'Красные'], clearTimeout() {}, clearHint() {},
+    plural(n, forms) { return n % 100 >= 11 && n % 100 <= 14 ? forms[2] : n % 10 === 1 ? forms[0] : n % 10 >= 2 && n % 10 <= 4 ? forms[1] : forms[2]; }, toast() {},
     cancelMovement() { calls.push(['cancel']); context.movement = null; context.combat = null; },
     resetBotContext() { context.lastTurn = null; context.reviewingTurn = false; context.movement = null; },
     render() { calls.push(['render']); }, renderOnlineRoom() {},
@@ -44,8 +44,8 @@ function setup() {
   return { context, $, storage, calls, location };
 }
 function snapshot(overrides = {}) {
-  return { roomId: 'room-a', revision: 1, phase: 'waiting', matchId: null, config: structuredClone(DEFAULT_CONFIG), state: null,
-    seats: [null, null], participants: [{ guestId: 'me', name: 'Ира', present: true, seat: null }], self: { guestId: 'me', seat: null },
+  return { roomId: 'room-a', roomNumber: 1234, revision: 1, phase: 'waiting', matchId: null, config: structuredClone(DEFAULT_CONFIG), state: null,
+    seats: [null, null], participants: [{ guestId: 'me', present: true, seat: null }], self: { guestId: 'me', seat: null },
     lastAction: null, lastResult: null, ...overrides };
 }
 function view(snap, selfSeat = null, overrides = {}) {
@@ -53,15 +53,16 @@ function view(snap, selfSeat = null, overrides = {}) {
     canMove: selfSeat !== null && snap.phase === 'playing' && snap.state.turn === selfSeat && snap.state.winner === null, ...overrides };
 }
 
-test('spectator lobby has two seats, safe names and no player actions', () => {
-  const ui = setup(), snap = snapshot({ seats: [{ guestId: 'a', name: '<img onerror=alert(1)>', ready: true }, null] });
-  ui.context.roomView = view(snap); ui.context.renderOnlineRoom();
-  assert.equal(ui.$('#room-role').textContent, 'Зритель');
-  assert.equal(ui.$('[data-room-seat="0"]').querySelector('[data-seat-name]').textContent, '<img onerror=alert(1)>');
-  assert.equal(ui.$('[data-room-seat="0"]').querySelector('[data-claim-seat]').hidden, true);
-  assert.equal(ui.$('[data-room-seat="1"]').querySelector('[data-claim-seat]').hidden, false);
-  for (const id of ['room-ready', 'room-stand', 'room-finish']) assert.equal(ui.$('#' + id).hidden, true);
-  assert.equal(ui.context.humanCanMove(), false);
+test('the scoreboard offers free sides without rosters, names or player actions', () => {
+  const ui = setup(), snap = snapshot(); ui.context.roomView = view(snap); ui.context.renderOnlineRoom();
+  const markup = ui.$('#scoreboard').innerHTML;
+  assert.match(markup, /Синие — Ожидаем игрока/); assert.match(markup, /Красные — Ожидаем игрока/);
+  assert.match(markup, /Играть за синих/); assert.match(markup, /Играть за красных/);
+  assert.doesNotMatch(markup, /team-roster|team-count/);
+  assert.equal(ui.$('#room-finish').hidden, true);
+  assert.equal(ui.$('.board-wrap').hidden, true); assert.equal(ui.context.humanCanMove(), false);
+  assert.equal(ui.$('#room-title').textContent, 'Игровая комната #1234');
+  assert.doesNotMatch(html, /room-name|room-entry|room-role|room-last-result|room-seats|room-stand|room-ready/);
 });
 
 test('each online player sees their army below the opponent, spectators keep South below', () => {
@@ -79,19 +80,28 @@ test('each online player sees their army below the opponent, spectators keep Sou
   assert.deepEqual(plain(ui.context.state), before, 'orientation must not change game coordinates');
 });
 
-test('seated players can toggle readiness and stand only while waiting', async () => {
+test('selecting a side is sufficient; its card offers cancellation only before the second selection', async () => {
   for (const team of [0, 1]) {
-    const ui = setup(), snap = snapshot(); snap.seats[team] = { guestId: 'me', name: 'Ира', ready: false };
-    ui.context.roomView = view(snap, team); ui.context.roomSession = { setReady: ready => ui.calls.push(['ready', ready]), stand: () => ui.calls.push(['stand']) };
+    const ui = setup(), snap = snapshot(); snap.seats[team] = { guestId: 'me', ready: true };
+    let stands = 0; ui.context.roomView = view(snap, team); ui.context.roomSession = { stand: () => { stands++; } };
     ui.context.renderOnlineRoom();
-    assert.equal(ui.$('#room-ready').hidden, false); assert.equal(ui.$('#room-ready').textContent, 'Готов');
-    assert.equal(ui.$('#room-stand').hidden, false);
-    await ui.$('#room-ready').events.click(); assert.deepEqual(ui.calls.at(-1), ['ready', true]);
-    snap.seats[team].ready = true; ui.context.renderOnlineRoom(); assert.equal(ui.$('#room-ready').textContent, 'Снять готовность');
-    await ui.$('#room-ready').events.click(); assert.deepEqual(ui.calls.at(-1), ['ready', false]);
-    snap.phase = 'playing'; snap.state = createGame(DEFAULT_CONFIG); ui.context.renderOnlineRoom();
-    assert.equal(ui.$('#room-stand').hidden, true); assert.equal(ui.$('#room-ready').hidden, true);
-    const count = ui.calls.length; await ui.$('#room-stand').events.click(); assert.equal(ui.calls.length, count);
+    const waiting = ui.$('#scoreboard').innerHTML;
+    assert.match(waiting, new RegExp(`${team === 0 ? 'Синие' : 'Красные'} — Вы`));
+    assert.equal((waiting.match(/class="team-roster"/g) || []).length, 1);
+    assert.match(waiting, /data-claim-seat="[01]" disabled/);
+    assert.match(waiting, new RegExp(`data-stand-seat="${team}"`)); assert.match(waiting, /Отменить выбор/);
+    assert.doesNotMatch(waiting, /ГОТОВ|НЕ ГОТОВ/);
+    const event = { target: { closest: () => ({ dataset: { standSeat: String(team) }, disabled: false }) } };
+    await ui.$('#scoreboard').events.click(event); assert.equal(stands, 1);
+    snap.phase = 'playing'; snap.state = createGame(DEFAULT_CONFIG); snap.seats[1 - team] = { guestId: 'other', ready: true };
+    ui.context.renderOnlineRoom(); assert.equal(ui.$('.board-wrap').hidden, false);
+    assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /data-stand-seat|data-claim-seat/);
+    await ui.$('#scoreboard').events.click(event); assert.equal(stands, 1);
+    for (const markup of [waiting, ui.$('#scoreboard').innerHTML]) {
+      assert.equal((markup.match(/class="team-card-heading"/g) || []).length, 2);
+      assert.equal((markup.match(/class="team-card-details"/g) || []).length, 2);
+      assert.equal((markup.match(/class="team-card-action"/g) || []).length, 2);
+    }
   }
 });
 
@@ -105,11 +115,11 @@ test('either seated player can finish immediately, spectators cannot, including 
 });
 
 test('offline and pending sessions cannot send commands; occupied disconnected seats remain occupied', async () => {
-  const ui = setup(), snap = snapshot({ seats: [{ guestId: 'me', name: 'Ира', ready: true }, null] });
+  const ui = setup(), snap = snapshot({ seats: [{ guestId: 'me', ready: true }, null] });
   for (const changes of [{ status: 'offline' }, { pending: true }]) {
     ui.context.roomView = view(snap, 0, changes); ui.context.renderOnlineRoom();
-    assert.equal(ui.$('#room-ready').disabled, true);
-    assert.equal(ui.$('[data-room-seat="0"]').querySelector('[data-claim-seat]').hidden, true);
+    assert.match(ui.$('#scoreboard').innerHTML, /data-stand-seat="0" disabled/);
+    assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /data-claim-seat="0"/);
     let sent = false; await ui.context.runRoomAction(() => { sent = true; }); assert.equal(sent, false);
   }
 });
@@ -144,20 +154,21 @@ test('only adjacent confirmed moves animate; stale snapshots and old rooms canno
 });
 
 test('same-revision presence refresh preserves animation while updating connection labels', () => {
-  const ui = setup(), snap = snapshot({ phase: 'playing', matchId: 'match', state: createGame(DEFAULT_CONFIG), seats: [{ guestId: 'me', name: 'Ира', ready: true }, null] });
+  const ui = setup(), snap = snapshot({ phase: 'playing', matchId: 'match', state: createGame(DEFAULT_CONFIG), seats: [{ guestId: 'me', ready: true }, null] });
   ui.context.applyRoomView(view(snap, 0)); ui.context.movement = { active: true };
-  ui.context.applyRoomView(view({ ...snap, participants: [{ guestId: 'me', name: 'Ира', present: false, seat: 0 }] }, 0));
+  ui.context.applyRoomView(view({ ...snap, participants: [{ guestId: 'me', present: false, seat: 0 }] }, 0));
   assert.equal(ui.context.movement.active, true);
-  assert.equal(ui.$('[data-room-seat="0"]').querySelector('[data-seat-connection]').textContent, 'Нет связи · место сохранено');
+  assert.match(ui.$('#scoreboard').innerHTML, /НЕТ СВЯЗИ/);
 });
 
 test('finish clears displayed seats and readiness, and early finish never claims a winner', () => {
   const ui = setup(), ended = snapshot({ revision: 4, lastResult: { matchId: 'old', status: 'aborted', winner: null } });
   ui.context.applyRoomView(view(ended)); ui.context.renderOnlineRoom();
   assert.equal(ui.context.gamePhase, 'setup'); assert.equal(ui.context.state.winner, null);
-  assert.equal(ui.$('#room-last-result').textContent, 'Предыдущая партия завершена без победителя.');
-  for (const team of [0, 1]) assert.equal(ui.$(`[data-room-seat="${team}"]`).querySelector('[data-seat-name]').textContent, 'Место свободно');
-  assert.equal(ui.$('#room-ready').hidden, true); assert.equal(ui.$('#room-finish').hidden, true);
+  assert.equal(ui.$('.board-wrap').hidden, true);
+  assert.equal((ui.$('#scoreboard').innerHTML.match(/Ожидаем игрока/g) || []).length, 2);
+  assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /Победа|победа/);
+  assert.equal(ui.$('#room-finish').hidden, true);
 });
 
 test('online rendering cannot replace local saves and leaving restores the exact local game', async () => {
@@ -180,7 +191,7 @@ test('local and bot permissions remain available, room links contain no session 
   const url = new URL(ui.context.roomInvitation('room-a'));
   assert.equal(url.searchParams.get('room'), 'room-a'); assert.equal(url.searchParams.get('theme'), 'light');
   assert.equal(url.searchParams.has('_fresh'), false); assert.equal(url.hash, '');
-  assert.match(html, /id="room-name"[^>]+maxlength="40"/);
+  assert.match(html, /id="room-link" readonly aria-label="Ссылка на игровую комнату"/);
   assert.match(app, /event\.key === 'Tab' && playMode !== 'online'/);
 });
 
@@ -197,11 +208,11 @@ test('local undo, start and settings handlers cannot mutate an online match', as
   assert.equal(ui.context.history.length, 1); assert.equal(ui.context.playMode, 'online');
 });
 
-test('client setup failure releases the entry form with recovery copy', async () => {
-  const ui = setup(); ui.$('#room-name').value = 'Ира';
+test('client setup failure leaves an explicit retry and recovery copy', async () => {
+  const ui = setup();
   ui.context.MultiplayerSession = class { constructor() { throw Object.assign(new Error('unavailable'), { code: 'storage_unavailable' }); } };
   await ui.context.connectOnlineRoom();
-  assert.equal(ui.context.roomConnecting, false); assert.equal(ui.$('#room-connect').disabled, false);
+  assert.equal(ui.context.roomConnecting, false);
   assert.match(ui.$('#room-error').textContent, /Разрешите хранение данных/);
   assert.equal(ui.$('#room-retry').hidden, false);
 });
@@ -215,4 +226,66 @@ test('recovery clears a stale connection error, but a failed connected command k
   assert.equal(ui.context.roomError, ''); assert.equal(ui.$('#room-error').hidden, true);
   assert.equal(ui.context.roomErrorText({ code: 'storage_unavailable', status: 503 }), 'Сервер комнаты временно недоступен. Подключение восстановится автоматически.');
   assert.match(ui.context.roomErrorText({ code: 'storage_unavailable', status: 0 }), /Разрешите хранение данных/);
+});
+
+test('the room counts players and spectators with Russian plurals and no duplicate seat panel', () => {
+  const ui = setup(), snap = snapshot({ seats: [{ guestId: 'me', ready: true }, { guestId: 'other', ready: true }],
+    participants: [{ guestId: 'me', present: true, seat: 0 }, { guestId: 'other', present: true, seat: 1 }, { guestId: 'viewer', present: true, seat: null }] });
+  ui.context.roomView = view(snap, 0); ui.context.renderOnlineRoom();
+  assert.equal(ui.$('#room-participants').textContent, '2 игрока и 1 зритель');
+  assert.match(ui.$('#scoreboard').innerHTML, /Синие — Вы/); assert.match(ui.$('#scoreboard').innerHTML, /Красные — Живой человек/);
+  assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /data-claim-seat/);
+});
+
+test('closed state hides the field and game actions, and explicit re-entry uses join', async () => {
+  const ui = setup(), snap = snapshot({ phase: 'playing', matchId: 'old', state: createGame(DEFAULT_CONFIG), seats: [{ guestId: 'me', ready: true }, null] });
+  ui.context.roomTarget = snap.roomId; ui.context.roomView = view(snap, 0, { status: 'closed', canMove: false, error: { code: 'room_not_found' } });
+  ui.context.renderOnlineRoom();
+  assert.equal(ui.$('.board-wrap').hidden, true); assert.equal(ui.$('#room-finish').hidden, true);
+  assert.equal(ui.$('#room-retry').textContent, 'Войти снова');
+  const calls = []; ui.context.MultiplayerSession = class { join(id) { calls.push(id); return Promise.resolve(); } };
+  await ui.$('#room-retry').events.click(); assert.deepEqual(calls, ['room-a']);
+});
+
+test('room entry and invitation URLs connect automatically without a name', async () => {
+  for (const roomId of [null, 'room-a']) {
+    const ui = setup(), calls = []; ui.context.playMode = 'local'; ui.context.save = () => true;
+    ui.context.MultiplayerSession = class { create(...args) { calls.push(['create', args]); return Promise.resolve(); } join(...args) { calls.push(['join', args]); return Promise.resolve(); } };
+    ui.context.openOnlineRoom(roomId); await Promise.resolve();
+    assert.deepEqual(calls, roomId ? [['join', ['room-a']]] : [['create', []]]);
+    ui.context.rememberRoom('room-a'); assert.deepEqual(JSON.parse(ui.storage.get('online')), { roomId: 'room-a' });
+  }
+});
+
+test('selecting online mode waits for Start before creating a room', () => {
+  const ui = setup(); ui.context.playMode = 'local'; ui.context.gamePhase = 'setup'; ui.context.refreshingNewGame = false;
+  let opened = 0; ui.context.openOnlineRoom = () => { opened++; };
+  vm.runInContext(app.split('\n').find(line => line.startsWith("$('#play-mode').addEventListener")), ui.context);
+  vm.runInContext(source('function startGame(', "\n$('#start-setup').addEventListener"), ui.context);
+  ui.$('#play-mode').value = 'online'; ui.$('#play-mode').events.change({ target: { value: 'online' } });
+  assert.equal(opened, 0); assert.equal(ui.context.playMode, 'local');
+  ui.context.startGame(); assert.equal(opened, 1);
+});
+
+test('turn labels follow the viewer perspective for either color and spectators', () => {
+  const tags = ui => [...ui.$('#scoreboard').innerHTML.matchAll(/<div class="turn-tag">([^<]*)<\/div>/g)].map(match => match[1]);
+  for (const selfSeat of [0, 1, null]) for (const turn of [0, 1]) {
+    const ui = setup(), position = createGame(DEFAULT_CONFIG); position.turn = turn;
+    const snap = snapshot({ phase: 'playing', state: position, seats: [{ guestId: 'blue', ready: true }, { guestId: 'red', ready: true }],
+      participants: [{ guestId: 'blue', present: true, seat: 0 }, { guestId: 'red', present: true, seat: 1 }] });
+    ui.context.state = position; ui.context.roomView = view(snap, selfSeat); ui.context.renderOnlineRoom();
+    const labels = tags(ui);
+    if (selfSeat === null) { assert.equal(labels[turn], 'Ходят'); assert.equal(labels[1 - turn], 'Ждут хода противника'); }
+    else if (turn === selfSeat) { assert.equal(labels[selfSeat], 'Ваш ход'); assert.equal(labels[1 - selfSeat], 'Ждут пока вы походите'); }
+    else { assert.equal(labels[turn], 'Ход соперника'); assert.equal(labels[selfSeat], 'Ожидаем ход соперника'); }
+  }
+});
+
+test('the turn line omits a seated player color while retaining the spectator role', () => {
+  const ui = setup();
+  const caption = app.split('\n').find(line => line.includes("$('#mode-caption').textContent = playMode"));
+  for (const selfSeat of [0, 1, null]) {
+    ui.context.roomView = view(snapshot(), selfSeat); vm.runInContext(caption, ui.context);
+    assert.equal(ui.$('#mode-caption').textContent, selfSeat === null ? 'По ссылке · зритель' : 'По ссылке');
+  }
 });

@@ -60,7 +60,7 @@ export function renderTokenBody(appearance, displayTeam = 0) {
   const icon = !nativeIcon && appearance.type && TOKEN_ART['type-'+appearance.type]
     ? tokenTypeIcon(appearance.type)
     : `<g transform="translate(${tokenX(65)},${tokenY(63)}) scale(${110/24*TOKEN_UNIT_SCALE})">${nativeIcon || appearance.icon || ''}</g>`;
-  const direction=appearance.type==='archer'&&displayTeam?` transform="rotate(180 0 ${tokenY(118)})"`:'';
+  const direction=appearance.type==='archer'&&(appearance.facingTeam??displayTeam)?` transform="rotate(180 0 ${tokenY(118)})"`:'';
   return `<g class="token-body-paint">${body}${tint}</g><circle class="piece-circle" r="${88*TOKEN_UNIT_SCALE}"/>${appearance.veteran?veteranWreath():''}<g class="piece-icon" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"${direction}>${icon}</g>`;
 }
 

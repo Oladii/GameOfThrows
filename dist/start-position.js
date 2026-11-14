@@ -23,7 +23,7 @@ export function classifyPosition(state, inputConfig) {
 
 export function prepareStartPosition(state, inputConfig, turn) {
   const config = validateConfig(inputConfig), position = validateState(state, config);
-  if (![0, 1].includes(turn)) throw new Error('Выберите, какая сторона ходит первой: Север или Юг.');
+  if (![0, 1].includes(turn)) throw new Error('Выберите, какая сторона ходит первой: Синие или Красные.');
   const flagRequired = config.victoryCondition === 'flag-or-combat';
   if (flagRequired && ![0, 1].every(team => position.pieces.filter(p => p.team === team && p.type === 'defenseLamp').length === 1)) throw new Error('Для начала игры нужно ровно одно знамя у каждой стороны.');
   const combatOnly = flagRequired || config.victoryCondition === 'combat-units';

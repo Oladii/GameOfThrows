@@ -11,10 +11,10 @@ let uuid = 0;
 const cryptoImpl = { randomUUID: () => `00000000-0000-4000-8000-${String(++uuid).padStart(12, '0')}`, getRandomValues: bytes => bytes.fill(171) };
 const storage = { getOrCreateToken: async () => token };
 function snapshot(revision = 1, overrides = {}) {
-  return { roomId: 'room-one', revision, phase: 'playing', matchId: 'match-one', config: { fixed: true },
+  return { roomId: 'room-one', roomNumber: 1234, revision, phase: 'playing', matchId: 'match-one', config: { fixed: true },
     state: { pieces: [], turn: 0, ply: revision - 1, winner: null },
-    seats: [{ guestId: 'guest', name: 'Игрок', ready: true }, { guestId: 'other', name: 'Соперник', ready: true }],
-    participants: [{ guestId: 'guest', name: 'Игрок', present: true, seat: 0 }], self: { guestId: 'guest', seat: 0 },
+    seats: [{ guestId: 'guest', ready: true }, { guestId: 'other', ready: true }],
+    participants: [{ guestId: 'guest', present: true, seat: 0 }], self: { guestId: 'guest', seat: 0 },
     lastAction: null, lastResult: null, serverTime: new Date(1000 * revision).toISOString(), pollAfterMs: 1000, ...overrides };
 }
 class FakeClock {
@@ -100,7 +100,7 @@ test('transport keeps credentials out of URLs, payloads, response errors and red
   const client = new MultiplayerClient({ endpoint: 'https://rooms.example///', storage, fetchImpl: async (url, options) => {
     requests.push({ url, options }); return { ok: true, status: 200, json: async () => snapshot() };
   } });
-  await client.joinRoom('invite-only', { name: 'Гость', connectionId: 'connection', visibility: 'visible' });
+  await client.joinRoom('invite-only', { connectionId: 'connection', visibility: 'visible' });
   assert.equal(requests[0].url, 'https://rooms.example/api/rooms/invite-only/join');
   assert.equal(requests[0].options.headers.Authorization, `Bearer ${token}`);
   assert.equal(requests[0].options.redirect, 'error'); assert.equal(requests[0].options.credentials, 'omit');
@@ -115,7 +115,7 @@ test('transport keeps credentials out of URLs, payloads, response errors and red
 test('a new member starts as a spectator and authoritative snapshots grant a seat', async () => {
   const room = snapshot(1, { phase: 'waiting', matchId: null, state: null, seats: [null, null], self: { guestId: 'guest', seat: null } });
   const { session, calls, setSnapshot } = setup({ createRoom: async () => room });
-  await session.create({ name: 'Новый' });
+  await session.create();
   assert.equal(session.view.selfSeat, null); assert.equal(session.view.canMove, false);
   setSnapshot(snapshot(2, { phase: 'waiting', matchId: null, state: null }));
   await session.claimSeat(0);
@@ -242,7 +242,7 @@ test('victory disables moves without releasing seats; finish and leave are expli
 test('a deleted room response disables controls and never impersonates a fresh guest', async () => {
   const { session } = setup({ readRoom: async () => { throw new MultiplayerError('room_not_found', { status: 404 }); } });
   await session.join('room-one'); await assert.rejects(session.resync(), { code: 'room_not_found' });
-  assert.equal(session.view.canMove, false); assert.equal(session.view.status, 'error'); session.stop();
+  assert.equal(session.view.canMove, false); assert.equal(session.view.status, 'closed'); session.stop();
 });
 
 test('a late successful poll cannot clear a newer connection failure', async () => {
@@ -252,7 +252,7 @@ test('a late successful poll cannot clear a newer connection failure', async () 
   await session.join('room-one'); const reading = session.resync();
   await assert.rejects(session.claimSeat(0), { code: 'room_not_found' });
   stale.resolve(snapshot()); await reading;
-  assert.equal(session.view.status, 'error'); assert.equal(session.view.canMove, false); session.stop();
+  assert.equal(session.view.status, 'closed'); assert.equal(session.view.canMove, false); session.stop();
 });
 
 test('default browser timers retain the global receiver for transport and session methods', async () => {
@@ -268,4 +268,37 @@ test('default browser timers retain the global receiver for transport and sessio
     await session.join('room-one'); session.stop();
     assert.ok(receivers.length >= 6);
   } finally { globalThis.setTimeout = originalSet; globalThis.clearTimeout = originalClear; }
+});
+
+test('anonymous create and join send only presence details and require a stable room number', async () => {
+  const bodies = [];
+  const { session } = setup({ createRoom: async body => { bodies.push(body); return snapshot(); }, joinRoom: async (_id, body) => { bodies.push(body); return snapshot(5); } });
+  await session.create(); session.stop(); await session.join('room-one'); session.stop();
+  for (const body of bodies) assert.deepEqual(Object.keys(body).sort(), ['connectionId', 'visibility']);
+  const invalid = setup({ createRoom: async () => snapshot(1, { roomNumber: undefined }) });
+  await assert.rejects(invalid.session.create(), { code: 'invalid_response' }); invalid.session.stop();
+});
+
+test('closed rooms stop polling and presence until an explicit fresh join revives the same number', async () => {
+  let reads = 0, joins = 0;
+  const ui = setup({ readRoom: async () => { reads++; throw new MultiplayerError('room_not_found', { status: 404 }); },
+    joinRoom: async () => { joins++; return snapshot(joins === 1 ? 9 : 11, joins === 1 ? {} : { phase: 'waiting', state: null, matchId: null, seats: [null, null], self: { guestId: 'guest', seat: null } }); } });
+  await ui.session.join('room-one'); await assert.rejects(ui.session.resync(), { code: 'room_not_found' });
+  assert.equal(ui.session.view.status, 'closed'); assert.equal(ui.session.view.pending, false);
+  await ui.clock.advance(65000); ui.windowTarget.dispatchEvent(new Event('focus')); await flush();
+  ui.windowTarget.dispatchEvent(new Event('pagehide')); ui.windowTarget.dispatchEvent(new Event('pageshow')); await flush();
+  assert.equal(reads, 1); assert.equal(joins, 1); assert.equal(ui.calls.presence.length, 0);
+  await assert.rejects(ui.session.claimSeat(0), { code: 'room_not_found' });
+  const number = ui.session.view.snapshot.roomNumber; ui.session.stop(); await ui.session.join('room-one');
+  assert.equal(ui.session.view.snapshot.roomNumber, number); assert.equal(ui.session.view.snapshot.revision, 11);
+  assert.equal(ui.session.view.snapshot.phase, 'waiting'); assert.equal(ui.session.view.selfSeat, null); ui.session.stop();
+});
+
+test('claiming the second seat starts from the authoritative reply without a ready command', async () => {
+  const lobby = snapshot(1, { phase: 'waiting', state: null, matchId: null, seats: [{ guestId: 'other', ready: true }, null], self: { guestId: 'guest', seat: null } });
+  const ui = setup({ joinRoom: async () => lobby }); await ui.session.join('room-one');
+  ui.setSnapshot(snapshot(2, { self: { guestId: 'guest', seat: 1 } })); await ui.session.claimSeat(1);
+  assert.equal(ui.session.view.snapshot.phase, 'playing'); assert.equal(ui.session.view.selfSeat, 1);
+  assert.deepEqual(ui.calls.commands.map(command => command.type), ['seat']);
+  assert.equal(typeof ui.session.setReady, 'undefined'); ui.session.stop();
 });

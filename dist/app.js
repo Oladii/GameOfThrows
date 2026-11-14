@@ -60,7 +60,7 @@ const ICON_PATHS = {
   attackLamp: '<ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v8c0 1.7 3.6 3 8 3s8-1.3 8-3v-8M4 11l4 8 4-6 4 6 4-8M7 2l8 5M17 2l-3 3"/>',
   defenseLamp: '<path d="M4 22V3m0 2c5-4 10 4 16 0v11c-6 4-11-4-16 0"/><path d="m9 8 3-1 3 1v3c0 2-1.5 3-3 4-1.5-1-3-2-3-4Z"/>'
 };
-const icon = (type, piece = null) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${piece ? unitAppearance(piece, config, ICON_PATHS).icon : ICON_PATHS[type]}</svg>`;
+const icon = (type, piece = null) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${piece ? unitAppearance(piece, config, ICON_PATHS, piece.team, playMode === 'online' && roomView?.selfSeat === 0).icon : ICON_PATHS[type]}</svg>`;
 const unitBadges = renderUnitBadges;
 let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], log = [];
 let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, latestRulesVersion = null, versionCheckPending = false;
@@ -374,14 +374,14 @@ function boardMarkup() {
     let token = '';
     if (p) {
       const info = report.get(p.id);
-      const appearance = unitAppearance(p, config, ICON_PATHS);
+      const appearance = unitAppearance(p, config, ICON_PATHS, p.team, playMode === 'online' && roomView?.selfSeat === 0);
       token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" data-piece-type="${p.type}" data-veteran="${appearance.veteran}" transform="translate(${x},${y})">${renderTokenBody(appearance, p.team)}${unitBadges(info, { pieceType: p.type, veteran: appearance.veteran })}</g>`;
     }
     tokens.push(token);
     const info = p && report.get(p.id);
     const description = info ? `<desc id="cell-stats-${k}">Урон атаки: ${info.damage}. Броня: ${info.fortitude}. Входящий урон: ${info.incoming}.${info.dead ? ' Погибнет при расчёте.' : ''}</desc>` : '';
     return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}" aria-describedby="cell-stats-${k}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/>${description}</g>`;
-  }).join('') + '<g id="aura-circles" clip-path="url(#aura-field-clip)" aria-hidden="true"></g><g id="selected-attack-reach" aria-hidden="true"></g>' + `<g id="board-pieces" pointer-events="none" aria-hidden="true">${tokens.join('')}</g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>` + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config)}</g>` + lastMoveTrace() + hintTrace() + movingTokenMarkup();
+  }).join('') + '<g id="aura-circles" clip-path="url(#aura-field-clip)" aria-hidden="true"></g><g id="selected-attack-reach" aria-hidden="true"></g>' + `<g id="board-pieces" pointer-events="none" aria-hidden="true">${tokens.join('')}</g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>` + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config, undefined, playMode === 'online' && roomView?.selfSeat === 0)}</g>` + lastMoveTrace() + hintTrace() + movingTokenMarkup();
   if (restoreFocus) {
     // Replacing cells preserves keyboard focus without starting a new forecast.
     restoringBoardFocus = true;
@@ -414,7 +414,7 @@ function lastMoveTrace() {
 function movingTokenMarkup() {
   if (!movement) return '';
   const p = movement.piece, frame = moveAnimator.active ? moveAnimator.frame : sampleMovement(movement.plan, 0);
-  return renderMovingToken(p, frame, ICON_PATHS, 'moving-token', config, p.team, movement.forecast.report.get(p.id));
+  return renderMovingToken(p, frame, ICON_PATHS, 'moving-token', config, p.team, movement.forecast.report.get(p.id), playMode === 'online' && roomView?.selfSeat === 0);
 }
 function inspectionContext() {
   const position = visibleState();
@@ -446,7 +446,7 @@ function highlightSources() {
   if (!target) { layer.innerHTML = ''; return; }
   const end = point(target);
   const targetInfo = context.report.get(target.id);
-  const ghostAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS) : null;
+  const ghostAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS, target.team, playMode === 'online' && roomView?.selfSeat === 0) : null;
   const ghost = context.isPreview ? `<g class="preview-ghost ${target.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})">${renderTokenBody(ghostAppearance, target.team)}${unitBadges(targetInfo, { showIncoming: true, pieceType: target.type, veteran: ghostAppearance.veteran })}</g>` : '';
   const arrowTarget = context.position.pieces.find(piece => piece.id === selected && piece.team === (playMode === 'bot' ? humanTeam : context.position.turn)) || target;
   const incoming = (context.report.get(arrowTarget.id)?.attackers || []).map(attack => ({ source: context.position.pieces.find(piece => piece.id === attack.id), target: arrowTarget, damage: attack.damage })).filter(attack => attack.source);
@@ -534,7 +534,7 @@ function renderGameResult(position) {
         reason = { flag: 'Флаги обеих сторон уничтожены', 'only-flag': 'У обеих сторон остались только флаги', combat: 'У обеих сторон не осталось броненосцев и лукарей' }[loss[0]];
       } else if (loss[0] && loss[1]) {
         reason = loss.map((kind, team) => {
-          const side = team === 0 ? 'Севера' : 'Юга';
+          const side = team === 0 ? 'Синих' : 'Красных';
           return kind === 'flag' ? `Флаг ${side} уничтожен` : kind === 'only-flag' ? `У ${side} остался только флаг` : `У ${side} не осталось броненосцев и лукарей`;
         }).join('. ');
       }
@@ -542,7 +542,7 @@ function renderGameResult(position) {
       reason = { flag: 'Флаг противника уничтожен', 'only-flag': 'У противника остался только флаг', combat: 'У противника не осталось броненосцев и лукарей' }[loss[1 - position.winner]] || '';
     }
   }
-  const victory = finished ? `${position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Севера' : 'Юга'}`}${reason ? '. ' + reason : ''}` : '';
+  const victory = finished ? `${position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Синих' : 'Красных'}`}${reason ? '. ' + reason : ''}` : '';
   const resolvingCombat = Boolean(combat || currentDeaths.length);
   $('#mode-caption').hidden = resolvingCombat || Boolean(movement);
   $('#move-counter').textContent = resolvingCombat ? 'Расчёт боя…' : movement ? 'Движение…' : gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${victory ? '. ' + victory : ''}`;
@@ -575,9 +575,11 @@ function render(deaths = []) {
   deaths = combat?.phase === 'deaths' ? combat.activeDeaths : deaths;
   currentDeaths = Array.isArray(deaths) && !matchMedia('(prefers-reduced-motion: reduce)').matches ? deaths : [];
   $('#first-move').value = firstMove;
-  $('#play-mode').value = playMode; $('#human-side').value = String(humanTeam);
+  const choosingOnline = $('#play-mode').dataset.online === 'true' && playMode !== 'online';
+  $('#play-mode').value = choosingOnline ? 'online' : playMode; $('#human-side').value = String(humanTeam);
   $('#bot-difficulty').value = botDifficulty;
-  $('#human-side-field').hidden = playMode !== 'bot'; $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
+  $('#human-side-field').hidden = choosingOnline || playMode !== 'bot'; $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
+  $('.first-move-field').hidden = choosingOnline; $('.position-field').hidden = choosingOnline; $('.custom-game-actions').hidden = choosingOnline;
   $('#start-setup').hidden = playMode === 'online' || gamePhase !== 'setup' || editor;
   $('#start-setup').disabled = refreshingNewGame;
   $('#settings-open').disabled = gamePhase !== 'setup' || positionKind !== 'custom' || editor || refreshingNewGame;
@@ -588,7 +590,7 @@ function render(deaths = []) {
   globalThis.window?.gameSelects?.sync();
   $('#configure-position').disabled = positionKind !== 'custom';
   $('#configure-position').hidden = positionKind !== 'custom';
-  $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : `По ссылке · ${TEAM_NAMES[roomView.selfSeat]}` : playMode === 'bot' ? `Бот · ${BOT_DIFFICULTIES[botDifficulty].label}` : '2 игрока на одном экране';
+  $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : 'По ссылке' : playMode === 'bot' ? `Бот · ${BOT_DIFFICULTIES[botDifficulty].label}` : '2 игрока на одном экране';
   hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
@@ -596,17 +598,7 @@ function render(deaths = []) {
   $('#board').setAttribute('aria-busy', String(Boolean(movement || combat)));
   $('#board').setAttribute('data-combat-phase', combat?.phase || 'idle');
   renderGameResult(state);
-  $('#scoreboard').innerHTML = [0, 1].map(team => {
-    const pieces = state.pieces.filter(p => p.team === team), n = pieces.length;
-    const active = gamePhase === 'playing' && state.turn === team && state.winner === null && !editor && !combat && !currentDeaths.length;
-    const roster = TYPES.map(type => {
-      const count = pieces.filter(p => p.type === type).length, label = `${LABELS[type]}: ${count}`;
-      return `<li class="team-unit ${count ? '' : 'empty'}" data-unit-type="${type}" title="${label}" aria-label="${label}">${icon(type)}<span aria-hidden="true">${count}</span></li>`;
-    }).join('');
-    const role = playMode === 'online' ? roomView?.selfSeat === team ? 'Вы' : '' : playMode === 'bot' ? team === humanTeam ? 'Вы' : 'Бот' : '';
-    const turnLabel = playMode === 'online' && roomView?.selfSeat !== team ? 'ХОДИТ' : 'ВАШ ХОД';
-    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div><span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${role ? `<span class="team-role">${role}</span>` : ''}</span><div class="turn-tag">${gamePhase === 'setup' ? 'РАССТАНОВКА' : combat ? 'РАСЧЁТ БОЯ' : currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : turnLabel : ' '}</div></div><span class="team-count">${n} ${plural(n, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
-  }).join('');
+  renderScoreboard(state);
   $('#unit-reference').innerHTML = unitReferenceMarkup(Boolean($('#unit-reference [data-shield-promotion]')?.open));
   $('#config-summary').innerHTML = `<div class="summary-row"><span>Групп на игрока</span><strong>${config.army.groups}</strong></div><div class="summary-row"><span>Состав группы</span><strong>${config.army.shields} ${plural(config.army.shields, ['броненосец', 'броненосца', 'броненосцев'])} + ${config.army.archers} ${plural(config.army.archers, ['лукарь', 'лукаря', 'лукарей'])}</strong></div><div class="summary-row"><span>Барабаны / горны / знамёна / командиры</span><strong>${config.army.attackLamps} / ${config.army.horns ?? 0} / ${config.army.defenseLamps} / ${config.army.scoutLamps}</strong></div><div class="summary-row"><span>Дополнительно в центре</span><strong>${(config.army.centralShields ?? 0) + (config.army.rearShields ?? 0)} броненосцев / ${config.army.rearArchers ?? 0} лукарей</strong></div><div class="summary-row"><span>Стрельба</span><strong>${config.geometry === 'hex' ? '6 лучей через грани' : config.experiments.squareDiagonals ? '8 направлений' : '4 направления'}</strong></div>`;
   $('#editor-controls').hidden = !editor;
@@ -630,7 +622,7 @@ function render(deaths = []) {
   if (!editor && state.winner === null && !state.pieces.filter(p => p.team === state.turn).some(p => reachable(p, state, config).length)) boardMessage = 'У команды нет доступных ходов. Исследуйте позицию в редакторе или разрешите пропуск в настройках.';
   if (!editor && isBotTurn()) boardMessage = 'Сейчас ход бота. Можно рассматривать атаки и ауры или открыть настройки.';
   else if (!editor && !selected && lastAction) boardMessage = `${lastMoveText} Выберите свою фигуру.`;
-  if (!editor && p && p.team !== state.turn && !isBotTurn()) boardMessage = `Выбрана фигура команды «${TEAM_NAMES[p.team]}». Сейчас ходит «${TEAM_NAMES[state.turn]}» — выберите ${state.turn === 0 ? 'синюю' : 'оранжевую'} фигуру.`;
+  if (!editor && p && p.team !== state.turn && !isBotTurn()) boardMessage = `Выбрана фигура команды «${TEAM_NAMES[p.team]}». Сейчас ходит «${TEAM_NAMES[state.turn]}» — выберите ${state.turn === 0 ? 'синюю' : 'красную'} фигуру.`;
   if (gamePhase === 'setup') boardMessage = editor ? 'Выберите фигуру и пустую клетку для перестановки. Палитра добавляет фигуры. «Готово» завершает настройку позиции.' : '';
   if (reviewingTurn) boardMessage = `Просмотр перед последним ходом. ${lastMoveText} Нажмите →, чтобы вернуться к партии.`;
   if (currentDeaths.length) boardMessage = 'Расчёт боя: погибшие фигуры удаляются одновременно.';
@@ -753,6 +745,7 @@ async function openNewGame() {
 }
 function startGame() {
   if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
+  if ($('#play-mode').value === 'online') { openOnlineRoom(); return; }
   try {
     const next = prepareStartPosition(state, config, startingTeam());
     startPreferences = currentStartPreferences();
@@ -783,7 +776,7 @@ function returnToGame() {
 }
 $('#start-dialog').addEventListener('cancel', event => { event.preventDefault(); dismissDialog(event.currentTarget); });
 $('#first-move').addEventListener('change', event => { if (gamePhase !== 'setup') return; firstMove = event.target.value; save(); });
-$('#play-mode').addEventListener('change', event => { if (playMode === 'online' || gamePhase !== 'setup') return; if (event.target.value === 'online') { openOnlineRoom(); return; } resetBotContext(false); playMode = event.target.value; selected = null; render(); });
+$('#play-mode').addEventListener('change', event => { if (playMode === 'online' || gamePhase !== 'setup') return; if ($('#play-mode').dataset) $('#play-mode').dataset.online = String(event.target.value === 'online'); if (event.target.value === 'online') { render(); return; } resetBotContext(false); playMode = event.target.value; selected = null; render(); });
 $('#human-side').addEventListener('change', event => { if (gamePhase !== 'setup') return; resetBotContext(false); humanTeam = Number(event.target.value); selected = null; render(); });
 $('#bot-difficulty').addEventListener('change', event => { if (gamePhase !== 'setup') return; resetBotContext(false); botDifficulty = readBotDifficulty(event.target.value); render(); });
 $('#position-kind').addEventListener('change', event => {
@@ -818,7 +811,7 @@ function savedRoomReference() {
   try { return JSON.parse(localStorage.getItem(ROOM_STORAGE)) || {}; } catch { return {}; }
 }
 function rememberRoom(roomId) {
-  try { localStorage.setItem(ROOM_STORAGE, JSON.stringify({ roomId, name: $('#room-name').value.trim() })); } catch { /* The session owns credential storage and reports failures. */ }
+  try { localStorage.setItem(ROOM_STORAGE, JSON.stringify({ roomId })); } catch { /* The session owns credential storage and reports failures. */ }
 }
 function roomInvitation(roomId) {
   const url = new URL(location.href);
@@ -829,12 +822,11 @@ function roomInvitation(roomId) {
 function roomErrorText(error) {
   if (error?.code === 'storage_unavailable' && error.status === 503) return 'Сервер комнаты временно недоступен. Подключение восстановится автоматически.';
   const messages = {
-    ROOM_NOT_FOUND: 'Комната закрыта или ссылка устарела. Можно вернуться к обычной игре.',
-    NOT_FOUND: 'Комната закрыта или ссылка устарела. Можно вернуться к обычной игре.',
+    ROOM_NOT_FOUND: 'Комната закрыта. Войдите снова, чтобы открыть её заново.',
+    NOT_FOUND: 'Комната закрыта. Войдите снова, чтобы открыть её заново.',
     SEAT_TAKEN: 'Это место уже занято. Выберите свободную сторону.',
     REVISION_CONFLICT: 'Позиция изменилась. Дождитесь обновления и повторите действие.',
     CONFLICT: 'Комната изменилась. Проверьте места и повторите действие.',
-    INVALID_NAME: 'Укажите имя длиной до 40 символов.',
     STORAGE_UNAVAILABLE: 'Не удалось сохранить участие. Разрешите хранение данных в браузере и повторите вход.',
     INVALID_IDENTITY: 'Не удалось прочитать сохранённое участие. Попробуйте открыть комнату в прежнем браузере.',
     INVALID_ROOM: 'Ссылка на комнату неверна. Проверьте ссылку приглашения.',
@@ -855,9 +847,9 @@ function openOnlineRoom(roomId = null) {
   playMode = 'online'; gamePhase = 'setup'; editor = false; positionKind = 'default';
   config = clone(DEFAULT_CONFIG); state = createGame(config); history = []; log = []; selected = null;
   roomTarget = roomId; roomSnapshot = null; roomView = null; roomError = ''; roomConnecting = false;
-  $('#room-name').value = savedRoomReference().name || '';
+  $('#play-mode').dataset.online = 'false';
   document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
-  render(); $('#room-name').focus();
+  render(); void connectOnlineRoom();
 }
 function applyRoomView(view) {
   if (playMode !== 'online') return;
@@ -887,10 +879,8 @@ function applyRoomView(view) {
   if (animate) { lastTurn = { before, action: clone(action.action) }; presentMove(before, action.action, action.deaths || []); }
   else render();
 }
-async function connectOnlineRoom() {
-  if (playMode !== 'online' || roomConnecting || roomView?.snapshot) return;
-  const name = $('#room-name').value.trim();
-  if (!name) { $('#room-name').focus(); $('#room-name').reportValidity(); return; }
+async function connectOnlineRoom(rejoin = false) {
+  if (playMode !== 'online' || roomConnecting || roomView?.snapshot && !rejoin) return;
   if (location.protocol === 'file:' && !$('meta[name="game-room-endpoint"]')?.content) {
     roomError = 'Для игры по ссылке откройте игру через сервер.'; renderOnlineRoom(); return;
   }
@@ -905,7 +895,7 @@ async function connectOnlineRoom() {
       onError: error => { if (roomSession === session && playMode === 'online') { roomError = roomErrorText(error); renderOnlineRoom(); } }
     });
     roomSession = session;
-    if (roomTarget) await session.join(roomTarget, { name }); else await session.create({ name });
+    if (roomTarget) await session.join(roomTarget); else await session.create();
   } catch (error) { if (!session || roomSession === session) roomError = roomErrorText(error); }
   finally { if (!session || roomSession === session) { roomConnecting = false; renderOnlineRoom(); } }
 }
@@ -933,67 +923,83 @@ async function leaveOnlineRoom() {
   roomLocalGame = null; roomView = null; roomSnapshot = null; roomTarget = null; roomError = ''; roomConnecting = false; roomLeaving = false; $('#room-leave').disabled = false;
   reviewingTurn = false; selected = null; render(); $('#room-open').focus();
 }
+function renderScoreboard(position) {
+  const online = playMode === 'online', snapshot = roomView?.snapshot;
+  const waiting = !snapshot || snapshot.phase === 'waiting';
+  const seated = roomView?.selfSeat === 0 || roomView?.selfSeat === 1;
+  const canClaim = snapshot && waiting && !seated && roomView.status === 'connected' && !roomView.pending && !roomConnecting;
+  const markup = [0, 1].map(team => {
+    const seat = snapshot?.seats[team], free = online && !seat;
+    const role = online ? free ? 'Ожидаем игрока' : roomView.selfSeat === team ? 'Вы' : 'Живой человек' : playMode === 'bot' ? team === humanTeam ? 'Вы' : 'Бот' : '';
+    const title = `<span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${role ? ` — ${role}` : ''}</span>`;
+    const pieces = position.pieces.filter(piece => piece.team === team), count = pieces.length;
+    const active = gamePhase === 'playing' && position.turn === team && position.winner === null && !editor && !combat && !currentDeaths.length;
+    const roster = TYPES.map(type => {
+      const amount = pieces.filter(piece => piece.type === type).length, label = `${LABELS[type]}: ${amount}`;
+      return `<li class="team-unit ${amount ? '' : 'empty'}" data-unit-type="${type}" title="${label}" aria-label="${label}">${icon(type)}<span aria-hidden="true">${amount}</span></li>`;
+    }).join('');
+    const turnLabel = !online ? 'ВАШ ХОД' : !seated ? 'Ходят' : roomView.selfSeat === team ? 'Ваш ход' : 'Ход соперника';
+    const waitingLabel = !online || position.winner !== null ? ' ' : !seated ? 'Ждут хода противника' : roomView.selfSeat === team ? 'Ожидаем ход соперника' : 'Ждут пока вы походите';
+    const turn = gamePhase === 'setup' ? online ? '' : 'РАССТАНОВКА' : combat || currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : turnLabel : waitingLabel;
+    const offline = online && seat && (!snapshot.participants.some(person => person.guestId === seat.guestId && person.present) || roomView.selfSeat === team && roomView.status !== 'connected');
+    if (online) {
+      const canStand = roomView?.status === 'connected' && !roomView.pending && !roomConnecting;
+      const action = free ? `<button class="button outline full" type="button" data-claim-seat="${team}" ${canClaim ? '' : 'disabled'}>Играть за ${team ? 'красных' : 'синих'}</button>`
+        : waiting && roomView.selfSeat === team && roomView.status !== 'closed' ? `<button class="button subtle full" type="button" data-stand-seat="${team}" ${canStand ? '' : 'disabled'}>Отменить выбор</button>` : '';
+      const details = free ? '' : `<span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul>`;
+      return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" data-room-seat="${team}"><div class="team-card-heading">${title}<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div></div><div class="team-card-details">${details}</div><div class="team-card-action">${action}</div></div>`;
+    }
+    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"${online ? ` data-room-seat="${team}"` : ''}><div>${title}<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div></div><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
+  }).join('');
+  if ($('#scoreboard').innerHTML !== markup) $('#scoreboard').innerHTML = markup;
+}
 function renderOnlineRoom() {
   const online = playMode === 'online';
   document.body.classList.toggle('online-room', online);
   $('#room-panel').hidden = !online; $('#room-open').hidden = online;
   for (const id of ['show-hint', 'undo', 'replay-combat', 'review-previous', 'review-current']) $('#' + id).hidden = online;
+  $('.board-wrap').hidden = online && (!roomView?.snapshot || roomView.snapshot.phase === 'waiting' || roomView.status === 'closed');
+  document.body.classList.toggle('room-waiting', online && $('.board-wrap').hidden);
+  $('.arena-top').hidden = online && $('.board-wrap').hidden;
   if (!online) return;
   $('#archive-status').hidden = true; $('#archive-retry').hidden = true; $('#archive-details').hidden = true;
   $('#pass-turn').hidden = true; $('#editor-controls').hidden = true; $('#settings-open').disabled = true; $('#configure-position').disabled = true;
   const snapshot = roomView?.snapshot, seated = roomView?.selfSeat === 0 || roomView?.selfSeat === 1;
-  const waiting = snapshot?.phase === 'waiting', busy = roomConnecting || Boolean(roomView?.pending);
-  const connected = roomView?.status === 'connected', canAct = connected && !busy;
-  $('#room-role').textContent = snapshot ? seated ? TEAM_NAMES[roomView.selfSeat] : 'Зритель' : '';
-  $('#room-entry').hidden = Boolean(snapshot); $('#room-connected').hidden = !snapshot;
-  $('#room-name').disabled = busy; $('#room-connect').disabled = busy;
-  $('#room-connect').textContent = busy ? 'Подключаемся…' : roomTarget ? 'Войти в комнату' : 'Создать комнату';
-  $('#room-status').textContent = busy ? roomView?.pending ? 'Ждём подтверждения…' : 'Подключаемся к комнате…'
-    : !snapshot ? roomTarget ? 'Войдите, чтобы смотреть игру или занять место.' : 'Создайте комнату и пригласите соперника по ссылке.'
-    : !connected ? 'Связь потеряна. Восстанавливаем подключение; места сохраняются.'
-    : snapshot.phase === 'won' ? 'Партия окончена. Игрок может освободить места.'
-    : waiting ? 'Партия начнётся, когда оба игрока будут готовы.' : seated ? state.turn === roomView.selfSeat ? 'Ваш ход.' : 'Сейчас ход соперника.' : `Сейчас ходит ${TEAM_NAMES[state.turn]}.`;
+  const closed = roomView?.status === 'closed', waiting = snapshot?.phase === 'waiting';
+  const busy = roomConnecting || Boolean(roomView?.pending), connected = roomView?.status === 'connected', canAct = connected && !busy;
+  $('#room-title').textContent = Number.isSafeInteger(snapshot?.roomNumber) ? `Игровая комната #${snapshot.roomNumber}` : 'Игровая комната';
+  $('#room-panel').setAttribute('aria-busy', String(busy));
+  $('#room-connected').hidden = !snapshot;
+  if (snapshot) $('#room-link').value = roomInvitation(snapshot.roomId);
+  $('#room-finish').hidden = !seated || waiting || !snapshot || closed; $('#room-finish').disabled = !canAct;
+  $('#room-participants').hidden = !snapshot || closed;
   if (snapshot) {
-    $('#room-link').value = roomInvitation(snapshot.roomId);
-    const participantMap = new Map(snapshot.participants.map(participant => [participant.guestId, participant]));
-    for (let team = 0; team < 2; team++) {
-      const seat = snapshot.seats[team], node = $(`[data-room-seat="${team}"]`);
-      node.dataset.occupied = String(Boolean(seat)); node.dataset.self = String(seated && roomView.selfSeat === team);
-      node.querySelector('[data-seat-name]').textContent = seat ? `${seat.name}${roomView.selfSeat === team ? ' · Вы' : ''}` : 'Место свободно';
-      node.querySelector('[data-seat-ready]').textContent = seat && waiting ? seat.ready ? 'Готов' : 'Не готов' : '';
-      node.querySelector('[data-seat-connection]').textContent = !seat ? '' : participantMap.get(seat.guestId)?.present && (roomView.selfSeat !== team || connected) ? 'В сети' : 'Нет связи · место сохранено';
-      const button = node.querySelector('[data-claim-seat]');
-      button.hidden = Boolean(seat) || !waiting || seated; button.disabled = !canAct;
-    }
-    const spectators = snapshot.participants.filter(participant => participant.present && participant.seat == null).length;
-    $('#room-spectators').textContent = `${spectators} ${plural(spectators, ['зритель', 'зрителя', 'зрителей'])} в комнате`;
-    $('#room-explanation').textContent = waiting ? seated ? 'До старта можно снять готовность или встать.' : 'Выберите свободную сторону или оставайтесь зрителем.' : '«Завершить партию» освобождает оба места. Все участники остаются в комнате.';
-    const result = snapshot.lastResult;
-    $('#room-last-result').hidden = !waiting || !result;
-    $('#room-last-result').textContent = !result ? '' : result.status === 'aborted' || result.winner === null ? 'Предыдущая партия завершена без победителя.' : result.winner === 'draw' ? 'Предыдущая партия: ничья.' : `Предыдущая партия: победа ${result.winner === 0 ? 'Севера' : 'Юга'}.`;
+    const players = snapshot.seats.filter(Boolean).length;
+    const spectators = snapshot.participants.filter(person => person.present && person.seat == null).length;
+    $('#room-participants').textContent = `${players} ${plural(players, ['игрок', 'игрока', 'игроков'])} и ${spectators} ${plural(spectators, ['зритель', 'зрителя', 'зрителей'])}`;
   }
-  $('#room-ready').hidden = !seated || !waiting; $('#room-ready').disabled = !canAct;
-  $('#room-ready').textContent = seated && snapshot?.seats[roomView.selfSeat]?.ready ? 'Снять готовность' : 'Готов';
-  $('#room-stand').hidden = !seated || !waiting; $('#room-stand').disabled = !canAct;
-  $('#room-finish').hidden = !seated || waiting || !snapshot; $('#room-finish').disabled = !canAct;
-  $('#room-error').textContent = roomError; $('#room-error').hidden = !roomError;
-  $('#room-retry').hidden = busy || (!roomError && (!snapshot || connected));
-  $('#room-leave').textContent = snapshot ? 'Выйти из комнаты' : 'Вернуться к обычной игре';
+  const connectionError = snapshot && !connected && !busy && !closed ? 'Связь потеряна. Восстанавливаем подключение; места сохраняются.' : '';
+  $('#room-error').textContent = roomError || connectionError; $('#room-error').hidden = !$('#room-error').textContent;
+  $('#room-retry').hidden = busy || (!roomError && !connectionError && !closed);
+  $('#room-retry').textContent = closed || roomView?.error?.code === 'room_not_found' ? 'Войти снова' : 'Повторить подключение';
+  renderScoreboard(visibleState());
 }
 $('#room-open').addEventListener('click', () => openOnlineRoom());
-$('#room-entry').addEventListener('submit', event => { event.preventDefault(); void connectOnlineRoom(); });
-$('#room-panel').addEventListener('click', event => {
-  const button = event.target.closest('[data-claim-seat]');
-  if (!button || button.disabled || roomView?.selfSeat != null || roomView?.snapshot?.phase !== 'waiting') return;
+$('#scoreboard').addEventListener('click', event => {
+  const button = event.target.closest('[data-claim-seat], [data-stand-seat]');
+  if (!button || button.disabled || roomView?.snapshot?.phase !== 'waiting') return;
+  if (button.dataset.standSeat !== undefined) {
+    if (roomView.selfSeat === Number(button.dataset.standSeat)) void runRoomAction(() => roomSession.stand());
+    return;
+  }
+  if (roomView.selfSeat != null) return;
   const team = Number(button.dataset.claimSeat);
   if (!roomView.snapshot.seats[team]) void runRoomAction(() => roomSession.claimSeat(team));
 });
-$('#room-ready').addEventListener('click', () => { if (roomView?.selfSeat != null && roomView.snapshot.phase === 'waiting') void runRoomAction(() => roomSession.setReady(!roomView.snapshot.seats[roomView.selfSeat].ready)); });
-$('#room-stand').addEventListener('click', () => { if (roomView?.selfSeat != null && roomView.snapshot.phase === 'waiting') void runRoomAction(() => roomSession.stand()); });
 $('#room-finish').addEventListener('click', () => { if (roomView?.selfSeat != null && ['playing', 'won'].includes(roomView.snapshot.phase)) void runRoomAction(() => roomSession.endMatch()); });
 $('#room-leave').addEventListener('click', () => { void leaveOnlineRoom(); });
 $('#room-retry').addEventListener('click', async () => {
-  if (!roomView?.snapshot) { void connectOnlineRoom(); return; }
+  if (!roomView?.snapshot || roomView.status === 'closed') { void connectOnlineRoom(true); return; }
   roomError = '';
   try { await roomSession?.resync(); } catch (error) { roomError = roomErrorText(error); }
   renderOnlineRoom();
@@ -1081,5 +1087,4 @@ if (balanceUpdated) toast(commanderUpdated ? 'Командир: атака 3, д
 const initialRoomId = new URL(location.href).searchParams.get('room');
 if (initialRoomId) {
   openOnlineRoom(initialRoomId);
-  if (savedRoomReference().roomId === initialRoomId && $('#room-name').value) void connectOnlineRoom();
 }

@@ -1,6 +1,6 @@
 export const TYPES = ['shield', 'archer', 'attackLamp', 'defenseLamp', 'scoutLamp', 'horn'];
 export const LABELS = { shield: 'Броненосец', archer: 'Лукарь', attackLamp: 'Барабан', defenseLamp: 'Знамя', scoutLamp: 'Командир', horn: 'Горн' };
-export const TEAM_NAMES = ['Север', 'Юг'];
+export const TEAM_NAMES = ['Синие', 'Красные'];
 export const DEFAULT_CONFIG = {
   "version": 1,
   "archerEdgeDamageBonus": 3,

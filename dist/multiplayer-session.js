@@ -40,7 +40,7 @@ export class MultiplayerSession {
   #current(generation) { return generation === this.#generation && !this.#suspended; }
   #accept(snapshot, generation) {
     if (!this.#current(generation)) return false;
-    if (!snapshot || typeof snapshot.roomId !== 'string' || !Number.isInteger(snapshot.revision) || snapshot.revision < 0 ||
+    if (!snapshot || typeof snapshot.roomId !== 'string' || !Number.isSafeInteger(snapshot.roomNumber) || snapshot.roomNumber < 1 || !Number.isInteger(snapshot.revision) || snapshot.revision < 0 ||
       !['waiting', 'playing', 'won'].includes(snapshot.phase) || !Array.isArray(snapshot.seats) || snapshot.seats.length !== 2 ||
       !snapshot.self || !Number.isFinite(Date.parse(snapshot.serverTime))) throw new MultiplayerError('invalid_response');
     if (this.#snapshot) {
@@ -60,7 +60,9 @@ export class MultiplayerSession {
     this.#lastSettled = sequence;
     const changed = this.#error?.code !== failure.code;
     this.#error = failure;
-    this.#status = failure.code === 'network_error' ? 'offline' : [400, 409].includes(failure.status) ? 'connected' : 'error';
+    if (failure.code === 'room_not_found') {
+      this.#status = 'closed'; this.#generation++; this.#pending = false; this.#sync = null; this.#cancelTimers();
+    } else this.#status = failure.code === 'network_error' ? 'offline' : [400, 409].includes(failure.status) ? 'connected' : 'error';
     this.#emit();
     if (notify && changed) this.onError(failure);
     return failure;
@@ -71,12 +73,12 @@ export class MultiplayerSession {
   }
   #schedulePoll() {
     this.clearTimeoutImpl(this.#pollTimer); this.#pollTimer = null;
-    if (!this.#snapshot || !this.#visible() || this.#suspended) return;
+    if (!this.#snapshot || !this.#visible() || this.#suspended || this.#status === 'closed') return;
     this.#pollTimer = this.setTimeoutImpl(() => { this.#pollTimer = null; void this.resync().catch(() => {}); }, this.pollMs);
   }
   #scheduleHeartbeat() {
     this.clearTimeoutImpl(this.#heartbeatTimer); this.#heartbeatTimer = null;
-    if (!this.#snapshot || this.#suspended) return;
+    if (!this.#snapshot || this.#suspended || this.#status === 'closed') return;
     this.#heartbeatTimer = this.setTimeoutImpl(() => {
       this.#heartbeatTimer = null;
       void this.#presence().finally(() => this.#scheduleHeartbeat());
@@ -101,7 +103,7 @@ export class MultiplayerSession {
     this.#listen(this.windowTarget, 'online', refresh);
     this.#listen(this.windowTarget, 'pagehide', () => {
       this.#suspended = true; this.#generation++; this.#sync = null; this.#pending = false;
-      this.#cancelTimers(); this.#status = this.#snapshot ? 'offline' : 'idle'; this.#emit();
+      this.#cancelTimers(); if (this.#status !== 'closed') this.#status = this.#snapshot ? 'offline' : 'idle'; this.#emit();
     });
     this.#listen(this.windowTarget, 'pageshow', () => {
       if (!this.#suspended) return;
@@ -109,11 +111,11 @@ export class MultiplayerSession {
       if (this.#snapshot) { refresh(); this.#scheduleHeartbeat(); }
     });
   }
-  async #connect(roomId, { name = '' } = {}) {
+  async #connect(roomId) {
     if (this.#pending || this.#snapshot) throw new MultiplayerError('command_pending');
     const generation = ++this.#generation, sequence = ++this.#requestSequence;
     this.#suspended = false; this.#status = 'connecting'; this.#pending = true; this.#error = null; this.#emit();
-    const body = { name, connectionId: this.connectionId, visibility: this.#visibility() };
+    const body = { connectionId: this.connectionId, visibility: this.#visibility() };
     try {
       const snapshot = await (roomId === null ? this.#client.createRoom(body) : this.#client.joinRoom(roomId, body));
       if (!this.#current(generation)) throw new MultiplayerError('session_closed');
@@ -123,10 +125,10 @@ export class MultiplayerSession {
     } catch (error) { throw this.#failure(error, generation, sequence); }
     finally { if (this.#current(generation)) { this.#pending = false; this.#emit(); } }
   }
-  create(options) { return this.#connect(null, options); }
-  join(roomId, options) { return this.#connect(roomId, options); }
+  create() { return this.#connect(null); }
+  join(roomId) { return this.#connect(roomId); }
   async resync() {
-    if (!this.#snapshot || this.#suspended) return this.#snapshot;
+    if (!this.#snapshot || this.#suspended || this.#status === 'closed') return this.#snapshot;
     if (this.#sync?.generation === this.#generation) return this.#sync.promise;
     const generation = this.#generation, sequence = ++this.#requestSequence;
     if (['offline', 'error'].includes(this.#status)) { this.#status = 'reconnecting'; this.#emit(); }
@@ -147,7 +149,7 @@ export class MultiplayerSession {
     return sync.promise;
   }
   async #presence() {
-    if (!this.#snapshot || this.#suspended) return;
+    if (!this.#snapshot || this.#suspended || this.#status === 'closed') return;
     const generation = this.#generation, sequence = ++this.#requestSequence;
     try {
       const snapshot = await this.#client.presence(this.#snapshot.roomId, { connectionId: this.connectionId, visibility: this.#visibility() });
@@ -156,6 +158,7 @@ export class MultiplayerSession {
     } catch (error) { this.#failure(error, generation, sequence); }
   }
   async #command(type, payload) {
+    if (this.#status === 'closed') throw new MultiplayerError('room_not_found');
     if (!this.#snapshot || this.#suspended) throw new MultiplayerError('not_joined');
     if (this.#pending) throw new MultiplayerError('command_pending');
     const generation = this.#generation, sequence = ++this.#requestSequence;
@@ -185,7 +188,6 @@ export class MultiplayerSession {
   }
   claimSeat(team) { return this.#command('seat', { team }); }
   stand() { return this.#command('stand', {}); }
-  setReady(ready) { return this.#command('ready', { ready }); }
   move(action) {
     if (!this.view.canMove) return Promise.reject(new MultiplayerError('cannot_move'));
     return this.#command('move', { id: action.id, to: action.to });
