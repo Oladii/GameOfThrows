@@ -10,10 +10,10 @@ test('badge examples retain full fortitude and separate incoming damage',()=>{
   assert.deepEqual([lethal.info.incoming,lethal.info.dead],[7,true]);
 });
 
-test('Figures renders the six requested demos in order without the old unit examples',()=>{
+test('Figures renders the seven requested demos in order without the old unit examples',()=>{
   const html=renderUnitExamples();
-  assert.deepEqual([...html.matchAll(/data-showcase-battle="([^"]+)"/g)].map(m=>m[1]),['unit-shield','unit-shield-defense','unit-drum-shield','unit-archer','unit-archer-veteran','unit-flag-defense']);
-  const titles=['Броненосец — ветеран','Броненосец — защитник','Барабан и броненосец','Лукарь, горн и командир','Лукарь — ветеран','Флаг — не обуза'];
+  assert.deepEqual([...html.matchAll(/data-showcase-battle="([^"]+)"/g)].map(m=>m[1]),['unit-shield','unit-shield-defense','unit-shield-formation','unit-drum-shield','unit-archer','unit-archer-veteran','unit-flag-defense']);
+  const titles=['Броненосец — ветеран','Броненосец — защитник','Строй — сила','Барабан и броненосец','Лукарь, горн и командир','Лукарь — ветеран','Флаг — не обуза'];
   let previous=-1;for(const title of titles){const index=html.indexOf(`>${title}</h3>`);assert.ok(index>previous);previous=index;}
   assert.doesNotMatch(html,/data-lesson-scene=|unit-horn|unit-scoutLamp|unit-defenseLamp|unit-attackLamp/);
   assert.match(html,/Справа — полная стойкость/);

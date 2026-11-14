@@ -115,19 +115,24 @@ test('reset or leaving a scene cancels movement and combat without stale callbac
 });
 
 
-test('drum permits exactly the two-step shield route that reaches and kills an archer',()=>{
+test('drum must approach first, then its bonus lets the shield reach and kill the archer',()=>{
   const {battle,play}=setup('unit-drum-shield');
-  const initial=structuredClone(battle.position),hero=initial.pieces.find(p=>p.id==='blue');
-  const report=analyze(initial,battle.config);
-  assert.equal(report.get('blue').move,2);
-  const withoutDrum={...initial,pieces:initial.pieces.filter(p=>p.id!=='drum')};
-  assert.equal(analyze(withoutDrum,battle.config).get('blue').move,1);
-  assert.equal(inspectCell(withoutDrum,battle.config,{q:0,r:0},'blue').isPreview,false);
-  const expected=move(initial,battle.config,'blue',{q:0,r:0});
+  const initial=structuredClone(battle.position);
+  assert.equal(analyze(initial,battle.config).get('blue').move,1);
+  assert.equal(inspectCell(initial,battle.config,{q:0,r:0},'blue').isPreview,false);
+  assert.deepEqual(battle.expectedAction,{id:'drum',to:{q:-1,r:3}});
+  battle.selectPiece('blue');assert.equal(battle.moveTo({q:0,r:1}),false);
+  const approach=move(initial,battle.config,'drum',{q:-1,r:3});approach.state.turn=1;
+  play();assert.deepEqual(battle.position,approach.state);
+  assert.equal(battle.position.ply,1);assert.equal(battle.phase,'ready');
+  assert.ok(battle.position.pieces.some(p=>p.id==='enemy'));
+  assert.equal(analyze(battle.position,battle.config).get('blue').move,2);
+  assert.deepEqual(battle.expectedAction,{id:'blue',to:{q:0,r:0}});
+  const expected=move(battle.position,battle.config,'blue',{q:0,r:0});
   assert.equal(expected.report.get('enemy').incoming,5);assert.equal(expected.report.get('enemy').dead,true);
   assert.equal(expected.report.get('blue').dead,false);assert.equal(expected.report.get('blue').move,1,'extra step survives leaving aura for this action');
   play();assert.deepEqual(battle.position,expected.state);
-  assert.ok(!battle.position.pieces.some(p=>p.id==='enemy'));assert.equal(battle.position.ply,1);
+  assert.ok(!battle.position.pieces.some(p=>p.id==='enemy'));assert.equal(battle.position.ply,2);
   battle.restart();assert.deepEqual(battle.position,initial);
 });
 
@@ -192,5 +197,26 @@ test('flag aura is the only difference between a surviving defender and lethal i
   assert.equal(battle.position.pieces.some(p=>p.id==='blue'),false);
   assert.ok(battle.position.pieces.some(p=>p.id==='flag'));
   assert.ok(battle.position.pieces.some(p=>p.id==='enemy'));
+  battle.restart();assert.deepEqual(battle.position,initial);
+});
+
+test('four shields form a semicircle and the rear shield strengthens the formation from its centre',()=>{
+  const {battle,play}=setup('unit-shield-formation');
+  const initial=structuredClone(battle.position),before=analyze(initial,battle.config);
+  assert.equal(initial.pieces.length,5);
+  assert.ok(initial.pieces.every(p=>p.team===1&&p.type==='shield'));
+  assert.deepEqual(initial.pieces.filter(p=>p.id!=='blue').map(p=>[p.q,p.r]),[[-1,0],[0,-1],[1,-1],[1,0]]);
+  assert.deepEqual(battle.expectedAction,{id:'blue',to:{q:0,r:0}});
+  battle.selectPiece('left');assert.equal(battle.moveTo({q:0,r:0}),false);
+  battle.selectPiece('blue');battle.preview({q:0,r:0});
+  const forecast=inspectCell(initial,battle.config,{q:0,r:0},'blue');
+  assert.equal(before.get('blue').fortitude,6);assert.equal(forecast.report.get('blue').fortitude,9);
+  for(const id of ['left','front-left','front-right'])assert.equal(forecast.report.get(id).fortitude,before.get(id).fortitude+1);
+  assert.ok([...forecast.report.values()].every(info=>info.damage===5&&!info.dead));
+  assert.deepEqual(battle.position,initial);
+  const expected=move(initial,battle.config,'blue',{q:0,r:0});
+  assert.equal(expected.deaths.length,0);
+  play();assert.deepEqual(battle.position,expected.state);assert.equal(battle.phase,'finished');
+  assert.equal(battle.position.pieces.length,5);
   battle.restart();assert.deepEqual(battle.position,initial);
 });

@@ -35,7 +35,7 @@ export function createShowcaseBattle() {
 }
 
 // Unit demos share the tutorial battle's controller, preview and combat presentation.
-export const UNIT_BATTLE_SCENES = ['unit-shield', 'unit-shield-defense', 'unit-drum-shield', 'unit-archer', 'unit-archer-veteran', 'unit-flag-defense'];
+export const UNIT_BATTLE_SCENES = ['unit-shield', 'unit-shield-defense', 'unit-shield-formation', 'unit-drum-shield', 'unit-archer', 'unit-archer-veteran', 'unit-flag-defense'];
 export function createUnitBattle(sceneKey) {
   const config = clone(DEFAULT_CONFIG);
   config.geometry = 'hex'; config.size = 3; config.victoryCondition = 'all-units';
@@ -72,13 +72,24 @@ export function createUnitBattle(sceneKey) {
         ['Броненосец перекрыл стрелу и выдержал выстрел. Наш лукарь больше не получает урон. Его собственные стрелы проходят через союзный щит.']
       ]
     },
+    'unit-shield-formation': {
+      title: 'Строй — сила',
+      description: 'Собери броненосцев в кулак, чтобы усилить их характеристики.',
+      pieces: [piece('blue','shield',1,0,1), piece('left','shield',1,-1,0), piece('front-left','shield',1,0,-1), piece('front-right','shield',1,1,-1), piece('right','shield',1,1,0)],
+      actions: [{id:'blue',to:{q:0,r:0}}],
+      copy: [
+        ['Броненосцы имеют ауру +1 к стойкости, поэтому вместе они находятся под пересечением аур.'],
+        ['Броненосец встал в центр: его стойкость выросла с 6 до 9. Его аура также усилила защиту соседей.']
+      ]
+    },
     'unit-drum-shield': {
       title: 'Барабан и броненосец',
       description: 'Барабан добавляет союзникам один шаг. Вместе с ним броненосец за один ход достаёт до вражеского лукаря.',
-      pieces: [piece('blue','shield',1,0,2), piece('drum','attackLamp',1,-1,3), piece('enemy','archer',0,0,-1)],
-      actions: [{id:'blue',to:{q:0,r:0}}],
+      pieces: [piece('blue','shield',1,0,2), piece('drum','attackLamp',1,-3,3), piece('enemy','archer',0,0,-1)],
+      actions: [{id:'drum',to:{q:-1,r:3}}, {id:'blue',to:{q:0,r:0}}],
       copy: [
-        ['Выбери броненосца. Без барабана он может пройти одну клетку, а под барабаном — две. Сделай ход на отмеченную клетку и уничтожь лукаря.'],
+        ['Выбери барабан и подведи его к броненосцу на отмеченную клетку. Его аура даст броненосцу дополнительный шаг.'],
+        ['Барабан подошёл. Выбери броненосца. Без барабана он может пройти одну клетку, а под барабаном — две. Сделай ход на отмеченную клетку и уничтожь лукаря.'],
         ['Броненосец прошёл две клетки за один ход и уничтожил лукаря. Дополнительный шаг от барабана сохраняется до конца хода, даже после выхода из его ауры.']
       ]
     },

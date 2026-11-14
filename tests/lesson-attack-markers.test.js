@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { attackCellsFor,renderUnitBadges } from '../dist/board-presentation.js';
-import { inspectCell } from '../dist/engine.js';
+import { inspectCell, move } from '../dist/engine.js';
 import { ShowcaseBattle, UNIT_BATTLE_SCENES, renderShowcaseBattle } from '../dist/onboarding-showcase.js';
 const keys=html=>[...html.matchAll(/data-threat-cell="([^"]+)"/g)].map(match=>match[1]).sort();
 
-test('all four demo attack markers match native attack cells for selection and forecasts',()=>{
+test('all demo attack markers match native attack cells for selection and forecasts',()=>{
   for(const sceneKey of UNIT_BATTLE_SCENES){
     const battle=new ShowcaseBattle({sceneKey});
     for(const piece of battle.position.pieces.filter(p=>p.team===1))for(const preview of [false,true]){
@@ -23,6 +23,7 @@ test('all four demo attack markers match native attack cells for selection and f
     }
   }
   const lethal=new ShowcaseBattle({sceneKey:'unit-drum-shield'});
+  lethal.position=move(lethal.position,lethal.config,'drum',{q:-1,r:3}).state;lethal.position.turn=1;
   lethal.selectPiece('blue');lethal.preview({q:0,r:0});
   assert.match(renderShowcaseBattle(lethal,{},renderUnitBadges),/incoming-indicator lethal/);
 });

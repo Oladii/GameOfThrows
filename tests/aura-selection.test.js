@@ -10,13 +10,13 @@ const painter = app.slice(app.indexOf('function paintAuras() {'), app.indexOf('\
 const piece = (id,type,team,q=0,r=0)=>({id,type,team,q,r});
 function setup(pieces) {
   const config=clone(DEFAULT_CONFIG), state={pieces,turn:0,ply:0,winner:null};
-  const layer={innerHTML:''},legend={innerHTML:'',hidden:true};
-  const context=vm.createContext({ hexGridPoint, combat: null,config,TEAM_NAMES,effective,shieldCanRetreat,AURA_COLORS,auraKind,auraCircleMarkup,selected:null,fieldView:null,preview:null,
-    visibleState:()=>state,$:selector=>selector==='#aura-circles'?layer:legend});
+  const layer={innerHTML:''};
+  const context=vm.createContext({ hexGridPoint, combat: null,config,TEAM_NAMES,effective,shieldCanRetreat,AURA_COLORS,auraKind,auraCircleMarkup,selected:null,preview:null,
+    visibleState:()=>state,$:selector=>{assert.equal(selector,'#aura-circles');return layer;}});
   context.inspectionContext=()=>context.preview||{position:state,isPreview:false};
   vm.runInContext(app.split('\n').find(line=>line.startsWith('function point(')),context);
   vm.runInContext(painter,context);
-  return {context,config,state,layer,legend,paint:()=>vm.runInContext('paintAuras()',context)};
+  return {context,config,state,layer,paint:()=>vm.runInContext('paintAuras()',context)};
 }
 test('selected auras are circles with effect colors and a boundary just beyond the outer-cell centre',()=>{
   for(const team of [0,1])for(const type of ['shield','archer','attackLamp','defenseLamp','scoutLamp','horn'])for(const veteran of [false,true]){
@@ -25,14 +25,13 @@ test('selected auras are circles with effect colors and a boundary just beyond t
     const promoted=type==='shield'&&veteran, radius=effective(source,ui.state,ui.config).aura;
     const circles=[...ui.layer.innerHTML.matchAll(/<circle[^>]*r="([^"]+)"[^>]*stroke="([^"]+)"/g)];
     assert.equal(circles.length,radius>0?1:0);
-    if(radius===0){assert.equal(ui.legend.hidden,true);continue;}
+    if(radius===0)continue;
     for(const c of circles){const lastCentre=radius*Math.sqrt(3)*33;assert.ok(Number(c[1])>lastCentre);assert.ok(Number(c[1])<lastCentre+10);}
     assert.ok(ui.layer.innerHTML.includes(`data-aura-origin="0,0"`));
     const kind=promoted?'combined':type==='horn'?'horn':type==='attackLamp'?'move':['shield','defenseLamp'].includes(type)?'defense':'attack';
     assert.ok(circles.some(c=>c[2]===AURA_COLORS[kind]));
-    if(type==='horn'){assert.equal(AURA_COLORS.horn,'#9770be');assert.match(ui.legend.innerHTML,/> Урон<\/span>/);}
+    if(type==='horn'){assert.equal(AURA_COLORS.horn,'#9770be');}
     assert.ok(!ui.layer.innerHTML.includes('polygon'));
-    assert.equal(ui.legend.hidden,false);
   }
 });
 test('circle centre follows the selected movement preview; unrelated hover and deselection do not retain it',()=>{
@@ -41,13 +40,14 @@ test('circle centre follows the selected movement preview; unrelated hover and d
   ui.context.preview={isPreview:true,piece:preview.pieces[0],position:preview};ui.paint();
   assert.ok(ui.layer.innerHTML.includes('data-aura-origin="1,0"'));
   ui.context.preview={isPreview:false,piece:other,position:ui.state};ui.paint();assert.equal(ui.layer.innerHTML,original);
-  ui.context.selected=null;ui.paint();assert.equal(ui.layer.innerHTML,'');assert.equal(ui.legend.hidden,true);
+  ui.context.selected=null;ui.paint();assert.equal(ui.layer.innerHTML,'');
 });
-test('all-aura view shows both sources; attack view and zero radii hide rings',()=>{
-  const ui=setup([piece('a','archer',0),piece('b','shield',1,2,0)]);ui.context.fieldView='auras';ui.paint();
-  assert.equal((ui.layer.innerHTML.match(/class="aura-circles"/g)||[]).length,1);
-  ui.context.fieldView='attacks';ui.context.selected='a';ui.paint();assert.equal(ui.layer.innerHTML,'');
-  ui.context.fieldView=null;ui.config.stats.archer.aura=0;ui.paint();assert.equal(ui.layer.innerHTML,'');
+test('zero radius and combat hide the selected aura; it returns after combat',()=>{
+  const ui=setup([piece('a','attackLamp',0),piece('b','shield',1,2,0)]);ui.context.selected='a';ui.paint();
+  assert.ok(ui.layer.innerHTML.includes('class="aura-ring"'));
+  const radius=ui.config.stats.attackLamp.aura;ui.config.stats.attackLamp.aura=0;ui.paint();assert.equal(ui.layer.innerHTML,'');
+  ui.config.stats.attackLamp.aura=radius;ui.paint();ui.context.combat={};ui.paint();assert.equal(ui.layer.innerHTML,'');
+  ui.context.combat=null;ui.paint();assert.ok(ui.layer.innerHTML.includes('class="aura-ring"'));
 });
 test('square circles reach the furthest covered cell centres with and without diagonals',()=>{
   const ui=setup([piece('a','attackLamp',0,3,3)]);ui.config.geometry='square';ui.config.stats.attackLamp.aura=2;ui.context.selected='a';

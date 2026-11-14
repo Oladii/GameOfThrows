@@ -93,7 +93,7 @@ test('tutorial accepts its guided move, pauses after the enemy and resumes only 
   assert.match(ui.html('main'), /data-ply="0"/);
 });
 
-test('six demos keep their own positions, restart independently and reset on reopening', () => {
+test('seven demos keep their own positions, restart independently and reset on reopening', () => {
   const ui = setup(); ui.controller.open(); ui.tabs().change(1);
   assert.deepEqual([...ui.scenes.keys()], UNIT_BATTLE_SCENES);
   ui.click('unit-archer-veteran', { showcasePiece: 'blue' });

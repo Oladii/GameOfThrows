@@ -39,7 +39,10 @@ test('current combined commander and drummer exercises use native range and move
  assert.equal(analyze(commander.position,commander.config).get('archer').range,4);
  assert.equal(result.report.get('archer').range,5);assert.equal(result.report.get('enemy').dead,true);
  const drum=createUnitBattle('unit-drum-shield');
- assert.equal(analyze(drum.position,drum.config).get('blue').move,2);
- const hit=move(drum.position,drum.config,'blue',drum.actions[0].to);
+ assert.equal(analyze(drum.position,drum.config).get('blue').move,1);
+ const approach=move(drum.position,drum.config,'drum',drum.actions[0].to);
+ assert.equal(approach.report.get('blue').move,2);
+ approach.state.turn=1;
+ const hit=move(approach.state,drum.config,'blue',drum.actions[1].to);
  assert.equal(hit.report.get('enemy').dead,true);assert.equal(hit.report.get('blue').dead,false);
 });
