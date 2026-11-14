@@ -34,8 +34,10 @@ test('combined kills keep every contributor and victim colored, including mutual
   assert.equal(both.arrows.length,2);assert.equal(both.participants.size,2);
   const html=renderDamageArrows(both.arrows,c=>({x:c.q*50,y:c.r*50}));
   assert.equal((html.match(/class="attack-ray"/g)||[]).length,2);
-  const labelXs=[...html.matchAll(/class="ray-text" x="([^"]+)"/g)].map(m=>+m[1]);
-  assert.notEqual(labelXs[0],labelXs[1]);
+  const paths=[...html.matchAll(/class="damage-arrow-path" d="([^"]+)"/g)].map(m=>m[1]);
+  assert.equal(paths.length,2);
+  assert.notEqual(paths[0],paths[1]);
+  assert.doesNotMatch(html,/class="attack-ray-label"/);
 });
 
 test('overkill is removed before layout, keeping the smallest lethal set and full damage values', () => {
@@ -180,9 +182,9 @@ test('progressive rendering preserves reveal order and arrow geometry, including
   for(let count=1;count<=arrows.length;count++) {
     const html=renderDamageArrows(arrows,point,{visibleCount:count});
     assert.equal((html.match(/class="attack-ray"/g)||[]).length,count);
-    assert.equal((html.match(/data-revealing="true"/g)||[]).length,2,'only the latest shaft and its badge animate');
+    assert.equal((html.match(/data-revealing="true"/g)||[]).length,1,'only the latest shaft animates');
     const latest=arrows[count-1];
-    assert.ok(html.includes(`data-source="${latest.source.id}" data-target="${latest.target.id}" data-revealing="true"`));
+    assert.match(html,new RegExp(`data-source="${latest.source.id}" data-target="${latest.target.id}"[^>]*data-revealing="true"`));
     for(const path of html.matchAll(/d="(M[^"]+)"/g)) assert.ok(full.includes(path[0]),'existing paths never jump');
   }
 });

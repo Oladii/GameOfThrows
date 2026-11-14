@@ -89,13 +89,13 @@ test('defender blocks damage instead of only increasing protection, and inspecti
   battle.restart();assert.equal(analyze(battle.position,battle.config).get('ally').incoming,2);
 });
 
-test('veteran lethal combat uses the training dimming, attack reveal and death sequence',()=>{
+test('veteran lethal combat preserves dimming and deaths without automatic arrows',()=>{
   const {battle,play,timers,settle}=setup('unit-shield');play();
   battle.selectPiece('blue');battle.moveTo({q:0,r:-2});
   assert.equal(battle.presentation.phase,'dimming');
   const phases=[];
   while(battle.presentation){const [id,fn]=[...timers][0];timers.delete(id);fn();if(battle.presentation)phases.push([battle.presentation.phase,edges(renderShowcaseBattle(battle))]);}
-  assert.deepEqual(phases,[['attacks',['blue:enemy']],['deaths',[]]]);
+  assert.deepEqual(phases,[['attacks',[]],['deaths',[]]]);
   assert.equal(battle.position.winner,1);settle();
 });
 

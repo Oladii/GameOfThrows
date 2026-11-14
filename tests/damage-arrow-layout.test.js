@@ -26,12 +26,12 @@ test('an adjacent diagonal hit keeps its contribution clear of both unit stat ba
   }
 });
 
-test('preview tokens are painted between arrow shafts and unobstructed contribution labels',()=>{
+test('preview tokens stay above arrow shafts without contribution labels',()=>{
   const source=piece('source',0,0),target=piece('target',-1,1);
   const html=renderDamageArrows([arrow(source,target,5)],p=>({x:p.q*57,y:p.r*49.5}),
     {previewMarkup:'<g class="preview-ghost"></g>'});
   assert.ok(html.indexOf('class="attack-ray"')<html.indexOf('class="preview-ghost"'));
-  assert.ok(html.indexOf('class="preview-ghost"')<html.indexOf('class="attack-ray-label"'));
+  assert.doesNotMatch(html, /class="attack-ray-label"/);
 });
 function checkDistinct(edges) {
   for(let i=0;i<edges.length;i++)for(let j=i+1;j<edges.length;j++)assert.equal(overlap(edges[i].label,edges[j].label),false,`${edges[i].source.id}:${edges[i].target.id} overlaps ${edges[j].source.id}:${edges[j].target.id}`);
@@ -56,8 +56,8 @@ test('crossing rays and combined attacks have separate labels, with enough width
   assert.ok(edges.find(e=>e.damage===9999).label.width>edges.find(e=>e.damage===16).label.width);
   const html=renderDamageArrows(arrows,point);
   assert.equal((html.match(/class="attack-ray"/g)||[]).length,arrows.length);
-  assert.equal((html.match(/class="attack-ray-label"/g)||[]).length,arrows.length);
-  assert.ok(html.lastIndexOf('class="attack-ray"')<html.indexOf('class="attack-ray-label"'),'all numbers are above all arrow shafts');
+  assert.equal((html.match(/class="attack-ray-label"/g)||[]).length,0);
+  assert.doesNotMatch(html, /class="attack-ray-label"/);
   assert.ok(!html.includes('leader'));
   for(const e of edges){const t=e.labelT,p={x:(1-t)**2*e.from.x+2*(1-t)*t*e.control.x+t*t*e.to.x,y:(1-t)**2*e.from.y+2*(1-t)*t*e.control.y+t*t*e.to.y};assert.ok(Math.hypot(p.x-e.label.x,p.y-e.label.y)<1e-8,'the number must lie on its arrow');}
 });

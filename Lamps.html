@@ -890,7 +890,7 @@ main{padding:0 14px 14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.81</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T21:18:57.197Z">Сборка 15.11.2026, 00:18:57 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.82</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T21:55:40.181Z">Сборка 15.11.2026, 00:55:40 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -1826,8 +1826,20 @@ function createBotWorker() {
   const embedded = document.querySelector('#bot-worker-source');
   if (!embedded) return new Worker(new URL('./bot-worker.js', import.meta.url), { type: 'module' });
   const url = URL.createObjectURL(new Blob([JSON.parse(embedded.textContent)], { type: 'text/javascript' }));
-  try { return new Worker(url, { type: 'module' }); }
-  finally { URL.revokeObjectURL(url); }
+  // The embedded bundle has no imports. A classic Worker also works when the
+  // standalone page has a file: origin. Keep its Blob alive until cancellation.
+  try {
+    const worker = new Worker(url);
+    const terminate = worker.terminate.bind(worker);
+    let released = false;
+    worker.terminate = () => {
+      try { terminate(); }
+      finally {
+        if (!released) { released = true; URL.revokeObjectURL(url); }
+      }
+    };
+    return worker;
+  } catch (error) { URL.revokeObjectURL(url); throw error; }
 }
 
 // Every request owns its worker. Cancellation also rejects late results.
@@ -2934,16 +2946,19 @@ function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report 
   return edges;
 }
 
-function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false, maxBend = MAX_DAMAGE_ARROW_BEND } = {}) {
+function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false, maxBend = MAX_DAMAGE_ARROW_BEND, config = { geometry: 'hex' } } = {}) {
   const points = board.map(point), bounds = points.length ? { left:Math.min(...points.map(p=>p.x))-32,right:Math.max(...points.map(p=>p.x))+32,top:Math.min(...points.map(p=>p.y))-32,bottom:Math.max(...points.map(p=>p.y))+32 } : null;
   // Lay out the complete group before revealing it so existing arrows and
   // their labels stay in place when the next contribution appears.
-  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight,maxBend}).filter(e => visibleCount === null || e.order < visibleCount);
+  const direct = new Map(layoutDamageArrows(arrows, point, { straight: true }).map(edge => [edge.order, edge]));
+  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight,maxBend})
+    .map(edge => straight || distance(edge.source, edge.target, config) === 1
+      ? { ...direct.get(edge.order), straight: true } : edge)
+    .filter(e => visibleCount === null || e.order < visibleCount);
   const reveal = e => visibleCount !== null && e.order === visibleCount - 1 ? ' data-revealing="true"' : '';
-  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"><title>${e.damage} урона</title></path></g>`).join('');
-  // Labels go above every shaft, so a later arrow cannot paint over a number.
-  const labels = edges.map(e => `<g class="attack-ray-label" data-source="${e.source.id}" data-target="${e.target.id}"${reveal(e)}>${numberBadge(e.damage,e.label.x,e.label.y,'ray',9)}</g>`).join('');
-  return rays+previewMarkup+labels;
+  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${e.straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"></path></g>`).join('');
+  // Keep attack paths and preview tokens without damage labels.
+  return rays+previewMarkup;
 }
 function attackCellsFor(piece, position, config) {
   if (!piece) return [];
@@ -3003,8 +3018,19 @@ function attackReachPresentation(piece, position, config, {point, polygonPoints,
       markers.push(`<g class="attack-target-weapon ${displayTeam ? 'south' : 'north'}${friendly}" data-weapon-cell="${key(cell.q, cell.r)}" data-weapon-kind="${kind}" transform="translate(${x},${y}) rotate(${attackMarkerRotation(point(piece), { x, y })})" data-threat-cell="${key(cell.q, cell.r)}"><g transform="translate(-6.24,-6.24) scale(.52)">${glyph}</g></g>`);
     }
   }
+  // Incoming-only attackers need the same cell highlight as our own targets.
+  const highlighted = new Set(attackCells.map(cell => key(cell.q, cell.r)));
+  const incomingCells = [];
+  for (const attacker of position.pieces) {
+    if (!attacks(attacker, piece, position, config)) continue;
+    const cellKey = key(attacker.q, attacker.r);
+    if (highlighted.has(cellKey)) continue;
+    highlighted.add(cellKey); incomingCells.push(attacker);
+    const { x, y } = point(attacker);
+    outlines.push(`<polygon class="attack-target-fill incoming-attack-fill ${displayTeam ? 'south' : 'north'}" data-threat-cell="${cellKey}" data-attacker-id="${attacker.id}" transform="translate(${x},${y})" points="${polygonPoints}"/>`);
+  }
   const markup = outlines.join('') + markers.join('');
-  return { cells: attackCells, markup };
+  return { cells: [...attackCells, ...incomingCells], markup };
 }
 
 // Same departure offset as straight damage arrows; an empty cell ends at its centre.
@@ -3012,6 +3038,14 @@ function renderHintArrow(source, destination, point) {
   const edge = layoutDamageArrows([{ source, target: { ...destination, id: '__hint_destination' }, damage: 0 }], point, { straight: true })[0];
   if (!edge) return '';
   return `<g class="hint-trace" pointer-events="none" aria-hidden="true"><defs><marker id="hint-arrow-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#44834a"/></marker></defs><path class="damage-arrow-path" d="M${edge.from.x},${edge.from.y}L${edge.end.x},${edge.end.y}" marker-end="url(#hint-arrow-head)"><title>Рекомендуемый ход</title></path></g>`;
+}
+
+// Hover shows every real contributor to the inspected unit, regardless of selection.
+function inspectionIncomingArrows(target, position, report) {
+  if (!target) return [];
+  return (report.get(target.id)?.attackers || []).map(attack => ({
+    source: position.pieces.find(piece => piece.id === attack.id), target, damage: attack.damage
+  })).filter(attack => attack.source);
 }
 
 // Incoming inspection rays plus the selected friendly unit's outgoing attacks.
@@ -3315,15 +3349,7 @@ function displayBattle(battle) {
     for (const attack of inspectionDamageArrows(target, selectedId, attackPosition, report, 1)) {
       if (attack.source.id === selectedId) potentialDamage.add(attack.target.id);
     }
-    if (target) {
-      const arrowTarget = attackPosition.pieces.find(piece => piece.id === selectedId && piece.team === 1) || target;
-      arrows = (report.get(arrowTarget.id)?.attackers || []).map(attack => ({
-        source: attackPosition.pieces.find(piece => piece.id === attack.id), target: arrowTarget, damage: attack.damage
-      })).filter(attack => attack.source);
-    }
-  } else if (presentation.phase === 'attacks') {
-    arrows = presentation.combat.groups[presentation.groupIndex].arrows;
-    visibleCount = presentation.arrowCount;
+    if (!presentation && battle.hoverCell && target) arrows = inspectionIncomingArrows(target, attackPosition, report);
   }
   const sourceIds = new Set(target ? report.get(target.id)?.attackers.map(attack => attack.id) : []);
   return { position, report, selectedId, target, potentialDamage, sourceIds, attackPosition, moving, deaths, arrows, visibleCount,
@@ -3349,10 +3375,10 @@ function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}, rende
     const muted = battle.presentation && !moving && battle.presentation.phase !== 'awaiting-combat' && !battle.presentation.combat.participants.has(piece.id);
     return `<g class="piece training-piece${appearance.veteran ? ' veteran' : ''} ${piece.team ? 'south' : 'north'}${!origin && info.dead ? ' fatal' : ''}${hidden ? ' moving-origin' : ''}${origin ? ' preview-origin' : ''}${sourceIds.has(piece.id) ? ' attacking-source' : ''}${muted ? ' combat-muted' : ''}" data-showcase-piece="${piece.id}" role="button" tabindex="-1" aria-pressed="${piece.id === selectedId}" aria-label="Посмотреть: ${TEAM_NAMES[piece.team]}, ${LABELS[piece.type]}" transform="translate(${p.x},${p.y})"><title>${TEAM_NAMES[piece.team]}: ${LABELS[piece.type]}</title>${renderTokenBody(appearance, piece.team)}${renderBadges(info, { showIncoming: !origin && (piece.id === selectedId || piece.id === target?.id || potentialDamage.has(piece.id)), potentialDamage: potentialDamage.has(piece.id), pieceType: piece.type, veteran: appearance.veteran })}</g>`;
   }).join('');
-  const defs = `<defs><clipPath id="training-field-clip">${board.map(cell => `<polygon points="${hexGridPolygon(showcasePoint(cell))}"/>`).join('')}</clipPath><filter id="training-damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${width}" height="${height}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="training-damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>`;
+  const defs = `<defs><clipPath id="training-field-clip">${board.map(cell => `<polygon points="${hexGridPolygon(showcasePoint(cell))}"/>`).join('')}</clipPath><filter id="training-damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${width}" height="${height}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="shadow-blur"/><feOffset in="shadow-blur" dx="0" dy="2" result="shadow-offset"/><feFlood flood-color="#29251c" flood-opacity="0.38" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="arrow-shadow"/><feMerge><feMergeNode in="arrow-shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="training-damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>`;
   const ghostAppearance = ghost && unitAppearance(ghost, config, icons);
   const ghostMarkup = ghost ? `<g id="training-preview-token" class="preview-ghost ${ghost.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''}${report.get(ghost.id).dead ? ' fatal' : ''}" transform="translate(${showcasePoint(ghost).x},${showcasePoint(ghost).y})">${renderTokenBody(ghostAppearance, ghost.team)}${renderBadges(report.get(ghost.id), {showIncoming:true,pieceType:ghost.type,veteran:ghostAppearance.veteran})}</g>` : '';
-  const damageArrows = renderDamageArrows(arrows, showcasePoint, { pieces: attackPosition.pieces, board, report, visibleCount, previewMarkup: ghostMarkup,
+  const damageArrows = renderDamageArrows(arrows, showcasePoint, { config, pieces: attackPosition.pieces, board, report, visibleCount, previewMarkup: ghostMarkup,
     ...(!battle.presentation || moving ? { maxBend: 18 } : {}) }).replaceAll('url(#damage-arrow-', 'url(#training-damage-arrow-');
   const selectedPosition = ghost?.id === selectedId ? attackPosition : position;
   const selectedPiece = !battle.presentation && selectedPosition.pieces.find(piece => piece.id === selectedId);
@@ -4079,7 +4105,7 @@ function boardMarkup() {
     boardFocus = first ? key(first.q, first.r) : null;
   }
   const tokens = [];
-  $('#board').innerHTML = `<defs><clipPath id="aura-field-clip">${board.map(cell => `<polygon points="${polygon(cell)}"/>`).join('')}</clipPath><filter id="damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${maxX - minX}" height="${maxY - minY}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>` + board.map(c => {
+  $('#board').innerHTML = `<defs><clipPath id="aura-field-clip">${board.map(cell => `<polygon points="${polygon(cell)}"/>`).join('')}</clipPath><filter id="damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${maxX - minX}" height="${maxY - minY}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="shadow-blur"/><feOffset in="shadow-blur" dx="0" dy="2" result="shadow-offset"/><feFlood flood-color="#29251c" flood-opacity="0.38" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="arrow-shadow"/><feMerge><feMergeNode in="arrow-shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>` + board.map(c => {
     const k = key(c.q, c.r), p = occupied.get(k), { x, y } = point(c);
     const classes = ['cell'];
     if (destinations.has(k) && !editor && selectedPiece?.team === state.turn) classes.push('reachable');
@@ -4135,7 +4161,7 @@ function inspectionContext() {
   return inspection || { piece: position.pieces.find(p => p.id === selected), position, report, isPreview: false };
 }
 function highlightSources() {
-  if (combat) { $('#attack-lines').innerHTML = combat.phase === 'attacks' ? renderDamageArrows(combat.groups[combat.groupIndex].arrows, point, { pieces: combat.visiblePosition.pieces, board: cells(config), visibleCount: combat.arrowCount, report: combat.report }) : ''; return; }
+  if (combat || movement) { $('#attack-lines').innerHTML = ''; return; }
   const context = movement ? { ...movement.forecast, isPreview: false } : inspectionContext(), target = context.piece;
   const potentialDamage = new Map();
   for (const attack of (target || selected) ? inspectionDamageArrows(target, selected, context.position, context.report, playMode === 'bot' ? humanTeam : context.position.turn) : []) {
@@ -4162,9 +4188,8 @@ function highlightSources() {
   const targetInfo = context.report.get(target.id);
   const ghostAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS) : null;
   const ghost = context.isPreview ? `<g class="preview-ghost ${target.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})">${renderTokenBody(ghostAppearance, target.team)}${unitBadges(targetInfo, { showIncoming: true, pieceType: target.type, veteran: ghostAppearance.veteran })}</g>` : '';
-  const arrowTarget = context.position.pieces.find(piece => piece.id === selected && piece.team === (playMode === 'bot' ? humanTeam : context.position.turn)) || target;
-  const incoming = (context.report.get(arrowTarget.id)?.attackers || []).map(attack => ({ source: context.position.pieces.find(piece => piece.id === attack.id), target: arrowTarget, damage: attack.damage })).filter(attack => attack.source);
-  layer.innerHTML = renderDamageArrows(incoming, point, { pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, maxBend: 18 });
+  const incoming = inspectionIncomingArrows(hover ? target : null, context.position, context.report);
+  layer.innerHTML = renderDamageArrows(incoming, point, { config, pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, maxBend: 18 });
 }
 function paintAttackReach(context) {
   const layer = $('#selected-attack-reach');

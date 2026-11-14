@@ -166,7 +166,7 @@ test('preview rejects occupied, unreachable and out-of-turn destinations and ded
   battle.preview({ q: 0, r: 0 }); assert.equal(battle.previewCell, null);
 });
 
-test('hovering an occupied cell shows its incoming damage and selection takes priority as in normal battle', () => {
+test('hovering an occupied cell shows all incoming damage even with another unit selected', () => {
   const { battle } = lesson();
   const enemy = battle.position.pieces.find(piece => piece.id === 'n-shield-right');
   battle.preview(enemy);
@@ -178,12 +178,12 @@ test('hovering an occupied cell shows its incoming damage and selection takes pr
   assert.match(html,/marker-end="url\(#training-damage-arrow-south\)"/);
   battle.selectPiece('s-shield-left'); battle.preview(enemy);
   const selected = battle.position.pieces.find(piece => piece.id === battle.selectedId);
-  assert.deepEqual(damageEdges(renderShowcaseBattle(battle,{},renderUnitBadges)), incomingEdges(report,selected));
+  assert.deepEqual(damageEdges(renderShowcaseBattle(battle,{},renderUnitBadges)), incomingEdges(report,enemy));
   battle.clearSelection();
   battle.preview(null); assert.doesNotMatch(renderShowcaseBattle(battle,{},renderUnitBadges),/data-source=/);
 });
 
-test('combat reveals the same lethal contributions in sequence and cancels pending timers on undo', () => {
+test('combat keeps its phases without automatic arrows and cancels pending timers on undo', () => {
   const { battle, pending } = lesson();
   battle.selectPiece(TRAINING_ACTIONS[0].id); battle.moveTo(TRAINING_ACTIONS[0].to);
   assert.equal(battle.presentation.phase, 'dimming');
@@ -196,14 +196,14 @@ test('combat reveals the same lethal contributions in sequence and cancels pendi
       phases.push({ phase:battle.presentation.phase, arrows:[...html.matchAll(/class="attack-ray"/g)].length });
     }
   }
-  assert.deepEqual(phases, [{phase:'attacks',arrows:1},{phase:'attacks',arrows:2},{phase:'deaths',arrows:0}]);
+  assert.deepEqual(phases, [{phase:'attacks',arrows:0},{phase:'attacks',arrows:0},{phase:'deaths',arrows:0}]);
   assert.equal(battle.position.ply,1);
   const html = renderShowcaseBattle(battle,{},renderUnitBadges);
   assert.doesNotMatch(html,/training-preview-token|data-source=/);
   battle.restart(); assert.equal(pending.size,0); assert.equal(battle.position.ply,0);
 });
 
-test('both armies reveal only the current combat group in sequence without changing damage or deaths', () => {
+test('both armies preserve combat damage and deaths without automatic attack arrows', () => {
   const { battle, play, reply } = lesson();
   let frames = 0, combatPhases = 0;
   battle.onChange = () => {
@@ -211,8 +211,7 @@ test('both armies reveal only the current combat group in sequence without chang
     assert.doesNotMatch(html, /training-preview-note/);
     const presentation = battle.presentation;
     if (presentation?.phase === 'attacks') {
-      const expected = presentation.combat.groups[presentation.groupIndex].arrows.slice(0,presentation.arrowCount).map(attack => `${attack.source.id}:${attack.target.id}`).sort();
-      assert.deepEqual(damageEdges(html),expected);
+      assert.deepEqual(damageEdges(html),[]);
       combatPhases++;
     } else if (presentation && presentation.phase !== 'movement') assert.deepEqual(damageEdges(html),[]);
     frames++;

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG, PREVIOUS_FORMATION_CONFIG, LABELS, TYPES } from '../dist/rules.js';
 import { effective, shieldCanRetreat, archerHasEdgeBonus, validateConfig, analyze, inspectCell, cells } from '../dist/engine.js';
-import { unitStatParts, alliedBonusDetails, renderUnitBadges, renderDamageArrows, inspectionDamageArrows, unitAppearance } from '../dist/board-presentation.js';
+import { unitStatParts, alliedBonusDetails, renderUnitBadges, renderDamageArrows, inspectionDamageArrows, inspectionIncomingArrows, unitAppearance } from '../dist/board-presentation.js';
 import { renderTokenBody } from '../dist/token-presentation.js';
 
 test('the left panel alternates between the reference and selected figure, preserving scroll for previews', () => {
@@ -57,8 +57,8 @@ test('a movement aura forecast changes real bonuses without hovering every other
   assert.equal(preview.report.get('ally').incoming,8);
   const badges=new Map(state.pieces.map(p=>[p.id,{outerHTML:''}])),layer={innerHTML:''};
   const tokens=state.pieces.map(p=>({dataset:{pieceId:p.id},classList:{toggle(){}},querySelector:()=>badges.get(p.id)}));
-  const context=vm.createContext({ playMode: 'local', humanTeam: 0, hint: null,config,cells,combat:null,movement:null,selected:'moving',report,ICON_PATHS:{},unitAppearance,renderTokenBody,
-    unitBadges:renderUnitBadges,renderDamageArrows, inspectionDamageArrows,key:(q,r)=>`${q},${r}`,point:p=>({x:p.q*50,y:p.r*50}),
+  const context=vm.createContext({ playMode: 'local', humanTeam: 0, hint: null,config,cells,combat:null,movement:null,selected:'moving',hover:'-1,1',report,ICON_PATHS:{},unitAppearance,renderTokenBody,
+    unitBadges:renderUnitBadges,renderDamageArrows, inspectionDamageArrows, inspectionIncomingArrows,key:(q,r)=>`${q},${r}`,point:p=>({x:p.q*50,y:p.r*50}),
     inspectionContext:()=>preview,paintAttackReach(){},renderInspector(){},$:()=>layer,
     document:{querySelectorAll:selector=>selector.endsWith('[data-piece-id]')?tokens:[]}});
   vm.runInContext(app.slice(app.indexOf('function highlightSources()'),app.indexOf('function paintAttackReach(')),context);

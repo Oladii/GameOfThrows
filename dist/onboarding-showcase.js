@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG, LABELS, TEAM_NAMES } from './rules.js';
 import { renderTokenBody } from './token-presentation.js';
 import { clone, cells, analyze, inspectCell, move, movementPath, reachable } from './engine.js';
-import { hexGridPoint, hexGridPolygon, unitAppearance, inspectionDamageArrows, renderDamageArrows, ATTACK_TEAM_COLORS, renderMovingToken, renderDeathEffects, attackReachPresentation, auraCircleMarkup, lethalAttackPresentation, renderHintArrow } from './board-presentation.js';
+import { hexGridPoint, hexGridPolygon, unitAppearance, inspectionDamageArrows, inspectionIncomingArrows, renderDamageArrows, ATTACK_TEAM_COLORS, renderMovingToken, renderDeathEffects, attackReachPresentation, auraCircleMarkup, lethalAttackPresentation, renderHintArrow } from './board-presentation.js';
 import { CombatAnimator, MovementAnimator, createMovementPlan } from './move-animation.js';
 
 export const showcasePoint = cell => { const point = hexGridPoint(cell); return { x: 280 + point.x, y: 205 + point.y }; };
@@ -271,15 +271,7 @@ function displayBattle(battle) {
     for (const attack of inspectionDamageArrows(target, selectedId, attackPosition, report, 1)) {
       if (attack.source.id === selectedId) potentialDamage.add(attack.target.id);
     }
-    if (target) {
-      const arrowTarget = attackPosition.pieces.find(piece => piece.id === selectedId && piece.team === 1) || target;
-      arrows = (report.get(arrowTarget.id)?.attackers || []).map(attack => ({
-        source: attackPosition.pieces.find(piece => piece.id === attack.id), target: arrowTarget, damage: attack.damage
-      })).filter(attack => attack.source);
-    }
-  } else if (presentation.phase === 'attacks') {
-    arrows = presentation.combat.groups[presentation.groupIndex].arrows;
-    visibleCount = presentation.arrowCount;
+    if (!presentation && battle.hoverCell && target) arrows = inspectionIncomingArrows(target, attackPosition, report);
   }
   const sourceIds = new Set(target ? report.get(target.id)?.attackers.map(attack => attack.id) : []);
   return { position, report, selectedId, target, potentialDamage, sourceIds, attackPosition, moving, deaths, arrows, visibleCount,
@@ -305,10 +297,10 @@ export function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}
     const muted = battle.presentation && !moving && battle.presentation.phase !== 'awaiting-combat' && !battle.presentation.combat.participants.has(piece.id);
     return `<g class="piece training-piece${appearance.veteran ? ' veteran' : ''} ${piece.team ? 'south' : 'north'}${!origin && info.dead ? ' fatal' : ''}${hidden ? ' moving-origin' : ''}${origin ? ' preview-origin' : ''}${sourceIds.has(piece.id) ? ' attacking-source' : ''}${muted ? ' combat-muted' : ''}" data-showcase-piece="${piece.id}" role="button" tabindex="-1" aria-pressed="${piece.id === selectedId}" aria-label="Посмотреть: ${TEAM_NAMES[piece.team]}, ${LABELS[piece.type]}" transform="translate(${p.x},${p.y})"><title>${TEAM_NAMES[piece.team]}: ${LABELS[piece.type]}</title>${renderTokenBody(appearance, piece.team)}${renderBadges(info, { showIncoming: !origin && (piece.id === selectedId || piece.id === target?.id || potentialDamage.has(piece.id)), potentialDamage: potentialDamage.has(piece.id), pieceType: piece.type, veteran: appearance.veteran })}</g>`;
   }).join('');
-  const defs = `<defs><clipPath id="training-field-clip">${board.map(cell => `<polygon points="${hexGridPolygon(showcasePoint(cell))}"/>`).join('')}</clipPath><filter id="training-damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${width}" height="${height}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="training-damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>`;
+  const defs = `<defs><clipPath id="training-field-clip">${board.map(cell => `<polygon points="${hexGridPolygon(showcasePoint(cell))}"/>`).join('')}</clipPath><filter id="training-damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${width}" height="${height}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="shadow-blur"/><feOffset in="shadow-blur" dx="0" dy="2" result="shadow-offset"/><feFlood flood-color="#29251c" flood-opacity="0.38" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="arrow-shadow"/><feMerge><feMergeNode in="arrow-shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="training-damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>`;
   const ghostAppearance = ghost && unitAppearance(ghost, config, icons);
   const ghostMarkup = ghost ? `<g id="training-preview-token" class="preview-ghost ${ghost.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''}${report.get(ghost.id).dead ? ' fatal' : ''}" transform="translate(${showcasePoint(ghost).x},${showcasePoint(ghost).y})">${renderTokenBody(ghostAppearance, ghost.team)}${renderBadges(report.get(ghost.id), {showIncoming:true,pieceType:ghost.type,veteran:ghostAppearance.veteran})}</g>` : '';
-  const damageArrows = renderDamageArrows(arrows, showcasePoint, { pieces: attackPosition.pieces, board, report, visibleCount, previewMarkup: ghostMarkup,
+  const damageArrows = renderDamageArrows(arrows, showcasePoint, { config, pieces: attackPosition.pieces, board, report, visibleCount, previewMarkup: ghostMarkup,
     ...(!battle.presentation || moving ? { maxBend: 18 } : {}) }).replaceAll('url(#damage-arrow-', 'url(#training-damage-arrow-');
   const selectedPosition = ghost?.id === selectedId ? attackPosition : position;
   const selectedPiece = !battle.presentation && selectedPosition.pieces.find(piece => piece.id === selectedId);

@@ -10,8 +10,20 @@ export function createBotWorker() {
   const embedded = document.querySelector('#bot-worker-source');
   if (!embedded) return new Worker(new URL('./bot-worker.js', import.meta.url), { type: 'module' });
   const url = URL.createObjectURL(new Blob([JSON.parse(embedded.textContent)], { type: 'text/javascript' }));
-  try { return new Worker(url, { type: 'module' }); }
-  finally { URL.revokeObjectURL(url); }
+  // The embedded bundle has no imports. A classic Worker also works when the
+  // standalone page has a file: origin. Keep its Blob alive until cancellation.
+  try {
+    const worker = new Worker(url);
+    const terminate = worker.terminate.bind(worker);
+    let released = false;
+    worker.terminate = () => {
+      try { terminate(); }
+      finally {
+        if (!released) { released = true; URL.revokeObjectURL(url); }
+      }
+    };
+    return worker;
+  } catch (error) { URL.revokeObjectURL(url); throw error; }
 }
 
 // Every request owns its worker. Cancellation also rejects late results.

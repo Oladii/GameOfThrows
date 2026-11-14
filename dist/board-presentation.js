@@ -1,4 +1,4 @@
-import { cells, attacks, effective, shieldCanRetreat, archerHasEdgeBonus, key } from './engine.js';
+import { cells, attacks, distance, effective, shieldCanRetreat, archerHasEdgeBonus, key } from './engine.js';
 import { renderTokenBody, renderTokenBadges, renderDeathSkull, tokenBadgeBounds } from './token-presentation.js';
 
 export const ATTACK_TEAM_COLORS = ['#4c9fc9', '#ab3300'];
@@ -247,16 +247,19 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, 
   return edges;
 }
 
-export function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false, maxBend = MAX_DAMAGE_ARROW_BEND } = {}) {
+export function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false, maxBend = MAX_DAMAGE_ARROW_BEND, config = { geometry: 'hex' } } = {}) {
   const points = board.map(point), bounds = points.length ? { left:Math.min(...points.map(p=>p.x))-32,right:Math.max(...points.map(p=>p.x))+32,top:Math.min(...points.map(p=>p.y))-32,bottom:Math.max(...points.map(p=>p.y))+32 } : null;
   // Lay out the complete group before revealing it so existing arrows and
   // their labels stay in place when the next contribution appears.
-  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight,maxBend}).filter(e => visibleCount === null || e.order < visibleCount);
+  const direct = new Map(layoutDamageArrows(arrows, point, { straight: true }).map(edge => [edge.order, edge]));
+  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight,maxBend})
+    .map(edge => straight || distance(edge.source, edge.target, config) === 1
+      ? { ...direct.get(edge.order), straight: true } : edge)
+    .filter(e => visibleCount === null || e.order < visibleCount);
   const reveal = e => visibleCount !== null && e.order === visibleCount - 1 ? ' data-revealing="true"' : '';
-  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"><title>${e.damage} урона</title></path></g>`).join('');
-  // Labels go above every shaft, so a later arrow cannot paint over a number.
-  const labels = edges.map(e => `<g class="attack-ray-label" data-source="${e.source.id}" data-target="${e.target.id}"${reveal(e)}>${numberBadge(e.damage,e.label.x,e.label.y,'ray',9)}</g>`).join('');
-  return rays+previewMarkup+labels;
+  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${e.straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"></path></g>`).join('');
+  // Keep attack paths and preview tokens without damage labels.
+  return rays+previewMarkup;
 }
 export function attackCellsFor(piece, position, config) {
   if (!piece) return [];
@@ -316,8 +319,19 @@ export function attackReachPresentation(piece, position, config, {point, polygon
       markers.push(`<g class="attack-target-weapon ${displayTeam ? 'south' : 'north'}${friendly}" data-weapon-cell="${key(cell.q, cell.r)}" data-weapon-kind="${kind}" transform="translate(${x},${y}) rotate(${attackMarkerRotation(point(piece), { x, y })})" data-threat-cell="${key(cell.q, cell.r)}"><g transform="translate(-6.24,-6.24) scale(.52)">${glyph}</g></g>`);
     }
   }
+  // Incoming-only attackers need the same cell highlight as our own targets.
+  const highlighted = new Set(attackCells.map(cell => key(cell.q, cell.r)));
+  const incomingCells = [];
+  for (const attacker of position.pieces) {
+    if (!attacks(attacker, piece, position, config)) continue;
+    const cellKey = key(attacker.q, attacker.r);
+    if (highlighted.has(cellKey)) continue;
+    highlighted.add(cellKey); incomingCells.push(attacker);
+    const { x, y } = point(attacker);
+    outlines.push(`<polygon class="attack-target-fill incoming-attack-fill ${displayTeam ? 'south' : 'north'}" data-threat-cell="${cellKey}" data-attacker-id="${attacker.id}" transform="translate(${x},${y})" points="${polygonPoints}"/>`);
+  }
   const markup = outlines.join('') + markers.join('');
-  return { cells: attackCells, markup };
+  return { cells: [...attackCells, ...incomingCells], markup };
 }
 
 // Same departure offset as straight damage arrows; an empty cell ends at its centre.
@@ -325,6 +339,14 @@ export function renderHintArrow(source, destination, point) {
   const edge = layoutDamageArrows([{ source, target: { ...destination, id: '__hint_destination' }, damage: 0 }], point, { straight: true })[0];
   if (!edge) return '';
   return `<g class="hint-trace" pointer-events="none" aria-hidden="true"><defs><marker id="hint-arrow-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#44834a"/></marker></defs><path class="damage-arrow-path" d="M${edge.from.x},${edge.from.y}L${edge.end.x},${edge.end.y}" marker-end="url(#hint-arrow-head)"><title>Рекомендуемый ход</title></path></g>`;
+}
+
+// Hover shows every real contributor to the inspected unit, regardless of selection.
+export function inspectionIncomingArrows(target, position, report) {
+  if (!target) return [];
+  return (report.get(target.id)?.attackers || []).map(attack => ({
+    source: position.pieces.find(piece => piece.id === attack.id), target, damage: attack.damage
+  })).filter(attack => attack.source);
 }
 
 // Incoming inspection rays plus the selected friendly unit's outgoing attacks.
