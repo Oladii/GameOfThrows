@@ -31,7 +31,7 @@ test('flag victories name the destroyed opposing flag for either winning team',(
   for(const [winner,label] of [[0,'Синих'],[1,'Красных']]) {
     const ui=setup('flag-or-combat');
     ui.render(winner,[{type:'defenseLamp',team:winner}]);
-    assert.equal(ui.nodes['#move-counter'].textContent,`Ход 66. Победа ${label}. Флаг противника уничтожен`);
+    assert.equal(ui.nodes['#move-counter'].textContent,`Ход 66. Победа ${label}. Знамя противника уничтожено`);
     assert.equal(Boolean(ui.nodes['.arena-top'].dataset.result),true);
   }
 });
@@ -43,17 +43,17 @@ test('surviving combat units and legacy rules retain concise results',()=>{
     assert.equal(ui.nodes['#move-counter'].textContent,`Ход 66. Победа ${winner===0?'Синих':'Красных'}`);
     for(const condition of ['combat-units','all-units',undefined]) {
       ui.context.config.victoryCondition=condition;ui.render(winner,[]);
-      assert.ok(!ui.nodes['#move-counter'].textContent.includes('Флаг противника уничтожен'));
+      assert.ok(!ui.nodes['#move-counter'].textContent.includes('Знамя противника уничтожено'));
     }
   }
   const draw=setup('flag-or-combat');draw.render('draw',[]);
-  assert.equal(draw.nodes['#move-counter'].textContent,'Ход 66. Ничья. Флаги обеих сторон уничтожены');
+  assert.equal(draw.nodes['#move-counter'].textContent,'Ход 66. Ничья. Знамёна обеих сторон уничтожены');
 });
 
 test('a missing flag never reveals the reason before the final result is visible',()=>{
   for(const [field,value] of [['movement',{}],['combat',{phase:'attacks'}],['combat',{phase:'deaths'}],['currentDeaths',[{}]],['gamePhase','setup'],['reviewingTurn',true]]) {
     const ui=setup('flag-or-combat');ui.context[field]=value;ui.render(0,[]);
-    assert.ok(!ui.nodes['#move-counter'].textContent.includes('Флаг противника уничтожен'));
+    assert.ok(!ui.nodes['#move-counter'].textContent.includes('Знамя противника уничтожено'));
     assert.equal(ui.nodes['.arena-top'].dataset.result,'');
   }
   const active=setup('flag-or-combat');active.render(null,[]);
@@ -74,33 +74,33 @@ function checkEnding(condition, north, south, winner, reason) {
 }
 const aliveArmy = ['defenseLamp', 'shield'];
 test('either winner explains an opposing lone flag, without treating it as destroyed', () => {
-  checkEnding('flag-or-combat', aliveArmy, ['defenseLamp'], 0, 'У противника остался только флаг');
-  checkEnding('flag-or-combat', ['defenseLamp'], aliveArmy, 1, 'У противника остался только флаг');
-  checkEnding('flag-or-combat', ['defenseLamp'], ['defenseLamp'], 'draw', 'У обеих сторон остались только флаги');
+  checkEnding('flag-or-combat', aliveArmy, ['defenseLamp'], 0, 'У противника осталось только знамя');
+  checkEnding('flag-or-combat', ['defenseLamp'], aliveArmy, 1, 'У противника осталось только знамя');
+  checkEnding('flag-or-combat', ['defenseLamp'], ['defenseLamp'], 'draw', 'У обеих сторон остались только знамёна');
 });
 test('support and an armed commander do not count as surviving shield or archer units', () => {
   const support = ['defenseLamp', 'scoutLamp', 'horn'];
-  checkEnding('flag-or-combat', aliveArmy, support, 0, 'У противника не осталось броненосцев и лукарей');
-  checkEnding('flag-or-combat', support, aliveArmy, 1, 'У противника не осталось броненосцев и лукарей');
-  checkEnding('flag-or-combat', support, support, 'draw', 'У обеих сторон не осталось броненосцев и лукарей');
+  checkEnding('flag-or-combat', aliveArmy, support, 0, 'У противника не осталось щитоносцев и лукарей');
+  checkEnding('flag-or-combat', support, aliveArmy, 1, 'У противника не осталось щитоносцев и лукарей');
+  checkEnding('flag-or-combat', support, support, 'draw', 'У обеих сторон не осталось щитоносцев и лукарей');
 });
 test('destroyed flags take priority, and mixed draws identify both sides correctly', () => {
-  checkEnding('flag-or-combat', aliveArmy, ['horn'], 0, 'Флаг противника уничтожен');
-  checkEnding('flag-or-combat', ['archer'], ['shield'], 'draw', 'Флаги обеих сторон уничтожены');
-  checkEnding('flag-or-combat', ['archer'], ['defenseLamp'], 'draw', 'Флаг Синих уничтожен. У Красных остался только флаг');
-  checkEnding('flag-or-combat', ['defenseLamp', 'horn'], ['shield'], 'draw', 'У Синих не осталось броненосцев и лукарей. Флаг Красных уничтожен');
-  checkEnding('flag-or-combat', ['defenseLamp'], ['defenseLamp', 'horn'], 'draw', 'У Синих остался только флаг. У Красных не осталось броненосцев и лукарей');
+  checkEnding('flag-or-combat', aliveArmy, ['horn'], 0, 'Знамя противника уничтожено');
+  checkEnding('flag-or-combat', ['archer'], ['shield'], 'draw', 'Знамёна обеих сторон уничтожены');
+  checkEnding('flag-or-combat', ['archer'], ['defenseLamp'], 'draw', 'Знамя Синих уничтожено. У Красных осталось только знамя');
+  checkEnding('flag-or-combat', ['defenseLamp', 'horn'], ['shield'], 'draw', 'У Синих не осталось щитоносцев и лукарей. Знамя Красных уничтожено');
+  checkEnding('flag-or-combat', ['defenseLamp'], ['defenseLamp', 'horn'], 'draw', 'У Синих осталось только знамя. У Красных не осталось щитоносцев и лукарей');
 });
 test('combat-only rules explain lost combat units regardless of flags', () => {
-  checkEnding('combat-units', ['shield'], ['defenseLamp'], 0, 'У противника не осталось броненосцев и лукарей');
-  checkEnding('combat-units', ['scoutLamp'], ['archer'], 1, 'У противника не осталось броненосцев и лукарей');
-  checkEnding('combat-units', ['horn'], ['scoutLamp'], 'draw', 'У обеих сторон не осталось броненосцев и лукарей');
+  checkEnding('combat-units', ['shield'], ['defenseLamp'], 0, 'У противника не осталось щитоносцев и лукарей');
+  checkEnding('combat-units', ['scoutLamp'], ['archer'], 1, 'У противника не осталось щитоносцев и лукарей');
+  checkEnding('combat-units', ['horn'], ['scoutLamp'], 'draw', 'У обеих сторон не осталось щитоносцев и лукарей');
 });
 test('only-flag reasons stay hidden in every transient state and during active games', () => {
   for (const [field, value] of [['movement', {}], ['combat', { phase: 'attacks' }], ['currentDeaths', [{}]], ['gamePhase', 'setup'], ['reviewingTurn', true]]) {
     const ui = setup('flag-or-combat'); ui.context[field] = value;
     ui.render('draw', [...army(0, ['defenseLamp']), ...army(1, ['defenseLamp'])]);
-    assert.doesNotMatch(ui.nodes['#move-counter'].textContent, /Ничья|флаг|броненосцев/);
+    assert.doesNotMatch(ui.nodes['#move-counter'].textContent, /Ничья|знамя|щитоносцев/);
     assert.equal(ui.nodes['.arena-top'].dataset.result, '');
   }
   const ui = setup('flag-or-combat'); ui.render(null, [...army(0, ['defenseLamp']), ...army(1, ['defenseLamp'])]);

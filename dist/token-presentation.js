@@ -112,8 +112,8 @@ function detailedTarget() {
 }
 
 export function renderTokenBadges(info, { showIncoming = false, potentialDamage = false } = {}) {
-  const attack=`<g class="attack-indicator" data-attack="${info.damage}"><title>Урон атаки: ${info.damage}</title>${attackBacking()}${renderTokenNumber(info.damage,tokenX(70),tokenY(128+TOKEN_BADGE_LAYOUT.statInkY),'attack')}</g>`;
-  const armor=`<g class="survival-indicator" data-fortitude="${info.fortitude}"><title>Броня: ${info.fortitude}</title>${tokenArtwork('armor',tokenX(131),tokenY(141.467391014),78*TOKEN_UNIT_SCALE,72.065216064*TOKEN_UNIT_SCALE,'fort-badge')}${renderTokenNumber(info.fortitude,tokenX(170),tokenY(128+TOKEN_BADGE_LAYOUT.statInkY),'fort')}</g>`;
+  const attack=`<g class="attack-indicator" data-attack="${info.damage}"><title>Урон: ${info.damage}</title>${attackBacking()}${renderTokenNumber(info.damage,tokenX(70),tokenY(128+TOKEN_BADGE_LAYOUT.statInkY),'attack')}</g>`;
+  const armor=`<g class="survival-indicator" data-fortitude="${info.fortitude}"><title>Стойкость: ${info.fortitude}</title>${tokenArtwork('armor',tokenX(131),tokenY(141.467391014),78*TOKEN_UNIT_SCALE,72.065216064*TOKEN_UNIT_SCALE,'fort-badge')}${renderTokenNumber(info.fortitude,tokenX(170),tokenY(128+TOKEN_BADGE_LAYOUT.statInkY),'fort')}</g>`;
   let threat='';
   if(info.dead||info.incoming>0){
     const badge=info.dead

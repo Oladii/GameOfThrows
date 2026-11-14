@@ -44,7 +44,7 @@ test('only the former complete standard preset migrates, keeping current combat 
   for (const field of ['centralShields', 'rearArchers']) {
     for (const invalid of [-1, 13, '1', null]) {
       const config = clone(DEFAULT_CONFIG); config.army[field] = invalid;
-      assert.throws(() => validateConfig(config), /Фигуры в центре/);
+      assert.throws(() => validateConfig(config), /Фигуры в центре/);
     }
   }
 });

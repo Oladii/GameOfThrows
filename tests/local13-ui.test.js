@@ -126,7 +126,7 @@ test('commander inspector distinguishes an independent attack from historical su
       assert.match(nodes['#inspector'].innerHTML, /Дальность не увеличивается от аур/);
     }
     else {
-      assert.match(nodes['#inspector'].innerHTML, /Может атаковать только рядом с союзным ветераном/);
+      assert.match(nodes['#inspector'].innerHTML, /Может атаковать только рядом с союзным ветераном/);
       assert.doesNotMatch(nodes['#inspector'].innerHTML, /Атакует самостоятельно/);
     }
   }
@@ -138,7 +138,7 @@ test('loading revision20 arms the current commander without rebuilding the posit
   config.stats.scoutLamp.damage = 0; config.stats.scoutLamp.range = 0;
   const state = position([{ id: 'saved', type: 'shield', team: 0, q: 2, r: 1 }]);
   const history = [{ saved: true }], lastTurn = { saved: true };
-  const context = vm.createContext({ URL, location: { href: 'http://localhost/' }, hint: null, config, state, history, lastTurn, gamePhase: 'setup', positionKind: 'custom', editor: true, saved: { balanceRevision: 20 }, updateSavedBalance, validateConfig, balanceUpdated: false, commanderUpdated: false, gameVersion: '0.1.36', CURRENT_GAME_VERSION: '0.1.36' });
+  const context = vm.createContext({ initialRoomId: null, URL, location: { href: 'http://localhost/' }, hint: null, config, state, history, lastTurn, gamePhase: 'setup', positionKind: 'custom', editor: true, saved: { balanceRevision: 20 }, updateSavedBalance, validateConfig, balanceUpdated: false, commanderUpdated: false, gameVersion: '0.1.36', CURRENT_GAME_VERSION: '0.1.36' });
   const start = app.indexOf('    // Arm the existing local13 commander');
   vm.runInContext(app.slice(start, app.indexOf('    const updatedBalance =', start)), context);
   assert.equal(context.config.stats.scoutLamp.damage, 3);
@@ -151,7 +151,7 @@ test('loading revision20 arms the current commander without rebuilding the posit
   let notification = '';
   context.toast = message => { notification = message; };
   vm.runInContext(app.slice(app.lastIndexOf('if (balanceUpdated) toast(')), context);
-  assert.equal(notification, 'Командир: атака 3, дальность 2. Расстановка сохранена.');
+  assert.equal(notification, 'Командир: урон 3, дальность 2. Расстановка сохранена');
 });
 
 

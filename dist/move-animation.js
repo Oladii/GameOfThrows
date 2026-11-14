@@ -4,14 +4,14 @@ export const ARROW_REVEAL_INTERVAL = 300;
 export const ATTACK_HOLD_DURATION = 1000;
 
 export function createMovementPlan(points) {
-  if (!Array.isArray(points) || points.length < 2 || points.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) throw new Error('Нужен маршрут перемещения.');
+  if (!Array.isArray(points) || points.length < 2 || points.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) throw new Error('Нужен маршрут перемещения');
   const route = points.map(p => ({ x: p.x, y: p.y })), lengths = [];
   let total = 0;
   for (let index = 1; index < route.length; index++) {
     const length = Math.hypot(route[index].x - route[index - 1].x, route[index].y - route[index - 1].y);
     lengths.push(length); total += length;
   }
-  if (!total) throw new Error('Маршрут должен менять положение фигуры.');
+  if (!total) throw new Error('Маршрут должен менять положение фигуры');
   return { points: route, lengths, total, duration: Math.min(420, 220 + (route.length - 1) * 40) };
 }
 

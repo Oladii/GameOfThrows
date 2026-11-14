@@ -69,9 +69,9 @@ test('starting requires valid turns, valid pieces and at least one combat unit f
   for (const turn of [-1, 2, '0', undefined]) assert.throws(() => prepareStartPosition(standard, c, turn), /ходит первой/);
   for (const team of [0, 1]) {
     const draft = state(standard.pieces.filter(p => p.team === team));
-    assert.throws(() => prepareStartPosition(draft, c, 0), /хотя бы один броненосец или лукарь у каждой стороны/);
+    assert.throws(() => prepareStartPosition(draft, c, 0), /хотя бы один щитоносец или лукарь у каждой стороны/);
   }
-  assert.throws(() => prepareStartPosition(state([]), c, 0), /хотя бы один броненосец или лукарь у каждой стороны/);
+  assert.throws(() => prepareStartPosition(state([]), c, 0), /хотя бы один щитоносец или лукарь у каждой стороны/);
   const overlap = clone(standard); Object.assign(overlap.pieces[1], { q: overlap.pieces[0].q, r: overlap.pieces[0].r });
   assert.throws(() => prepareStartPosition(overlap, c, 0), /пересечение/);
   const invalidFlag = clone(standard); invalidFlag.pieces.find(p => p.type === 'shield').reachedFarEdge = 'true';

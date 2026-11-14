@@ -10,8 +10,20 @@ export function createBotWorker() {
   const embedded = document.querySelector('#bot-worker-source');
   if (!embedded) return new Worker(new URL('./bot-worker.js', import.meta.url), { type: 'module' });
   const url = URL.createObjectURL(new Blob([JSON.parse(embedded.textContent)], { type: 'text/javascript' }));
-  try { return new Worker(url, { type: 'module' }); }
-  finally { URL.revokeObjectURL(url); }
+  // The embedded bundle has no imports. A classic Worker also works when the
+  // standalone page has a file: origin. Keep its Blob alive until cancellation.
+  try {
+    const worker = new Worker(url);
+    const terminate = worker.terminate.bind(worker);
+    let released = false;
+    worker.terminate = () => {
+      try { terminate(); }
+      finally {
+        if (!released) { released = true; URL.revokeObjectURL(url); }
+      }
+    };
+    return worker;
+  } catch (error) { URL.revokeObjectURL(url); throw error; }
 }
 
 // Every request owns its worker. Cancellation also rejects late results.
@@ -39,9 +51,9 @@ export class BotRunner {
         if (event.data.error) finish(onError, new Error(event.data.error));
         else finish(onResult, event.data.result);
       };
-      worker.onerror = event => { event.preventDefault?.(); finish(onError, new Error('Не удалось рассчитать ход бота.')); };
-      worker.onmessageerror = () => finish(onError, new Error('Не удалось прочитать ответ бота.'));
-      this.timer = setTimeout(() => finish(onError, new Error('Бот не успел рассчитать ход. Попробуйте ещё раз.')), this.timeoutMs);
+      worker.onerror = event => { event.preventDefault?.(); finish(onError, new Error('Не удалось рассчитать ход бота')); };
+      worker.onmessageerror = () => finish(onError, new Error('Не удалось прочитать ответ бота'));
+      this.timer = setTimeout(() => finish(onError, new Error('Бот не успел рассчитать ход. Попробуй ещё раз')), this.timeoutMs);
       worker.postMessage({ ...request, id });
     } catch (error) { this.cancel(); onError(error); }
   }

@@ -11,14 +11,14 @@ test('the left panel alternates between the reference and selected figure, prese
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   const nodes = { '#inspector': { innerHTML: '', dataset: {} }, '#sidebar-overview': { hidden: false }, '#selection-panel': { hidden: true }, '.left-panel': { scrollTop: 180 } };
   const state = { pieces: [{ id: 'own', type: 'shield', team: 1, q: 0, r: 1 }, { id: 'ally', type: 'defenseLamp', team: 1, q: 1, r: 1 }], turn: 1, ply: 0, winner: null };
-  const context = vm.createContext({ playMode: 'local', humanTeam: 0, hint: null, $: selector => nodes[selector], selected: null, movement: null, combat: null, config: structuredClone(DEFAULT_CONFIG), visibleState: () => state,
+  const context = vm.createContext({ inspectionDamageArrows, hover: null, playMode: 'local', humanTeam: 0, hint: null, $: selector => nodes[selector], selected: null, movement: null, combat: null, config: structuredClone(DEFAULT_CONFIG), visibleState: () => state,
     effective, shieldCanRetreat, archerHasEdgeBonus, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg></svg>', plural: () => 'клетка' });
   vm.runInContext(app.slice(app.indexOf('function renderInspector('), app.indexOf('function shieldPromotionDescription(')), context);
   context.renderInspector({});
   assert.equal(nodes['#sidebar-overview'].hidden, false); assert.equal(nodes['#selection-panel'].hidden, true);
   context.selected = 'own'; context.renderInspector({});
   assert.equal(nodes['#sidebar-overview'].hidden, true); assert.equal(nodes['#selection-panel'].hidden, false);
-  assert.ok(nodes['#inspector'].innerHTML.includes('Броненосец'));
+  assert.ok(nodes['#inspector'].innerHTML.includes('Щитоносец'));
   assert.equal(nodes['.left-panel'].scrollTop, 0);
   nodes['.left-panel'].scrollTop = 140;
   const preview = structuredClone(state); preview.pieces[0].r = 0;
@@ -37,7 +37,7 @@ test('the left panel alternates between the reference and selected figure, prese
   context.document = { querySelectorAll: selector => selector.endsWith('[data-piece-id]')
     ? selector.startsWith('#board ') ? [token] : [token, nodes['#inspector']] : [] };
   context.report = new Map([['own', { damage: 15 }]]);
-  context.inspectionContext = () => ({ report: context.report });
+  context.inspectionContext = () => ({ position: state, report: context.report });
   context.unitBadges = () => '<g class="unit-badges">updated</g>';
   context.paintAttackReach = () => {};
   vm.runInContext(app.slice(app.indexOf('function highlightSources()'), app.indexOf('function paintAttackReach(')), context);
@@ -57,7 +57,7 @@ test('a movement aura forecast changes real bonuses without hovering every other
   assert.equal(preview.report.get('ally').incoming,8);
   const badges=new Map(state.pieces.map(p=>[p.id,{outerHTML:''}])),layer={innerHTML:''};
   const tokens=state.pieces.map(p=>({dataset:{pieceId:p.id},classList:{toggle(){}},querySelector:()=>badges.get(p.id)}));
-  const context=vm.createContext({ playMode: 'local', humanTeam: 0, hint: null,config,cells,combat:null,movement:null,selected:'moving',report,ICON_PATHS:{},unitAppearance,renderTokenBody,
+  const context=vm.createContext({ playMode: 'local', humanTeam: 0, hint: null,config,cells,combat:null,movement:null,selected:'moving',hover:'-1,1',report,ICON_PATHS:{},unitAppearance,renderTokenBody,
     unitBadges:renderUnitBadges,renderDamageArrows, inspectionDamageArrows,key:(q,r)=>`${q},${r}`,point:p=>({x:p.q*50,y:p.r*50}),
     inspectionContext:()=>preview,paintAttackReach(){},renderInspector(){},$:()=>layer,
     document:{querySelectorAll:selector=>selector.endsWith('[data-piece-id]')?tokens:[]}});
@@ -78,10 +78,10 @@ test('the veteran reference separates permanent power and ally aura, including l
   vm.runInContext(app.slice(app.indexOf('function shieldPromotionDescription('), app.indexOf('function shieldDescriptionMarkup(')), context);
   const description = context.shieldPromotionDescription();
   assert.match(description, /Урон: 6, дальность: 3, стойкость: 6/);
-  assert.match(description, /союзникам \+1 к урону, \+1 к дальности и \+1 к стойкости/);
+  assert.match(description, /союзникам \+1 к урону, \+1 к дальности и \+1 к стойкости/);
   context.config = structuredClone(PREVIOUS_FORMATION_CONFIG);
   delete context.config.shieldPromotion.allies;
-  assert.match(context.shieldPromotionDescription(), /союзникам \+9 к урону, \+2 к дальности и \+9 к стойкости/);
+  assert.match(context.shieldPromotionDescription(), /союзникам \+9 к урону, \+2 к дальности и \+9 к стойкости/);
   assert.ok(!app.includes('Ничья — тоже поражение'));
 });
 

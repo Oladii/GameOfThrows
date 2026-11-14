@@ -1,5 +1,5 @@
 export const TYPES = ['shield', 'archer', 'attackLamp', 'defenseLamp', 'scoutLamp', 'horn'];
-export const LABELS = { shield: 'Броненосец', archer: 'Лукарь', attackLamp: 'Барабан', defenseLamp: 'Знамя', scoutLamp: 'Командир', horn: 'Горн' };
+export const LABELS = { shield: 'Щитоносец', archer: 'Лукарь', attackLamp: 'Барабан', defenseLamp: 'Знамя', scoutLamp: 'Командир', horn: 'Горн' };
 export const TEAM_NAMES = ['Синие', 'Красные'];
 export const DEFAULT_CONFIG = {
   "version": 1,

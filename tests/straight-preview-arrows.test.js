@@ -13,10 +13,10 @@ const paths = html => [...html.matchAll(/class="damage-arrow-path" d="([^"]+)"/g
 function checkStraight(html) {
   assert.equal(paths(html).length, arrows.length);
   for (const d of paths(html)) assert.match(d, /^M[-\d.e,]+L[-\d.e,]+$/);
-  assert.equal((html.match(/class="attack-ray-label"/g) || []).length, arrows.length);
+  assert.equal((html.match(/class="attack-ray-label"/g) || []).length, 0);
 }
 
-test('multiple incoming preview arrows stay straight and keep centered damage labels above the ghost', () => {
+test('explicitly straight arrows retain the ghost without damage labels', () => {
   const edges = layoutDamageArrows(arrows, point, { straight: true });
   assert.equal(edges.length, arrows.length);
   for (const edge of edges) {
@@ -28,20 +28,20 @@ test('multiple incoming preview arrows stay straight and keep centered damage la
   const html = renderDamageArrows(arrows, point, { straight: true, previewMarkup: '<g class="preview-ghost"></g>' });
   checkStraight(html);
   assert.ok(html.lastIndexOf('class="attack-ray"') < html.indexOf('class="preview-ghost"'));
-  assert.ok(html.indexOf('class="preview-ghost"') < html.indexOf('class="attack-ray-label"'));
+  assert.doesNotMatch(html, /class="attack-ray-label"/);
   assert.equal(layoutDamageArrows([{ source: target, target, damage: 1 }], point, { straight: true }).length, 0);
   assert.ok(paths(renderDamageArrows(arrows, point)).every(d => d.includes('Q')), 'combat keeps its default curved routing');
 });
 
-test('inspection and movement forecasts retain gently curved incoming arrows', () => {
+test('hover forecasts retain distant curves, movement hides arrows, combat reveals them', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   const layer = { innerHTML: '' };
   const report = new Map([[target.id, { attackers: arrows.map(a => ({ id: a.source.id, damage: a.damage })), dead: false }]]);
   const forecast = { piece: target, position: { pieces: [...sources, target] }, report };
-  const context = vm.createContext({ playMode: 'local', humanTeam: 0, combat: null, movement: null, selected: target.id, report,
+  const context = vm.createContext({ playMode: 'local', humanTeam: 0, hover: '0,0', combat: null, movement: null, selected: target.id, report,
     inspectionContext: () => ({ ...forecast, isPreview: true }),
     document: { querySelectorAll: () => [] }, paintAttackReach() {}, renderInspector() {}, $: () => layer,
-    point, config: {}, cells: () => [], key: (q, r) => `${q},${r}`, ICON_PATHS: {},
+    point, config: { geometry: 'hex' }, cells: () => [], key: (q, r) => `${q},${r}`, ICON_PATHS: {},
     unitAppearance: () => ({ veteran: false }), renderTokenBody: () => '', unitBadges: () => '', renderDamageArrows, inspectionDamageArrows });
   vm.runInContext(app.slice(app.indexOf('function highlightSources()'), app.indexOf('function paintAttackReach(')), context);
   context.highlightSources();
@@ -50,12 +50,12 @@ test('inspection and movement forecasts retain gently curved incoming arrows', (
   assert.match(layer.innerHTML, /class="preview-ghost/);
   context.movement = { forecast };
   context.highlightSources();
-  assert.equal(paths(layer.innerHTML).length, arrows.length);
-  assert.ok(paths(layer.innerHTML).every(d => d.includes('Q')));
+  assert.equal(paths(layer.innerHTML).length, 0);
+  context.movement = null;
   assert.doesNotMatch(layer.innerHTML, /class="preview-ghost/);
   context.combat = { phase: 'attacks', groups: [{ arrows }], groupIndex: 0, visiblePosition: forecast.position, arrowCount: arrows.length, report };
   context.highlightSources();
-  assert.ok(paths(layer.innerHTML).every(d => d.includes('Q')));
+  assert.equal(paths(layer.innerHTML).length, arrows.length);
 });
 
 
@@ -69,15 +69,16 @@ test('selected unit keeps enemy incoming rays and shows its damage as enemy badg
   const badges = new Map(), layer = { innerHTML: '' };
   const elements = [own, enemy].map(piece => ({ dataset: { pieceId: piece.id }, classList: { toggle() {} },
     querySelector: () => ({ set outerHTML(value) { badges.set(piece.id, value); } }) }));
-  const context = vm.createContext({ playMode: 'local', humanTeam: 0, combat: null, movement: null, selected: own.id, report,
+  const context = vm.createContext({ playMode: 'local', humanTeam: 0, hover: '0,0', combat: null, movement: null, selected: own.id, report,
     inspectionContext: () => ({ piece: own, position: { turn: 0, pieces: [own, enemy] }, report, isPreview: false }),
     document: { querySelectorAll: selector => selector.includes('data-piece-id') ? elements : [] },
-    paintAttackReach() {}, renderInspector() {}, $: () => layer, point, config: {}, cells: () => [], key: () => '',
+    paintAttackReach() {}, renderInspector() {}, $: () => layer, point, config: { geometry: 'hex' }, cells: () => [], key: () => '',
     unitBadges: (info, options) => ({ incoming: info.incoming, dead: info.dead, show: options.showIncoming }),
     renderDamageArrows, inspectionDamageArrows });
   vm.runInContext(app.slice(app.indexOf('function highlightSources()'), app.indexOf('function paintAttackReach(')), context);
   context.highlightSources();
   assert.equal(paths(layer.innerHTML).length, 1);
+  assert.match(layer.innerHTML, /data-bidirectional="true"/);
   assert.match(layer.innerHTML, /data-source="far" data-target="target"/);
   assert.equal(badges.get(enemy.id).incoming, 9, 'shows total damage from the whole army');
   assert.equal(badges.get(enemy.id).show, true);

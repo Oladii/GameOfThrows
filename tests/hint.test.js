@@ -61,13 +61,13 @@ function declaration(name) {
   return app.slice(start, app.slice(start, lineEnd).endsWith('}') ? lineEnd : app.indexOf('\n}', lineEnd) + 2);
 }
 function setup() {
-  let request, result, error, cancelled = 0;
+  let request, result, error, cancelled = 0, requests = 0;
   const context = vm.createContext({ playMode: 'local', state: { pieces: [], turn: 0, ply: 0, winner: null }, config: {}, crypto: { getRandomValues(value) { value[0] = 12345; return value; } }, selected: 'chosen', hover: {}, inspection: {}, hint: null, hintThinkingTimer: null, clearInterval() {},
-    hintRunner: { cancel() { cancelled++; }, run(input, onResult, onError) { request = input; result = onResult; error = onError; } },
+    hintRunner: { cancel() { cancelled++; }, run(input, onResult, onError) { requests++; request = input; result = onResult; error = onError; } },
     BOT_DIFFICULTIES: { hard: { depth: 4 } }, editor: false, gamePhase: 'playing', reviewingTurn: false, isBotTurn: () => false, humanCanMove: () => true,
     recentBotHistory: () => [], render() {}, explainHint: () => ({ title: 'Ход', reasons: ['Причина'] }) });
   for (const name of ['clearHint', 'hintPositionKey', 'canRequestHint', 'requestHint']) vm.runInContext(declaration(name), context);
-  return { context, get request() { return request; }, get cancelled() { return cancelled; }, finish(value) { result(value); }, fail() { error(new Error('timeout')); } };
+  return { context, get request() { return request; }, get requests() { return requests; }, get cancelled() { return cancelled; }, finish(value) { result(value); }, fail() { error(new Error('timeout')); } };
 }
 
 test('hint always uses hard search and does not execute its result', () => {
@@ -95,11 +95,24 @@ test('cancelled or outdated calculation cannot restore a hint', () => {
   assert.equal(fixture.context.hint.title, undefined);
 });
 
-test('failed calculation can be dismissed and retried', () => {
-  const fixture = setup(); fixture.context.requestHint(); fixture.fail();
-  assert.match(fixture.context.hint.title, /Не удалось/);
-  fixture.context.requestHint(); assert.equal(fixture.context.hint, null);
-  fixture.context.requestHint(); assert.equal(fixture.context.hint.pending, true);
+for (const failure of ['calculation', 'explanation']) test(`${failure} failure can be retried with one click without changing the game`, () => {
+  const fixture = setup(), original = JSON.stringify(fixture.context.state);
+  fixture.context.requestHint();
+  if (failure === 'calculation') fixture.fail();
+  else {
+    fixture.context.explainHint = () => { throw new Error('Invalid explanation'); };
+    fixture.finish({ action: { pass: true } });
+  }
+  assert.equal(fixture.context.hint.failed, true);
+  assert.equal(fixture.context.hint.title, 'Советник уснул. Попробуй ещё раз');
+  fixture.context.requestHint();
+  assert.equal(fixture.requests, 2);
+  assert.equal(fixture.context.hint.pending, true);
+  fixture.context.explainHint = () => ({ title: 'Ход', reasons: ['Причина'] });
+  fixture.finish({ action: { pass: true } });
+  assert.equal(fixture.context.hint.title, 'Ход');
+  assert.equal(fixture.context.hint.failed, undefined);
+  assert.equal(JSON.stringify(fixture.context.state), original);
 });
 
 test('first render reads recommendation state without shadowing the board message', () => {
@@ -125,8 +138,16 @@ test('pending advice replaces left reference, animates dots and keeps the button
   assert.match(node('#move-hint').innerHTML, /<h2>Совет<\/h2><p>Уходим из-под атаки/);
   assert.doesNotMatch(node('#move-hint').innerHTML, /Думовую|<h2>Спасаем/);
   assert.equal(node('#show-hint').disabled, true); assert.equal(cleared, true);
+  context.hint = { failed: true, title: 'Советник уснул. Попробуй ещё раз', reasons: [] }; context.renderHint();
+  assert.equal(node('#show-hint').disabled, false);
+  assert.equal(node('#show-hint').textContent, 'Разбудить');
+  assert.match(node('#move-hint').innerHTML, /Советник уснул\. Попробуй ещё раз/);
+  context.canRequestHint = () => false; context.renderHint();
+  assert.equal(node('#show-hint').disabled, true);
+  context.canRequestHint = () => true;
   context.hint = null; context.renderHint();
   assert.equal(node('#show-hint').disabled, false); assert.equal(node('#move-hint').hidden, true);
+  assert.equal(node('#show-hint').textContent, 'Попросить совет');
 });
 
 test('any click dismisses advice without replacing the board or consuming the click', () => {

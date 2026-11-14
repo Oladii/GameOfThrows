@@ -6,7 +6,7 @@ import { renderUnitBadges } from '../dist/board-presentation.js';
 import { ShowcaseBattle, createUnitBattle, renderShowcaseBattle, UNIT_BATTLE_SCENES } from '../dist/onboarding-showcase.js';
 import { renderUnitExamples } from '../dist/onboarding-units.js';
 
-const edges = html => [...html.matchAll(/class="attack-ray" data-source="([^"]+)" data-target="([^"]+)"/g)].map(m=>`${m[1]}:${m[2]}`).sort();
+const edges = html => [...html.matchAll(/class="attack-ray" data-source="([^"]+)" data-target="([^"]+)"([^>]*)>/g)].flatMap(([, source, target, attrs]) => attrs.includes('data-bidirectional="true"') ? [`${source}:${target}`, `${target}:${source}`] : [`${source}:${target}`]).sort();
 function setup(sceneKey, reducedMotion=true) {
   let id=0,now=0;
   const timers=new Map(),frames=new Map();
@@ -89,7 +89,7 @@ test('defender blocks damage instead of only increasing protection, and inspecti
   battle.restart();assert.equal(analyze(battle.position,battle.config).get('ally').incoming,2);
 });
 
-test('veteran lethal combat uses the training dimming, attack reveal and death sequence',()=>{
+test('veteran lethal combat shows the complete dimming, attack and death sequence',()=>{
   const {battle,play,timers,settle}=setup('unit-shield');play();
   battle.selectPiece('blue');battle.moveTo({q:0,r:-2});
   assert.equal(battle.presentation.phase,'dimming');

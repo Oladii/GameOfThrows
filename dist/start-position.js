@@ -23,12 +23,12 @@ export function classifyPosition(state, inputConfig) {
 
 export function prepareStartPosition(state, inputConfig, turn) {
   const config = validateConfig(inputConfig), position = validateState(state, config);
-  if (![0, 1].includes(turn)) throw new Error('Выберите, какая сторона ходит первой: Синие или Красные.');
+  if (![0, 1].includes(turn)) throw new Error('Выбери, какая сторона ходит первой: Синие или Красные');
   const flagRequired = config.victoryCondition === 'flag-or-combat';
-  if (flagRequired && ![0, 1].every(team => position.pieces.filter(p => p.team === team && p.type === 'defenseLamp').length === 1)) throw new Error('Для начала игры нужно ровно одно знамя у каждой стороны.');
+  if (flagRequired && ![0, 1].every(team => position.pieces.filter(p => p.team === team && p.type === 'defenseLamp').length === 1)) throw new Error('Для начала игры нужно ровно одно знамя у каждой стороны');
   const combatOnly = flagRequired || config.victoryCondition === 'combat-units';
   if (![0, 1].every(team => position.pieces.some(piece => piece.team === team && (!combatOnly || isCombatUnit(piece))))) {
-    throw new Error(combatOnly ? 'Для начала игры нужен хотя бы один броненосец или лукарь у каждой стороны.' : 'Для начала игры нужна хотя бы одна фигура у каждой стороны.');
+    throw new Error(combatOnly ? 'Для начала игры нужен хотя бы один щитоносец или лукарь у каждой стороны' : 'Для начала игры нужна хотя бы одна фигура у каждой стороны');
   }
   position.turn = turn;
   position.ply = 0;

@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG, LABELS, TEAM_NAMES } from './rules.js';
 import { renderTokenBody } from './token-presentation.js';
 import { clone, cells, analyze, inspectCell, move, movementPath, reachable } from './engine.js';
-import { hexGridPoint, hexGridPolygon, unitAppearance, inspectionDamageArrows, renderDamageArrows, ATTACK_TEAM_COLORS, renderMovingToken, renderDeathEffects, attackReachPresentation, auraCircleMarkup, lethalAttackPresentation, renderHintArrow } from './board-presentation.js';
+import { hexGridPoint, hexGridPolygon, unitAppearance, inspectionDamageArrows, renderDamageArrows, damageArrowMarkers, renderMovingToken, renderDeathEffects, attackReachPresentation, auraCircleMarkup, lethalAttackPresentation, renderHintArrow } from './board-presentation.js';
 import { CombatAnimator, MovementAnimator, createMovementPlan } from './move-animation.js';
 
 export const showcasePoint = cell => { const point = hexGridPoint(cell); return { x: 280 + point.x, y: 205 + point.y }; };
@@ -11,11 +11,11 @@ export const TRAINING_ACTIONS = [
   { id: 's-shield-left', to: { q: 0, r: -1 } }
 ];
 export const TRAINING_COPY = [
-  ['Лучники держат под перекрёстным огнём щитовиков. Первым ходом атакуем броненосцем броненосца противника. Вместе с лукарем они нанесут достаточно урона, чтобы вывести его из игры. Действуй!'],
-  ['Теперь враг контратакует — ставит оставшегося броненосца между двумя нашими.',
-    'Он ударит по обоим. Наш левый выдержит 5 урона при стойкости 6. Правый получит ещё и 2 урона от лукаря: всего 7 против стойкости 6 — и погибнет.',
-    'Вражеский броненосец тоже погибнет под ответным огнём. Атаки происходят одновременно: фигура успевает ударить, даже если в этом же бою погибает.'],
-  ['Враг контратаковал. Но наш левый щитоносец выжил и может продолжить наступление. Враг не увёл знамя и оставил его без прикрытия. Потеря знамени сразу завершает партию — уничтожать остальных врагов не нужно.'],
+  ['Лукари держат под перекрёстным огнём щитоносцев. Первым ходом атакуем щитоносцем щитоносца противника. Вместе с лукарем они нанесут достаточно урона, чтобы вывести его из игры. Действуй!'],
+  ['Теперь враг контратакует — ставит оставшегося щитоносца между двумя нашими',
+    'Он ударит по обоим. Наш левый выдержит 5 урона при стойкости 6. Правый получит ещё и 2 урона от лукаря: всего 7 против стойкости 6 — и погибнет.',
+    'Вражеский щитоносец тоже погибнет под ответным огнём. Атаки происходят одновременно: фигура успевает ударить, даже если в этом же бою погибает'],
+  ['Знамя врага осталось без защиты. Перемести оставшегося щитоносца на клетку со стрелкой — он уничтожит знамя и принесет победу'],
   ['Победа! Ты уничтожил вражеское знамя и сохранил своё']
 ];
 const sameCell = (a, b) => a && b && a.q === b.q && a.r === b.r;
@@ -42,80 +42,80 @@ export function createUnitBattle(sceneKey) {
   const piece = (id, type, team, q, r) => ({id, type, team, q, r});
   const scenarios = {
     'unit-flag-defense': {
-      title: 'Флаг — не обуза',
-      description: 'Аура флага добавляет стойкости его защитникам.',
+      title: 'Знамя — не обуза',
+      description: 'Аура знамени добавляет стойкости его защитникам',
       pieces: [piece('blue','shield',1,0,-1), piece('flag','defenseLamp',1,0,1), piece('enemy','shield',0,0,-2), piece('enemy-flag','defenseLamp',0,0,-3)],
       actions: [{id:'flag',to:{q:0,r:3}}],
       copy: [
-        ['Рядом с флагом стойкость нашего броненосца — 6: он выдерживает атаку в 5 урона. Выбери красный флаг и отведи его на отмеченную клетку. Посмотри, что произойдёт с защитником.'],
-        ['Флаг отошёл, и броненосец потерял +1 к стойкости. Без ауры у него 5 стойкости против 5 урона — защитник погиб.']
+        ['Рядом с знаменем стойкость нашего щитоносца — 6: он выдерживает атаку в 5 урона. Выбери красное знамя и отведи его на отмеченную клетку. Посмотри, что произойдёт с защитником.'],
+        ['Знамя отошло, и щитоносец потерял +1 к стойкости. Без ауры у него 5 стойкости против 5 урона — защитник погиб']
       ]
     },
     'unit-shield': {
-      title: 'Броненосец — ветеран',
-      description: 'Обычный броненосец не может ходить назад, но как только он достигает противоположного края он становится ветераном. Ветеран может ходить назад и наносить урон на дистанции.',
+      title: 'Щитоносец — ветеран',
+      description: 'Обычный щитоносец не может ходить назад, но как только он достигает противоположного края он становится ветераном. Ветеран может ходить назад и наносить урон на дистанции',
       pieces: [piece('blue','shield',1,0,-2), piece('enemy','shield',0,0,1)],
       actions: [{id:'blue',to:{q:0,r:-3}}, {id:'blue',to:{q:0,r:-2}}],
       copy: [
-        ['Выбери красного броненосца возле края. Сделай ход вперёд на отмеченную стрелкой клетку, чтобы стать ветераном.'],
-        ['Броненосец достиг противоположного края и стал ветераном. Теперь выбери его и сделай ход на одну клетку назад. Ветеран поразит врага на расстоянии трёх клеток.'],
-        ['Ветеран отступил на одну клетку и уничтожил врага дистанционной атакой. Венок и способности сохраняются после отхода от края.']
+        ['Выбери красного щитоносца возле края. Сделай ход вперёд на отмеченную стрелкой клетку, чтобы стать ветераном'],
+        ['Щитоносец достиг противоположного края и стал ветераном. Теперь выбери его и сделай ход на одну клетку назад. Ветеран поразит врага на расстоянии трёх клеток.'],
+        ['Ветеран отступил на одну клетку и уничтожил врага дистанционной атакой. Венок и способности сохраняются после отхода от края']
       ]
     },
     'unit-shield-defense': {
-      title: 'Броненосец — защитник',
-      description: 'Броненосец перекрывает вражеские стрелы. Поставь его между своим лукарём и вражеским, чтобы закрыть союзника от выстрела.',
+      title: 'Щитоносец — защитник',
+      description: 'Щитоносец перекрывает вражеские стрелы. Поставь его между своим лукарём и вражеским, чтобы закрыть союзника от выстрела',
       pieces: [piece('blue','shield',1,1,0), piece('ally','archer',1,0,2), piece('enemy','archer',0,0,-2)],
       actions: [{id:'blue',to:{q:0,r:0}}],
       copy: [
-        ['Выбери красного броненосца. Поставь его между двумя лукарями на отмеченную стрелкой клетку. Посмотри прогноз: броненосец примет выстрел и защитит союзника.'],
-        ['Броненосец перекрыл стрелу и выдержал выстрел. Наш лукарь больше не получает урон. Его собственные стрелы проходят через союзный щит.']
+        ['Выбери красного щитоносца. Поставь его между двумя лукарями на отмеченную стрелкой клетку. Посмотри прогноз: щитоносец примет выстрел и защитит союзника.'],
+        ['Щитоносец перекрыл стрелу и выдержал выстрел. Наш лукарь больше не получает урон. Его собственные стрелы проходят через союзного щитоносца.']
       ]
     },
     'unit-shield-formation': {
-      title: 'Строй — сила',
-      description: 'Собери броненосцев в кулак, чтобы усилить их характеристики.',
+      title: 'Строй — сила',
+      description: 'Собери щитоносцев в кулак, чтобы усилить их характеристики',
       pieces: [piece('blue','shield',1,0,1), piece('left','shield',1,-1,0), piece('front-left','shield',1,0,-1), piece('front-right','shield',1,1,-1), piece('right','shield',1,1,0)],
       actions: [{id:'blue',to:{q:0,r:0}}],
       copy: [
-        ['Броненосцы имеют ауру +1 к стойкости, поэтому вместе они находятся под пересечением аур.'],
-        ['Броненосец встал в центр: его стойкость выросла с 6 до 9. Его аура также усилила защиту соседей.']
+        ['Щитоносцы имеют ауру +1 к стойкости, поэтому вместе они находятся под пересечением аур'],
+        ['Щитоносец встал в центр: его стойкость выросла с 6 до 9. Его аура также повысила стойкость соседей']
       ]
     },
     'unit-drum-shield': {
-      title: 'Барабан и броненосец',
-      description: 'Барабан добавляет союзникам один шаг. Вместе с ним броненосец за один ход достаёт до вражеского лукаря.',
+      title: 'Барабан и щитоносец',
+      description: 'Барабан добавляет союзникам один шаг. Вместе с ним щитоносец за один ход достаёт до вражеского лукаря',
       pieces: [piece('blue','shield',1,0,2), piece('drum','attackLamp',1,-3,3), piece('enemy','archer',0,0,-1)],
       actions: [{id:'drum',to:{q:-1,r:3}}, {id:'blue',to:{q:0,r:0}}],
       copy: [
-        ['Выбери барабан и подведи его к броненосцу на отмеченную клетку. Его аура даст броненосцу дополнительный шаг.'],
-        ['Барабан подошёл. Выбери броненосца. Без барабана он может пройти одну клетку, а под барабаном — две. Сделай ход на отмеченную клетку и уничтожь лукаря.'],
-        ['Броненосец прошёл две клетки за один ход и уничтожил лукаря. Дополнительный шаг от барабана сохраняется до конца хода, даже после выхода из его ауры.']
+        ['Выбери барабан и подведи его к щитоносцу на отмеченную клетку. Его аура даст щитоносцу дополнительный шаг'],
+        ['Барабан подошёл. Выбери щитоносца. Без барабана он может пройти одну клетку, а под барабаном — две. Сделай ход на отмеченную клетку и уничтожь лукаря.'],
+        ['Щитоносец прошёл две клетки за один ход и уничтожил лукаря. Дополнительный шаг от барабана сохраняется до конца хода, даже после выхода из его ауры']
       ]
     },
     'unit-archer-veteran': {
-      title: 'Лукарь — ветеран',
-      description: 'Обычный лучник не может в одиночку расправиться с флагом противника. Проверь, удастся ли это ветерану.',
+      title: 'Лукарь — ветеран',
+      description: 'Обычный лукарь не может в одиночку расправиться с знаменем противника. Проверь, удастся ли это ветерану',
       pieces: [piece('blue','archer',1,0,-2), piece('enemy','defenseLamp',0,0,1)],
       actions: [{id:'blue',to:{q:0,r:-3}}],
       copy: [
-        ['Обычный лукарь наносит 2 урона, а стойкость флага — 3. Выбери лукаря и сделай ход на край, чтобы проверить атаку ветерана.'],
-        ['Лукарь стал ветераном и уничтожил флаг: 5 урона против стойкости 3.']
+        ['Обычный лукарь наносит 2 урона, а стойкость знамени — 3. Выбери лукаря и сделай ход на край, чтобы проверить атаку ветерана'],
+        ['Лукарь стал ветераном и уничтожил знамя: 5 урона против стойкости 3']
       ]
     },
     'unit-archer': {
       title: 'Лукарь, горн и командир',
-      description: 'Горн усиливает атаку лукаря с 2 до 3, а командир увеличивает дальность с 4 до 5. Вместе они помогают уничтожить цель, до которой лукарь раньше не доставал.',
+      description: 'Горн усиливает урон лукаря с 2 до 3, а командир увеличивает дальность с 4 до 5. Вместе они помогают уничтожить цель, до которой лукарь раньше не доставал',
       pieces: [piece('commander','scoutLamp',1,-2,0), piece('archer','archer',1,0,2), piece('horn','horn',1,1,1), piece('enemy','archer',0,0,-3)],
       actions: [{id:'commander',to:{q:-1,r:1}}],
       copy: [
-        ['Враг стоит в пяти клетках от нашего лукаря. Горн уже дал лукарю +1 к урону, но его дальности 4 не хватает. Выбери командира и подведи его к лукарю на отмеченную клетку.'],
-        ['Командир увеличил дальность лукаря до 5. Под усилением горна лукарь нанёс 3 урона и уничтожил цель, до которой прежде не доставал.']
+        ['Враг стоит в пяти клетках от нашего лукаря. Горн уже дал лукарю +1 к урону, но его дальности 4 не хватает. Выбери командира и подведи его к лукарю на отмеченную клетку.'],
+        ['Командир увеличил дальность лукаря до 5. Под усилением горна лукарь нанёс 3 урона и уничтожил цель, до которой прежде не доставал']
       ]
     }
   };
   const scenario = scenarios[sceneKey];
-  if (!scenario) throw new Error('Неизвестная учебная сцена.');
+  if (!scenario) throw new Error('Неизвестная учебная сцена');
   const {pieces, ...details} = scenario;
   return {config, sceneKey, ...details, position:{pieces,turn:1,ply:0,winner:null}, phase:'ready',
     selectedId:null, previewCell:null, hoverCell:null};
@@ -268,15 +268,11 @@ function displayBattle(battle) {
   const potentialDamage = new Set();
   let arrows = [], visibleCount = null;
   if (!presentation || moving) {
-    for (const attack of inspectionDamageArrows(target, selectedId, attackPosition, report, 1)) {
+    const inspectionArrows = inspectionDamageArrows(battle.hoverCell ? target : null, selectedId, attackPosition, report);
+    for (const attack of inspectionArrows) {
       if (attack.source.id === selectedId) potentialDamage.add(attack.target.id);
     }
-    if (target) {
-      const arrowTarget = attackPosition.pieces.find(piece => piece.id === selectedId && piece.team === 1) || target;
-      arrows = (report.get(arrowTarget.id)?.attackers || []).map(attack => ({
-        source: attackPosition.pieces.find(piece => piece.id === attack.id), target: arrowTarget, damage: attack.damage
-      })).filter(attack => attack.source);
-    }
+    if (!presentation) arrows = inspectionArrows;
   } else if (presentation.phase === 'attacks') {
     arrows = presentation.combat.groups[presentation.groupIndex].arrows;
     visibleCount = presentation.arrowCount;
@@ -305,31 +301,31 @@ export function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}
     const muted = battle.presentation && !moving && battle.presentation.phase !== 'awaiting-combat' && !battle.presentation.combat.participants.has(piece.id);
     return `<g class="piece training-piece${appearance.veteran ? ' veteran' : ''} ${piece.team ? 'south' : 'north'}${!origin && info.dead ? ' fatal' : ''}${hidden ? ' moving-origin' : ''}${origin ? ' preview-origin' : ''}${sourceIds.has(piece.id) ? ' attacking-source' : ''}${muted ? ' combat-muted' : ''}" data-showcase-piece="${piece.id}" role="button" tabindex="-1" aria-pressed="${piece.id === selectedId}" aria-label="Посмотреть: ${TEAM_NAMES[piece.team]}, ${LABELS[piece.type]}" transform="translate(${p.x},${p.y})"><title>${TEAM_NAMES[piece.team]}: ${LABELS[piece.type]}</title>${renderTokenBody(appearance, piece.team)}${renderBadges(info, { showIncoming: !origin && (piece.id === selectedId || piece.id === target?.id || potentialDamage.has(piece.id)), potentialDamage: potentialDamage.has(piece.id), pieceType: piece.type, veteran: appearance.veteran })}</g>`;
   }).join('');
-  const defs = `<defs><clipPath id="training-field-clip">${board.map(cell => `<polygon points="${hexGridPolygon(showcasePoint(cell))}"/>`).join('')}</clipPath><filter id="training-damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${width}" height="${height}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="training-damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>`;
+  const defs = `<defs><clipPath id="training-field-clip">${board.map(cell => `<polygon points="${hexGridPolygon(showcasePoint(cell))}"/>`).join('')}</clipPath><filter id="training-damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${width}" height="${height}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="shadow-blur"/><feOffset in="shadow-blur" dx="0" dy="2" result="shadow-offset"/><feFlood flood-color="#29251c" flood-opacity="0.38" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="arrow-shadow"/><feMerge><feMergeNode in="arrow-shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${damageArrowMarkers('training-damage-arrow')}</defs>`;
   const ghostAppearance = ghost && unitAppearance(ghost, config, icons);
   const ghostMarkup = ghost ? `<g id="training-preview-token" class="preview-ghost ${ghost.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''}${report.get(ghost.id).dead ? ' fatal' : ''}" transform="translate(${showcasePoint(ghost).x},${showcasePoint(ghost).y})">${renderTokenBody(ghostAppearance, ghost.team)}${renderBadges(report.get(ghost.id), {showIncoming:true,pieceType:ghost.type,veteran:ghostAppearance.veteran})}</g>` : '';
-  const damageArrows = renderDamageArrows(arrows, showcasePoint, { pieces: attackPosition.pieces, board, report, visibleCount, previewMarkup: ghostMarkup,
+  const damageArrows = renderDamageArrows(arrows, showcasePoint, { config, pieces: attackPosition.pieces, board, report, visibleCount, previewMarkup: ghostMarkup,
     ...(!battle.presentation || moving ? { maxBend: 18 } : {}) }).replaceAll('url(#damage-arrow-', 'url(#training-damage-arrow-');
   const selectedPosition = ghost?.id === selectedId ? attackPosition : position;
   const selectedPiece = !battle.presentation && selectedPosition.pieces.find(piece => piece.id === selectedId);
+  const viewedPly = battle.position.ply;
+  const action=!battle.busy&&position.turn===1&&position.winner===null?(battle.actions||TRAINING_ACTIONS)[viewedPly]:null;
+  const guideSource=action&&position.pieces.find(piece=>piece.id===action.id);
+  const guide=guideSource?renderHintArrow(guideSource,action.to,showcasePoint):'';
   const reach = attackReachPresentation(selectedPiece, selectedPosition, config, { point: showcasePoint, polygonPoints: hexGridPolygon({x:0,y:0}), visiblePosition: position, friendlyTeam: 1 });
   const auras = auraCircleMarkup(selectedPiece, selectedPosition, config, showcasePoint, Math.sqrt(3)*33);
   const movingPiece = moving && position.pieces.find(piece => piece.id === moving.action.id);
   const movement = moving ? renderMovingToken(movingPiece, moving.frame, icons, 'training-moving-token', config, movingPiece.team, report.get(movingPiece.id)) : '';
   const deathEffects = renderDeathEffects(deaths, showcasePoint, hexGridPolygon({ x: 0, y: 0 }), icons, config);
   const counts = [0, 1].map(team => position.pieces.filter(piece => piece.team === team).length);
-  const viewedPly = battle.position.ply;
   const advicePly = battle.presentation?.before.ply ?? viewedPly;
   const advice = (battle.copy||TRAINING_COPY)[Math.min((battle.copy||TRAINING_COPY).length-1, advicePly)];
-  const action=!battle.busy&&position.turn===1&&position.winner===null?(battle.actions||TRAINING_ACTIONS)[viewedPly]:null;
-  const guideSource=action&&position.pieces.find(piece=>piece.id===action.id);
-  const guide=guideSource?renderHintArrow(guideSource,action.to,showcasePoint):'';
   const markup = `<section class="showcase-scene training-scene" style="--training-arrow-outline:url(#${battle.sceneKey||'training'}-damage-arrow-outline)" data-showcase-battle="${battle.sceneKey||'main'}" data-phase="${battle.phase}" data-ply="${viewedPly}" aria-labelledby="showcase-title">
     <h3 id="showcase-title">${battle.title||'Учебный бой'}</h3>${battle.description?`<p class="training-description">${battle.description}</p>`:''}
     <div class="lesson-scene training-card">
     <div class="training-layout"><div class="showcase-field">
-      <svg class="lesson-board showcase-board" viewBox="${minX} ${minY} ${width} ${height}" role="group" aria-label="${battle.title||'Учебный бой'}. 37 клеток. Синие: ${counts[0]} фигур. Красные: ${counts[1]} фигур.">${defs}${tiles}<g id="training-overlays" pointer-events="none"><g clip-path="url(#training-field-clip)">${auras}</g>${reach.markup}</g><g id="training-units">${pieces}</g><g id="training-effects" pointer-events="none"><g class="attack-lines">${damageArrows}</g>${movement}${deathEffects}${guide}</g></svg>
-      </div><aside class="lesson-details training-advice" id="training-advice" aria-label="Подсказка к учебному бою" aria-live="polite">${advice.map(text => `<p>${text}</p>`).join('')}${battle.presentation?.phase==='awaiting-combat'?'<div class="unit-demo-controls"><button class="button primary" type="button" data-showcase-action="continue">Дальше</button></div>':battle.sceneKey?'<div class="unit-demo-controls"><button class="button outline" type="button" data-showcase-action="restart">Вернуть исходную позицию</button></div>':battle.position.winner!==null?'<div class="unit-demo-controls"><button class="button primary training-restart" type="button" data-showcase-action="restart">Сыграть ещё раз</button></div>':''}</aside>
+      <svg class="lesson-board showcase-board" data-combat-phase="${battle.presentation?.phase || 'idle'}" viewBox="${minX} ${minY} ${width} ${height}" role="group" aria-label="${battle.title||'Учебный бой'}. 37 клеток. Синие: ${counts[0]} фигур. Красные: ${counts[1]} фигур.">${defs}${tiles}<g id="training-overlays" pointer-events="none"><g clip-path="url(#training-field-clip)">${auras}</g>${reach.markup}</g><g id="training-units">${pieces}</g><g id="training-effects" pointer-events="none"><g class="attack-lines">${damageArrows}</g>${movement}${deathEffects}${guide}</g></svg>
+      </div><aside class="lesson-details training-advice" id="training-advice" aria-label="Подсказка к учебному бою" aria-live="polite">${advice.map(text => `<p>${text}</p>`).join('')}${battle.presentation?.phase==='awaiting-combat'?'<div class="unit-demo-controls"><button class="button primary" type="button" data-showcase-action="continue">Дальше</button></div>':battle.sceneKey?'<div class="unit-demo-controls"><button class="button outline" type="button" data-showcase-action="restart">Вернуть исходную позицию</button></div>':battle.position.winner!==null?'<div class="unit-demo-controls"><button class="button primary training-restart" type="button" data-showcase-action="restart">Сыграть ещё раз</button></div>':''}</aside>
     </div></div></section>`;
   // All SVG references and update targets stay local when several battles share a page.
   return battle.sceneKey?markup.replace(/(id="|url\(#)training-/g,`$1${battle.sceneKey}-`).replaceAll('showcase-title',`${battle.sceneKey}-title`).replaceAll('hint-arrow-head',`${battle.sceneKey}-hint-arrow-head`):markup.replaceAll('hint-arrow-head','training-hint-arrow-head');

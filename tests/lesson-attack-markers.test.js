@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { attackCellsFor,renderUnitBadges } from '../dist/board-presentation.js';
-import { inspectCell, move } from '../dist/engine.js';
+import { inspectCell, move, analyze } from '../dist/engine.js';
 import { ShowcaseBattle, UNIT_BATTLE_SCENES, renderShowcaseBattle } from '../dist/onboarding-showcase.js';
 const keys=html=>[...html.matchAll(/data-threat-cell="([^"]+)"/g)].map(match=>match[1]).sort();
 
@@ -16,10 +16,12 @@ test('all demo attack markers match native attack cells for selection and foreca
       const state=destination?inspectCell(battle.position,battle.config,destination,piece.id).position:battle.position;
       const source=state.pieces.find(p=>p.id===piece.id);
       const friendly=new Set([...state.pieces,...battle.position.pieces].filter(p=>p.team===1).map(p=>`${p.q},${p.r}`));
-      const expected=attackCellsFor(source,state,battle.config).map(p=>`${p.q},${p.r}`).filter(key=>!friendly.has(key)).sort();
+      const outgoing=attackCellsFor(source,state,battle.config).map(p=>`${p.q},${p.r}`).filter(key=>!friendly.has(key));
+      const incoming=analyze(state,battle.config).get(source.id).attackers.map(a=>state.pieces.find(p=>p.id===a.id)).map(p=>`${p.q},${p.r}`);
+      const expected=[...new Set([...outgoing,...incoming])].sort();
       const html=renderShowcaseBattle(battle,{});
       assert.deepEqual(keys(html),expected,`${sceneKey}:${piece.id}:${preview}`);
-      if(expected.length)assert.match(html,/attack-target-(?:weapon|fill|outline) south/);
+      if(expected.length)assert.match(html,/attack-target-(?:weapon|fill|outline)[^"\n]* south/);
     }
   }
   const lethal=new ShowcaseBattle({sceneKey:'unit-drum-shield'});

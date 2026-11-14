@@ -23,7 +23,7 @@ export function createGuideController({ document: doc = globalThis.document, win
     else $('#onboarding-progress').innerHTML = onboardingSteps.map((label, index) => `<button type="button" data-onboarding-step="${index}"${index === onboardingStep ? ' aria-current="step"' : ''} aria-label="Шаг ${index + 1}: ${label}"><span class="step-number">${index + 1}</span>${label}</button>`).join('');
     let content = '';
     if (onboardingStep === 0) content =
-      '<ul class="onboarding-principles" id="onboarding-title"><li>Уничтожь вражеский флаг и не потеряй свой.</li><li>Показывать своим фишкам кого бить — не надо.</li><li>Обе армии автоматически атакуют доступные цели в конце хода.</li><li>Урон складывается, но не накапливается между ходами. Если долго бить стальной щит палкой — щит не сломается.</li></ul>' +
+      '<ul class="onboarding-principles" id="onboarding-title"><li>Уничтожь вражеское знамя и не потеряй своё</li><li>Показывать своим фишкам кого бить — не надо</li><li>Обе армии автоматически атакуют доступные цели в конце хода</li><li>Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход</li></ul>' +
       renderShowcaseBattle(ensureShowcaseBattle('main'), icons, renderBadges);
     if (onboardingStep === 1) content = renderUnitExamples(onboardingUnitBattles, icons, renderBadges);
     $('#onboarding-body').innerHTML = content;
@@ -100,12 +100,13 @@ export function createGuideController({ document: doc = globalThis.document, win
       const piece = battle.position.pieces.find(piece => piece.id === control.dataset.showcasePiece);
       if (piece) battle.focusCell = `${piece.q},${piece.r}`;
       battle.selectPiece(control.dataset.showcasePiece);
+      if (piece) battle.preview(piece);
     }
     else if (control.dataset.showcaseCell !== undefined) {
       const [q, r] = control.dataset.showcaseCell.split(',').map(Number);
       battle.focusCell = `${q},${r}`;
       const occupant = battle.position.pieces.find(piece => piece.q === q && piece.r === r);
-      if (occupant) { battle.selectPiece(occupant.id); return; }
+      if (occupant) { battle.selectPiece(occupant.id); battle.preview(occupant); return; }
       const destination = { q, r };
       if (!battle.previewMoves.some(cell => cell.q === q && cell.r === r)) battle.clearSelection();
       else if (!battle.moveTo(destination)) battle.preview(destination);
