@@ -123,7 +123,7 @@ test('all three names appear in setup and the active game caption', () => {
   const html = fs.readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
   assert.match(html, /<option value="training" selected>Неопытный<\/option>/);
   const caption = app.split('\n').find(line => line.includes("$('#mode-caption').textContent ="));
-  for (const [value, label] of [['training', 'Неопытный'], ['easy', 'Дерётся'], ['hard', 'Больно дерётся']]) {
+  for (const [value, label] of [['training', 'Неопытный'], ['easy', 'Опытный'], ['hard', 'Воевода']]) {
     assert.equal(BOT_DIFFICULTIES[value].label, label);
     assert.match(html, new RegExp(`<option value="${value}"[^>]*>${label}</option>`));
     const node = {};

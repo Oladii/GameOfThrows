@@ -1,8 +1,8 @@
 export const DEFAULT_BOT_DIFFICULTY = 'training';
 export const BOT_DIFFICULTIES = Object.freeze({
   training: Object.freeze({ label: 'Неопытный', depth: 2, forgiving: true }),
-  easy: Object.freeze({ label: 'Дерётся', depth: 2 }),
-  hard: Object.freeze({ label: 'Больно дерётся', depth: 4 })
+  easy: Object.freeze({ label: 'Опытный', depth: 2 }),
+  hard: Object.freeze({ label: 'Воевода', depth: 4 })
 });
 export function readBotDifficulty(value) { return typeof value === 'string' && Object.hasOwn(BOT_DIFFICULTIES, value) ? value : DEFAULT_BOT_DIFFICULTY; }
 
