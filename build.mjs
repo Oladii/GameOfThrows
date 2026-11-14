@@ -14,8 +14,12 @@ const strip = code => code.replace(/^import .*?;\n/gm, '').replace(/^export /gm,
 const script = [rules, engine, client, startPosition, moveAnimation, gameArchive, tokenAssets, tokenPresentation, boardPresentation, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, hint, guideController, app].map(strip).join('\n').replaceAll('</script', '<\\/script');
 const workerSource = JSON.stringify([rules, engine, defensiveSelection, formationStrategy, bot, worker].map(strip).join('\n')).replaceAll('<', '\\u003c');
 let illustratedHtml = html;
-const brandIcon = await fs.readFile(root + 'dist/brand/logo-target-sword-v3-tripod.png');
+const [brandIcon, favicon] = await Promise.all([
+  fs.readFile(root + 'dist/brand/logo-target-sword-v3-tripod.png'),
+  fs.readFile(root + 'dist/token-art/bullseye.svg')
+]);
 illustratedHtml = illustratedHtml.replaceAll('src="./brand/logo-target-sword-v3-tripod.png"', 'src="data:image/png;base64,' + brandIcon.toString('base64') + '"');
+illustratedHtml = illustratedHtml.replaceAll('href="./token-art/bullseye.svg"', 'href="data:image/svg+xml;base64,' + favicon.toString('base64') + '"');
 const selectBundle = (await read('game-selects.js')).replaceAll('</script', '<\\/script');
 const standalone = illustratedHtml.replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${css}\n</style>`).replace('<script type="module" src="/app.js"></script>', () => `<script id="bot-worker-source" type="application/json">${workerSource}</script>\n<script>${selectBundle}</script>\n<script type="module">\n${script}\n</script>`).replace('href="/" aria-label="Game Of Trows — главная"', 'href="#" aria-label="Game Of Trows — главная"');
 await fs.mkdir(root + 'docs', { recursive: true });
