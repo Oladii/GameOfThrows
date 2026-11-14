@@ -868,23 +868,23 @@ main{padding:0 14px 14px}
 .room-panel{margin:0 0 22px;font-size:13px;line-height:1.5;min-width:0}
 .room-panel h2{margin:0 0 16px;font-size:19px;line-height:1.3;letter-spacing:-.02em}
 .room-link-row{display:flex;gap:7px;margin-bottom:16px}
-.room-link-row input{box-sizing:border-box;width:100%;min-width:0;min-height:42px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;padding:10px 12px;text-overflow:ellipsis;caret-color:var(--ink)}
-.room-link-row .button{font-size:12px;padding:9px 11px;flex-shrink:0}
+.room-link-row .button{font-size:13px;min-height:42px;padding:10px 12px;margin:0}
 .room-player-actions{display:flex;flex-direction:column}
 .room-player-actions .button{min-height:42px;font-size:13px}
 .room-note{margin:16px 0 0;color:#596158;font-size:12px;line-height:1.5}
 #room-error{margin:16px 0 0;line-height:1.5}
 #room-retry{margin-top:12px;min-height:40px;font-size:12px}
 #room-leave{margin-top:8px;min-height:42px;font-size:13px}
-#room-finish{background:#edf0e6}
 .online-room :is(button,input,select,a,[tabindex]):focus-visible{outline:2px solid var(--ink)!important;outline-offset:3px}
 .online-room .room-panel ::selection{background:#d9e3c9;color:var(--ink)}
-.online-room .board-footer{display:none}
+.online-room.room-waiting .board-footer{display:none}
 .online-room.room-waiting .arena{height:auto;min-height:0;align-self:start}
-.online-room .team-card{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:64px 32px 36px;align-content:start;gap:8px;height:170px;min-height:170px;padding:10px 12px}
+.online-room .team-card{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:18px 44px;align-content:start;gap:6px;height:90px;min-height:90px;padding:10px 12px}
 .online-room .team-title{display:block;font-size:12px;line-height:1.5}
 .online-room .team-title .team-dot{display:inline-block;margin-right:6px}
-.online-room .turn-tag{font-size:10px;line-height:12px;letter-spacing:0;min-height:24px}
+.online-room .turn-tag{font-size:10px;line-height:12px;letter-spacing:0;min-height:12px;margin:0}
+.online-room .team-card-body{min-width:0}
+.online-room .team-card-action{height:44px;display:flex;align-items:center}
 .online-room .team-card-details{display:flex;flex-direction:column;justify-content:space-between;min-width:0}
 .online-room .team-card-details .team-count{font-size:11px;line-height:16px}
 .online-room .team-card-details .team-roster{flex-basis:auto}
@@ -919,7 +919,7 @@ main{padding:0 14px 14px}
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T22:43:13.071Z">Сборка 15.11.2026, 01:43:13 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T22:53:46.014Z">Сборка 15.11.2026, 01:53:46 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -932,7 +932,7 @@ main{padding:0 14px 14px}
         <section id="room-panel" class="room-panel" aria-labelledby="room-title" hidden>
           <h2 id="room-title">Игровая комната</h2>
           <div id="room-connected" hidden>
-            <div class="room-link-row"><input id="room-link" readonly aria-label="Ссылка на игровую комнату"><button id="room-copy" class="button outline" type="button">Копировать</button></div>
+            <div class="room-link-row"><button id="room-copy" class="button outline full" type="button">Копировать ссылку на комнату</button></div>
             <div class="room-player-actions"><button id="room-finish" class="button subtle full" type="button" hidden>Завершить игру</button></div>
           </div>
           <button id="room-leave" class="button subtle full" type="button">Выйти из игровой комнаты</button>
@@ -4413,7 +4413,7 @@ function presentKills(before, forecast, deaths) {
   combatAnimator.startSequence(presentation.groups);
 }
 function canReplayLastCombat() {
-  return Boolean(playMode !== 'online' && lastTurn && gamePhase === 'playing' && !editor && !reviewingTurn && !movement && !combat && !currentDeaths.length
+  return Boolean(lastTurn && gamePhase === 'playing' && !editor && !reviewingTurn && !movement && !combat && !currentDeaths.length
     && lastTurn.before.state.pieces.length > state.pieces.length);
 }
 function replayLastCombat() {
@@ -4902,7 +4902,7 @@ $('#editor-done').addEventListener('click', () => {
   catch (error) { toast(error.message); }
 });
 $('#replay-combat').addEventListener('click', replayLastCombat);
-$('#review-previous').addEventListener('click', () => { if (playMode === 'online' || !lastTurn || gamePhase !== 'playing' || reviewingTurn || movement || combat) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
+$('#review-previous').addEventListener('click', () => { if (!lastTurn || gamePhase !== 'playing' || reviewingTurn || movement || combat) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
 $('#review-current').addEventListener('click', () => { if (!reviewingTurn) return; reviewingTurn = false; selected = null; render(); });
 $('#resume-bot').addEventListener('click', () => { botIssue = ''; botSuspended = false; render(); });
 document.querySelector('.team-select').addEventListener('click', event => { const b = event.target.closest('[data-team]'); if (b) { editorTeam = Number(b.dataset.team); selected = null; render(); } });
@@ -4981,7 +4981,10 @@ function applyRoomView(view) {
   history = []; log = []; gameVersion = CURRENT_GAME_VERSION;
   if (location.protocol !== 'file:') window.history.replaceState(null, '', roomInvitation(next.roomId));
   rememberRoom(next.roomId);
-  if (animate) { lastTurn = { before, action: clone(action.action) }; presentMove(before, action.action, action.deaths || []); }
+  if (action && next.state && action.matchId === next.matchId && action.beforeState.ply + 1 === next.state.ply) {
+    lastTurn = { before: { ...currentSnapshot(), state: clone(action.beforeState) }, action: clone(action.action) };
+  }
+  if (animate) { presentMove(before, action.action, action.deaths || []); }
   else render();
 }
 async function connectOnlineRoom(rejoin = false) {
@@ -5052,7 +5055,8 @@ function renderScoreboard(position) {
       const action = free ? `<button class="button outline full" type="button" data-claim-seat="${team}" ${canClaim ? '' : 'disabled'}>Играть за ${team ? 'красных' : 'синих'}</button>`
         : waiting && roomView.selfSeat === team && roomView.status !== 'closed' ? `<button class="button subtle full" type="button" data-stand-seat="${team}" ${canStand ? '' : 'disabled'}>Отменить выбор</button>` : '';
       const details = free ? '' : `<span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul>`;
-      return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" data-room-seat="${team}"><div class="team-card-heading">${title}<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div></div><div class="team-card-details">${details}</div><div class="team-card-action">${action}</div></div>`;
+      const body = action ? `<div class="team-card-action">${action}</div>` : `<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div><div class="team-card-details">${details}</div>`;
+      return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" data-room-seat="${team}"><div class="team-card-heading">${title}</div><div class="team-card-body">${body}</div></div>`;
     }
     return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"${online ? ` data-room-seat="${team}"` : ''}><div>${title}<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div></div><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
   }).join('');
@@ -5062,10 +5066,11 @@ function renderOnlineRoom() {
   const online = playMode === 'online';
   document.body.classList.toggle('online-room', online);
   $('#room-panel').hidden = !online; $('#room-open').hidden = online;
-  for (const id of ['show-hint', 'undo', 'replay-combat', 'review-previous', 'review-current']) $('#' + id).hidden = online;
+  for (const id of ['show-hint', 'undo']) $('#' + id).hidden = online;
   $('.board-wrap').hidden = online && (!roomView?.snapshot || roomView.snapshot.phase === 'waiting' || roomView.status === 'closed');
   document.body.classList.toggle('room-waiting', online && $('.board-wrap').hidden);
   $('.arena-top').hidden = online && $('.board-wrap').hidden;
+  for (const id of ['replay-combat', 'review-previous', 'review-current']) $('#' + id).hidden = online && $('.board-wrap').hidden;
   if (!online) return;
   $('#archive-status').hidden = true; $('#archive-retry').hidden = true; $('#archive-details').hidden = true;
   $('#pass-turn').hidden = true; $('#editor-controls').hidden = true; $('#settings-open').disabled = true; $('#configure-position').disabled = true;
@@ -5075,7 +5080,6 @@ function renderOnlineRoom() {
   $('#room-title').textContent = Number.isSafeInteger(snapshot?.roomNumber) ? `Игровая комната #${snapshot.roomNumber}` : 'Игровая комната';
   $('#room-panel').setAttribute('aria-busy', String(busy));
   $('#room-connected').hidden = !snapshot;
-  if (snapshot) $('#room-link').value = roomInvitation(snapshot.roomId);
   $('#room-finish').hidden = !seated || waiting || !snapshot || closed; $('#room-finish').disabled = !canAct;
   $('#room-participants').hidden = !snapshot || closed;
   if (snapshot) {
@@ -5110,9 +5114,10 @@ $('#room-retry').addEventListener('click', async () => {
   renderOnlineRoom();
 });
 $('#room-copy').addEventListener('click', async () => {
-  const input = $('#room-link');
-  try { await navigator.clipboard.writeText(input.value); toast('Ссылка скопирована.'); }
-  catch { input.focus(); input.select(); toast('Выделенная ссылка готова для копирования.'); }
+  const roomId = roomView?.snapshot?.roomId;
+  if (!roomId) return;
+  try { await navigator.clipboard.writeText(roomInvitation(roomId)); toast('Ссылка скопирована.'); }
+  catch { toast('Не удалось скопировать ссылку. Скопируйте адрес комнаты из адресной строки браузера.'); }
 });
 
 const statFields = [['move', 'Шаг'], ['damage', 'Урон'], ['range', 'Дальность поражения'], ['fortitude', 'Стойкость'], ['aura', 'Радиус ауры'], ['damageBonus', 'Бонус урона'], ['rangeBonus', 'Бонус дальности'], ['defenseBonus', 'Бонус стойкости']];

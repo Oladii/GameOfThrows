@@ -857,23 +857,23 @@ main{padding:0 14px 14px}
 .room-panel{margin:0 0 22px;font-size:13px;line-height:1.5;min-width:0}
 .room-panel h2{margin:0 0 16px;font-size:19px;line-height:1.3;letter-spacing:-.02em}
 .room-link-row{display:flex;gap:7px;margin-bottom:16px}
-.room-link-row input{box-sizing:border-box;width:100%;min-width:0;min-height:42px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;padding:10px 12px;text-overflow:ellipsis;caret-color:var(--ink)}
-.room-link-row .button{font-size:12px;padding:9px 11px;flex-shrink:0}
+.room-link-row .button{font-size:13px;min-height:42px;padding:10px 12px;margin:0}
 .room-player-actions{display:flex;flex-direction:column}
 .room-player-actions .button{min-height:42px;font-size:13px}
 .room-note{margin:16px 0 0;color:#596158;font-size:12px;line-height:1.5}
 #room-error{margin:16px 0 0;line-height:1.5}
 #room-retry{margin-top:12px;min-height:40px;font-size:12px}
 #room-leave{margin-top:8px;min-height:42px;font-size:13px}
-#room-finish{background:#edf0e6}
 .online-room :is(button,input,select,a,[tabindex]):focus-visible{outline:2px solid var(--ink)!important;outline-offset:3px}
 .online-room .room-panel ::selection{background:#d9e3c9;color:var(--ink)}
-.online-room .board-footer{display:none}
+.online-room.room-waiting .board-footer{display:none}
 .online-room.room-waiting .arena{height:auto;min-height:0;align-self:start}
-.online-room .team-card{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:64px 32px 36px;align-content:start;gap:8px;height:170px;min-height:170px;padding:10px 12px}
+.online-room .team-card{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:18px 44px;align-content:start;gap:6px;height:90px;min-height:90px;padding:10px 12px}
 .online-room .team-title{display:block;font-size:12px;line-height:1.5}
 .online-room .team-title .team-dot{display:inline-block;margin-right:6px}
-.online-room .turn-tag{font-size:10px;line-height:12px;letter-spacing:0;min-height:24px}
+.online-room .turn-tag{font-size:10px;line-height:12px;letter-spacing:0;min-height:12px;margin:0}
+.online-room .team-card-body{min-width:0}
+.online-room .team-card-action{height:44px;display:flex;align-items:center}
 .online-room .team-card-details{display:flex;flex-direction:column;justify-content:space-between;min-width:0}
 .online-room .team-card-details .team-count{font-size:11px;line-height:16px}
 .online-room .team-card-details .team-roster{flex-basis:auto}

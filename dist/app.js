@@ -308,7 +308,7 @@ function presentKills(before, forecast, deaths) {
   combatAnimator.startSequence(presentation.groups);
 }
 function canReplayLastCombat() {
-  return Boolean(playMode !== 'online' && lastTurn && gamePhase === 'playing' && !editor && !reviewingTurn && !movement && !combat && !currentDeaths.length
+  return Boolean(lastTurn && gamePhase === 'playing' && !editor && !reviewingTurn && !movement && !combat && !currentDeaths.length
     && lastTurn.before.state.pieces.length > state.pieces.length);
 }
 function replayLastCombat() {
@@ -797,7 +797,7 @@ $('#editor-done').addEventListener('click', () => {
   catch (error) { toast(error.message); }
 });
 $('#replay-combat').addEventListener('click', replayLastCombat);
-$('#review-previous').addEventListener('click', () => { if (playMode === 'online' || !lastTurn || gamePhase !== 'playing' || reviewingTurn || movement || combat) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
+$('#review-previous').addEventListener('click', () => { if (!lastTurn || gamePhase !== 'playing' || reviewingTurn || movement || combat) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
 $('#review-current').addEventListener('click', () => { if (!reviewingTurn) return; reviewingTurn = false; selected = null; render(); });
 $('#resume-bot').addEventListener('click', () => { botIssue = ''; botSuspended = false; render(); });
 document.querySelector('.team-select').addEventListener('click', event => { const b = event.target.closest('[data-team]'); if (b) { editorTeam = Number(b.dataset.team); selected = null; render(); } });
@@ -876,7 +876,10 @@ function applyRoomView(view) {
   history = []; log = []; gameVersion = CURRENT_GAME_VERSION;
   if (location.protocol !== 'file:') window.history.replaceState(null, '', roomInvitation(next.roomId));
   rememberRoom(next.roomId);
-  if (animate) { lastTurn = { before, action: clone(action.action) }; presentMove(before, action.action, action.deaths || []); }
+  if (action && next.state && action.matchId === next.matchId && action.beforeState.ply + 1 === next.state.ply) {
+    lastTurn = { before: { ...currentSnapshot(), state: clone(action.beforeState) }, action: clone(action.action) };
+  }
+  if (animate) { presentMove(before, action.action, action.deaths || []); }
   else render();
 }
 async function connectOnlineRoom(rejoin = false) {
@@ -947,7 +950,8 @@ function renderScoreboard(position) {
       const action = free ? `<button class="button outline full" type="button" data-claim-seat="${team}" ${canClaim ? '' : 'disabled'}>Играть за ${team ? 'красных' : 'синих'}</button>`
         : waiting && roomView.selfSeat === team && roomView.status !== 'closed' ? `<button class="button subtle full" type="button" data-stand-seat="${team}" ${canStand ? '' : 'disabled'}>Отменить выбор</button>` : '';
       const details = free ? '' : `<span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul>`;
-      return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" data-room-seat="${team}"><div class="team-card-heading">${title}<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div></div><div class="team-card-details">${details}</div><div class="team-card-action">${action}</div></div>`;
+      const body = action ? `<div class="team-card-action">${action}</div>` : `<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div><div class="team-card-details">${details}</div>`;
+      return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" data-room-seat="${team}"><div class="team-card-heading">${title}</div><div class="team-card-body">${body}</div></div>`;
     }
     return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"${online ? ` data-room-seat="${team}"` : ''}><div>${title}<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div></div><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
   }).join('');
@@ -957,10 +961,11 @@ function renderOnlineRoom() {
   const online = playMode === 'online';
   document.body.classList.toggle('online-room', online);
   $('#room-panel').hidden = !online; $('#room-open').hidden = online;
-  for (const id of ['show-hint', 'undo', 'replay-combat', 'review-previous', 'review-current']) $('#' + id).hidden = online;
+  for (const id of ['show-hint', 'undo']) $('#' + id).hidden = online;
   $('.board-wrap').hidden = online && (!roomView?.snapshot || roomView.snapshot.phase === 'waiting' || roomView.status === 'closed');
   document.body.classList.toggle('room-waiting', online && $('.board-wrap').hidden);
   $('.arena-top').hidden = online && $('.board-wrap').hidden;
+  for (const id of ['replay-combat', 'review-previous', 'review-current']) $('#' + id).hidden = online && $('.board-wrap').hidden;
   if (!online) return;
   $('#archive-status').hidden = true; $('#archive-retry').hidden = true; $('#archive-details').hidden = true;
   $('#pass-turn').hidden = true; $('#editor-controls').hidden = true; $('#settings-open').disabled = true; $('#configure-position').disabled = true;
@@ -970,7 +975,6 @@ function renderOnlineRoom() {
   $('#room-title').textContent = Number.isSafeInteger(snapshot?.roomNumber) ? `Игровая комната #${snapshot.roomNumber}` : 'Игровая комната';
   $('#room-panel').setAttribute('aria-busy', String(busy));
   $('#room-connected').hidden = !snapshot;
-  if (snapshot) $('#room-link').value = roomInvitation(snapshot.roomId);
   $('#room-finish').hidden = !seated || waiting || !snapshot || closed; $('#room-finish').disabled = !canAct;
   $('#room-participants').hidden = !snapshot || closed;
   if (snapshot) {
@@ -1005,9 +1009,10 @@ $('#room-retry').addEventListener('click', async () => {
   renderOnlineRoom();
 });
 $('#room-copy').addEventListener('click', async () => {
-  const input = $('#room-link');
-  try { await navigator.clipboard.writeText(input.value); toast('Ссылка скопирована.'); }
-  catch { input.focus(); input.select(); toast('Выделенная ссылка готова для копирования.'); }
+  const roomId = roomView?.snapshot?.roomId;
+  if (!roomId) return;
+  try { await navigator.clipboard.writeText(roomInvitation(roomId)); toast('Ссылка скопирована.'); }
+  catch { toast('Не удалось скопировать ссылку. Скопируйте адрес комнаты из адресной строки браузера.'); }
 });
 
 const statFields = [['move', 'Шаг'], ['damage', 'Урон'], ['range', 'Дальность поражения'], ['fortitude', 'Стойкость'], ['aura', 'Радиус ауры'], ['damageBonus', 'Бонус урона'], ['rangeBonus', 'Бонус дальности'], ['defenseBonus', 'Бонус стойкости']];

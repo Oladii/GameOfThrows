@@ -87,7 +87,7 @@ test('selecting a side is sufficient; its card offers cancellation only before t
     ui.context.renderOnlineRoom();
     const waiting = ui.$('#scoreboard').innerHTML;
     assert.match(waiting, new RegExp(`${team === 0 ? 'Синие' : 'Красные'} — Вы`));
-    assert.equal((waiting.match(/class="team-roster"/g) || []).length, 1);
+    assert.equal((waiting.match(/class="team-roster"/g) || []).length, 0);
     assert.match(waiting, /data-claim-seat="[01]" disabled/);
     assert.match(waiting, new RegExp(`data-stand-seat="${team}"`)); assert.match(waiting, /Отменить выбор/);
     assert.doesNotMatch(waiting, /ГОТОВ|НЕ ГОТОВ/);
@@ -97,11 +97,7 @@ test('selecting a side is sufficient; its card offers cancellation only before t
     ui.context.renderOnlineRoom(); assert.equal(ui.$('.board-wrap').hidden, false);
     assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /data-stand-seat|data-claim-seat/);
     await ui.$('#scoreboard').events.click(event); assert.equal(stands, 1);
-    for (const markup of [waiting, ui.$('#scoreboard').innerHTML]) {
-      assert.equal((markup.match(/class="team-card-heading"/g) || []).length, 2);
-      assert.equal((markup.match(/class="team-card-details"/g) || []).length, 2);
-      assert.equal((markup.match(/class="team-card-action"/g) || []).length, 2);
-    }
+    assert.equal((ui.$('#scoreboard').innerHTML.match(/class="team-roster"/g) || []).length, 2);
   }
 });
 
@@ -191,7 +187,8 @@ test('local and bot permissions remain available, room links contain no session 
   const url = new URL(ui.context.roomInvitation('room-a'));
   assert.equal(url.searchParams.get('room'), 'room-a'); assert.equal(url.searchParams.get('theme'), 'light');
   assert.equal(url.searchParams.has('_fresh'), false); assert.equal(url.hash, '');
-  assert.match(html, /id="room-link" readonly aria-label="Ссылка на игровую комнату"/);
+  assert.doesNotMatch(html, /id="room-link"/);
+  assert.match(html, /Копировать ссылку на комнату/);
   assert.match(app, /event\.key === 'Tab' && playMode !== 'online'/);
 });
 
@@ -288,4 +285,47 @@ test('the turn line omits a seated player color while retaining the spectator ro
     ui.context.roomView = view(snapshot(), selfSeat); vm.runInContext(caption, ui.context);
     assert.equal(ui.$('#mode-caption').textContent, selfSeat === null ? 'По ссылке · зритель' : 'По ссылке');
   }
+});
+
+test('rejoining restores read-only last-turn controls and new server state ends the review', () => {
+  for (const seat of [0, 1, null]) {
+    const ui = setup(), before = createGame(DEFAULT_CONFIG);
+    const piece = before.pieces.find(p => p.team === before.turn && reachable(p, before, DEFAULT_CONFIG).length);
+    const to = reachable(piece, before, DEFAULT_CONFIG)[0], outcome = move(before, DEFAULT_CONFIG, piece.id, to);
+    const snap = snapshot({ revision: 9, phase: 'playing', matchId: 'match', state: outcome.state,
+      lastAction: { revision: 9, matchId: 'match', beforeState: before, action: { id: piece.id, from: outcome.action.from, to }, deaths: outcome.deaths } });
+    ui.context.applyRoomView(view(snap, seat));
+    assert.deepEqual(plain(ui.context.lastTurn.before.state), before);
+    assert.equal(ui.calls.some(call => call[0] === 'animation'), false, 'rejoin must not auto-animate history');
+    ui.context.cancelBot = () => {};
+    vm.runInContext(declaration('visibleState') + '\n' + app.split("\n").filter(line => line.startsWith("$('#review-")).join("\n"), ui.context);
+    const confirmed = plain(ui.context.state);
+    ui.$('#review-previous').events.click();
+    assert.equal(ui.context.reviewingTurn, true); assert.equal(ui.context.humanCanMove(), false);
+    assert.deepEqual(plain(ui.context.visibleState()), before);
+    assert.deepEqual(plain(ui.context.state), confirmed, 'review never replaces the authoritative state');
+    ui.$('#review-current').events.click();
+    assert.deepEqual(plain(ui.context.visibleState()), confirmed);
+    ui.$('#review-previous').events.click();
+    ui.context.applyRoomView(view({ ...snap, revision: 10 }, seat));
+    assert.equal(ui.context.reviewingTurn, false);
+    assert.deepEqual(plain(ui.context.state), confirmed);
+    for (const id of ['replay-combat', 'review-previous', 'review-current']) assert.equal(ui.$('#' + id).hidden, false);
+    ui.context.applyRoomView(view(snapshot({ revision: 11 }), seat)); ui.context.renderOnlineRoom();
+    assert.equal(ui.context.lastTurn, null);
+    for (const id of ['replay-combat', 'review-previous', 'review-current']) assert.equal(ui.$('#' + id).hidden, true);
+  }
+});
+
+test('copy button copies only the invitation and reports clipboard failure', async () => {
+  const ui = setup(); ui.context.roomView = view(snapshot());
+  let copied = '', message = '';
+  ui.context.navigator.clipboard = { async writeText(text) { copied = text; } };
+  ui.context.toast = text => { message = text; };
+  await ui.$('#room-copy').events.click();
+  assert.equal(new URL(copied).searchParams.get('room'), 'room-a');
+  assert.equal(message, 'Ссылка скопирована.');
+  ui.context.navigator.clipboard.writeText = async () => { throw new Error('denied'); };
+  await ui.$('#room-copy').events.click();
+  assert.match(message, /Не удалось скопировать ссылку/);
 });
