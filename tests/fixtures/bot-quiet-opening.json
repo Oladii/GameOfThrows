@@ -1,0 +1,608 @@
+{
+  "config": {
+    "version": 1,
+    "geometry": "hex",
+    "size": 5,
+    "auraDefenseCap": 2,
+    "army": {
+      "groups": 2,
+      "shields": 2,
+      "archers": 2,
+      "attackLamps": 1,
+      "defenseLamps": 1,
+      "scoutLamps": 1,
+      "centralShields": 1,
+      "rearArchers": 2
+    },
+    "shieldPromotion": {
+      "aura": 1,
+      "damageBonus": 2,
+      "rangeBonus": 2,
+      "defenseBonus": 1,
+      "maxRange": 3,
+      "allies": {
+        "aura": 1,
+        "damageBonus": 1,
+        "defenseBonus": 1,
+        "rangeBonus": 1
+      }
+    },
+    "stats": {
+      "shield": {
+        "move": 1,
+        "damage": 4,
+        "range": 1,
+        "fortitude": 5,
+        "aura": 1,
+        "damageBonus": 0,
+        "rangeBonus": 0,
+        "defenseBonus": 1
+      },
+      "archer": {
+        "move": 2,
+        "damage": 2,
+        "range": 4,
+        "fortitude": 4,
+        "aura": 0,
+        "damageBonus": 0,
+        "rangeBonus": 0,
+        "defenseBonus": 0
+      },
+      "attackLamp": {
+        "move": 2,
+        "damage": 0,
+        "range": 0,
+        "fortitude": 3,
+        "aura": 2,
+        "damageBonus": 1,
+        "rangeBonus": 0,
+        "defenseBonus": 0
+      },
+      "defenseLamp": {
+        "move": 2,
+        "damage": 0,
+        "range": 0,
+        "fortitude": 3,
+        "aura": 2,
+        "damageBonus": 0,
+        "rangeBonus": 0,
+        "defenseBonus": 1
+      },
+      "scoutLamp": {
+        "move": 2,
+        "damage": 0,
+        "range": 0,
+        "fortitude": 3,
+        "aura": 2,
+        "damageBonus": 0,
+        "rangeBonus": 1,
+        "defenseBonus": 0
+      }
+    },
+    "experiments": {
+      "squareDiagonals": true,
+      "lampShieldBlocking": true,
+      "allyShotsPass": true,
+      "aurasThroughShields": true,
+      "allowPass": false
+    },
+    "victoryCondition": "combat-units",
+    "deploymentOffset": 0,
+    "shieldDefenseOnly": true
+  },
+  "initial": {
+    "pieces": [
+      {
+        "id": "p1",
+        "type": "attackLamp",
+        "team": 0,
+        "q": 1,
+        "r": -4,
+        "group": null
+      },
+      {
+        "id": "p2",
+        "type": "attackLamp",
+        "team": 1,
+        "q": -1,
+        "r": 4,
+        "group": null
+      },
+      {
+        "id": "p3",
+        "type": "defenseLamp",
+        "team": 0,
+        "q": 3,
+        "r": -4,
+        "group": null
+      },
+      {
+        "id": "p4",
+        "type": "defenseLamp",
+        "team": 1,
+        "q": -3,
+        "r": 4,
+        "group": null
+      },
+      {
+        "id": "p5",
+        "type": "scoutLamp",
+        "team": 0,
+        "q": 2,
+        "r": -4,
+        "group": null
+      },
+      {
+        "id": "p6",
+        "type": "scoutLamp",
+        "team": 1,
+        "q": -2,
+        "r": 4,
+        "group": null
+      },
+      {
+        "id": "p7",
+        "type": "shield",
+        "team": 0,
+        "q": -1,
+        "r": -2,
+        "group": 1
+      },
+      {
+        "id": "p8",
+        "type": "shield",
+        "team": 1,
+        "q": 1,
+        "r": 2,
+        "group": 1
+      },
+      {
+        "id": "p9",
+        "type": "shield",
+        "team": 0,
+        "q": 0,
+        "r": -2,
+        "group": 1
+      },
+      {
+        "id": "p10",
+        "type": "shield",
+        "team": 1,
+        "q": 0,
+        "r": 2,
+        "group": 1
+      },
+      {
+        "id": "p11",
+        "type": "archer",
+        "team": 0,
+        "q": 0,
+        "r": -3,
+        "group": 1
+      },
+      {
+        "id": "p12",
+        "type": "archer",
+        "team": 1,
+        "q": 0,
+        "r": 3,
+        "group": 1
+      },
+      {
+        "id": "p13",
+        "type": "archer",
+        "team": 0,
+        "q": -1,
+        "r": -3,
+        "group": 1
+      },
+      {
+        "id": "p14",
+        "type": "archer",
+        "team": 1,
+        "q": 1,
+        "r": 3,
+        "group": 1
+      },
+      {
+        "id": "p15",
+        "type": "shield",
+        "team": 0,
+        "q": 2,
+        "r": -2,
+        "group": 2
+      },
+      {
+        "id": "p16",
+        "type": "shield",
+        "team": 1,
+        "q": -2,
+        "r": 2,
+        "group": 2
+      },
+      {
+        "id": "p17",
+        "type": "shield",
+        "team": 0,
+        "q": 3,
+        "r": -2,
+        "group": 2
+      },
+      {
+        "id": "p18",
+        "type": "shield",
+        "team": 1,
+        "q": -3,
+        "r": 2,
+        "group": 2
+      },
+      {
+        "id": "p19",
+        "type": "archer",
+        "team": 0,
+        "q": 3,
+        "r": -3,
+        "group": 2
+      },
+      {
+        "id": "p20",
+        "type": "archer",
+        "team": 1,
+        "q": -3,
+        "r": 3,
+        "group": 2
+      },
+      {
+        "id": "p21",
+        "type": "archer",
+        "team": 0,
+        "q": 4,
+        "r": -3,
+        "group": 2
+      },
+      {
+        "id": "p22",
+        "type": "archer",
+        "team": 1,
+        "q": -4,
+        "r": 3,
+        "group": 2
+      },
+      {
+        "id": "p23",
+        "type": "shield",
+        "team": 0,
+        "q": 1,
+        "r": -2,
+        "group": null
+      },
+      {
+        "id": "p24",
+        "type": "shield",
+        "team": 1,
+        "q": -1,
+        "r": 2,
+        "group": null
+      },
+      {
+        "id": "p25",
+        "type": "archer",
+        "team": 0,
+        "q": 1,
+        "r": -3,
+        "group": null
+      },
+      {
+        "id": "p26",
+        "type": "archer",
+        "team": 1,
+        "q": -1,
+        "r": 3,
+        "group": null
+      },
+      {
+        "id": "p27",
+        "type": "archer",
+        "team": 0,
+        "q": 2,
+        "r": -3,
+        "group": null
+      },
+      {
+        "id": "p28",
+        "type": "archer",
+        "team": 1,
+        "q": -2,
+        "r": 3,
+        "group": null
+      }
+    ],
+    "turn": 0,
+    "ply": 0,
+    "winner": null
+  },
+  "actions": [
+    {
+      "id": "p21",
+      "to": {
+        "q": 4,
+        "r": -4
+      }
+    },
+    {
+      "id": "p22",
+      "to": {
+        "q": -4,
+        "r": 4
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": 0,
+        "r": -4
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": 0,
+        "r": 4
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": 2,
+        "r": -5
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": -2,
+        "r": 5
+      }
+    },
+    {
+      "id": "p21",
+      "to": {
+        "q": 3,
+        "r": -5
+      }
+    },
+    {
+      "id": "p22",
+      "to": {
+        "q": -3,
+        "r": 5
+      }
+    },
+    {
+      "id": "p21",
+      "to": {
+        "q": 4,
+        "r": -5
+      }
+    },
+    {
+      "id": "p22",
+      "to": {
+        "q": -4,
+        "r": 5
+      }
+    },
+    {
+      "id": "p21",
+      "to": {
+        "q": 4,
+        "r": -3
+      }
+    },
+    {
+      "id": "p22",
+      "to": {
+        "q": -4,
+        "r": 3
+      }
+    },
+    {
+      "id": "p21",
+      "to": {
+        "q": 4,
+        "r": -4
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": -3,
+        "r": 5
+      }
+    },
+    {
+      "id": "p21",
+      "to": {
+        "q": 3,
+        "r": -5
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": -1,
+        "r": 5
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": 1,
+        "r": -5
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": 1,
+        "r": 3
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": -1,
+        "r": -3
+      }
+    },
+    {
+      "id": "p22",
+      "to": {
+        "q": -4,
+        "r": 4
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": 0,
+        "r": -4
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": 0,
+        "r": 4
+      }
+    },
+    {
+      "id": "p3",
+      "to": {
+        "q": 2,
+        "r": -5
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": -2,
+        "r": 5
+      }
+    },
+    {
+      "id": "p21",
+      "to": {
+        "q": 3,
+        "r": -4
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": -3,
+        "r": 5
+      }
+    },
+    {
+      "id": "p3",
+      "to": {
+        "q": 3,
+        "r": -5
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": -1,
+        "r": 5
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": 1,
+        "r": -5
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": 1,
+        "r": 3
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": -1,
+        "r": -3
+      }
+    },
+    {
+      "id": "p14",
+      "to": {
+        "q": 0,
+        "r": 4
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": 0,
+        "r": -4
+      }
+    },
+    {
+      "id": "p22",
+      "to": {
+        "q": -3,
+        "r": 5
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": 2,
+        "r": -5
+      }
+    },
+    {
+      "id": "p4",
+      "to": {
+        "q": -2,
+        "r": 5
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": 1,
+        "r": -5
+      }
+    },
+    {
+      "id": "p22",
+      "to": {
+        "q": -3,
+        "r": 4
+      }
+    },
+    {
+      "id": "p13",
+      "to": {
+        "q": -1,
+        "r": -3
+      }
+    },
+    {
+      "id": "p4",
+      "to": {
+        "q": -3,
+        "r": 5
+      }
+    }
+  ],
+  "seed": 412001,
+  "source": "raw-ui-depth2-first0"
+}

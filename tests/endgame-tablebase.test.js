@@ -1,26 +1,16 @@
 import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { createEndgameTablebase } from '../endgame-tablebase.mjs';
 import { clone, move, reachable, validateConfig, effective } from '../dist/engine.js';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
-// Fixed three-piece regression scenario; no archived matches are required.
-const endingConfig = clone(REVISION_FOUR_CONFIG);
-endingConfig.stats.shield.damage = 3;
-endingConfig.stats.archer.fortitude = 2; // Only the veteran can kill in this reduced-table fixture.
-endingConfig.stats.archer.damage = 1; // Keep this exact reachability fixture invulnerable under the inclusive threshold.
-const endingState = {
-  pieces: [
-    { id: 'commander', type: 'defenseLamp', team: 0, q: 3, r: 1, group: null },
-    { id: 'veteran', type: 'shield', team: 0, q: 3, r: 0, group: null, reachedFarEdge: true },
-    { id: 'archer', type: 'archer', team: 1, q: 0, r: -1, group: null }
-  ],
-  turn: 1, ply: 0, winner: null
-};
+const archived = JSON.parse(fs.readFileSync(new URL('../../outputs/playtest-2026-11-05-shield-promotion-range/matches.json', import.meta.url), 'utf8'));
 
-test('tablebase finishes a stalled three-piece ending against the most delaying replies', () => {
-  const config = validateConfig(endingConfig), tb = createEndgameTablebase(config);
-  let state = clone(endingState), steps = 0;
+test('tablebase finishes the actual stalled three-piece ending against the most delaying replies', () => {
+  const config = validateConfig(archived.protocol.config); config.stats.archer.fortitude = 2;
+  const tb = createEndgameTablebase(config);
+  let state = clone(archived.matches.find(m => m.match === 8).finalState), steps = 0;
   assert.deepEqual(tb.lookup(state), { winner: 0, plies: 12 });
   while (state.winner === null) {
     const before = tb.lookup(state), options = [];
@@ -35,8 +25,8 @@ test('tablebase finishes a stalled three-piece ending against the most delaying 
   assert.equal(state.winner, 0);
 });
 test('tablebase rejects a lone enemy capable of killing the supposedly invulnerable flag', () => {
-  const config = validateConfig(endingConfig); config.stats.archer.damage = 3;
-  assert.equal(createEndgameTablebase(config).lookup(endingState), null);
+  const config = validateConfig(archived.protocol.config); config.stats.archer.damage = 3;
+  assert.equal(createEndgameTablebase(config).lookup(archived.matches.find(m => m.match === 8).finalState), null);
 });
 test('external defense cap preserves personal veteran protection, damage, range and source auras', () => {
   const config = clone(REVISION_FOUR_CONFIG);
@@ -54,7 +44,7 @@ test('external defense cap preserves personal veteran protection, damage, range 
 });
 
 test('tablebase falls back when an aura-armed commander can kill at equality', () => {
-  const config = validateConfig(endingConfig), ending = endingState;
+  const config = validateConfig(archived.protocol.config), ending = archived.matches.find(m => m.match === 8).finalState;
   config.stats.archer.fortitude = config.shieldPromotion.damageBonus;
   assert.equal(createEndgameTablebase(config).lookup(ending), null);
 });

@@ -1,0 +1,447 @@
+{
+  "status": "implemented-user-approved",
+  "revision": 3,
+  "playerTeam": 1,
+  "initial": {
+    "config": {
+      "version": 1,
+      "archerEdgeDamageBonus": 3,
+      "geometry": "hex",
+      "size": 3,
+      "auraDefenseCap": -1,
+      "army": {
+        "groups": 2,
+        "shields": 1,
+        "archers": 1,
+        "attackLamps": 0,
+        "defenseLamps": 1,
+        "scoutLamps": 0,
+        "centralShields": 0,
+        "rearArchers": 0,
+        "rearShields": 0,
+        "rearSupportOffset": 1,
+        "horns": 0
+      },
+      "shieldPromotion": {
+        "aura": 1,
+        "damageBonus": 1,
+        "rangeBonus": 2,
+        "defenseBonus": 1,
+        "maxRange": 3,
+        "allies": {
+          "aura": 1,
+          "damageBonus": 1,
+          "defenseBonus": 1,
+          "rangeBonus": 1
+        }
+      },
+      "stats": {
+        "shield": {
+          "move": 1,
+          "damage": 5,
+          "range": 1,
+          "fortitude": 5,
+          "aura": 1,
+          "damageBonus": 0,
+          "rangeBonus": 0,
+          "defenseBonus": 1
+        },
+        "archer": {
+          "move": 2,
+          "damage": 2,
+          "range": 4,
+          "fortitude": 3,
+          "aura": 0,
+          "damageBonus": 0,
+          "rangeBonus": 0,
+          "defenseBonus": 0
+        },
+        "attackLamp": {
+          "move": 2,
+          "damage": 0,
+          "range": 0,
+          "fortitude": 3,
+          "aura": 2,
+          "damageBonus": 0,
+          "rangeBonus": 0,
+          "defenseBonus": 0
+        },
+        "defenseLamp": {
+          "move": 2,
+          "damage": 0,
+          "range": 0,
+          "fortitude": 3,
+          "aura": 3,
+          "damageBonus": 0,
+          "rangeBonus": 0,
+          "defenseBonus": 1
+        },
+        "scoutLamp": {
+          "move": 2,
+          "damage": 3,
+          "range": 2,
+          "fortitude": 3,
+          "aura": 2,
+          "damageBonus": 0,
+          "rangeBonus": 1,
+          "defenseBonus": 0
+        },
+        "horn": {
+          "move": 2,
+          "damage": 0,
+          "range": 0,
+          "fortitude": 3,
+          "aura": 2,
+          "damageBonus": 1,
+          "rangeBonus": 0,
+          "defenseBonus": 0
+        }
+      },
+      "experiments": {
+        "squareDiagonals": true,
+        "lampShieldBlocking": true,
+        "allyShotsPass": true,
+        "aurasThroughShields": true,
+        "allowPass": false
+      },
+      "victoryCondition": "flag-or-combat",
+      "deploymentOffset": 0,
+      "shieldDefenseOnly": false,
+      "drumShieldMoveBonus": 1,
+      "centerArchers": true,
+      "drumMoveAllies": true
+    },
+    "position": {
+      "pieces": [
+        {
+          "id": "n-shield-left",
+          "type": "shield",
+          "team": 0,
+          "q": 1,
+          "r": -1
+        },
+        {
+          "id": "n-shield-right",
+          "type": "shield",
+          "team": 0,
+          "q": 0,
+          "r": -1
+        },
+        {
+          "id": "n-bow-left",
+          "type": "archer",
+          "team": 0,
+          "q": 2,
+          "r": -2
+        },
+        {
+          "id": "n-flag",
+          "type": "defenseLamp",
+          "team": 0,
+          "q": 1,
+          "r": -2
+        },
+        {
+          "id": "n-bow-right",
+          "type": "archer",
+          "team": 0,
+          "q": 0,
+          "r": -2
+        },
+        {
+          "id": "s-shield-left",
+          "type": "shield",
+          "team": 1,
+          "q": -1,
+          "r": 1
+        },
+        {
+          "id": "s-shield-right",
+          "type": "shield",
+          "team": 1,
+          "q": 0,
+          "r": 1
+        },
+        {
+          "id": "s-bow-left",
+          "type": "archer",
+          "team": 1,
+          "q": -2,
+          "r": 2
+        },
+        {
+          "id": "s-flag",
+          "type": "defenseLamp",
+          "team": 1,
+          "q": -1,
+          "r": 2
+        },
+        {
+          "id": "s-bow-right",
+          "type": "archer",
+          "team": 1,
+          "q": 0,
+          "r": 2
+        }
+      ],
+      "turn": 1,
+      "ply": 0,
+      "winner": null
+    }
+  },
+  "steps": [
+    {
+      "ply": 1,
+      "team": 1,
+      "action": {
+        "id": "s-shield-left",
+        "to": {
+          "q": -1,
+          "r": 0
+        }
+      },
+      "advice": [
+        "Следуй советам и победишь!",
+        "Ставь фигуру на подсвеченную клетку.",
+        "Лучники держат под перекрёстным огнём щитовиков.",
+        "Первым ходом атакуем броненосцем броненосца противника. Вместе с лукарем они нанесут достаточно урона, чтобы вывести его из игры. Действуй!"
+      ],
+      "deaths": [
+        {
+          "id": "n-shield-right",
+          "incoming": 7,
+          "fortitude": 7
+        }
+      ],
+      "after": {
+        "pieces": [
+          {
+            "id": "n-shield-left",
+            "type": "shield",
+            "team": 0,
+            "q": 1,
+            "r": -1
+          },
+          {
+            "id": "n-bow-left",
+            "type": "archer",
+            "team": 0,
+            "q": 2,
+            "r": -2
+          },
+          {
+            "id": "n-flag",
+            "type": "defenseLamp",
+            "team": 0,
+            "q": 1,
+            "r": -2
+          },
+          {
+            "id": "n-bow-right",
+            "type": "archer",
+            "team": 0,
+            "q": 0,
+            "r": -2
+          },
+          {
+            "id": "s-shield-left",
+            "type": "shield",
+            "team": 1,
+            "q": -1,
+            "r": 0
+          },
+          {
+            "id": "s-shield-right",
+            "type": "shield",
+            "team": 1,
+            "q": 0,
+            "r": 1
+          },
+          {
+            "id": "s-bow-left",
+            "type": "archer",
+            "team": 1,
+            "q": -2,
+            "r": 2
+          },
+          {
+            "id": "s-flag",
+            "type": "defenseLamp",
+            "team": 1,
+            "q": -1,
+            "r": 2
+          },
+          {
+            "id": "s-bow-right",
+            "type": "archer",
+            "team": 1,
+            "q": 0,
+            "r": 2
+          }
+        ],
+        "turn": 0,
+        "ply": 1,
+        "winner": null
+      }
+    },
+    {
+      "ply": 2,
+      "team": 0,
+      "action": {
+        "id": "n-shield-left",
+        "to": {
+          "q": 0,
+          "r": 0
+        }
+      },
+      "advice": [
+        "Вражеский броненосец уничтожен: броненосец и лукарь сложили урон. Теперь враг контратакует — ставит оставшегося броненосца между двумя нашими.",
+        "Он ударит по обоим. Наш левый выдержит 5 урона при стойкости 6. Правый получит ещё и 2 урона от лукаря: всего 7 против стойкости 6 — и погибнет.",
+        "Вражеский броненосец тоже погибнет под ответным огнём. Атаки происходят одновременно: фигура успевает ударить, даже если в этом же бою погибает."
+      ],
+      "deaths": [
+        {
+          "id": "n-shield-left",
+          "incoming": 14,
+          "fortitude": 6
+        },
+        {
+          "id": "s-shield-right",
+          "incoming": 7,
+          "fortitude": 6
+        }
+      ],
+      "after": {
+        "pieces": [
+          {
+            "id": "n-bow-left",
+            "type": "archer",
+            "team": 0,
+            "q": 2,
+            "r": -2
+          },
+          {
+            "id": "n-flag",
+            "type": "defenseLamp",
+            "team": 0,
+            "q": 1,
+            "r": -2
+          },
+          {
+            "id": "n-bow-right",
+            "type": "archer",
+            "team": 0,
+            "q": 0,
+            "r": -2
+          },
+          {
+            "id": "s-shield-left",
+            "type": "shield",
+            "team": 1,
+            "q": -1,
+            "r": 0
+          },
+          {
+            "id": "s-bow-left",
+            "type": "archer",
+            "team": 1,
+            "q": -2,
+            "r": 2
+          },
+          {
+            "id": "s-flag",
+            "type": "defenseLamp",
+            "team": 1,
+            "q": -1,
+            "r": 2
+          },
+          {
+            "id": "s-bow-right",
+            "type": "archer",
+            "team": 1,
+            "q": 0,
+            "r": 2
+          }
+        ],
+        "turn": 1,
+        "ply": 2,
+        "winner": null
+      }
+    },
+    {
+      "ply": 3,
+      "team": 1,
+      "action": {
+        "id": "s-shield-left",
+        "to": {
+          "q": 0,
+          "r": -1
+        }
+      },
+      "advice": [
+        "Враг контратаковал: его броненосец и наш правый погибли. Наш левый выжил и может продолжить наступление.",
+        "Враг не увёл знамя и оставил его без прикрытия. Выбери оставшегося броненосца и поставь на подсвеченную клетку рядом со знаменем.",
+        "Броненосец нанесёт 5 урона против стойкости знамени 3. Потеря знамени сразу завершает партию — уничтожать остальных врагов не нужно."
+      ],
+      "deaths": [
+        {
+          "id": "n-flag",
+          "incoming": 5,
+          "fortitude": 3
+        },
+        {
+          "id": "n-bow-right",
+          "incoming": 7,
+          "fortitude": 4
+        }
+      ],
+      "after": {
+        "pieces": [
+          {
+            "id": "n-bow-left",
+            "type": "archer",
+            "team": 0,
+            "q": 2,
+            "r": -2
+          },
+          {
+            "id": "s-shield-left",
+            "type": "shield",
+            "team": 1,
+            "q": 0,
+            "r": -1
+          },
+          {
+            "id": "s-bow-left",
+            "type": "archer",
+            "team": 1,
+            "q": -2,
+            "r": 2
+          },
+          {
+            "id": "s-flag",
+            "type": "defenseLamp",
+            "team": 1,
+            "q": -1,
+            "r": 2
+          },
+          {
+            "id": "s-bow-right",
+            "type": "archer",
+            "team": 1,
+            "q": 0,
+            "r": 2
+          }
+        ],
+        "turn": 0,
+        "ply": 3,
+        "winner": 1
+      }
+    }
+  ],
+  "victory": [
+    "Победа! Ты уничтожил вражеское знамя и сохранил своё.",
+    "Враг не увёл знамя и оставил его без прикрытия. Броненосец нанёс 5 урона против стойкости 3 — этого хватило для победы.",
+    "Сначала мы сложили урон броненосца и лукаря, пережили контратаку, затем добрались до главной цели."
+  ]
+}

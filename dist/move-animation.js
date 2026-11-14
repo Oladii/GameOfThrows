@@ -1,4 +1,7 @@
 export const DEATH_EFFECT_DURATION = 400;
+export const COMBAT_DIM_DURATION = 300;
+export const ARROW_REVEAL_INTERVAL = 300;
+export const ATTACK_HOLD_DURATION = 1000;
 
 export function createMovementPlan(points) {
   if (!Array.isArray(points) || points.length < 2 || points.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) throw new Error('Нужен маршрут перемещения.');
@@ -60,7 +63,7 @@ export class CombatAnimator {
     this.setTimer = clock.setTimer || ((callback, delay) => setTimeout(callback, delay));
     this.clearTimer = clock.clearTimer || (handle => clearTimeout(handle));
     this.timer = null; this.serial = 0; this.phase = 'idle';
-    this.movement = new MovementAnimator(onFrame, () => this.showDeaths(), clock);
+    this.movement = new MovementAnimator(onFrame, () => this.showAttacks(), clock);
   }
   cancel() {
     this.serial++; this.movement.cancel();
@@ -68,17 +71,54 @@ export class CombatAnimator {
     this.timer = null; this.phase = 'idle';
   }
   finish() { this.cancel(); this.onPhase('idle'); }
+  // The board supplies groups from one frozen damage report. Only their
+  // presentation is sequential; combat is never recalculated between deaths.
+  startSequence(groups) {
+    this.cancel();
+    if (!groups.length) { this.finish(); return; }
+    this.groups = groups; this.groupIndex = 0; this.arrowCount = 0;
+    this.sequencePhase('dimming', COMBAT_DIM_DURATION, () => this.revealArrow());
+  }
+  sequencePhase(phase, delay, next) {
+    const serial = this.serial;
+    this.phase = phase;
+    this.onPhase(phase, { groupIndex: this.groupIndex, arrowCount: this.arrowCount });
+    if (this.serial !== serial) return;
+    this.timer = this.setTimer(() => { if (this.serial === serial) next(); }, delay);
+  }
+  revealArrow() {
+    const group = this.groups[this.groupIndex];
+    this.arrowCount = Math.min(this.arrowCount + 1, group.arrows.length);
+    const complete = this.arrowCount === group.arrows.length;
+    this.sequencePhase('attacks', complete ? ATTACK_HOLD_DURATION : ARROW_REVEAL_INTERVAL,
+      () => complete ? this.sequenceDeaths() : this.revealArrow());
+  }
+  sequenceDeaths() {
+    this.sequencePhase('deaths', DEATH_EFFECT_DURATION, () => {
+      this.groupIndex++; this.arrowCount = 0;
+      if (this.groupIndex < this.groups.length) this.revealArrow();
+      else this.finish();
+    });
+  }
+  showAttacks() {
+    if (!this.hasDeaths || !this.attackDuration) { this.showDeaths(); return; }
+    const serial = this.serial;
+    this.phase = 'attacks'; this.onPhase('attacks');
+    if (this.serial !== serial) return;
+    this.timer = this.setTimer(() => { if (this.serial === serial) this.showDeaths(); }, this.attackDuration);
+  }
   showDeaths() {
     if (!this.hasDeaths) { this.finish(); return; }
-    this.phase = 'deaths'; this.onPhase('deaths');
     const serial = this.serial;
+    this.phase = 'deaths'; this.onPhase('deaths');
+    if (this.serial !== serial) return;
     this.timer = this.setTimer(() => { if (this.serial === serial) this.finish(); }, DEATH_EFFECT_DURATION);
   }
-  start(plan, hasDeaths, reducedMotion = false) {
-    this.cancel(); this.hasDeaths = hasDeaths;
+  start(plan, hasDeaths, reducedMotion = false, attackDuration = 0) {
+    this.cancel(); this.hasDeaths = hasDeaths; this.attackDuration = attackDuration;
     if (reducedMotion) { this.finish(); return; }
     if (plan) {
       this.phase = 'movement'; this.onPhase('movement'); this.movement.start(plan);
-    } else this.showDeaths();
+    } else this.showAttacks();
   }
 }

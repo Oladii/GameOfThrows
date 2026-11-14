@@ -1,7 +1,7 @@
 import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
+import { PREVIOUS_LOCAL_CONFIG as DEFAULT_CONFIG, PREVIOUS_SCOUT_CONFIG, BALANCE_REVISION, updateSavedBalance } from '../dist/rules.js';
 import { clone, cells, distance, createGame, createScenario, analyze, inspectCell, attacks, auraReaches, resolve, effective, reachable, move, pass, validateState, validateConfig, shieldCanRetreat } from '../dist/engine.js';
 // Fix the combat fixture so future balance tuning does not rewrite aura tests.
 const config = () => { const c = clone(REVISION_FOUR_CONFIG); c.stats.shield.fortitude = 3; c.stats.archer.fortitude = 1; c.stats.attackLamp.fortitude = 2; c.stats.defenseLamp.fortitude = 2; c.stats.shield.damage = 3; c.stats.archer.damage = 1; c.stats.attackLamp.damage = 2; c.stats.attackLamp.range = 3; c.stats.attackLamp.damageBonus = 1; return c; };
@@ -147,22 +147,25 @@ test('only the opposite edge unlocks retreat and the saved flag must be a shield
   assert.throws(() => validateState(state([{ ...p('bad', 'shield', 0, 0, 0), reachedFarEdge: 'true' }]), c));
   assert.throws(() => validateState(state([{ ...p('bad', 'archer', 0, 0, 0), reachedFarEdge: true }]), c));
 });
-test('a longer route can touch the far edge and turn backward within the same move; preview and move retain the permission', () => {
+test('shield must finish on the far edge; promotion cannot unlock a second leg backward', () => {
   for (const team of [0, 1]) {
     const c = config(); c.stats.shield.move = 3;
     const forward = team === 0 ? 1 : -1, shield = p('shield', 'shield', team, 0, forward * 3);
     const s = { ...state([shield, p('enemy', 'defenseLamp', 1 - team, -forward * 4, 0)]), turn: team };
     const destination = { q: 0, r: forward * 2 };
-    const route = reachable(shield, s, c).find(cell => cell.q === destination.q && cell.r === destination.r);
-    assert.equal(route.steps, 3); assert.equal(route.reachedFarEdge, true);
-    const preview = inspectCell(s, c, destination, shield.id);
-    assert.equal(preview.isPreview, true); assert.equal(preview.piece.reachedFarEdge, true);
-    assert.equal(move(s, c, shield.id, destination).state.pieces.find(p => p.id === shield.id).reachedFarEdge, true);
+    assert.ok(!reachable(shield, s, c).some(cell => cell.q === destination.q && cell.r === destination.r));
+    assert.equal(inspectCell(s, c, destination, shield.id).isPreview, false);
+    assert.throws(() => move(s, c, shield.id, destination), /нельзя пойти/);
+    const edge = { q: 0, r: forward * 4 };
+    assert.equal(inspectCell(s, c, edge, shield.id).piece.reachedFarEdge, true);
+    const arrival = move(s, c, shield.id, edge).state;
+    assert.equal(arrival.pieces.find(p => p.id === shield.id).reachedFarEdge, true);
+    arrival.turn = team;
+    assert.ok(reachable(arrival.pieces.find(p => p.id === shield.id), arrival, c).some(cell => cell.q === destination.q && cell.r === destination.r));
     assert.equal(s.pieces[0].reachedFarEdge, undefined);
-    const blocked = clone(s); blocked.pieces.push(p('wall1', 'defenseLamp', 1 - team, 0, forward * 4), p('wall2', 'defenseLamp', 1 - team, -forward, forward * 4));
-    assert.ok(!reachable(blocked.pieces[0], blocked, c).some(cell => cell.q === destination.q && cell.r === destination.r));
   }
 });
+
 test('move changes turns and performs one simultaneous resolution for both teams', () => {
   const c = config(); c.stats.archer.damage = 2;
   const s = state([p('a', 'archer', 0, -2, 0), p('b', 'archer', 1, 1, 0)]);
@@ -333,7 +336,7 @@ test('arrival grants the permanent bonuses before simultaneous damage, and a dyi
 test('old configurations receive promotion defaults and editable promotion values are validated and applied', () => {
   const old = config(); delete old.shieldPromotion;
   const c = validateConfig(old);
-  assert.deepEqual(c.shieldPromotion, DEFAULT_CONFIG.shieldPromotion);
+  assert.deepEqual(c.shieldPromotion, PREVIOUS_SCOUT_CONFIG.shieldPromotion);
   c.shieldPromotion = { aura: 2, damageBonus: 2, rangeBonus: 3, defenseBonus: 4, maxRange: 2 };
   validateConfig(c);
   const veteran = { ...p('vet', 'shield', 0, 0, 0), reachedFarEdge: true }, archer = p('archer', 'archer', 0, 2, 0), s = state([veteran, archer]);
@@ -460,7 +463,7 @@ test('banner balance migration updates revision two once and preserves explicit 
   assert.equal(next.stats.attackLamp.range, 0);
   assert.equal(next.stats.attackLamp.damageBonus, DEFAULT_CONFIG.stats.attackLamp.damageBonus);
   assert.deepEqual(updateSavedBalance(old, BALANCE_REVISION), old);
-  assert.deepEqual(validateConfig(old), old);
+  assert.deepEqual(validateConfig(old), { ...clone(old), army: { ...old.army, scoutLamps: 0 }, stats: { ...old.stats, scoutLamp: clone(PREVIOUS_SCOUT_CONFIG.stats.scoutLamp) } });
   const custom = clone(old); Object.assign(custom.stats.attackLamp, { damage: 4, range: 5, damageBonus: 3 });
   assert.deepEqual(updateSavedBalance(custom, 2), custom);
 });

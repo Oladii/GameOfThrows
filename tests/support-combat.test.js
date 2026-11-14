@@ -1,7 +1,7 @@
 import { REVISION_FOUR_CONFIG } from './fixtures/revision-four.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG } from '../dist/rules.js';
+import { PREVIOUS_UNCAPPED_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
 import { effective, attacks, analyze, resolve, inspectCell, move, clone, validateConfig } from '../dist/engine.js';
 import { attackCellsFor, unitStatParts } from '../dist/board-presentation.js';
 const piece = (id, type, team, q, r, extra = {}) => ({ id, type, team, q, r, ...extra });
@@ -9,7 +9,7 @@ const position = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
 const veteran = (team = 0, q = 0, r = 0) => piece('veteran', 'shield', team, q, r, { reachedFarEdge: true });
 const config = geometry => { const c = clone(DEFAULT_CONFIG); c.geometry = geometry; c.size = 6; return c; };
 
-test('only an allied veteran can arm support; other drummers and ordinary shields still provide support without arming it', () => {
+test('only an allied veteran can arm support; other drummers provide support without arming it and ordinary shields do not protect support', () => {
   for (const geometry of ['hex', 'square']) for (const type of ['attackLamp', 'defenseLamp']) {
     const c = config(geometry), support = piece('support', type, 0, 2, 2), target = piece('target', 'archer', 1, 3, 2);
     const drummer = piece('drummer', 'attackLamp', 0, 2, 3), shield = piece('shield', 'shield', 0, 1, 2);
@@ -18,12 +18,12 @@ test('only an allied veteran can arm support; other drummers and ordinary shield
     assert.equal(unarmed.damage, 0); assert.equal(unarmed.range, 0);
     assert.equal(attacks(support, target, s, c), false);
     assert.equal(attackCellsFor(support, s, c).length, 0);
-    assert.ok(unarmed.fortitude > c.stats[type].fortitude, 'ordinary protection still applies');
+    assert.equal(unarmed.fortitude, c.stats[type].fortitude, 'ordinary shield defense excludes support');
     s.pieces[3] = veteran(1, 1, 2);
     assert.equal(effective(support, s, c).damage, 0, 'enemy veteran does not arm support');
     s.pieces[3] = veteran(0, 1, 2);
     const armed = effective(support, s, c);
-    assert.equal(armed.damage, c.shieldPromotion.damageBonus + c.stats.attackLamp.damageBonus);
+    assert.equal(armed.damage, c.shieldPromotion.allies.damageBonus + c.stats.attackLamp.damageBonus);
     assert.equal(armed.range, 1); assert.equal(attacks(support, target, s, c), true);
     assert.ok(attackCellsFor(support, s, c).some(cell => cell.q === target.q && cell.r === target.r));
     assert.equal(unitStatParts(support, s, c).find(stat => stat.field === 'damage').total, armed.damage);
@@ -36,7 +36,7 @@ test('the veteran must actually reach support along an unblocked aura ray', () =
     for (const [q, r] of [[2, 0], [1, 1]]) {
       assert.equal(effective(support, position([support, veteran(0, q, r)]), c).range, 0);
     }
-    c.shieldPromotion.aura = 2; c.experiments.aurasThroughShields = false;
+    c.shieldPromotion.allies.aura = 2; c.experiments.aurasThroughShields = false;
     const s = position([support, veteran(0, 2, 0), piece('blocker', 'shield', 0, 1, 0)]);
     assert.equal(effective(support, s, c).range, 0);
     c.experiments.aurasThroughShields = true;
