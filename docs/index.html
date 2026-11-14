@@ -887,7 +887,7 @@ main{padding:0 14px 14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T18:52:04.926Z">Сборка 14.11.2026, 21:52:04 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.80</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T21:13:30.367Z">Сборка 15.11.2026, 00:13:30 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -3933,8 +3933,10 @@ function pendingSetupBalance(input, revision) {
   // Only an exact historical standard preset adopts the current new-game rules.
   return (revision ?? 0) < BALANCE_REVISION && same(updated, PREVIOUS_LOCAL_CONFIG) ? clone(DEFAULT_CONFIG) : updated;
 }
+let autoStartFreshGame = false;
 try {
   const raw = localStorage.getItem(STORAGE);
+  autoStartFreshGame = raw === null;
   if (raw) {
     const saved = JSON.parse(raw), restored = readSnapshot(saved);
     if (['north', 'south', 'random'].includes(saved.firstMove)) firstMove = saved.firstMove;
@@ -4578,6 +4580,7 @@ attackReachObserver.observe($('#board'));
 document.addEventListener('visibilitychange', updateAttackReachPlayback);
 updateAttackReachPlayback();
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
+if (autoStartFreshGame) startGame();
 ready = true; render();
 globalThis.window?.gameSelects?.mount();
 void checkGameVersion();

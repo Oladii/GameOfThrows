@@ -220,8 +220,10 @@ function pendingSetupBalance(input, revision) {
   // Only an exact historical standard preset adopts the current new-game rules.
   return (revision ?? 0) < BALANCE_REVISION && same(updated, PREVIOUS_LOCAL_CONFIG) ? clone(DEFAULT_CONFIG) : updated;
 }
+let autoStartFreshGame = false;
 try {
   const raw = localStorage.getItem(STORAGE);
+  autoStartFreshGame = raw === null;
   if (raw) {
     const saved = JSON.parse(raw), restored = readSnapshot(saved);
     if (['north', 'south', 'random'].includes(saved.firstMove)) firstMove = saved.firstMove;
@@ -865,6 +867,7 @@ attackReachObserver.observe($('#board'));
 document.addEventListener('visibilitychange', updateAttackReachPlayback);
 updateAttackReachPlayback();
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
+if (autoStartFreshGame) startGame();
 ready = true; render();
 globalThis.window?.gameSelects?.mount();
 void checkGameVersion();
