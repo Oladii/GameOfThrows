@@ -100,12 +100,13 @@ export function createGuideController({ document: doc = globalThis.document, win
       const piece = battle.position.pieces.find(piece => piece.id === control.dataset.showcasePiece);
       if (piece) battle.focusCell = `${piece.q},${piece.r}`;
       battle.selectPiece(control.dataset.showcasePiece);
+      if (piece) battle.preview(piece);
     }
     else if (control.dataset.showcaseCell !== undefined) {
       const [q, r] = control.dataset.showcaseCell.split(',').map(Number);
       battle.focusCell = `${q},${r}`;
       const occupant = battle.position.pieces.find(piece => piece.q === q && piece.r === r);
-      if (occupant) { battle.selectPiece(occupant.id); return; }
+      if (occupant) { battle.selectPiece(occupant.id); battle.preview(occupant); return; }
       const destination = { q, r };
       if (!battle.previewMoves.some(cell => cell.q === q && cell.r === r)) battle.clearSelection();
       else if (!battle.moveTo(destination)) battle.preview(destination);

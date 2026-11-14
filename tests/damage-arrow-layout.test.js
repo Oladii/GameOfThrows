@@ -55,7 +55,8 @@ test('crossing rays and combined attacks have separate labels, with enough width
   assert.equal(edges.length,arrows.length);checkDistinct(edges);
   assert.ok(edges.find(e=>e.damage===9999).label.width>edges.find(e=>e.damage===16).label.width);
   const html=renderDamageArrows(arrows,point);
-  assert.equal((html.match(/class="attack-ray"/g)||[]).length,arrows.length);
+  assert.equal((html.match(/class="attack-ray"/g)||[]).length,4);
+  assert.equal((html.match(/data-bidirectional="true"/g)||[]).length,2);
   assert.equal((html.match(/class="attack-ray-label"/g)||[]).length,0);
   assert.doesNotMatch(html, /class="attack-ray-label"/);
   assert.ok(!html.includes('leader'));

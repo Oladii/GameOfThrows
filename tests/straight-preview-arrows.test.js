@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { layoutDamageArrows, renderDamageArrows, inspectionDamageArrows, inspectionIncomingArrows, renderUnitBadges } from '../dist/board-presentation.js';
+import { layoutDamageArrows, renderDamageArrows, inspectionDamageArrows, renderUnitBadges } from '../dist/board-presentation.js';
 
 const point = p => ({ x: p.q, y: p.r });
 const target = { id: 'target', q: 0, r: 0, team: 0 };
@@ -33,7 +33,7 @@ test('explicitly straight arrows retain the ghost without damage labels', () => 
   assert.ok(paths(renderDamageArrows(arrows, point)).every(d => d.includes('Q')), 'combat keeps its default curved routing');
 });
 
-test('hover forecasts retain distant curves, movement and combat hide attack arrows', () => {
+test('hover forecasts retain distant curves, movement hides arrows, combat reveals them', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   const layer = { innerHTML: '' };
   const report = new Map([[target.id, { attackers: arrows.map(a => ({ id: a.source.id, damage: a.damage })), dead: false }]]);
@@ -42,7 +42,7 @@ test('hover forecasts retain distant curves, movement and combat hide attack arr
     inspectionContext: () => ({ ...forecast, isPreview: true }),
     document: { querySelectorAll: () => [] }, paintAttackReach() {}, renderInspector() {}, $: () => layer,
     point, config: { geometry: 'hex' }, cells: () => [], key: (q, r) => `${q},${r}`, ICON_PATHS: {},
-    unitAppearance: () => ({ veteran: false }), renderTokenBody: () => '', unitBadges: () => '', renderDamageArrows, inspectionDamageArrows, inspectionIncomingArrows });
+    unitAppearance: () => ({ veteran: false }), renderTokenBody: () => '', unitBadges: () => '', renderDamageArrows, inspectionDamageArrows });
   vm.runInContext(app.slice(app.indexOf('function highlightSources()'), app.indexOf('function paintAttackReach(')), context);
   context.highlightSources();
   assert.equal(paths(layer.innerHTML).length, arrows.length);
@@ -55,7 +55,7 @@ test('hover forecasts retain distant curves, movement and combat hide attack arr
   assert.doesNotMatch(layer.innerHTML, /class="preview-ghost/);
   context.combat = { phase: 'attacks', groups: [{ arrows }], groupIndex: 0, visiblePosition: forecast.position, arrowCount: arrows.length, report };
   context.highlightSources();
-  assert.equal(paths(layer.innerHTML).length, 0);
+  assert.equal(paths(layer.innerHTML).length, arrows.length);
 });
 
 
@@ -74,10 +74,11 @@ test('selected unit keeps enemy incoming rays and shows its damage as enemy badg
     document: { querySelectorAll: selector => selector.includes('data-piece-id') ? elements : [] },
     paintAttackReach() {}, renderInspector() {}, $: () => layer, point, config: { geometry: 'hex' }, cells: () => [], key: () => '',
     unitBadges: (info, options) => ({ incoming: info.incoming, dead: info.dead, show: options.showIncoming }),
-    renderDamageArrows, inspectionDamageArrows, inspectionIncomingArrows });
+    renderDamageArrows, inspectionDamageArrows });
   vm.runInContext(app.slice(app.indexOf('function highlightSources()'), app.indexOf('function paintAttackReach(')), context);
   context.highlightSources();
   assert.equal(paths(layer.innerHTML).length, 1);
+  assert.match(layer.innerHTML, /data-bidirectional="true"/);
   assert.match(layer.innerHTML, /data-source="far" data-target="target"/);
   assert.equal(badges.get(enemy.id).incoming, 9, 'shows total damage from the whole army');
   assert.equal(badges.get(enemy.id).show, true);

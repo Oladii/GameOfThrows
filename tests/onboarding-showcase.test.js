@@ -21,8 +21,9 @@ function lesson() {
   return { battle, pending, play, reply, settle };
 }
 
-const damageEdges = html => [...html.matchAll(/class="attack-ray" data-source="([^"]+)" data-target="([^"]+)"/g)].map(match => `${match[1]}:${match[2]}`).sort();
+const damageEdges = html => [...html.matchAll(/class="attack-ray" data-source="([^"]+)" data-target="([^"]+)"([^>]*)>/g)].flatMap(([, source, target, attrs]) => attrs.includes('data-bidirectional="true"') ? [`${source}:${target}`, `${target}:${source}`] : [`${source}:${target}`]).sort();
 const incomingEdges = (report, piece) => report.get(piece.id).attackers.map(attack => `${attack.id}:${piece.id}`).sort();
+const combinedEdges = (report, target, selectedId) => [...new Set([...(target ? incomingEdges(report,target) : []), ...[...report].flatMap(([id,info]) => info.attackers.filter(a=>a.id===selectedId).map(a=>`${a.id}:${id}`))])].sort();
 
 test('the lesson retains the 37-cell board with two shields, two archers and a central flag per side', () => {
   const { position, config } = createShowcaseBattle();
@@ -105,9 +106,10 @@ test('training shows incoming preview damage with normal range and aura presenta
   html=renderShowcaseBattle(battle,{},renderUnitBadges);
   assert.match(html,/training-preview-token/);
   const forecast = inspectCell(battle.position,battle.config,TRAINING_ACTIONS[0].to,'s-shield-left');
-  assert.deepEqual(damageEdges(html),incomingEdges(forecast.report,forecast.piece));
+  assert.deepEqual(damageEdges(html),combinedEdges(forecast.report,forecast.piece,battle.selectedId));
   assert.ok(damageEdges(html).length > 0);
-  assert.match(html,/marker-end="url\(#training-damage-arrow-north\)"/);
+  assert.match(html,/marker-end="url\(#training-damage-arrow-south\)"/);
+  assert.match(html,/marker-start="url\(#training-damage-arrow-north\)"/);
   assert.doesNotMatch(html,/data-source="s-bow-right" data-target="n-shield-right"/);
   assert.match(html,/data-weapon-cell=/);
   assert.match(html,/data-aura-origin="-1,0"/);
@@ -136,7 +138,7 @@ test('every legal move of every friendly piece can be previewed without advancin
       const expected = inspectCell(battle.position, battle.config, destination, piece.id);
       assert.equal(expected.isPreview, true);
       const html = renderShowcaseBattle(battle, {}, (info, options) => options.showIncoming ? `forecast:${info.incoming}:${info.fortitude};` : '');
-      assert.deepEqual(damageEdges(html), incomingEdges(expected.report, expected.piece));
+      assert.deepEqual(damageEdges(html), combinedEdges(expected.report,expected.piece,battle.selectedId));
       assert.match(html, /training-preview-token/);
       assert.match(html, new RegExp(`translate\\(${showcasePoint(destination).x},${showcasePoint(destination).y}\\)`));
       if (expected.report.get(piece.id).incoming > 0) assert.ok(html.includes(`forecast:${expected.report.get(piece.id).incoming}:${expected.report.get(piece.id).fortitude};`));
@@ -178,12 +180,12 @@ test('hovering an occupied cell shows all incoming damage even with another unit
   assert.match(html,/marker-end="url\(#training-damage-arrow-south\)"/);
   battle.selectPiece('s-shield-left'); battle.preview(enemy);
   const selected = battle.position.pieces.find(piece => piece.id === battle.selectedId);
-  assert.deepEqual(damageEdges(renderShowcaseBattle(battle,{},renderUnitBadges)), incomingEdges(report,enemy));
+  assert.deepEqual(damageEdges(renderShowcaseBattle(battle,{},renderUnitBadges)), combinedEdges(report,enemy,battle.selectedId));
   battle.clearSelection();
   battle.preview(null); assert.doesNotMatch(renderShowcaseBattle(battle,{},renderUnitBadges),/data-source=/);
 });
 
-test('combat keeps its phases without automatic arrows and cancels pending timers on undo', () => {
+test('combat reveals contributions in sequence and cancels pending timers on undo', () => {
   const { battle, pending } = lesson();
   battle.selectPiece(TRAINING_ACTIONS[0].id); battle.moveTo(TRAINING_ACTIONS[0].to);
   assert.equal(battle.presentation.phase, 'dimming');
@@ -196,14 +198,14 @@ test('combat keeps its phases without automatic arrows and cancels pending timer
       phases.push({ phase:battle.presentation.phase, arrows:[...html.matchAll(/class="attack-ray"/g)].length });
     }
   }
-  assert.deepEqual(phases, [{phase:'attacks',arrows:0},{phase:'attacks',arrows:0},{phase:'deaths',arrows:0}]);
+  assert.deepEqual(phases, [{phase:'attacks',arrows:1},{phase:'attacks',arrows:2},{phase:'deaths',arrows:0}]);
   assert.equal(battle.position.ply,1);
   const html = renderShowcaseBattle(battle,{},renderUnitBadges);
   assert.doesNotMatch(html,/training-preview-token|data-source=/);
   battle.restart(); assert.equal(pending.size,0); assert.equal(battle.position.ply,0);
 });
 
-test('both armies preserve combat damage and deaths without automatic attack arrows', () => {
+test('both armies reveal the current combat group without changing damage or deaths', () => {
   const { battle, play, reply } = lesson();
   let frames = 0, combatPhases = 0;
   battle.onChange = () => {
@@ -211,7 +213,8 @@ test('both armies preserve combat damage and deaths without automatic attack arr
     assert.doesNotMatch(html, /training-preview-note/);
     const presentation = battle.presentation;
     if (presentation?.phase === 'attacks') {
-      assert.deepEqual(damageEdges(html),[]);
+      const expected = presentation.combat.groups[presentation.groupIndex].arrows.slice(0,presentation.arrowCount).map(attack => `${attack.source.id}:${attack.target.id}`).sort();
+      assert.deepEqual(damageEdges(html),expected);
       combatPhases++;
     } else if (presentation && presentation.phase !== 'movement') assert.deepEqual(damageEdges(html),[]);
     frames++;
@@ -275,4 +278,16 @@ test('reset discards a waiting enemy calculation and rejects its stale continuat
   const {battle,play,reply}=lesson();play();reply(false);
   const stale=battle.presentation.proceedCombat;battle.restart();stale();
   assert.equal(battle.position.ply,0);assert.equal(battle.presentation,null);assert.equal(battle.continueCombat(),false);
+});
+
+
+test('training retains styled shaft classes while namespacing marker references', () => {
+  const battle = new ShowcaseBattle();
+  battle.selectPiece('s-shield-left'); battle.preview({q:0,r:0});
+  const html = renderShowcaseBattle(battle,{},renderUnitBadges);
+  assert.match(html,/class="damage-arrow-path"/);
+  assert.doesNotMatch(html,/class="training-damage-arrow-/);
+  assert.doesNotMatch(html,/url\(#damage-arrow-/);
+  assert.match(html,/url\(#training-damage-arrow-/);
+  battle.stop();
 });

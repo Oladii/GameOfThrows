@@ -463,7 +463,7 @@ dialog{padding:22px 16px;width:calc(100% - 22px);max-height:94vh}
 #board .cell:hover .tile{stroke:#96aa8a;stroke-width:2}
 #board .attack-reach .reach-icon{stroke:#80827a;stroke-width:2.1}
 #board .attack-reach.occupied .reach-icon{stroke:#6c6e66;filter:none}
-.attack-target-weapon{fill:none;stroke:var(--blue);stroke-width:2.7;stroke-linecap:round;stroke-linejoin:round;opacity:.75;pointer-events:none}
+.attack-target-weapon{fill:none;stroke:var(--blue);stroke-width:2.7;stroke-linecap:round;stroke-linejoin:round;opacity:.3;pointer-events:none}
 .attack-target-weapon.south{stroke:var(--rust)}
 .attack-target-fill{fill:var(--blue);stroke:none;opacity:.3;pointer-events:none}
 .attack-target-fill.south{fill:var(--rust)}
@@ -650,9 +650,9 @@ main{padding-top:8px}
 .incoming-indicator .target-icon{fill:none;stroke:#795a1e;stroke-width:1.2}
 .incoming-indicator .target-icon circle:last-of-type{fill:#795a1e;stroke:none}
 .attack-ray-label .ray-badge{fill:#fff9e8;stroke:#b98227;stroke-width:1.2}
-#board .piece.combat-muted{filter:grayscale(1);opacity:.45}
-#board[data-combat-phase="dimming"] .piece.combat-muted{animation:combat-dim 300ms ease-out both}
-#board[data-combat-phase="attacks"] [data-revealing="true"]{animation:combat-arrow-appear 180ms ease-out both}
+:is(#board,.showcase-board) .piece.combat-muted{filter:grayscale(1);opacity:.45}
+:is(#board,.showcase-board)[data-combat-phase="dimming"] .piece.combat-muted{animation:combat-dim 300ms ease-out both}
+:is(#board,.showcase-board)[data-combat-phase="attacks"] [data-revealing="true"]{animation:combat-arrow-appear 180ms ease-out both}
 @keyframes combat-dim{
 from{filter:grayscale(0);opacity:1}
 to{filter:grayscale(1);opacity:.45}}
@@ -660,8 +660,8 @@ to{filter:grayscale(1);opacity:.45}}
 from{opacity:0}
 to{opacity:1}}
 @media(prefers-reduced-motion:reduce){
-#board[data-combat-phase="attacks"] [data-revealing="true"],#board[data-combat-phase="dimming"] .piece.combat-muted{animation:none}}
-.attack-target-weapon.friendly-target{stroke:#68865e;opacity:1}
+:is(#board,.showcase-board)[data-combat-phase="attacks"] [data-revealing="true"],:is(#board,.showcase-board)[data-combat-phase="dimming"] .piece.combat-muted{animation:none}}
+.attack-target-weapon.friendly-target{stroke:#68865e}
 #board .cell.selected:hover .tile{stroke:#68865e}
 .incoming-indicator .fatal-mark .skull-badge{fill:#fff1bd;stroke:#c9a34d}
 .incoming-indicator .fatal-mark .skull-head{fill:#795a1e}
@@ -890,7 +890,7 @@ main{padding:0 14px 14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.82</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T21:55:40.181Z">Сборка 15.11.2026, 00:55:40 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.83</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T23:32:36.365Z">Сборка 15.11.2026, 02:32:36 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -2701,6 +2701,9 @@ function renderDeathSkull() {
 
 
 const ATTACK_TEAM_COLORS = ['#4c9fc9', '#ab3300'];
+function damageArrowMarkers(prefix = 'damage-arrow') {
+  return ATTACK_TEAM_COLORS.map((color, index) => `<marker id="${prefix}-${['north', 'south'][index]}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('');
+}
 const hexGridPoint = cell => ({ x: Math.sqrt(3) * 33 * (cell.q + cell.r / 2), y: 49.5 * cell.r });
 const hexGridPolygon = point => Array.from({ length: 6 }, (_, i) => {
   const angle = (60 * i - 30) * Math.PI / 180;
@@ -2946,17 +2949,75 @@ function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, report 
   return edges;
 }
 
+// Build both halves from the same arc-length samples, so every dash shares
+// its ends and centreline even on a bend. Each side is half the 2.5px shaft.
+function splitDamageDashes(edge, colors) {
+  const { from, to, control, straight } = edge;
+  const at = t => straight ? { x: from.x + (to.x-from.x)*t, y: from.y + (to.y-from.y)*t }
+    : { x:(1-t)**2*from.x+2*(1-t)*t*control.x+t*t*to.x, y:(1-t)**2*from.y+2*(1-t)*t*control.y+t*t*to.y };
+  const normal = t => {
+    const dx = straight ? to.x-from.x : 2*((1-t)*(control.x-from.x)+t*(to.x-control.x));
+    const dy = straight ? to.y-from.y : 2*((1-t)*(control.y-from.y)+t*(to.y-control.y));
+    const length = Math.hypot(dx,dy) || 1;
+    return { x:-dy/length*1.25, y:dx/length*1.25 };
+  };
+  const estimate = Math.hypot(control.x-from.x,control.y-from.y)+Math.hypot(to.x-control.x,to.y-control.y);
+  const steps = Math.max(2,Math.ceil(estimate*2)), samples = [{...from,t:0,length:0}];
+  for(let i=1;i<=steps;i++) {
+    const t=i/steps,p=at(t),prev=samples[samples.length-1];
+    samples.push({...p,t,length:prev.length+Math.hypot(p.x-prev.x,p.y-prev.y)});
+  }
+  let cursor=1;
+  const atLength = length => {
+    while(cursor<samples.length-1&&samples[cursor].length<length)cursor++;
+    const a=samples[cursor-1],b=samples[cursor],fraction=(length-a.length)/(b.length-a.length||1);
+    const t=a.t+(b.t-a.t)*fraction;
+    return {...at(t),t};
+  };
+  const paths=['',''],total=samples[samples.length-1].length;
+  for(let start=0;start<total;start+=8) {
+    const end=Math.min(start+5,total),points=[];
+    for(let length=start;length<end;length+=.5)points.push(atLength(length));
+    points.push(atLength(end));
+    for(const [index,sign] of [[0,1],[1,-1]]) {
+      const outline=[...points,...points.map(p=>{const n=normal(p.t);return {x:p.x+n.x*sign,y:p.y+n.y*sign};}).reverse()];
+      paths[index]+=`M${outline.map(p=>`${p.x},${p.y}`).join('L')}Z`;
+    }
+  }
+  return paths.map((d,index)=>`<path class="damage-arrow-half" data-side="${index}" d="${d}" fill="${colors[index]}"/>`).join('');
+}
+
 function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false, maxBend = MAX_DAMAGE_ARROW_BEND, config = { geometry: 'hex' } } = {}) {
   const points = board.map(point), bounds = points.length ? { left:Math.min(...points.map(p=>p.x))-32,right:Math.max(...points.map(p=>p.x))+32,top:Math.min(...points.map(p=>p.y))-32,bottom:Math.max(...points.map(p=>p.y))+32 } : null;
-  // Lay out the complete group before revealing it so existing arrows and
-  // their labels stay in place when the next contribution appears.
-  const direct = new Map(layoutDamageArrows(arrows, point, { straight: true }).map(edge => [edge.order, edge]));
-  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight,maxBend})
+  // Pair reciprocal contributions before layout, while retaining their original
+  // reveal steps. The second arrowhead appears only when that attack is revealed.
+  const grouped = [], pairs = new Map();
+  arrows.forEach((arrow, order) => {
+    const pairKey = JSON.stringify([arrow.source.id, arrow.target.id].sort());
+    const existing = pairs.get(pairKey);
+    if (existing && existing.source.id === arrow.target.id && existing.target.id === arrow.source.id) {
+      existing.reverseOrder = order;
+    } else if (!existing) {
+      const edge = { ...arrow, firstOrder: order, reverseOrder: null };
+      pairs.set(pairKey, edge); grouped.push(edge);
+    }
+  });
+  const direct = new Map(layoutDamageArrows(grouped, point, { straight: true }).map(edge => [edge.order, edge]));
+  const edges = layoutDamageArrows(grouped,point,{pieces,bounds,report,straight,maxBend})
     .map(edge => straight || distance(edge.source, edge.target, config) === 1
       ? { ...direct.get(edge.order), straight: true } : edge)
-    .filter(e => visibleCount === null || e.order < visibleCount);
-  const reveal = e => visibleCount !== null && e.order === visibleCount - 1 ? ' data-revealing="true"' : '';
-  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${e.straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"></path></g>`).join('');
+    .filter(e => visibleCount === null || e.firstOrder < visibleCount);
+  const rays = edges.map(e => {
+    const mutual = e.reverseOrder !== null && (visibleCount === null || e.reverseOrder < visibleCount);
+    const sourceTeam = e.source.team === 1 ? 'south' : 'north';
+    const targetTeam = e.target.team === 1 ? 'south' : 'north';
+    const team = mutual ? 'mutual' : sourceTeam;
+    const sourceColor = ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0];
+    const targetColor = ATTACK_TEAM_COLORS[e.target.team === 1 ? 1 : 0];
+    const halves = mutual ? splitDamageDashes(e, [sourceColor, targetColor]) : '';
+    const reveal = visibleCount !== null && (e.firstOrder === visibleCount - 1 || mutual && e.reverseOrder === visibleCount - 1) ? ' data-revealing="true"' : '';
+    return `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${team}"${mutual ? ' data-bidirectional="true"' : ''} style="--attack-color:${sourceColor}${mutual ? ';opacity:.9' : ''}"${reveal}>${halves}<path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${e.straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}"${mutual ? ` style="stroke:none;opacity:1" marker-start="url(#damage-arrow-${sourceTeam})"` : ''} marker-end="url(#damage-arrow-${mutual ? targetTeam : sourceTeam})"></path></g>`;
+  }).join('');
   // Keep attack paths and preview tokens without damage labels.
   return rays+previewMarkup;
 }
@@ -3040,24 +3101,16 @@ function renderHintArrow(source, destination, point) {
   return `<g class="hint-trace" pointer-events="none" aria-hidden="true"><defs><marker id="hint-arrow-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#44834a"/></marker></defs><path class="damage-arrow-path" d="M${edge.from.x},${edge.from.y}L${edge.end.x},${edge.end.y}" marker-end="url(#hint-arrow-head)"><title>Рекомендуемый ход</title></path></g>`;
 }
 
-// Hover shows every real contributor to the inspected unit, regardless of selection.
-function inspectionIncomingArrows(target, position, report) {
-  if (!target) return [];
-  return (report.get(target.id)?.attackers || []).map(attack => ({
-    source: position.pieces.find(piece => piece.id === attack.id), target, damage: attack.damage
-  })).filter(attack => attack.source);
-}
-
-// Incoming inspection rays plus the selected friendly unit's outgoing attacks.
-function inspectionDamageArrows(target, selectedId, position, report, friendlyTeam) {
+// Selection explains outgoing attacks; hover adds incoming attacks, without duplicates.
+function inspectionDamageArrows(target, selectedId, position, report) {
   const arrows = new Map();
   const add = (source, target, damage) => {
     if (source && target) arrows.set(`${source.id}:${target.id}`, { source, target, damage });
   };
   if (target) for (const attack of report.get(target.id)?.attackers ?? [])
     add(position.pieces.find(piece => piece.id === attack.id), target, attack.damage);
-  const selectedPiece = position.pieces.find(piece => piece.id === selectedId && piece.team === friendlyTeam);
-  if (selectedPiece) for (const enemy of position.pieces.filter(piece => piece.team !== friendlyTeam)) {
+  const selectedPiece = position.pieces.find(piece => piece.id === selectedId);
+  if (selectedPiece) for (const enemy of position.pieces.filter(piece => piece.team !== selectedPiece.team)) {
     const attack = report.get(enemy.id)?.attackers.find(attack => attack.id === selectedPiece.id);
     if (attack) add(selectedPiece, enemy, attack.damage);
   }
@@ -3346,10 +3399,14 @@ function displayBattle(battle) {
   const potentialDamage = new Set();
   let arrows = [], visibleCount = null;
   if (!presentation || moving) {
-    for (const attack of inspectionDamageArrows(target, selectedId, attackPosition, report, 1)) {
+    const inspectionArrows = inspectionDamageArrows(battle.hoverCell ? target : null, selectedId, attackPosition, report);
+    for (const attack of inspectionArrows) {
       if (attack.source.id === selectedId) potentialDamage.add(attack.target.id);
     }
-    if (!presentation && battle.hoverCell && target) arrows = inspectionIncomingArrows(target, attackPosition, report);
+    if (!presentation) arrows = inspectionArrows;
+  } else if (presentation.phase === 'attacks') {
+    arrows = presentation.combat.groups[presentation.groupIndex].arrows;
+    visibleCount = presentation.arrowCount;
   }
   const sourceIds = new Set(target ? report.get(target.id)?.attackers.map(attack => attack.id) : []);
   return { position, report, selectedId, target, potentialDamage, sourceIds, attackPosition, moving, deaths, arrows, visibleCount,
@@ -3375,30 +3432,30 @@ function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}, rende
     const muted = battle.presentation && !moving && battle.presentation.phase !== 'awaiting-combat' && !battle.presentation.combat.participants.has(piece.id);
     return `<g class="piece training-piece${appearance.veteran ? ' veteran' : ''} ${piece.team ? 'south' : 'north'}${!origin && info.dead ? ' fatal' : ''}${hidden ? ' moving-origin' : ''}${origin ? ' preview-origin' : ''}${sourceIds.has(piece.id) ? ' attacking-source' : ''}${muted ? ' combat-muted' : ''}" data-showcase-piece="${piece.id}" role="button" tabindex="-1" aria-pressed="${piece.id === selectedId}" aria-label="Посмотреть: ${TEAM_NAMES[piece.team]}, ${LABELS[piece.type]}" transform="translate(${p.x},${p.y})"><title>${TEAM_NAMES[piece.team]}: ${LABELS[piece.type]}</title>${renderTokenBody(appearance, piece.team)}${renderBadges(info, { showIncoming: !origin && (piece.id === selectedId || piece.id === target?.id || potentialDamage.has(piece.id)), potentialDamage: potentialDamage.has(piece.id), pieceType: piece.type, veteran: appearance.veteran })}</g>`;
   }).join('');
-  const defs = `<defs><clipPath id="training-field-clip">${board.map(cell => `<polygon points="${hexGridPolygon(showcasePoint(cell))}"/>`).join('')}</clipPath><filter id="training-damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${width}" height="${height}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="shadow-blur"/><feOffset in="shadow-blur" dx="0" dy="2" result="shadow-offset"/><feFlood flood-color="#29251c" flood-opacity="0.38" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="arrow-shadow"/><feMerge><feMergeNode in="arrow-shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="training-damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>`;
+  const defs = `<defs><clipPath id="training-field-clip">${board.map(cell => `<polygon points="${hexGridPolygon(showcasePoint(cell))}"/>`).join('')}</clipPath><filter id="training-damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${width}" height="${height}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="shadow-blur"/><feOffset in="shadow-blur" dx="0" dy="2" result="shadow-offset"/><feFlood flood-color="#29251c" flood-opacity="0.38" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="arrow-shadow"/><feMerge><feMergeNode in="arrow-shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${damageArrowMarkers('training-damage-arrow')}</defs>`;
   const ghostAppearance = ghost && unitAppearance(ghost, config, icons);
   const ghostMarkup = ghost ? `<g id="training-preview-token" class="preview-ghost ${ghost.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''}${report.get(ghost.id).dead ? ' fatal' : ''}" transform="translate(${showcasePoint(ghost).x},${showcasePoint(ghost).y})">${renderTokenBody(ghostAppearance, ghost.team)}${renderBadges(report.get(ghost.id), {showIncoming:true,pieceType:ghost.type,veteran:ghostAppearance.veteran})}</g>` : '';
   const damageArrows = renderDamageArrows(arrows, showcasePoint, { config, pieces: attackPosition.pieces, board, report, visibleCount, previewMarkup: ghostMarkup,
     ...(!battle.presentation || moving ? { maxBend: 18 } : {}) }).replaceAll('url(#damage-arrow-', 'url(#training-damage-arrow-');
   const selectedPosition = ghost?.id === selectedId ? attackPosition : position;
   const selectedPiece = !battle.presentation && selectedPosition.pieces.find(piece => piece.id === selectedId);
+  const viewedPly = battle.position.ply;
+  const action=!battle.busy&&position.turn===1&&position.winner===null?(battle.actions||TRAINING_ACTIONS)[viewedPly]:null;
+  const guideSource=action&&position.pieces.find(piece=>piece.id===action.id);
+  const guide=guideSource?renderHintArrow(guideSource,action.to,showcasePoint):'';
   const reach = attackReachPresentation(selectedPiece, selectedPosition, config, { point: showcasePoint, polygonPoints: hexGridPolygon({x:0,y:0}), visiblePosition: position, friendlyTeam: 1 });
   const auras = auraCircleMarkup(selectedPiece, selectedPosition, config, showcasePoint, Math.sqrt(3)*33);
   const movingPiece = moving && position.pieces.find(piece => piece.id === moving.action.id);
   const movement = moving ? renderMovingToken(movingPiece, moving.frame, icons, 'training-moving-token', config, movingPiece.team, report.get(movingPiece.id)) : '';
   const deathEffects = renderDeathEffects(deaths, showcasePoint, hexGridPolygon({ x: 0, y: 0 }), icons, config);
   const counts = [0, 1].map(team => position.pieces.filter(piece => piece.team === team).length);
-  const viewedPly = battle.position.ply;
   const advicePly = battle.presentation?.before.ply ?? viewedPly;
   const advice = (battle.copy||TRAINING_COPY)[Math.min((battle.copy||TRAINING_COPY).length-1, advicePly)];
-  const action=!battle.busy&&position.turn===1&&position.winner===null?(battle.actions||TRAINING_ACTIONS)[viewedPly]:null;
-  const guideSource=action&&position.pieces.find(piece=>piece.id===action.id);
-  const guide=guideSource?renderHintArrow(guideSource,action.to,showcasePoint):'';
   const markup = `<section class="showcase-scene training-scene" style="--training-arrow-outline:url(#${battle.sceneKey||'training'}-damage-arrow-outline)" data-showcase-battle="${battle.sceneKey||'main'}" data-phase="${battle.phase}" data-ply="${viewedPly}" aria-labelledby="showcase-title">
     <h3 id="showcase-title">${battle.title||'Учебный бой'}</h3>${battle.description?`<p class="training-description">${battle.description}</p>`:''}
     <div class="lesson-scene training-card">
     <div class="training-layout"><div class="showcase-field">
-      <svg class="lesson-board showcase-board" viewBox="${minX} ${minY} ${width} ${height}" role="group" aria-label="${battle.title||'Учебный бой'}. 37 клеток. Север: ${counts[0]} фигур. Юг: ${counts[1]} фигур.">${defs}${tiles}<g id="training-overlays" pointer-events="none"><g clip-path="url(#training-field-clip)">${auras}</g>${reach.markup}</g><g id="training-units">${pieces}</g><g id="training-effects" pointer-events="none"><g class="attack-lines">${damageArrows}</g>${movement}${deathEffects}${guide}</g></svg>
+      <svg class="lesson-board showcase-board" data-combat-phase="${battle.presentation?.phase || 'idle'}" viewBox="${minX} ${minY} ${width} ${height}" role="group" aria-label="${battle.title||'Учебный бой'}. 37 клеток. Север: ${counts[0]} фигур. Юг: ${counts[1]} фигур.">${defs}${tiles}<g id="training-overlays" pointer-events="none"><g clip-path="url(#training-field-clip)">${auras}</g>${reach.markup}</g><g id="training-units">${pieces}</g><g id="training-effects" pointer-events="none"><g class="attack-lines">${damageArrows}</g>${movement}${deathEffects}${guide}</g></svg>
       </div><aside class="lesson-details training-advice" id="training-advice" aria-label="Подсказка к учебному бою" aria-live="polite">${advice.map(text => `<p>${text}</p>`).join('')}${battle.presentation?.phase==='awaiting-combat'?'<div class="unit-demo-controls"><button class="button primary" type="button" data-showcase-action="continue">Дальше</button></div>':battle.sceneKey?'<div class="unit-demo-controls"><button class="button outline" type="button" data-showcase-action="restart">Вернуть исходную позицию</button></div>':battle.position.winner!==null?'<div class="unit-demo-controls"><button class="button primary training-restart" type="button" data-showcase-action="restart">Сыграть ещё раз</button></div>':''}</aside>
     </div></div></section>`;
   // All SVG references and update targets stay local when several battles share a page.
@@ -3671,12 +3728,13 @@ function createGuideController({ document: doc = globalThis.document, window: wi
       const piece = battle.position.pieces.find(piece => piece.id === control.dataset.showcasePiece);
       if (piece) battle.focusCell = `${piece.q},${piece.r}`;
       battle.selectPiece(control.dataset.showcasePiece);
+      if (piece) battle.preview(piece);
     }
     else if (control.dataset.showcaseCell !== undefined) {
       const [q, r] = control.dataset.showcaseCell.split(',').map(Number);
       battle.focusCell = `${q},${r}`;
       const occupant = battle.position.pieces.find(piece => piece.q === q && piece.r === r);
-      if (occupant) { battle.selectPiece(occupant.id); return; }
+      if (occupant) { battle.selectPiece(occupant.id); battle.preview(occupant); return; }
       const destination = { q, r };
       if (!battle.previewMoves.some(cell => cell.q === q && cell.r === r)) battle.clearSelection();
       else if (!battle.moveTo(destination)) battle.preview(destination);
@@ -4105,7 +4163,7 @@ function boardMarkup() {
     boardFocus = first ? key(first.q, first.r) : null;
   }
   const tokens = [];
-  $('#board').innerHTML = `<defs><clipPath id="aura-field-clip">${board.map(cell => `<polygon points="${polygon(cell)}"/>`).join('')}</clipPath><filter id="damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${maxX - minX}" height="${maxY - minY}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="shadow-blur"/><feOffset in="shadow-blur" dx="0" dy="2" result="shadow-offset"/><feFlood flood-color="#29251c" flood-opacity="0.38" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="arrow-shadow"/><feMerge><feMergeNode in="arrow-shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>` + board.map(c => {
+  $('#board').innerHTML = `<defs><clipPath id="aura-field-clip">${board.map(cell => `<polygon points="${polygon(cell)}"/>`).join('')}</clipPath><filter id="damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${maxX - minX}" height="${maxY - minY}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="shadow-blur"/><feOffset in="shadow-blur" dx="0" dy="2" result="shadow-offset"/><feFlood flood-color="#29251c" flood-opacity="0.38" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="arrow-shadow"/><feMerge><feMergeNode in="arrow-shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${damageArrowMarkers('damage-arrow')}</defs>` + board.map(c => {
     const k = key(c.q, c.r), p = occupied.get(k), { x, y } = point(c);
     const classes = ['cell'];
     if (destinations.has(k) && !editor && selectedPiece?.team === state.turn) classes.push('reachable');
@@ -4161,10 +4219,12 @@ function inspectionContext() {
   return inspection || { piece: position.pieces.find(p => p.id === selected), position, report, isPreview: false };
 }
 function highlightSources() {
-  if (combat || movement) { $('#attack-lines').innerHTML = ''; return; }
+  if (combat) { $('#attack-lines').innerHTML = combat.phase === 'attacks' ? renderDamageArrows(combat.groups[combat.groupIndex].arrows, point, { config, pieces: combat.visiblePosition.pieces, board: cells(config), visibleCount: combat.arrowCount, report: combat.report }) : ''; return; }
+  if (movement) { $('#attack-lines').innerHTML = ''; return; }
   const context = movement ? { ...movement.forecast, isPreview: false } : inspectionContext(), target = context.piece;
+  const inspectionArrows = inspectionDamageArrows(hover ? target : null, selected, context.position, context.report);
   const potentialDamage = new Map();
-  for (const attack of (target || selected) ? inspectionDamageArrows(target, selected, context.position, context.report, playMode === 'bot' ? humanTeam : context.position.turn) : []) {
+  for (const attack of inspectionArrows) {
     if (attack.source.id === selected) potentialDamage.set(attack.target.id, context.report.get(attack.target.id)?.incoming || 0);
   }
   const sourceIds = new Set(target ? context.report.get(target.id).attackers.map(a => a.id) : []);
@@ -4183,13 +4243,11 @@ function highlightSources() {
   paintAttackReach(context); renderInspector(context);
   const layer = $('#attack-lines');
   if (!layer) return;
-  if (!target) { layer.innerHTML = ''; return; }
-  const end = point(target);
-  const targetInfo = context.report.get(target.id);
+  const end = target ? point(target) : null;
+  const targetInfo = target ? context.report.get(target.id) : null;
   const ghostAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS) : null;
   const ghost = context.isPreview ? `<g class="preview-ghost ${target.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})">${renderTokenBody(ghostAppearance, target.team)}${unitBadges(targetInfo, { showIncoming: true, pieceType: target.type, veteran: ghostAppearance.veteran })}</g>` : '';
-  const incoming = inspectionIncomingArrows(hover ? target : null, context.position, context.report);
-  layer.innerHTML = renderDamageArrows(incoming, point, { config, pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, maxBend: 18 });
+  layer.innerHTML = renderDamageArrows(inspectionArrows, point, { config, pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, maxBend: 18 });
 }
 function paintAttackReach(context) {
   const layer = $('#selected-attack-reach');
@@ -4419,7 +4477,7 @@ function focusBoardCell(cellKey, moveFocus = false) {
 }
 $('.board-wrap').addEventListener('click', event => {
   const cell = event.target.closest('[data-cell]');
-  if (cell) { focusBoardCell(cell.dataset.cell); onCell(...cell.dataset.cell.split(',').map(Number)); }
+  if (cell) { focusBoardCell(cell.dataset.cell); onCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event); }
   else clearSelection();
 });
 $('#board').addEventListener('mousedown', event => { if (event.target === $('#board')) event.preventDefault(); });
@@ -4427,7 +4485,7 @@ $('#board').addEventListener('keydown', event => {
   const cell = event.target.closest('[data-cell]');
   if (!cell) return;
   if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault(); onCell(...cell.dataset.cell.split(',').map(Number));
+    event.preventDefault(); onCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event);
   } else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
     event.preventDefault();
     const [q, r] = cell.dataset.cell.split(',').map(Number);

@@ -33,10 +33,11 @@ test('combined kills keep every contributor and victim colored, including mutual
   const mutualReport=analyze(mutual,config), both=lethalAttackPresentation(mutual,mutualReport,mutual.pieces);
   assert.equal(both.arrows.length,2);assert.equal(both.participants.size,2);
   const html=renderDamageArrows(both.arrows,c=>({x:c.q*50,y:c.r*50}));
-  assert.equal((html.match(/class="attack-ray"/g)||[]).length,2);
+  assert.equal((html.match(/class="attack-ray"/g)||[]).length,1);
   const paths=[...html.matchAll(/class="damage-arrow-path" d="([^"]+)"/g)].map(m=>m[1]);
-  assert.equal(paths.length,2);
-  assert.notEqual(paths[0],paths[1]);
+  assert.equal(paths.length,1);
+  assert.match(html, /marker-start="url\(#damage-arrow-(?:north|south)\)"/);
+  assert.match(html, /marker-end="url\(#damage-arrow-(?:north|south)\)"/);
   assert.doesNotMatch(html,/class="attack-ray-label"/);
 });
 
@@ -175,15 +176,16 @@ test('each single victim loses only its own arrows and token before the remainin
   ui.time.advance(DEATH_EFFECT_DURATION);assert.equal(ui.context.combat,null);
 });
 
-test('progressive rendering preserves reveal order and arrow geometry, including reciprocal lanes', () => {
+test('progressive rendering preserves reveal order and arrow geometry, including merged reciprocal attacks', () => {
   const view=graphPresentation([['z','a'],['a','z'],['m','z']],['z','a']);
   const arrows=view.groups[0].arrows,point=p=>({x:p.q*70,y:p.r*70});
   const full=renderDamageArrows(arrows,point);
   for(let count=1;count<=arrows.length;count++) {
     const html=renderDamageArrows(arrows,point,{visibleCount:count});
-    assert.equal((html.match(/class="attack-ray"/g)||[]).length,count);
+    assert.equal((html.match(/class="attack-ray"/g)||[]).length,new Set(arrows.slice(0,count).map(a=>JSON.stringify([a.source.id,a.target.id].sort()))).size);
     assert.equal((html.match(/data-revealing="true"/g)||[]).length,1,'only the latest shaft animates');
-    const latest=arrows[count-1];
+    const latestAttack=arrows[count-1];
+    const latest=arrows.find(a=>a.source.id===latestAttack.source.id&&a.target.id===latestAttack.target.id||a.source.id===latestAttack.target.id&&a.target.id===latestAttack.source.id);
     assert.match(html,new RegExp(`data-source="${latest.source.id}" data-target="${latest.target.id}"[^>]*data-revealing="true"`));
     for(const path of html.matchAll(/d="(M[^"]+)"/g)) assert.ok(full.includes(path[0]),'existing paths never jump');
   }

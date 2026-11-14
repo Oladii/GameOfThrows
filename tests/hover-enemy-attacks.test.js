@@ -4,69 +4,59 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
 import { analyze, inspectCell, cells, key } from '../dist/engine.js';
-import { inspectionIncomingArrows, inspectionDamageArrows, renderDamageArrows, hexGridPoint } from '../dist/board-presentation.js';
+import { inspectionDamageArrows, renderDamageArrows, hexGridPoint } from '../dist/board-presentation.js';
 import { createShowcaseBattle, renderShowcaseBattle } from '../dist/onboarding-showcase.js';
-
-const p = (id, type, team, q, r) => ({ id, type, team, q, r });
-const selected = p('selected', 'shield', 1, 3, -1);
-const enemy = p('enemy', 'shield', 0, 0, 0);
-const position = { turn: 1, ply: 0, winner: null, pieces: [selected, enemy,
-  p('ally-a', 'archer', 1, 0, -2), p('ally-b', 'archer', 1, -2, 0), p('incoming', 'archer', 0, 3, -3)] };
-const report = analyze(position, DEFAULT_CONFIG);
-
-test('hovering an enemy while an unrelated ally is selected shows every allied contributor', () => {
-  const arrows = inspectionIncomingArrows(enemy, position, report);
-  assert.deepEqual(arrows.filter(a => a.target.id === enemy.id).map(a => a.source.id).sort(), ['ally-a', 'ally-b']);
-  assert.ok(arrows.every(a => a.target.id === enemy.id));
-  assert.deepEqual(inspectionIncomingArrows(null, position, report), []);
-  assert.equal(new Set(arrows.map(a => `${a.source.id}:${a.target.id}`)).size, arrows.length);
+const p=(id,team,q,r)=>({id,type:'archer',team,q,r});
+const own=p('own',1,0,0), enemy=p('enemy',0,0,2);
+const position={turn:1,ply:0,winner:null,pieces:[own,enemy,p('ally',1,-2,2),p('other',0,2,0)]};
+const report=analyze(position,DEFAULT_CONFIG);
+const edges=arrows=>arrows.map(a=>`${a.source.id}:${a.target.id}`).sort();
+const paths = html => [...html.matchAll(/class="attack-ray" data-source="([^"]+)" data-target="([^"]+)"([^>]*)>/g)].flatMap(([, source, target, attrs]) => attrs.includes('data-bidirectional="true"') ? [`${source}:${target}`, `${target}:${source}`] : [`${source}:${target}`]).sort();
+test('selection gives outgoing, hover gives incoming, both combine without duplicates',()=>{
+ assert.deepEqual(inspectionDamageArrows(null,null,position,report),[]);
+ assert.deepEqual(edges(inspectionDamageArrows(null,'own',position,report)),['own:enemy','own:other']);
+ assert.deepEqual(edges(inspectionDamageArrows(enemy,null,position,report)),['ally:enemy','own:enemy']);
+ assert.deepEqual(edges(inspectionDamageArrows(enemy,'own',position,report)),['ally:enemy','own:enemy','own:other']);
+ assert.deepEqual(edges(inspectionDamageArrows(own,'own',position,report)),['enemy:own','other:own','own:enemy','own:other']);
+ const enemySelection=inspectionDamageArrows(null,'enemy',position,report);
+ assert.ok(enemySelection.length>0);assert.ok(enemySelection.every(a=>a.source.id==='enemy'));
 });
-
-test('hovering either team inspects only that unit', () => {
-  const selectedArrows = inspectionIncomingArrows(selected, position, report);
-  assert.ok(selectedArrows.length > 0);
-  assert.ok(selectedArrows.every(a => a.target.id === selected.id));
-  const hovered = inspectionIncomingArrows(enemy, position, report);
-  assert.deepEqual(hovered.map(a => a.source.id).sort(), ['ally-a', 'ally-b']);
+test('forecast uses the future position and damage report for both directions',()=>{
+ const preview=inspectCell(position,DEFAULT_CONFIG,{q:1,r:0},own.id);
+ assert.equal(preview.isPreview,true);
+ const arrows=inspectionDamageArrows(preview.piece,own.id,preview.position,preview.report);
+ for(const arrow of arrows){
+  const actual=preview.report.get(arrow.target.id).attackers.find(a=>a.id===arrow.source.id);
+  assert.ok(actual);assert.equal(arrow.damage,actual.damage);
+  const moved=arrow.source.id===own.id?arrow.source:arrow.target;
+  assert.deepEqual([moved.q,moved.r],[1,0]);
+ }
 });
-
-test('movement preview keeps incoming arrows aimed at the preview position', () => {
-  const preview = inspectCell(position, DEFAULT_CONFIG, { q: 2, r: -1 }, selected.id);
-  assert.equal(preview.isPreview, true);
-  const arrows = inspectionIncomingArrows(preview.piece, preview.position, preview.report);
-  assert.equal(arrows.length, preview.report.get(selected.id).attackers.length);
-  for (const arrow of arrows) assert.deepEqual([arrow.target.q, arrow.target.r], [2, -1]);
+test('live board keeps selection arrows after hover leaves and shows combat independently',()=>{
+ const source=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8'),layer={innerHTML:''};
+ const context=vm.createContext({config:DEFAULT_CONFIG,selected:'own',hover:null,playMode:'local',humanTeam:1,movement:null,combat:null,report,
+ inspectionContext:()=>({piece:enemy,position,report,isPreview:false}),inspectionDamageArrows,renderDamageArrows,cells,key,
+ document:{querySelectorAll:()=>[]},$:()=>layer,point:hexGridPoint,paintAttackReach(){},renderInspector(){}});
+ vm.runInContext(source.slice(source.indexOf('function highlightSources()'),source.indexOf('function paintAttackReach(')),context);
+ context.highlightSources();assert.deepEqual(paths(layer.innerHTML),['own:enemy','own:other']);
+ context.hover='0,2';context.highlightSources();assert.deepEqual(paths(layer.innerHTML),['ally:enemy','own:enemy','own:other']);
+ context.hover=null;context.inspectionContext=()=>({piece:null,position,report,isPreview:false});context.highlightSources();assert.deepEqual(paths(layer.innerHTML),['own:enemy','own:other']);
+ context.selected=null;context.highlightSources();assert.deepEqual(paths(layer.innerHTML),[]);
+ context.movement={};context.highlightSources();assert.equal(layer.innerHTML,'');context.movement=null;
+ const arrows=inspectionDamageArrows(enemy,null,position,report);
+ context.combat={phase:'attacks',groups:[{arrows}],groupIndex:0,visiblePosition:position,arrowCount:2,report};context.highlightSources();assert.equal(paths(layer.innerHTML).length,2);
 });
-
-test('live board draws only hovered incoming arrows and clears them during motion or combat', () => {
-  const source = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
-  const layer = { innerHTML: '' };
-  const context = vm.createContext({ config: DEFAULT_CONFIG, selected: selected.id, hover: null,
-    playMode: 'local', humanTeam: 1, movement: null, combat: null, report,
-    inspectionContext: () => ({ piece: enemy, position, report, isPreview: false }),
-    inspectionIncomingArrows, inspectionDamageArrows, renderDamageArrows, cells, key,
-    document: { querySelectorAll: () => [] }, $: () => layer,
-    point: hexGridPoint, paintAttackReach() {}, renderInspector() {} });
-  vm.runInContext(source.slice(source.indexOf('function highlightSources()'), source.indexOf('function paintAttackReach(')), context);
-  context.highlightSources();
-  assert.doesNotMatch(layer.innerHTML, /class="attack-ray"/);
-  context.hover = '0,0'; context.highlightSources();
-  assert.equal((layer.innerHTML.match(/class="attack-ray"/g) || []).length, 2);
-  assert.match(layer.innerHTML, /data-source="ally-a" data-target="enemy"/);
-  assert.match(layer.innerHTML, /data-source="ally-b" data-target="enemy"/);
-  for (const mode of ['movement', 'combat']) {
-    context[mode] = {}; context.highlightSources(); assert.equal(layer.innerHTML, ''); context[mode] = null;
-  }
-  context.hover = null; context.highlightSources();
-  assert.doesNotMatch(layer.innerHTML, /class="attack-ray"/);
+test('training follows the same selection and hover union',()=>{
+ const battle={...createShowcaseBattle(),config:DEFAULT_CONFIG,position,selectedId:own.id};
+ assert.deepEqual(paths(renderShowcaseBattle(battle)),['own:enemy','own:other']);
+ battle.hoverCell={q:enemy.q,r:enemy.r};assert.deepEqual(paths(renderShowcaseBattle(battle)),['ally:enemy','own:enemy','own:other']);
+ battle.hoverCell=null;assert.deepEqual(paths(renderShowcaseBattle(battle)),['own:enemy','own:other']);
+ battle.selectedId=null;assert.deepEqual(paths(renderShowcaseBattle(battle)),[]);
 });
-
-test('training uses the same hover-only behavior', () => {
-  const battle = { ...createShowcaseBattle(), config: DEFAULT_CONFIG, position, selectedId: selected.id };
-  assert.doesNotMatch(renderShowcaseBattle(battle), /class="attack-ray"/);
-  battle.hoverCell = { q: enemy.q, r: enemy.r };
-  const html = renderShowcaseBattle(battle);
-  assert.equal((html.match(/class="attack-ray"/g) || []).length, 2);
-  battle.hoverCell = null;
-  assert.doesNotMatch(renderShowcaseBattle(battle), /class="attack-ray"/);
+test('click selection restores inspection after render resets hover',()=>{
+ const source=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');let click,hover='0,0',selected=false;
+ const cell={dataset:{cell:'0,0'}};
+ const context=vm.createContext({$:()=>({addEventListener:(_,handler)=>click=handler}),focusBoardCell(){},onCell(){selected=true;hover=null;},hoverCell(event){assert.equal(selected,true);hover=event.target.closest().dataset.cell;},clearSelection(){}});
+ vm.runInContext(source.slice(source.indexOf("$('.board-wrap').addEventListener('click'"),source.indexOf("$('#board').addEventListener('mousedown'")),context);
+ click({target:{closest:()=>cell}});assert.equal(hover,'0,0');
 });

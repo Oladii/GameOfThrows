@@ -4,14 +4,14 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG, PREVIOUS_FORMATION_CONFIG, LABELS, TYPES } from '../dist/rules.js';
 import { effective, shieldCanRetreat, archerHasEdgeBonus, validateConfig, analyze, inspectCell, cells } from '../dist/engine.js';
-import { unitStatParts, alliedBonusDetails, renderUnitBadges, renderDamageArrows, inspectionDamageArrows, inspectionIncomingArrows, unitAppearance } from '../dist/board-presentation.js';
+import { unitStatParts, alliedBonusDetails, renderUnitBadges, renderDamageArrows, inspectionDamageArrows, unitAppearance } from '../dist/board-presentation.js';
 import { renderTokenBody } from '../dist/token-presentation.js';
 
 test('the left panel alternates between the reference and selected figure, preserving scroll for previews', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   const nodes = { '#inspector': { innerHTML: '', dataset: {} }, '#reference-panel': { hidden: false }, '#selection-panel': { hidden: true }, '.left-panel': { scrollTop: 180 } };
   const state = { pieces: [{ id: 'own', type: 'shield', team: 1, q: 0, r: 1 }, { id: 'ally', type: 'defenseLamp', team: 1, q: 1, r: 1 }], turn: 1, ply: 0, winner: null };
-  const context = vm.createContext({ playMode: 'local', humanTeam: 0, hint: null, $: selector => nodes[selector], selected: null, movement: null, combat: null, config: structuredClone(DEFAULT_CONFIG), visibleState: () => state,
+  const context = vm.createContext({ inspectionDamageArrows, hover: null, playMode: 'local', humanTeam: 0, hint: null, $: selector => nodes[selector], selected: null, movement: null, combat: null, config: structuredClone(DEFAULT_CONFIG), visibleState: () => state,
     effective, shieldCanRetreat, archerHasEdgeBonus, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg></svg>', plural: () => 'клетка' });
   vm.runInContext(app.slice(app.indexOf('function renderInspector('), app.indexOf('function shieldPromotionDescription(')), context);
   context.renderInspector({});
@@ -37,7 +37,7 @@ test('the left panel alternates between the reference and selected figure, prese
   context.document = { querySelectorAll: selector => selector.endsWith('[data-piece-id]')
     ? selector.startsWith('#board ') ? [token] : [token, nodes['#inspector']] : [] };
   context.report = new Map([['own', { damage: 15 }]]);
-  context.inspectionContext = () => ({ report: context.report });
+  context.inspectionContext = () => ({ position: state, report: context.report });
   context.unitBadges = () => '<g class="unit-badges">updated</g>';
   context.paintAttackReach = () => {};
   vm.runInContext(app.slice(app.indexOf('function highlightSources()'), app.indexOf('function paintAttackReach(')), context);
@@ -58,7 +58,7 @@ test('a movement aura forecast changes real bonuses without hovering every other
   const badges=new Map(state.pieces.map(p=>[p.id,{outerHTML:''}])),layer={innerHTML:''};
   const tokens=state.pieces.map(p=>({dataset:{pieceId:p.id},classList:{toggle(){}},querySelector:()=>badges.get(p.id)}));
   const context=vm.createContext({ playMode: 'local', humanTeam: 0, hint: null,config,cells,combat:null,movement:null,selected:'moving',hover:'-1,1',report,ICON_PATHS:{},unitAppearance,renderTokenBody,
-    unitBadges:renderUnitBadges,renderDamageArrows, inspectionDamageArrows, inspectionIncomingArrows,key:(q,r)=>`${q},${r}`,point:p=>({x:p.q*50,y:p.r*50}),
+    unitBadges:renderUnitBadges,renderDamageArrows, inspectionDamageArrows,key:(q,r)=>`${q},${r}`,point:p=>({x:p.q*50,y:p.r*50}),
     inspectionContext:()=>preview,paintAttackReach(){},renderInspector(){},$:()=>layer,
     document:{querySelectorAll:selector=>selector.endsWith('[data-piece-id]')?tokens:[]}});
   vm.runInContext(app.slice(app.indexOf('function highlightSources()'),app.indexOf('function paintAttackReach(')),context);

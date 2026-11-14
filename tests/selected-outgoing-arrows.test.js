@@ -14,13 +14,14 @@ test('selected friendly unit displays incoming and every outgoing attack without
  assert.equal(new Set(arrows.map(a=>`${a.source.id}:${a.target.id}`)).size,arrows.length);
 });
 
-test('hovered enemy rays do not duplicate selected unit attacks or show enemy outgoing rays',()=>{
+test('hovered enemy rays merge without duplication; selecting an enemy shows its outgoing attacks',()=>{
  const state=fixture(),report=analyze(state,DEFAULT_CONFIG),target=state.pieces[2];
  const arrows=inspectionDamageArrows(target,'own',state,report,0);
  assert.equal(arrows.filter(a=>a.source.id==='own'&&a.target.id==='enemy2').length,1);
  assert.ok(arrows.some(a=>a.source.id==='own'&&a.target.id==='enemy1'));
  const enemySelected=inspectionDamageArrows(target,'enemy2',state,report,0);
- assert.ok(enemySelected.every(a=>a.target.id==='enemy2'));
+ assert.ok(enemySelected.some(a=>a.source.id==='enemy2'));
+ assert.ok(enemySelected.every(a=>a.target.id==='enemy2'||a.source.id==='enemy2'));
 });
 
 test('forecast outgoing rays use the future position, buffs and blocking rules',()=>{

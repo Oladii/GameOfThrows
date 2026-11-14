@@ -10,11 +10,11 @@ const near = piece('near', 'shield', 0, 1, 0);
 const far = piece('far', 'archer', 0, 0, -2);
 const arrows = [{ source: near, target: own, damage: 5 }, { source: own, target: near, damage: 5 }, { source: far, target: own, damage: 2 }];
 for (const maxBend of [18, 32]) {
-  const old = layoutDamageArrows(arrows, hexGridPoint, { maxBend });
+  const old = layoutDamageArrows([arrows[0], arrows[2]], hexGridPoint, { maxBend });
   for (const visibleCount of [null, 0, 1, 2, 3]) {
     const html = renderDamageArrows(arrows, hexGridPoint, { config, maxBend, visibleCount });
-    const rendered = [...html.matchAll(/data-source="([^"]+)" data-target="([^"]+)"[^>]*><path class="damage-arrow-path" d="([^"]+)"/g)];
-    assert.equal(rendered.length, visibleCount ?? 3);
+    const rendered = [...html.matchAll(/data-source="([^"]+)" data-target="([^"]+)"[^>]*>(?:<path class="damage-arrow-half"[^>]*\/>)*<path class="damage-arrow-path" d="([^"]+)"/g)];
+    assert.equal(rendered.length, visibleCount === null ? 2 : [0, 1, 1, 2][visibleCount]);
     for (const [, source, target, path] of rendered) {
       if (source === 'far') {
         const edge = old.find(e => e.source.id === source && e.target.id === target);

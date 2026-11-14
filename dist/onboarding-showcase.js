@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG, LABELS, TEAM_NAMES } from './rules.js';
 import { renderTokenBody } from './token-presentation.js';
 import { clone, cells, analyze, inspectCell, move, movementPath, reachable } from './engine.js';
-import { hexGridPoint, hexGridPolygon, unitAppearance, inspectionDamageArrows, inspectionIncomingArrows, renderDamageArrows, ATTACK_TEAM_COLORS, renderMovingToken, renderDeathEffects, attackReachPresentation, auraCircleMarkup, lethalAttackPresentation, renderHintArrow } from './board-presentation.js';
+import { hexGridPoint, hexGridPolygon, unitAppearance, inspectionDamageArrows, renderDamageArrows, damageArrowMarkers, renderMovingToken, renderDeathEffects, attackReachPresentation, auraCircleMarkup, lethalAttackPresentation, renderHintArrow } from './board-presentation.js';
 import { CombatAnimator, MovementAnimator, createMovementPlan } from './move-animation.js';
 
 export const showcasePoint = cell => { const point = hexGridPoint(cell); return { x: 280 + point.x, y: 205 + point.y }; };
@@ -268,10 +268,14 @@ function displayBattle(battle) {
   const potentialDamage = new Set();
   let arrows = [], visibleCount = null;
   if (!presentation || moving) {
-    for (const attack of inspectionDamageArrows(target, selectedId, attackPosition, report, 1)) {
+    const inspectionArrows = inspectionDamageArrows(battle.hoverCell ? target : null, selectedId, attackPosition, report);
+    for (const attack of inspectionArrows) {
       if (attack.source.id === selectedId) potentialDamage.add(attack.target.id);
     }
-    if (!presentation && battle.hoverCell && target) arrows = inspectionIncomingArrows(target, attackPosition, report);
+    if (!presentation) arrows = inspectionArrows;
+  } else if (presentation.phase === 'attacks') {
+    arrows = presentation.combat.groups[presentation.groupIndex].arrows;
+    visibleCount = presentation.arrowCount;
   }
   const sourceIds = new Set(target ? report.get(target.id)?.attackers.map(attack => attack.id) : []);
   return { position, report, selectedId, target, potentialDamage, sourceIds, attackPosition, moving, deaths, arrows, visibleCount,
@@ -297,30 +301,30 @@ export function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}
     const muted = battle.presentation && !moving && battle.presentation.phase !== 'awaiting-combat' && !battle.presentation.combat.participants.has(piece.id);
     return `<g class="piece training-piece${appearance.veteran ? ' veteran' : ''} ${piece.team ? 'south' : 'north'}${!origin && info.dead ? ' fatal' : ''}${hidden ? ' moving-origin' : ''}${origin ? ' preview-origin' : ''}${sourceIds.has(piece.id) ? ' attacking-source' : ''}${muted ? ' combat-muted' : ''}" data-showcase-piece="${piece.id}" role="button" tabindex="-1" aria-pressed="${piece.id === selectedId}" aria-label="Посмотреть: ${TEAM_NAMES[piece.team]}, ${LABELS[piece.type]}" transform="translate(${p.x},${p.y})"><title>${TEAM_NAMES[piece.team]}: ${LABELS[piece.type]}</title>${renderTokenBody(appearance, piece.team)}${renderBadges(info, { showIncoming: !origin && (piece.id === selectedId || piece.id === target?.id || potentialDamage.has(piece.id)), potentialDamage: potentialDamage.has(piece.id), pieceType: piece.type, veteran: appearance.veteran })}</g>`;
   }).join('');
-  const defs = `<defs><clipPath id="training-field-clip">${board.map(cell => `<polygon points="${hexGridPolygon(showcasePoint(cell))}"/>`).join('')}</clipPath><filter id="training-damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${width}" height="${height}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="shadow-blur"/><feOffset in="shadow-blur" dx="0" dy="2" result="shadow-offset"/><feFlood flood-color="#29251c" flood-opacity="0.38" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="arrow-shadow"/><feMerge><feMergeNode in="arrow-shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${ATTACK_TEAM_COLORS.map((color, team) => `<marker id="training-damage-arrow-${team ? 'south' : 'north'}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('')}</defs>`;
+  const defs = `<defs><clipPath id="training-field-clip">${board.map(cell => `<polygon points="${hexGridPolygon(showcasePoint(cell))}"/>`).join('')}</clipPath><filter id="training-damage-arrow-outline" filterUnits="userSpaceOnUse" x="${minX}" y="${minY}" width="${width}" height="${height}" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="1" result="edge"/><feFlood flood-color="#fffefb" result="outline-color"/><feComposite in="outline-color" in2="edge" operator="in" result="outline"/><feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="shadow-blur"/><feOffset in="shadow-blur" dx="0" dy="2" result="shadow-offset"/><feFlood flood-color="#29251c" flood-opacity="0.38" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="arrow-shadow"/><feMerge><feMergeNode in="arrow-shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${damageArrowMarkers('training-damage-arrow')}</defs>`;
   const ghostAppearance = ghost && unitAppearance(ghost, config, icons);
   const ghostMarkup = ghost ? `<g id="training-preview-token" class="preview-ghost ${ghost.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''}${report.get(ghost.id).dead ? ' fatal' : ''}" transform="translate(${showcasePoint(ghost).x},${showcasePoint(ghost).y})">${renderTokenBody(ghostAppearance, ghost.team)}${renderBadges(report.get(ghost.id), {showIncoming:true,pieceType:ghost.type,veteran:ghostAppearance.veteran})}</g>` : '';
   const damageArrows = renderDamageArrows(arrows, showcasePoint, { config, pieces: attackPosition.pieces, board, report, visibleCount, previewMarkup: ghostMarkup,
     ...(!battle.presentation || moving ? { maxBend: 18 } : {}) }).replaceAll('url(#damage-arrow-', 'url(#training-damage-arrow-');
   const selectedPosition = ghost?.id === selectedId ? attackPosition : position;
   const selectedPiece = !battle.presentation && selectedPosition.pieces.find(piece => piece.id === selectedId);
+  const viewedPly = battle.position.ply;
+  const action=!battle.busy&&position.turn===1&&position.winner===null?(battle.actions||TRAINING_ACTIONS)[viewedPly]:null;
+  const guideSource=action&&position.pieces.find(piece=>piece.id===action.id);
+  const guide=guideSource?renderHintArrow(guideSource,action.to,showcasePoint):'';
   const reach = attackReachPresentation(selectedPiece, selectedPosition, config, { point: showcasePoint, polygonPoints: hexGridPolygon({x:0,y:0}), visiblePosition: position, friendlyTeam: 1 });
   const auras = auraCircleMarkup(selectedPiece, selectedPosition, config, showcasePoint, Math.sqrt(3)*33);
   const movingPiece = moving && position.pieces.find(piece => piece.id === moving.action.id);
   const movement = moving ? renderMovingToken(movingPiece, moving.frame, icons, 'training-moving-token', config, movingPiece.team, report.get(movingPiece.id)) : '';
   const deathEffects = renderDeathEffects(deaths, showcasePoint, hexGridPolygon({ x: 0, y: 0 }), icons, config);
   const counts = [0, 1].map(team => position.pieces.filter(piece => piece.team === team).length);
-  const viewedPly = battle.position.ply;
   const advicePly = battle.presentation?.before.ply ?? viewedPly;
   const advice = (battle.copy||TRAINING_COPY)[Math.min((battle.copy||TRAINING_COPY).length-1, advicePly)];
-  const action=!battle.busy&&position.turn===1&&position.winner===null?(battle.actions||TRAINING_ACTIONS)[viewedPly]:null;
-  const guideSource=action&&position.pieces.find(piece=>piece.id===action.id);
-  const guide=guideSource?renderHintArrow(guideSource,action.to,showcasePoint):'';
   const markup = `<section class="showcase-scene training-scene" style="--training-arrow-outline:url(#${battle.sceneKey||'training'}-damage-arrow-outline)" data-showcase-battle="${battle.sceneKey||'main'}" data-phase="${battle.phase}" data-ply="${viewedPly}" aria-labelledby="showcase-title">
     <h3 id="showcase-title">${battle.title||'Учебный бой'}</h3>${battle.description?`<p class="training-description">${battle.description}</p>`:''}
     <div class="lesson-scene training-card">
     <div class="training-layout"><div class="showcase-field">
-      <svg class="lesson-board showcase-board" viewBox="${minX} ${minY} ${width} ${height}" role="group" aria-label="${battle.title||'Учебный бой'}. 37 клеток. Север: ${counts[0]} фигур. Юг: ${counts[1]} фигур.">${defs}${tiles}<g id="training-overlays" pointer-events="none"><g clip-path="url(#training-field-clip)">${auras}</g>${reach.markup}</g><g id="training-units">${pieces}</g><g id="training-effects" pointer-events="none"><g class="attack-lines">${damageArrows}</g>${movement}${deathEffects}${guide}</g></svg>
+      <svg class="lesson-board showcase-board" data-combat-phase="${battle.presentation?.phase || 'idle'}" viewBox="${minX} ${minY} ${width} ${height}" role="group" aria-label="${battle.title||'Учебный бой'}. 37 клеток. Север: ${counts[0]} фигур. Юг: ${counts[1]} фигур.">${defs}${tiles}<g id="training-overlays" pointer-events="none"><g clip-path="url(#training-field-clip)">${auras}</g>${reach.markup}</g><g id="training-units">${pieces}</g><g id="training-effects" pointer-events="none"><g class="attack-lines">${damageArrows}</g>${movement}${deathEffects}${guide}</g></svg>
       </div><aside class="lesson-details training-advice" id="training-advice" aria-label="Подсказка к учебному бою" aria-live="polite">${advice.map(text => `<p>${text}</p>`).join('')}${battle.presentation?.phase==='awaiting-combat'?'<div class="unit-demo-controls"><button class="button primary" type="button" data-showcase-action="continue">Дальше</button></div>':battle.sceneKey?'<div class="unit-demo-controls"><button class="button outline" type="button" data-showcase-action="restart">Вернуть исходную позицию</button></div>':battle.position.winner!==null?'<div class="unit-demo-controls"><button class="button primary training-restart" type="button" data-showcase-action="restart">Сыграть ещё раз</button></div>':''}</aside>
     </div></div></section>`;
   // All SVG references and update targets stay local when several battles share a page.

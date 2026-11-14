@@ -2,6 +2,9 @@ import { cells, attacks, distance, effective, shieldCanRetreat, archerHasEdgeBon
 import { renderTokenBody, renderTokenBadges, renderDeathSkull, tokenBadgeBounds } from './token-presentation.js';
 
 export const ATTACK_TEAM_COLORS = ['#4c9fc9', '#ab3300'];
+export function damageArrowMarkers(prefix = 'damage-arrow') {
+  return ATTACK_TEAM_COLORS.map((color, index) => `<marker id="${prefix}-${['north', 'south'][index]}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker>`).join('');
+}
 export const hexGridPoint = cell => ({ x: Math.sqrt(3) * 33 * (cell.q + cell.r / 2), y: 49.5 * cell.r });
 export const hexGridPolygon = point => Array.from({ length: 6 }, (_, i) => {
   const angle = (60 * i - 30) * Math.PI / 180;
@@ -247,17 +250,75 @@ export function layoutDamageArrows(arrows, point, { pieces = [], bounds = null, 
   return edges;
 }
 
+// Build both halves from the same arc-length samples, so every dash shares
+// its ends and centreline even on a bend. Each side is half the 2.5px shaft.
+function splitDamageDashes(edge, colors) {
+  const { from, to, control, straight } = edge;
+  const at = t => straight ? { x: from.x + (to.x-from.x)*t, y: from.y + (to.y-from.y)*t }
+    : { x:(1-t)**2*from.x+2*(1-t)*t*control.x+t*t*to.x, y:(1-t)**2*from.y+2*(1-t)*t*control.y+t*t*to.y };
+  const normal = t => {
+    const dx = straight ? to.x-from.x : 2*((1-t)*(control.x-from.x)+t*(to.x-control.x));
+    const dy = straight ? to.y-from.y : 2*((1-t)*(control.y-from.y)+t*(to.y-control.y));
+    const length = Math.hypot(dx,dy) || 1;
+    return { x:-dy/length*1.25, y:dx/length*1.25 };
+  };
+  const estimate = Math.hypot(control.x-from.x,control.y-from.y)+Math.hypot(to.x-control.x,to.y-control.y);
+  const steps = Math.max(2,Math.ceil(estimate*2)), samples = [{...from,t:0,length:0}];
+  for(let i=1;i<=steps;i++) {
+    const t=i/steps,p=at(t),prev=samples[samples.length-1];
+    samples.push({...p,t,length:prev.length+Math.hypot(p.x-prev.x,p.y-prev.y)});
+  }
+  let cursor=1;
+  const atLength = length => {
+    while(cursor<samples.length-1&&samples[cursor].length<length)cursor++;
+    const a=samples[cursor-1],b=samples[cursor],fraction=(length-a.length)/(b.length-a.length||1);
+    const t=a.t+(b.t-a.t)*fraction;
+    return {...at(t),t};
+  };
+  const paths=['',''],total=samples[samples.length-1].length;
+  for(let start=0;start<total;start+=8) {
+    const end=Math.min(start+5,total),points=[];
+    for(let length=start;length<end;length+=.5)points.push(atLength(length));
+    points.push(atLength(end));
+    for(const [index,sign] of [[0,1],[1,-1]]) {
+      const outline=[...points,...points.map(p=>{const n=normal(p.t);return {x:p.x+n.x*sign,y:p.y+n.y*sign};}).reverse()];
+      paths[index]+=`M${outline.map(p=>`${p.x},${p.y}`).join('L')}Z`;
+    }
+  }
+  return paths.map((d,index)=>`<path class="damage-arrow-half" data-side="${index}" d="${d}" fill="${colors[index]}"/>`).join('');
+}
+
 export function renderDamageArrows(arrows, point, { pieces = [], board = [], visibleCount = null, report = null, previewMarkup = '', straight = false, maxBend = MAX_DAMAGE_ARROW_BEND, config = { geometry: 'hex' } } = {}) {
   const points = board.map(point), bounds = points.length ? { left:Math.min(...points.map(p=>p.x))-32,right:Math.max(...points.map(p=>p.x))+32,top:Math.min(...points.map(p=>p.y))-32,bottom:Math.max(...points.map(p=>p.y))+32 } : null;
-  // Lay out the complete group before revealing it so existing arrows and
-  // their labels stay in place when the next contribution appears.
-  const direct = new Map(layoutDamageArrows(arrows, point, { straight: true }).map(edge => [edge.order, edge]));
-  const edges = layoutDamageArrows(arrows,point,{pieces,bounds,report,straight,maxBend})
+  // Pair reciprocal contributions before layout, while retaining their original
+  // reveal steps. The second arrowhead appears only when that attack is revealed.
+  const grouped = [], pairs = new Map();
+  arrows.forEach((arrow, order) => {
+    const pairKey = JSON.stringify([arrow.source.id, arrow.target.id].sort());
+    const existing = pairs.get(pairKey);
+    if (existing && existing.source.id === arrow.target.id && existing.target.id === arrow.source.id) {
+      existing.reverseOrder = order;
+    } else if (!existing) {
+      const edge = { ...arrow, firstOrder: order, reverseOrder: null };
+      pairs.set(pairKey, edge); grouped.push(edge);
+    }
+  });
+  const direct = new Map(layoutDamageArrows(grouped, point, { straight: true }).map(edge => [edge.order, edge]));
+  const edges = layoutDamageArrows(grouped,point,{pieces,bounds,report,straight,maxBend})
     .map(edge => straight || distance(edge.source, edge.target, config) === 1
       ? { ...direct.get(edge.order), straight: true } : edge)
-    .filter(e => visibleCount === null || e.order < visibleCount);
-  const reveal = e => visibleCount !== null && e.order === visibleCount - 1 ? ' data-revealing="true"' : '';
-  const rays = edges.map(e => `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${e.source.team === 1 ? 'south' : 'north'}" style="--attack-color:${ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0]}"${reveal(e)}><path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${e.straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}" marker-end="url(#damage-arrow-${e.source.team === 1 ? 'south' : 'north'})"></path></g>`).join('');
+    .filter(e => visibleCount === null || e.firstOrder < visibleCount);
+  const rays = edges.map(e => {
+    const mutual = e.reverseOrder !== null && (visibleCount === null || e.reverseOrder < visibleCount);
+    const sourceTeam = e.source.team === 1 ? 'south' : 'north';
+    const targetTeam = e.target.team === 1 ? 'south' : 'north';
+    const team = mutual ? 'mutual' : sourceTeam;
+    const sourceColor = ATTACK_TEAM_COLORS[e.source.team === 1 ? 1 : 0];
+    const targetColor = ATTACK_TEAM_COLORS[e.target.team === 1 ? 1 : 0];
+    const halves = mutual ? splitDamageDashes(e, [sourceColor, targetColor]) : '';
+    const reveal = visibleCount !== null && (e.firstOrder === visibleCount - 1 || mutual && e.reverseOrder === visibleCount - 1) ? ' data-revealing="true"' : '';
+    return `<g class="attack-ray" data-source="${e.source.id}" data-target="${e.target.id}" data-attack-team="${team}"${mutual ? ' data-bidirectional="true"' : ''} style="--attack-color:${sourceColor}${mutual ? ';opacity:.9' : ''}"${reveal}>${halves}<path class="damage-arrow-path" d="M${e.from.x},${e.from.y}${e.straight ? `L${e.to.x},${e.to.y}` : `Q${e.control.x},${e.control.y} ${e.to.x},${e.to.y}`}"${mutual ? ` style="stroke:none;opacity:1" marker-start="url(#damage-arrow-${sourceTeam})"` : ''} marker-end="url(#damage-arrow-${mutual ? targetTeam : sourceTeam})"></path></g>`;
+  }).join('');
   // Keep attack paths and preview tokens without damage labels.
   return rays+previewMarkup;
 }
@@ -341,24 +402,16 @@ export function renderHintArrow(source, destination, point) {
   return `<g class="hint-trace" pointer-events="none" aria-hidden="true"><defs><marker id="hint-arrow-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#44834a"/></marker></defs><path class="damage-arrow-path" d="M${edge.from.x},${edge.from.y}L${edge.end.x},${edge.end.y}" marker-end="url(#hint-arrow-head)"><title>Рекомендуемый ход</title></path></g>`;
 }
 
-// Hover shows every real contributor to the inspected unit, regardless of selection.
-export function inspectionIncomingArrows(target, position, report) {
-  if (!target) return [];
-  return (report.get(target.id)?.attackers || []).map(attack => ({
-    source: position.pieces.find(piece => piece.id === attack.id), target, damage: attack.damage
-  })).filter(attack => attack.source);
-}
-
-// Incoming inspection rays plus the selected friendly unit's outgoing attacks.
-export function inspectionDamageArrows(target, selectedId, position, report, friendlyTeam) {
+// Selection explains outgoing attacks; hover adds incoming attacks, without duplicates.
+export function inspectionDamageArrows(target, selectedId, position, report) {
   const arrows = new Map();
   const add = (source, target, damage) => {
     if (source && target) arrows.set(`${source.id}:${target.id}`, { source, target, damage });
   };
   if (target) for (const attack of report.get(target.id)?.attackers ?? [])
     add(position.pieces.find(piece => piece.id === attack.id), target, attack.damage);
-  const selectedPiece = position.pieces.find(piece => piece.id === selectedId && piece.team === friendlyTeam);
-  if (selectedPiece) for (const enemy of position.pieces.filter(piece => piece.team !== friendlyTeam)) {
+  const selectedPiece = position.pieces.find(piece => piece.id === selectedId);
+  if (selectedPiece) for (const enemy of position.pieces.filter(piece => piece.team !== selectedPiece.team)) {
     const attack = report.get(enemy.id)?.attackers.find(attack => attack.id === selectedPiece.id);
     if (attack) add(selectedPiece, enemy, attack.damage);
   }
