@@ -9,7 +9,7 @@ test('combat parameters are reachable only from custom game setup',()=>{
  const source=app.slice(start,app.indexOf("$('#settings-form').elements.geometry",start));
  for(const [gamePhase,positionKind,editor,allowed] of [['setup','custom',false,true],['setup','default',false,false],['playing','custom',false,false],['setup','custom',true,false]]){
   let click,opened=0,filled=0;
-  const context=vm.createContext({gamePhase,positionKind,editor,refreshingNewGame:false,config:DEFAULT_CONFIG,
+  const context=vm.createContext({playMode:'local',gamePhase,positionKind,editor,refreshingNewGame:false,config:DEFAULT_CONFIG,
    $:selector=>selector==='#settings-open'?{addEventListener:(_type,fn)=>{click=fn;}}:{showModal(){opened++;}},
    cancelBot(){},cancelMovement(){},fillSettings(){filled++;},render(){}});
   vm.runInContext(source,context);click();assert.equal(opened,allowed?1:0);assert.equal(filled,opened);
@@ -18,7 +18,7 @@ test('combat parameters are reachable only from custom game setup',()=>{
 test('standard setup restores both default rules and formation while keeping the previous game',()=>{
  let change;
  const previousGame={saved:true};
- const context=vm.createContext({gamePhase:'setup',positionKind:'custom',editor:false,config:{custom:true},DEFAULT_CONFIG,previousGame,
+ const context=vm.createContext({playMode:'local',gamePhase:'setup',positionKind:'custom',editor:false,config:{custom:true},DEFAULT_CONFIG,previousGame,
   clone:structuredClone,createGame:c=>({standard:c===context.config}),resetBotContext(){},render(){},toast(){},
   $:()=>({addEventListener:(_type,fn)=>{change=fn;}})});
  const start=app.indexOf("$('#position-kind').addEventListener");

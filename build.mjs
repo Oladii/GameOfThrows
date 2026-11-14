@@ -11,7 +11,8 @@ const buildLabel = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow',
 const html = sourceHtml.replace(/(<span id="version-number"[^>]*>)[^<]*(<\/span>)/, (_, start, end) => `${start}v${version}${end}`).replace(/<span id="version-build"[^>]*>[^<]*<\/span>/, `<span id="version-build" data-built-at="${builtAt.toISOString()}">Сборка ${buildLabel} МСК</span>`);
 await fs.writeFile(root + 'dist/index.html', html);
 const strip = code => code.replace(/^import .*?;\n/gm, '').replace(/^export /gm, '');
-const script = [rules, engine, client, startPosition, moveAnimation, gameArchive, tokenAssets, tokenPresentation, boardPresentation, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, hint, guideController, app].map(strip).join('\n').replaceAll('</script', '<\\/script');
+const [multiplayerClient, multiplayerSession] = await Promise.all(['multiplayer-client.js', 'multiplayer-session.js'].map(read));
+const script = [rules, engine, client, startPosition, moveAnimation, gameArchive, tokenAssets, tokenPresentation, boardPresentation, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, hint, guideController, multiplayerClient, multiplayerSession, app].map(strip).join('\n').replaceAll('</script', '<\\/script');
 const workerSource = JSON.stringify([rules, engine, defensiveSelection, formationStrategy, bot, worker].map(strip).join('\n')).replaceAll('<', '\\u003c');
 let illustratedHtml = html;
 const brandIcon = await fs.readFile(root + 'dist/brand/logo-target-sword-v3-tripod.png');

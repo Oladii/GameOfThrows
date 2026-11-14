@@ -92,7 +92,7 @@ test('starting a random game rolls exactly once and fixes that turn for the runn
   const startGame=app.slice(app.indexOf('function startGame()'),app.indexOf("\n$('#start-setup').addEventListener"));
   for(const [roll,expected]of [[0.1,0],[0.9,1]]){
     let rolls=0,starts=0;
-    const context=vm.createContext({config:clone(DEFAULT_CONFIG),state:createGame(DEFAULT_CONFIG),firstMove:'random',gamePhase:'setup',editor:false,refreshingNewGame:false,history:[],log:[],previousGame:null,selected:null,
+    const context=vm.createContext({playMode:'local',config:clone(DEFAULT_CONFIG),state:createGame(DEFAULT_CONFIG),firstMove:'random',gamePhase:'setup',editor:false,refreshingNewGame:false,history:[],log:[],previousGame:null,selected:null,
       Math:{random:()=>{rolls++;return roll;},floor:Math.floor},prepareStartPosition,currentStartPreferences:()=>({firstMove:'random'}),resetBotContext(){},classifyPosition,CURRENT_GAME_VERSION:'0.1.39',gameVersion:'0.1.37',archiveGameMetadata:()=>({}),archiveRecorder:{start(){starts++;}},$:()=>({close(){}}),render(){},toast:message=>{throw Error(message);}});
     vm.runInContext(startingTeam+'\n'+startGame+'\nstartGame();startGame();',context);
     assert.equal(rolls,1);assert.equal(starts,1);assert.equal(context.state.turn,expected);assert.equal(context.gamePhase,'playing');

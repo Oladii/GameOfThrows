@@ -10,6 +10,7 @@ import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, D
 import { GameRecorder } from './game-archive.js';
 import { hexGridPoint, hexGridPolygon, inspectionDamageArrows, renderHintArrow, renderUnitBadges, lethalAttackPresentation, renderDamageArrows, unitStatParts, alliedBonusDetails, ATTACK_TEAM_COLORS, auraCircleMarkup, renderDeathEffects, renderMovingToken, unitAppearance, attackReachPresentation } from './board-presentation.js';
 import { createGuideController } from './guide-controller.js';
+import { MultiplayerSession } from './multiplayer-session.js';
 const $ = selector => document.querySelector(selector);
 const CURRENT_GAME_VERSION = $('#version-number').textContent.replace(/^v/, '');
 const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
@@ -68,12 +69,14 @@ let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
 let startPreferences = null;
 let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
+const ROOM_STORAGE = 'trows-online-room-v1';
+let roomSession = null, roomView = null, roomLocalGame = null, roomTarget = null, roomSnapshot = null, roomConnecting = false, roomLeaving = false, roomError = '';
 const botRunner = new BotRunner();
 const hintRunner = new BotRunner();
 let hint = null, hintThinkingTimer = null;
 function clearHint() { hintRunner.cancel(); clearInterval(hintThinkingTimer); hintThinkingTimer = null; hint = null; }
 function hintPositionKey() { return JSON.stringify({ state, config }); }
-function canRequestHint() { return gamePhase === 'playing' && !editor && !reviewingTurn && !isBotTurn() && state.winner === null; }
+function canRequestHint() { return playMode !== 'online' && gamePhase === 'playing' && !editor && !reviewingTurn && !isBotTurn() && state.winner === null; }
 function requestHint() {
   if (!canRequestHint()) return;
   if (hint) { clearHint(); render(); return; }
@@ -159,6 +162,7 @@ function currentSnapshot() { return clone({ config, state, log, positionKind, ga
 function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); if (history.length > 40) history.shift(); }
 function currentStartPreferences() { return readStartPreferences({ firstMove, playMode, humanTeam, botDifficulty, positionKind, customSetup: positionKind === 'custom' ? { config, state } : null }); }
 function save() {
+  if (playMode === 'online') return true;
   try {
     if (gamePhase === 'setup') startPreferences = currentStartPreferences();
     localStorage.setItem(STORAGE, JSON.stringify({ ...currentSnapshot(), history, firstMove, playMode, humanTeam, botDifficulty, startPreferences, lastTurn, gamePhase, editor, previousGame, balanceRevision: BALANCE_REVISION, presetRevision: PRESET_REVISION, startPrefsRevision: START_PREFS_REVISION }));
@@ -280,7 +284,7 @@ function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
 function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && lastTurn ? lastTurn.before.state : state; }
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
-function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !isBotTurn() && state.winner === null; }
+function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
 function cancelMovement() { moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
 function resetBotContext(clearLastTurn = true) { clearHint(); cancelBot(); cancelMovement(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
@@ -304,7 +308,7 @@ function presentKills(before, forecast, deaths) {
   combatAnimator.startSequence(presentation.groups);
 }
 function canReplayLastCombat() {
-  return Boolean(lastTurn && gamePhase === 'playing' && !editor && !reviewingTurn && !movement && !combat && !currentDeaths.length
+  return Boolean(playMode !== 'online' && lastTurn && gamePhase === 'playing' && !editor && !reviewingTurn && !movement && !combat && !currentDeaths.length
     && lastTurn.before.state.pieces.length > state.pieces.length);
 }
 function replayLastCombat() {
@@ -543,9 +547,13 @@ function renderGameResult(position) {
   $('#mode-caption').hidden = resolvingCombat || Boolean(movement);
   $('#move-counter').textContent = resolvingCombat ? 'Расчёт боя…' : movement ? 'Движение…' : gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${victory ? '. ' + victory : ''}`;
   $('.arena-top').dataset.result = !finished ? '' : position.winner === 'draw' ? 'draw' : playMode === 'bot' && position.winner !== humanTeam ? 'loss' : 'win';
+  if (playMode === 'online') {
+    if (gamePhase === 'setup') $('#move-counter').textContent = 'Ожидание игроков';
+    if (finished && roomView?.selfSeat !== null && position.winner !== 'draw') $('.arena-top').dataset.result = position.winner === roomView.selfSeat ? 'win' : 'loss';
+  }
 }
 function renderUpdateNotice() {
-  $('#update-notice').hidden = !needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentRulesVersion: CURRENT_RULES_VERSION, latestRulesVersion });
+  $('#update-notice').hidden = playMode === 'online' || !needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentRulesVersion: CURRENT_RULES_VERSION, latestRulesVersion });
 }
 async function checkGameVersion() {
   if (versionCheckPending || document.visibilityState === 'hidden') return;
@@ -570,17 +578,17 @@ function render(deaths = []) {
   $('#play-mode').value = playMode; $('#human-side').value = String(humanTeam);
   $('#bot-difficulty').value = botDifficulty;
   $('#human-side-field').hidden = playMode !== 'bot'; $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
-  $('#start-setup').hidden = gamePhase !== 'setup' || editor;
+  $('#start-setup').hidden = playMode === 'online' || gamePhase !== 'setup' || editor;
   $('#start-setup').disabled = refreshingNewGame;
   $('#settings-open').disabled = gamePhase !== 'setup' || positionKind !== 'custom' || editor || refreshingNewGame;
   $('#settings-open').hidden = positionKind !== 'custom';
   $('#new-game').disabled = Boolean(movement || combat);
-  $('#new-game').hidden = gamePhase !== 'playing';
+  $('#new-game').hidden = playMode === 'online' || gamePhase !== 'playing';
   $('#position-kind').value = positionKind;
   globalThis.window?.gameSelects?.sync();
   $('#configure-position').disabled = positionKind !== 'custom';
   $('#configure-position').hidden = positionKind !== 'custom';
-  $('#mode-caption').textContent = playMode === 'bot' ? `Бот · ${BOT_DIFFICULTIES[botDifficulty].label}` : '2 игрока на одном экране';
+  $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : `По ссылке · ${TEAM_NAMES[roomView.selfSeat]}` : playMode === 'bot' ? `Бот · ${BOT_DIFFICULTIES[botDifficulty].label}` : '2 игрока на одном экране';
   hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
@@ -595,7 +603,9 @@ function render(deaths = []) {
       const count = pieces.filter(p => p.type === type).length, label = `${LABELS[type]}: ${count}`;
       return `<li class="team-unit ${count ? '' : 'empty'}" data-unit-type="${type}" title="${label}" aria-label="${label}">${icon(type)}<span aria-hidden="true">${count}</span></li>`;
     }).join('');
-    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div><span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${playMode === 'bot' ? `<span class="team-role">${team === humanTeam ? 'Вы' : 'Бот'}</span>` : ''}</span><div class="turn-tag">${gamePhase === 'setup' ? 'РАССТАНОВКА' : combat ? 'РАСЧЁТ БОЯ' : currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : 'ВАШ ХОД' : ' '}</div></div><span class="team-count">${n} ${plural(n, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
+    const role = playMode === 'online' ? roomView?.selfSeat === team ? 'Вы' : '' : playMode === 'bot' ? team === humanTeam ? 'Вы' : 'Бот' : '';
+    const turnLabel = playMode === 'online' && roomView?.selfSeat !== team ? 'ХОДИТ' : 'ВАШ ХОД';
+    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div><span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${role ? `<span class="team-role">${role}</span>` : ''}</span><div class="turn-tag">${gamePhase === 'setup' ? 'РАССТАНОВКА' : combat ? 'РАСЧЁТ БОЯ' : currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : turnLabel : ' '}</div></div><span class="team-count">${n} ${plural(n, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
   }).join('');
   $('#unit-reference').innerHTML = unitReferenceMarkup(Boolean($('#unit-reference [data-shield-promotion]')?.open));
   $('#config-summary').innerHTML = `<div class="summary-row"><span>Групп на игрока</span><strong>${config.army.groups}</strong></div><div class="summary-row"><span>Состав группы</span><strong>${config.army.shields} ${plural(config.army.shields, ['броненосец', 'броненосца', 'броненосцев'])} + ${config.army.archers} ${plural(config.army.archers, ['лукарь', 'лукаря', 'лукарей'])}</strong></div><div class="summary-row"><span>Барабаны / горны / знамёна / командиры</span><strong>${config.army.attackLamps} / ${config.army.horns ?? 0} / ${config.army.defenseLamps} / ${config.army.scoutLamps}</strong></div><div class="summary-row"><span>Дополнительно в центре</span><strong>${(config.army.centralShields ?? 0) + (config.army.rearShields ?? 0)} броненосцев / ${config.army.rearArchers ?? 0} лукарей</strong></div><div class="summary-row"><span>Стрельба</span><strong>${config.geometry === 'hex' ? '6 лучей через грани' : config.experiments.squareDiagonals ? '8 направлений' : '4 направления'}</strong></div>`;
@@ -633,6 +643,7 @@ function render(deaths = []) {
   document.querySelectorAll('[data-team]').forEach(b => b.classList.toggle('active', Number(b.dataset.team) === editorTeam));
   $('#erase-tool').classList.toggle('selected-tool', tool === 'erase');
   $('#piece-palette').innerHTML = TYPES.map(type => `<button class="palette-item ${tool === type ? 'active' : ''}" data-tool="${type}">${icon(type)}<span>${LABELS[type]}</span></button>`).join('');
+  renderOnlineRoom();
   save();
   if (currentDeaths.length && !combat) deathEffectTimer = setTimeout(() => { currentDeaths = []; render(); }, DEATH_EFFECT_DURATION);
   queueBot();
@@ -667,6 +678,7 @@ function onCell(q, r) {
   if (occupant) { selected = selected === occupant.id ? null : occupant.id; render(); return; }
   if (!selected) return;
   if (!available.some(c => c.q === q && c.r === r)) { clearSelection(); return; }
+  if (playMode === 'online') { const action = { id: selected, to: { q, r } }; selected = null; void runRoomAction(() => roomSession.move(action)); return; }
   try { const result = move(state, config, selected, { q, r }), before = currentSnapshot(), action = { id: selected, from: result.action.from, to: result.action.to }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; state = result.state; log.push({ text: `${TEAM_NAMES[result.action.team]} · ${LABELS[result.action.type]}: ${positionText(result.action.from)} → ${q}, ${r}`, detail: deathDetail(result.deaths) }); recordGameAction('move', { action, deaths: result.deaths, actor: 'human' }); selected = null; presentMove(before, action, result.deaths); } catch (error) { toast(error.message); }
 }
 function focusBoardCell(cellKey, moveFocus = false) {
@@ -708,7 +720,7 @@ $('#board').addEventListener('focusout', event => { if (!$('#board').contains(ev
 document.addEventListener('click', dismissHintOnClick, true);
 $('#show-hint').addEventListener('click', requestHint);
 $('#undo').addEventListener('click', () => {
-  if (movement || combat || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor)) return;
+  if (playMode === 'online' || movement || combat || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor)) return;
   let previous = history.pop();
   if (playMode === 'bot' && !editor && previous.actor === 'bot' && history.at(-1)?.actor === 'human' && history.at(-1).state.ply === previous.state.ply - 1) previous = history.pop();
   resetBotContext(); config = previous.config; state = previous.state; log = previous.log; positionKind = previous.positionKind; gameVersion = previous.gameVersion ?? null; selected = null;
@@ -716,7 +728,7 @@ $('#undo').addEventListener('click', () => {
   lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn(); render();
 });
 function openStartSettings() {
-  if (gamePhase !== 'setup' || editor || refreshingNewGame) return;
+  if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
   const dialog = $('#start-dialog');
   if (!dialog.open) dialog.showModal();
 }
@@ -725,7 +737,7 @@ function dismissDialog(dialog) {
   dialog.close();
 }
 async function openNewGame() {
-  if (gamePhase !== 'playing' || refreshingNewGame || movement || combat) return;
+  if (playMode === 'online' || gamePhase !== 'playing' || refreshingNewGame || movement || combat) return;
   const backup = { snapshot: currentSnapshot(), history: clone(history), lastTurn: clone(lastTurn), playMode, humanTeam, firstMove, botDifficulty };
   resetBotContext(); previousGame = backup; gamePhase = 'setup'; editor = false;
   applyStartPreferences();
@@ -740,7 +752,7 @@ async function openNewGame() {
   openStartSettings();
 }
 function startGame() {
-  if (gamePhase !== 'setup' || editor || refreshingNewGame) return;
+  if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
   try {
     const next = prepareStartPosition(state, config, startingTeam());
     startPreferences = currentStartPreferences();
@@ -750,7 +762,7 @@ function startGame() {
   } catch (error) { toast(error.message); }
 }
 $('#start-setup').addEventListener('click', async () => {
-  if (gamePhase !== 'setup' || refreshingNewGame || editor) return;
+  if (playMode === 'online' || gamePhase !== 'setup' || refreshingNewGame || editor) return;
   if (hasNewerGameVersion(CURRENT_GAME_VERSION, latestVersion) && $('#bot-worker-source')) {
     refreshingNewGame = true; render();
     if (save() && await refreshNewGamePage({ location, online: navigator.onLine !== false })) return;
@@ -762,7 +774,7 @@ $('#start-setup').addEventListener('click', async () => {
 $('#new-game').addEventListener('click', openNewGame);
 $('#start-game').addEventListener('click', startGame);
 function returnToGame() {
-  if (!previousGame || gamePhase !== 'setup') return;
+  if (playMode === 'online' || !previousGame || gamePhase !== 'setup') return;
   const backup = previousGame; resetBotContext();
   config = backup.snapshot.config; state = backup.snapshot.state; log = backup.snapshot.log; positionKind = backup.snapshot.positionKind; gameVersion = backup.snapshot.gameVersion ?? null;
   history = backup.history; lastTurn = backup.lastTurn; playMode = backup.playMode; humanTeam = backup.humanTeam; firstMove = backup.firstMove; botDifficulty = readBotDifficulty(backup.botDifficulty);
@@ -771,11 +783,11 @@ function returnToGame() {
 }
 $('#start-dialog').addEventListener('cancel', event => { event.preventDefault(); dismissDialog(event.currentTarget); });
 $('#first-move').addEventListener('change', event => { if (gamePhase !== 'setup') return; firstMove = event.target.value; save(); });
-$('#play-mode').addEventListener('change', event => { if (gamePhase !== 'setup') return; resetBotContext(false); playMode = event.target.value; selected = null; render(); });
+$('#play-mode').addEventListener('change', event => { if (playMode === 'online' || gamePhase !== 'setup') return; if (event.target.value === 'online') { openOnlineRoom(); return; } resetBotContext(false); playMode = event.target.value; selected = null; render(); });
 $('#human-side').addEventListener('change', event => { if (gamePhase !== 'setup') return; resetBotContext(false); humanTeam = Number(event.target.value); selected = null; render(); });
 $('#bot-difficulty').addEventListener('change', event => { if (gamePhase !== 'setup') return; resetBotContext(false); botDifficulty = readBotDifficulty(event.target.value); render(); });
 $('#position-kind').addEventListener('change', event => {
-  if (gamePhase !== 'setup' || editor) return;
+  if (playMode === 'online' || gamePhase !== 'setup' || editor) return;
   try {
     const kind = event.target.value;
     if (kind === 'default') { const defaults = clone(DEFAULT_CONFIG), next = createGame(defaults); resetBotContext(); config = defaults; state = next; history = []; log = []; selected = null; }
@@ -783,7 +795,7 @@ $('#position-kind').addEventListener('change', event => {
   } catch (error) { render(); toast(error.message); }
 });
 $('#configure-position').addEventListener('click', () => {
-  if (gamePhase !== 'setup' || positionKind !== 'custom' || editor) return;
+  if (playMode === 'online' || gamePhase !== 'setup' || positionKind !== 'custom' || editor) return;
   resetBotContext(); editor = true; history = []; selected = null; $('#start-dialog').close(); render();
 });
 $('#editor-done').addEventListener('click', () => {
@@ -792,7 +804,7 @@ $('#editor-done').addEventListener('click', () => {
   catch (error) { toast(error.message); }
 });
 $('#replay-combat').addEventListener('click', replayLastCombat);
-$('#review-previous').addEventListener('click', () => { if (!lastTurn || gamePhase !== 'playing' || reviewingTurn || movement || combat) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
+$('#review-previous').addEventListener('click', () => { if (playMode === 'online' || !lastTurn || gamePhase !== 'playing' || reviewingTurn || movement || combat) return; cancelBot(); cancelMovement(); reviewingTurn = true; selected = null; render(); });
 $('#review-current').addEventListener('click', () => { if (!reviewingTurn) return; reviewingTurn = false; selected = null; render(); });
 $('#resume-bot').addEventListener('click', () => { botIssue = ''; botSuspended = false; render(); });
 document.querySelector('.team-select').addEventListener('click', event => { const b = event.target.closest('[data-team]'); if (b) { editorTeam = Number(b.dataset.team); selected = null; render(); } });
@@ -800,7 +812,197 @@ $('#piece-palette').addEventListener('click', event => { const b = event.target.
 $('#erase-tool').addEventListener('click', () => { tool = 'erase'; selected = null; render(); });
 $('#clear-board').addEventListener('click', () => { if (!editor) return; resetBotContext(); checkpoint(); state = { pieces: [], turn: 0, ply: 0, winner: null }; log = []; selected = null; render(); });
 $('#resolve-position').addEventListener('click', () => { if (!editor) return; resetBotContext(); checkpoint(); const result = resolve(state, config); state = result.state; state.ply = 0; state.winner = null; log.push({ text: 'Расчёт позиции без перемещения', detail: deathDetail(result.deaths) }); selected = null; render(result.deaths); toast(deathDetail(result.deaths)); });
-$('#pass-turn').addEventListener('click', () => { if (!humanCanMove()) return; try { const result = pass(state, config), before = currentSnapshot(), action = { pass: true }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; log.push({ text: `${TEAM_NAMES[state.turn]} · пропуск хода`, detail: deathDetail(result.deaths) }); state = result.state; recordGameAction('pass', { action, deaths: result.deaths, actor: 'human' }); selected = null; presentMove(before, action, result.deaths); } catch (e) { toast(e.message); } });
+$('#pass-turn').addEventListener('click', () => { if (playMode === 'online' || !humanCanMove()) return; try { const result = pass(state, config), before = currentSnapshot(), action = { pass: true }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; log.push({ text: `${TEAM_NAMES[state.turn]} · пропуск хода`, detail: deathDetail(result.deaths) }); state = result.state; recordGameAction('pass', { action, deaths: result.deaths, actor: 'human' }); selected = null; presentMove(before, action, result.deaths); } catch (e) { toast(e.message); } });
+
+function savedRoomReference() {
+  try { return JSON.parse(localStorage.getItem(ROOM_STORAGE)) || {}; } catch { return {}; }
+}
+function rememberRoom(roomId) {
+  try { localStorage.setItem(ROOM_STORAGE, JSON.stringify({ roomId, name: $('#room-name').value.trim() })); } catch { /* The session owns credential storage and reports failures. */ }
+}
+function roomInvitation(roomId) {
+  const url = new URL(location.href);
+  url.searchParams.delete('_fresh'); url.searchParams.delete('_newGame');
+  url.searchParams.set('room', roomId); url.hash = '';
+  return url.href;
+}
+function roomErrorText(error) {
+  if (error?.code === 'storage_unavailable' && error.status === 503) return 'Сервер комнаты временно недоступен. Подключение восстановится автоматически.';
+  const messages = {
+    ROOM_NOT_FOUND: 'Комната закрыта или ссылка устарела. Можно вернуться к обычной игре.',
+    NOT_FOUND: 'Комната закрыта или ссылка устарела. Можно вернуться к обычной игре.',
+    SEAT_TAKEN: 'Это место уже занято. Выберите свободную сторону.',
+    REVISION_CONFLICT: 'Позиция изменилась. Дождитесь обновления и повторите действие.',
+    CONFLICT: 'Комната изменилась. Проверьте места и повторите действие.',
+    INVALID_NAME: 'Укажите имя длиной до 40 символов.',
+    STORAGE_UNAVAILABLE: 'Не удалось сохранить участие. Разрешите хранение данных в браузере и повторите вход.',
+    INVALID_IDENTITY: 'Не удалось прочитать сохранённое участие. Попробуйте открыть комнату в прежнем браузере.',
+    INVALID_ROOM: 'Ссылка на комнату неверна. Проверьте ссылку приглашения.',
+    STALE_REVISION: 'Позиция изменилась. Дождитесь обновления и повторите действие.',
+    MATCH_CONFLICT: 'Партия уже завершена. Дождитесь обновления комнаты.',
+    STALE_MATCH: 'Партия уже завершена. Дождитесь обновления комнаты.',
+    UNAUTHORIZED: 'Не удалось восстановить участие. Попробуйте войти в комнату снова.',
+    FORBIDDEN: 'Это действие доступно только игроку на своём месте.',
+    RATE_LIMITED: 'Слишком много действий. Подождите немного и повторите.'
+  };
+  return messages[error?.code?.toUpperCase()] || 'Не удалось выполнить действие. Проверьте подключение и повторите.';
+}
+function openOnlineRoom(roomId = null) {
+  if (playMode === 'online') return;
+  save();
+  roomLocalGame = clone({ config, state, history, log, playMode, humanTeam, firstMove, botDifficulty, gamePhase, positionKind, previousGame, startPreferences, lastTurn, gameVersion, editor });
+  resetBotContext(); clearTimeout(deathEffectTimer); currentDeaths = [];
+  playMode = 'online'; gamePhase = 'setup'; editor = false; positionKind = 'default';
+  config = clone(DEFAULT_CONFIG); state = createGame(config); history = []; log = []; selected = null;
+  roomTarget = roomId; roomSnapshot = null; roomView = null; roomError = ''; roomConnecting = false;
+  $('#room-name').value = savedRoomReference().name || '';
+  document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
+  render(); $('#room-name').focus();
+}
+function applyRoomView(view) {
+  if (playMode !== 'online') return;
+  const previousView = roomView, previous = roomSnapshot, next = view.snapshot;
+  if (next && roomTarget && next.roomId !== roomTarget) return;
+  if (next && previous && next.revision < previous.revision) return;
+  roomView = view;
+  if (view.status === 'connected' && view.error === null) roomError = '';
+  if (!next || previous?.roomId === next.roomId && previous.revision === next.revision) {
+    if (!movement && !combat && !currentDeaths.length && previousView?.canMove !== view.canMove) render();
+    else renderOnlineRoom();
+    return;
+  }
+  const before = currentSnapshot(), action = next.lastAction;
+  const animate = Boolean(previous?.state && next.state && next.matchId === previous.matchId
+    && next.revision === previous.revision + 1 && action?.revision === next.revision
+    && action.matchId === next.matchId && next.state.ply === previous.state.ply + 1
+    && JSON.stringify(action.beforeState) === JSON.stringify(previous.state));
+  cancelMovement(); clearTimeout(deathEffectTimer); currentDeaths = []; clearHint();
+  reviewingTurn = false; selected = null; hover = null; inspection = null; lastTurn = null;
+  roomSnapshot = next; roomTarget = next.roomId;
+  config = clone(next.config); state = next.state ? clone(next.state) : createGame(config);
+  gamePhase = next.phase === 'waiting' ? 'setup' : 'playing'; editor = false;
+  history = []; log = []; gameVersion = CURRENT_GAME_VERSION;
+  if (location.protocol !== 'file:') window.history.replaceState(null, '', roomInvitation(next.roomId));
+  rememberRoom(next.roomId);
+  if (animate) { lastTurn = { before, action: clone(action.action) }; presentMove(before, action.action, action.deaths || []); }
+  else render();
+}
+async function connectOnlineRoom() {
+  if (playMode !== 'online' || roomConnecting || roomView?.snapshot) return;
+  const name = $('#room-name').value.trim();
+  if (!name) { $('#room-name').focus(); $('#room-name').reportValidity(); return; }
+  if (location.protocol === 'file:' && !$('meta[name="game-room-endpoint"]')?.content) {
+    roomError = 'Для игры по ссылке откройте игру через сервер.'; renderOnlineRoom(); return;
+  }
+  roomConnecting = true; roomError = ''; renderOnlineRoom();
+  roomSession?.stop();
+  roomSession = null;
+  let session;
+  try {
+    session = new MultiplayerSession({
+      endpoint: $('meta[name="game-room-endpoint"]')?.content || '',
+      onChange: view => { if (roomSession === session) applyRoomView(view); },
+      onError: error => { if (roomSession === session && playMode === 'online') { roomError = roomErrorText(error); renderOnlineRoom(); } }
+    });
+    roomSession = session;
+    if (roomTarget) await session.join(roomTarget, { name }); else await session.create({ name });
+  } catch (error) { if (!session || roomSession === session) roomError = roomErrorText(error); }
+  finally { if (!session || roomSession === session) { roomConnecting = false; renderOnlineRoom(); } }
+}
+async function runRoomAction(action) {
+  if (playMode !== 'online' || !roomSession || roomView?.pending || roomView?.status !== 'connected') return;
+  const session = roomSession;
+  roomError = '';
+  try { await action(); }
+  catch (error) { if (roomSession === session) roomError = roomErrorText(error); }
+  if (playMode === 'online' && roomSession === session) renderOnlineRoom();
+}
+async function leaveOnlineRoom() {
+  if (playMode !== 'online' || roomLeaving) return;
+  roomLeaving = true; $('#room-leave').disabled = true;
+  const session = roomSession;
+  roomSession = null;
+  // Stop receiving snapshots immediately, including an in-flight create or join.
+  try { await session?.leave(); } catch { /* Returning to local play is available offline too. */ }
+  session?.stop(); rememberRoom(null);
+  cancelMovement(); clearTimeout(deathEffectTimer); currentDeaths = [];
+  const url = new URL(location.href); url.searchParams.delete('room');
+  if (location.protocol !== 'file:') window.history.replaceState(null, '', url.href);
+  if (roomLocalGame) ({ config, state, history, log, playMode, humanTeam, firstMove, botDifficulty, gamePhase, positionKind, previousGame, startPreferences, lastTurn, gameVersion, editor } = roomLocalGame);
+  else { playMode = 'bot'; gamePhase = 'setup'; resetNewGameDefaults(); }
+  roomLocalGame = null; roomView = null; roomSnapshot = null; roomTarget = null; roomError = ''; roomConnecting = false; roomLeaving = false; $('#room-leave').disabled = false;
+  reviewingTurn = false; selected = null; render(); $('#room-open').focus();
+}
+function renderOnlineRoom() {
+  const online = playMode === 'online';
+  document.body.classList.toggle('online-room', online);
+  $('#room-panel').hidden = !online; $('#room-open').hidden = online;
+  for (const id of ['show-hint', 'undo', 'replay-combat', 'review-previous', 'review-current']) $('#' + id).hidden = online;
+  if (!online) return;
+  $('#archive-status').hidden = true; $('#archive-retry').hidden = true; $('#archive-details').hidden = true;
+  $('#pass-turn').hidden = true; $('#editor-controls').hidden = true; $('#settings-open').disabled = true; $('#configure-position').disabled = true;
+  const snapshot = roomView?.snapshot, seated = roomView?.selfSeat === 0 || roomView?.selfSeat === 1;
+  const waiting = snapshot?.phase === 'waiting', busy = roomConnecting || Boolean(roomView?.pending);
+  const connected = roomView?.status === 'connected', canAct = connected && !busy;
+  $('#room-role').textContent = snapshot ? seated ? TEAM_NAMES[roomView.selfSeat] : 'Зритель' : '';
+  $('#room-entry').hidden = Boolean(snapshot); $('#room-connected').hidden = !snapshot;
+  $('#room-name').disabled = busy; $('#room-connect').disabled = busy;
+  $('#room-connect').textContent = busy ? 'Подключаемся…' : roomTarget ? 'Войти в комнату' : 'Создать комнату';
+  $('#room-status').textContent = busy ? roomView?.pending ? 'Ждём подтверждения…' : 'Подключаемся к комнате…'
+    : !snapshot ? roomTarget ? 'Войдите, чтобы смотреть игру или занять место.' : 'Создайте комнату и пригласите соперника по ссылке.'
+    : !connected ? 'Связь потеряна. Восстанавливаем подключение; места сохраняются.'
+    : snapshot.phase === 'won' ? 'Партия окончена. Игрок может освободить места.'
+    : waiting ? 'Партия начнётся, когда оба игрока будут готовы.' : seated ? state.turn === roomView.selfSeat ? 'Ваш ход.' : 'Сейчас ход соперника.' : `Сейчас ходит ${TEAM_NAMES[state.turn]}.`;
+  if (snapshot) {
+    $('#room-link').value = roomInvitation(snapshot.roomId);
+    const participantMap = new Map(snapshot.participants.map(participant => [participant.guestId, participant]));
+    for (let team = 0; team < 2; team++) {
+      const seat = snapshot.seats[team], node = $(`[data-room-seat="${team}"]`);
+      node.dataset.occupied = String(Boolean(seat)); node.dataset.self = String(seated && roomView.selfSeat === team);
+      node.querySelector('[data-seat-name]').textContent = seat ? `${seat.name}${roomView.selfSeat === team ? ' · Вы' : ''}` : 'Место свободно';
+      node.querySelector('[data-seat-ready]').textContent = seat && waiting ? seat.ready ? 'Готов' : 'Не готов' : '';
+      node.querySelector('[data-seat-connection]').textContent = !seat ? '' : participantMap.get(seat.guestId)?.present && (roomView.selfSeat !== team || connected) ? 'В сети' : 'Нет связи · место сохранено';
+      const button = node.querySelector('[data-claim-seat]');
+      button.hidden = Boolean(seat) || !waiting || seated; button.disabled = !canAct;
+    }
+    const spectators = snapshot.participants.filter(participant => participant.present && participant.seat == null).length;
+    $('#room-spectators').textContent = `${spectators} ${plural(spectators, ['зритель', 'зрителя', 'зрителей'])} в комнате`;
+    $('#room-explanation').textContent = waiting ? seated ? 'До старта можно снять готовность или встать.' : 'Выберите свободную сторону или оставайтесь зрителем.' : '«Завершить партию» освобождает оба места. Все участники остаются в комнате.';
+    const result = snapshot.lastResult;
+    $('#room-last-result').hidden = !waiting || !result;
+    $('#room-last-result').textContent = !result ? '' : result.status === 'aborted' || result.winner === null ? 'Предыдущая партия завершена без победителя.' : result.winner === 'draw' ? 'Предыдущая партия: ничья.' : `Предыдущая партия: победа ${result.winner === 0 ? 'Севера' : 'Юга'}.`;
+  }
+  $('#room-ready').hidden = !seated || !waiting; $('#room-ready').disabled = !canAct;
+  $('#room-ready').textContent = seated && snapshot?.seats[roomView.selfSeat]?.ready ? 'Снять готовность' : 'Готов';
+  $('#room-stand').hidden = !seated || !waiting; $('#room-stand').disabled = !canAct;
+  $('#room-finish').hidden = !seated || waiting || !snapshot; $('#room-finish').disabled = !canAct;
+  $('#room-error').textContent = roomError; $('#room-error').hidden = !roomError;
+  $('#room-retry').hidden = busy || (!roomError && (!snapshot || connected));
+  $('#room-leave').textContent = snapshot ? 'Выйти из комнаты' : 'Вернуться к обычной игре';
+}
+$('#room-open').addEventListener('click', () => openOnlineRoom());
+$('#room-entry').addEventListener('submit', event => { event.preventDefault(); void connectOnlineRoom(); });
+$('#room-panel').addEventListener('click', event => {
+  const button = event.target.closest('[data-claim-seat]');
+  if (!button || button.disabled || roomView?.selfSeat != null || roomView?.snapshot?.phase !== 'waiting') return;
+  const team = Number(button.dataset.claimSeat);
+  if (!roomView.snapshot.seats[team]) void runRoomAction(() => roomSession.claimSeat(team));
+});
+$('#room-ready').addEventListener('click', () => { if (roomView?.selfSeat != null && roomView.snapshot.phase === 'waiting') void runRoomAction(() => roomSession.setReady(!roomView.snapshot.seats[roomView.selfSeat].ready)); });
+$('#room-stand').addEventListener('click', () => { if (roomView?.selfSeat != null && roomView.snapshot.phase === 'waiting') void runRoomAction(() => roomSession.stand()); });
+$('#room-finish').addEventListener('click', () => { if (roomView?.selfSeat != null && ['playing', 'won'].includes(roomView.snapshot.phase)) void runRoomAction(() => roomSession.endMatch()); });
+$('#room-leave').addEventListener('click', () => { void leaveOnlineRoom(); });
+$('#room-retry').addEventListener('click', async () => {
+  if (!roomView?.snapshot) { void connectOnlineRoom(); return; }
+  roomError = '';
+  try { await roomSession?.resync(); } catch (error) { roomError = roomErrorText(error); }
+  renderOnlineRoom();
+});
+$('#room-copy').addEventListener('click', async () => {
+  const input = $('#room-link');
+  try { await navigator.clipboard.writeText(input.value); toast('Ссылка скопирована.'); }
+  catch { input.focus(); input.select(); toast('Выделенная ссылка готова для копирования.'); }
+});
 
 const statFields = [['move', 'Шаг'], ['damage', 'Урон'], ['range', 'Дальность поражения'], ['fortitude', 'Стойкость'], ['aura', 'Радиус ауры'], ['damageBonus', 'Бонус урона'], ['rangeBonus', 'Бонус дальности'], ['defenseBonus', 'Бонус стойкости']];
 const promotionFields = [['damageBonus', 'Личный бонус урона'], ['rangeBonus', 'Личный бонус дальности'], ['defenseBonus', 'Личный бонус стойкости'], ['maxRange', 'Предел дальности броненосца']];
@@ -831,10 +1033,11 @@ function settingsFromForm() {
   for (const [name] of experimentFields) next.experiments[name] = form.elements['experiment.' + name].checked;
   return validateConfig(next);
 }
-$('#settings-open').addEventListener('click', () => { if (gamePhase !== 'setup' || positionKind !== 'custom' || editor || refreshingNewGame) return; cancelBot(); cancelMovement(); fillSettings(config); $('#settings-dialog').showModal(); render(); });
+$('#settings-open').addEventListener('click', () => { if (playMode === 'online' || gamePhase !== 'setup' || positionKind !== 'custom' || editor || refreshingNewGame) return; cancelBot(); cancelMovement(); fillSettings(config); $('#settings-dialog').showModal(); render(); });
 $('#settings-form').elements.geometry.addEventListener('change', () => { $('#settings-form').elements.size.value = $('#settings-form').elements.geometry.value === 'hex' ? 5 : 11; updateSizeLabel(); });
 $('#settings-form').addEventListener('submit', event => {
   event.preventDefault();
+  if (playMode === 'online') return;
   try {
     const next = settingsFromForm();
     if (gamePhase === 'playing' && (next.geometry !== config.geometry || next.size !== config.size)) throw new Error('Для изменения поля откройте «Новую игру».');
@@ -851,7 +1054,7 @@ createGuideController({ icons: ICON_PATHS, renderBadges: unitBadges,
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
-document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && !event.target.closest('dialog')) { event.preventDefault(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
+document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog')) { event.preventDefault(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; presentKills(completed.before, completed.forecast, completed.deaths); } });
 let attackReachInView = true;
@@ -875,3 +1078,8 @@ if (freshNewGameRequested && gamePhase === 'setup' && previousGame) openStartSet
 if (presetUpdated) toast('Подготовлена расстановка с одним барабаном и одним знаменем. Нажмите «Начать», чтобы играть.');
 
 if (balanceUpdated) toast(commanderUpdated ? 'Командир: атака 3, дальность 2. Расстановка сохранена.' : 'Обновлена расстановка: броненосец в центре, два новых лукаря; флаг и барабан отодвинуты назад.');
+const initialRoomId = new URL(location.href).searchParams.get('room');
+if (initialRoomId) {
+  openOnlineRoom(initialRoomId);
+  if (savedRoomReference().roomId === initialRoomId && $('#room-name').value) void connectOnlineRoom();
+}

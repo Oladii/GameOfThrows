@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f5f3ed">
   <meta name="game-archive-endpoint" content="https://game-of-trows-archive.designsystembarkalov.chatgpt.site">
+  <meta name="game-room-endpoint" content="">
   <title>Game Of Trows</title>
   <meta name="description" content="Тактическая игра «Game Of Trows»: броненосцы и лукари при поддержке барабана, горна, знамени и командира.">
   <link rel="stylesheet" href="/styles.css">
@@ -17,7 +18,27 @@
   <main>
     <div class="workspace">
       <aside class="left-panel">
-        <div class="panel-actions"><button id="new-game" class="button primary" hidden>Новая игра</button><button id="start-setup" class="button primary" aria-haspopup="dialog" aria-controls="start-dialog">Начать игру <span aria-hidden="true">↗</span></button><button id="rules-open" class="button outline">Как играть</button></div>
+        <div class="panel-actions"><button id="new-game" class="button primary" hidden>Новая игра</button><button id="start-setup" class="button primary" aria-haspopup="dialog" aria-controls="start-dialog">Начать игру <span aria-hidden="true">↗</span></button><button id="room-open" class="button outline" type="button">Играть по ссылке</button><button id="rules-open" class="button outline">Как играть</button></div>
+        <section id="room-panel" class="room-panel" aria-labelledby="room-title" hidden>
+          <div class="room-heading"><h2 id="room-title">Игра по ссылке</h2><span id="room-role" class="room-role"></span></div>
+          <p id="room-status" class="room-status" role="status" aria-live="polite"></p>
+          <form id="room-entry" class="room-entry">
+            <label for="room-name">Ваше имя</label><input id="room-name" name="name" autocomplete="nickname" maxlength="40" required placeholder="Как вас представить">
+            <button id="room-connect" class="button primary full" type="submit">Создать комнату</button>
+          </form>
+          <div id="room-connected" hidden>
+            <div class="room-invitation"><label for="room-link">Ссылка для приглашения</label><div class="room-link-row"><input id="room-link" readonly><button id="room-copy" class="button outline" type="button">Копировать</button></div></div>
+            <ul class="room-seats" aria-label="Места игроков">
+              <li class="room-seat north" data-room-seat="0"><div class="room-seat-heading"><strong>Север</strong><span data-seat-ready></span></div><span class="room-seat-name" data-seat-name>Место свободно</span><span class="room-seat-connection" data-seat-connection></span><button class="button outline full" data-claim-seat="0" type="button">Занять Север</button></li>
+              <li class="room-seat south" data-room-seat="1"><div class="room-seat-heading"><strong>Юг</strong><span data-seat-ready></span></div><span class="room-seat-name" data-seat-name>Место свободно</span><span class="room-seat-connection" data-seat-connection></span><button class="button outline full" data-claim-seat="1" type="button">Занять Юг</button></li>
+            </ul>
+            <div class="room-player-actions"><button id="room-ready" class="button primary" type="button" hidden>Готов</button><button id="room-stand" class="button subtle" type="button" hidden>Встать</button><button id="room-finish" class="button outline full" type="button" hidden>Завершить партию</button></div>
+            <p id="room-explanation" class="room-note"></p><p id="room-spectators" class="room-note"></p><p id="room-last-result" class="room-note" hidden></p>
+          </div>
+          <p id="room-error" class="form-error" role="alert" hidden></p>
+          <button id="room-retry" class="button outline full" type="button" hidden>Повторить подключение</button>
+          <button id="room-leave" class="button subtle full" type="button">Вернуться к обычной игре</button>
+        </section>
         <section id="selection-panel" class="selection-panel" aria-label="Выбранная фигура" hidden><div id="inspector" aria-live="polite"></div></section>
         <div id="move-hint" class="move-hint" role="status" aria-live="polite" hidden></div>
         <section id="reference-panel" class="reference-panel" aria-label="Базовые параметры фигур"><div id="unit-reference" class="unit-reference" aria-label="Базовые характеристики фигур и их аур"></div></section>
@@ -36,7 +57,7 @@
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.78</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T18:28:47.233Z">Сборка 14.11.2026, 21:28:47 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.78</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T21:23:02.612Z">Сборка 15.11.2026, 00:23:02 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -51,7 +72,7 @@
     <div class="dialog-header"><div><h2 id="start-title">Настройки старта</h2></div><button type="button" class="icon-button close-dialog" aria-label="Закрыть настройки старта"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
     <div id="start-settings" class="start-settings">
       <div class="start-fields">
-        <div class="play-mode-field"><label class="field-label" for="play-mode">Режим игры</label><select id="play-mode"><option value="local">Вдвоём на одном экране</option><option value="bot">Против бота</option></select></div>
+        <div class="play-mode-field"><label class="field-label" for="play-mode">Режим игры</label><select id="play-mode"><option value="local">Вдвоём на одном экране</option><option value="bot">Против бота</option><option value="online">По ссылке</option></select></div>
         <div class="first-move-field"><label class="field-label" for="first-move">Первый ход</label><select id="first-move"><option value="north">Север</option><option value="south">Юг</option><option value="random">Случайно</option></select></div>
         <div id="human-side-field" hidden>
           <div><label class="field-label" for="human-side">Ваша сторона</label><select id="human-side"><option value="0">Север · синие</option><option value="1">Юг · оранжевые</option></select></div>
