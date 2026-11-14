@@ -18,12 +18,11 @@
   <main>
     <div class="workspace">
       <aside class="left-panel">
-        <div class="panel-actions"><button id="new-game" class="button primary" hidden>Новая игра</button><button id="start-setup" class="button primary" aria-haspopup="dialog" aria-controls="start-dialog">Начать игру <span aria-hidden="true">↗</span></button><button id="rules-open" class="button outline">Как играть</button></div>
+        <div class="panel-actions"><button id="new-game" class="button primary" hidden>Новая игра</button><button id="start-setup" class="button primary" aria-haspopup="dialog" aria-controls="start-dialog">Начать игру</button><button id="rules-open" class="button outline">Как играть</button></div>
         <section id="selection-panel" class="selection-panel" aria-label="Выбранная фигура" hidden><div id="inspector" aria-live="polite"></div></section>
         <div id="move-hint" class="move-hint" role="status" aria-live="polite" hidden></div>
         <div id="sidebar-overview" class="sidebar-overview">
-          <section class="multiplayer-panel sidebar-card" aria-label="Мультиплеер">
-            <button id="room-open" class="button room-button" type="button">Играть по ссылке</button>
+          <section class="multiplayer-panel sidebar-card" aria-label="Мультиплеер" hidden>
             <section id="room-panel" class="room-panel" aria-labelledby="room-title" hidden>
               <h2 id="room-title">Игровая комната</h2>
               <div class="room-actions">
@@ -55,7 +54,7 @@
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T23:29:19.748Z">Сборка 15.11.2026, 02:29:19 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T23:38:38.674Z">Сборка 15.11.2026, 02:38:38 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -81,7 +80,7 @@
       <div class="custom-game-actions"><button id="configure-position" class="button outline full" disabled hidden>Расставить фигуры</button><button id="settings-open" class="button outline full" type="button" disabled hidden>Параметры боя</button></div>
     </div>
     <div class="start-dialog-footer"><div class="start-dialog-actions">
-      <button id="start-game" class="button primary">Начать <span aria-hidden="true">↗</span></button>
+      <button id="start-game" class="button primary">Начать</button>
     </div></div>
   </dialog>
   <dialog id="settings-dialog"><form id="settings-form">

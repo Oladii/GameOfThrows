@@ -763,6 +763,7 @@ to{opacity:1}}
 .settings-layout .input-grid>*{min-width:0}
 /* Start options: turn order first, position on a separate full-width row. */
 #start-dialog .play-mode-field{grid-column:auto}
+#start-dialog .play-mode-field:has(#play-mode[data-online="true"]){grid-column:1/-1}
 #start-dialog .position-field{grid-column:1/-1}
 /* shadcn/ui line tabs: compact on desktop, contained on small screens. */
 #onboarding{min-width:0;max-width:min(1040px,100%)}
@@ -898,12 +899,11 @@ main{padding:0 14px 14px}
   <main>
     <div class="workspace">
       <aside class="left-panel">
-        <div class="panel-actions"><button id="new-game" class="button primary" hidden>Новая игра</button><button id="start-setup" class="button primary" aria-haspopup="dialog" aria-controls="start-dialog">Начать игру <span aria-hidden="true">↗</span></button><button id="rules-open" class="button outline">Как играть</button></div>
+        <div class="panel-actions"><button id="new-game" class="button primary" hidden>Новая игра</button><button id="start-setup" class="button primary" aria-haspopup="dialog" aria-controls="start-dialog">Начать игру</button><button id="rules-open" class="button outline">Как играть</button></div>
         <section id="selection-panel" class="selection-panel" aria-label="Выбранная фигура" hidden><div id="inspector" aria-live="polite"></div></section>
         <div id="move-hint" class="move-hint" role="status" aria-live="polite" hidden></div>
         <div id="sidebar-overview" class="sidebar-overview">
-          <section class="multiplayer-panel sidebar-card" aria-label="Мультиплеер">
-            <button id="room-open" class="button room-button" type="button">Играть по ссылке</button>
+          <section class="multiplayer-panel sidebar-card" aria-label="Мультиплеер" hidden>
             <section id="room-panel" class="room-panel" aria-labelledby="room-title" hidden>
               <h2 id="room-title">Игровая комната</h2>
               <div class="room-actions">
@@ -935,7 +935,7 @@ main{padding:0 14px 14px}
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T23:29:19.748Z">Сборка 15.11.2026, 02:29:19 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.79</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T23:38:38.674Z">Сборка 15.11.2026, 02:38:38 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -961,7 +961,7 @@ main{padding:0 14px 14px}
       <div class="custom-game-actions"><button id="configure-position" class="button outline full" disabled hidden>Расставить фигуры</button><button id="settings-open" class="button outline full" type="button" disabled hidden>Параметры боя</button></div>
     </div>
     <div class="start-dialog-footer"><div class="start-dialog-actions">
-      <button id="start-game" class="button primary">Начать <span aria-hidden="true">↗</span></button>
+      <button id="start-game" class="button primary">Начать</button>
     </div></div>
   </dialog>
   <dialog id="settings-dialog"><form id="settings-form">
@@ -4401,7 +4401,7 @@ function applyStartPreferences() {
 if (freshNewGameRequested && gamePhase === 'setup' && previousGame) applyStartPreferences();
 function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
-function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && (reviewTurn || lastTurn) ? (reviewTurn || lastTurn).before.state : state; }
+function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && (reviewTurn || lastTurn) ? (reviewTurn?.position || (reviewTurn || lastTurn).before.state) : state; }
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
 function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
@@ -4698,6 +4698,7 @@ function render(deaths = []) {
   currentDeaths = Array.isArray(deaths) && !matchMedia('(prefers-reduced-motion: reduce)').matches ? deaths : [];
   $('#first-move').value = firstMove;
   const choosingOnline = $('#play-mode').dataset.online === 'true' && playMode !== 'online';
+  $('#start-game').textContent = choosingOnline ? 'Создать комнату' : 'Начать';
   $('#play-mode').value = choosingOnline ? 'online' : playMode; $('#human-side').value = String(humanTeam);
   $('#bot-difficulty').value = botDifficulty;
   $('#human-side-field').hidden = choosingOnline || playMode !== 'bot'; $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
@@ -4951,7 +4952,9 @@ async function stepReview(direction) {
     }
   }
   if (!turn || request !== reviewRequest) return;
-  reviewTurn = turn; reviewingTurn = true; render();
+  const { before, action } = turn;
+  const position = action && !action.pass ? inspectCell(before.state, before.config, action.to, action.id).position : before.state;
+  reviewTurn = { ...turn, position }; reviewingTurn = true; render();
 }
 $('#review-previous').addEventListener('click', () => stepReview(-1));
 $('#review-current').addEventListener('click', () => stepReview(1));
@@ -5081,7 +5084,7 @@ async function leaveOnlineRoom() {
   if (roomLocalGame) ({ config, state, history, log, playMode, humanTeam, firstMove, botDifficulty, gamePhase, positionKind, previousGame, startPreferences, lastTurn, gameVersion, editor } = roomLocalGame);
   else { playMode = 'bot'; gamePhase = 'setup'; resetNewGameDefaults(); }
   roomLocalGame = null; roomView = null; roomSnapshot = null; roomTarget = null; roomError = ''; roomConnecting = false; roomLeaving = false; $('#room-leave').disabled = false;
-  reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); $('#room-open').focus();
+  reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); $(gamePhase === 'playing' ? '#new-game' : '#start-setup').focus();
 }
 function renderScoreboard(position) {
   const online = playMode === 'online', snapshot = roomView?.snapshot;
@@ -5100,7 +5103,7 @@ function renderScoreboard(position) {
     }).join('');
     const turnLabel = !online ? 'ВАШ ХОД' : !seated ? 'Ходят' : roomView.selfSeat === team ? 'Ваш ход' : 'Ход соперника';
     const waitingLabel = !online || position.winner !== null ? ' ' : !seated ? 'Ждут хода противника' : roomView.selfSeat === team ? 'Ожидаем ход соперника' : 'Ждут пока вы походите';
-    const turn = gamePhase === 'setup' ? online ? '' : 'РАССТАНОВКА' : combat || currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПЕРЕД ХОДОМ' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : turnLabel : waitingLabel;
+    const turn = gamePhase === 'setup' ? online ? '' : 'РАССТАНОВКА' : combat || currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? 'ПРОСМОТР ХОДА' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : turnLabel : waitingLabel;
     const offline = online && seat && (!snapshot.participants.some(person => person.guestId === seat.guestId && person.present) || roomView.selfSeat === team && roomView.status !== 'connected');
     if (online) {
       const canStand = roomView?.status === 'connected' && !roomView.pending && !roomConnecting;
@@ -5117,7 +5120,7 @@ function renderScoreboard(position) {
 function renderOnlineRoom() {
   const online = playMode === 'online';
   document.body.classList.toggle('online-room', online);
-  $('#room-panel').hidden = !online; $('#room-open').hidden = online;
+  $('#room-panel').hidden = !online; $('.multiplayer-panel').hidden = !online;
   for (const id of ['show-hint', 'undo']) $('#' + id).hidden = online;
   $('.board-wrap').hidden = online && (!roomView?.snapshot || roomView.snapshot.phase === 'waiting' || roomView.status === 'closed');
   document.body.classList.toggle('room-waiting', online && $('.board-wrap').hidden);
@@ -5145,7 +5148,6 @@ function renderOnlineRoom() {
   $('#room-retry').textContent = closed || roomView?.error?.code === 'room_not_found' ? 'Войти снова' : 'Повторить подключение';
   renderScoreboard(visibleState());
 }
-$('#room-open').addEventListener('click', () => openOnlineRoom());
 $('#scoreboard').addEventListener('click', event => {
   const button = event.target.closest('[data-claim-seat], [data-stand-seat]');
   if (!button || button.disabled || roomView?.snapshot?.phase !== 'waiting') return;

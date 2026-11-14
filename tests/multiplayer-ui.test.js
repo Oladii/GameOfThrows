@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG, TYPES, LABELS } from '../dist/rules.js';
-import { createGame, move, reachable } from '../dist/engine.js';
+import { createGame, move, reachable, inspectCell } from '../dist/engine.js';
 import { hexGridPoint } from '../dist/board-presentation.js';
 
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
@@ -29,7 +29,7 @@ function setup() {
     currentDeaths: [], deathEffectTimer: null, movement: null, combat: null, reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false, selected: null, hover: null, inspection: null,
     lastTurn: null, history: [], log: [], gameVersion: 'test', CURRENT_GAME_VERSION: 'test', firstMove: 'north', humanTeam: 0,
     botDifficulty: 'training', previousGame: null, startPreferences: null, ready: true, available: [],
-    clone: structuredClone, DEFAULT_CONFIG, TYPES, LABELS, icon: () => '<svg></svg>', createGame, hexGridPoint, TEAM_NAMES: ['Синие', 'Красные'], clearTimeout() {}, clearHint() {},
+    inspectCell, clone: structuredClone, DEFAULT_CONFIG, TYPES, LABELS, icon: () => '<svg></svg>', createGame, hexGridPoint, TEAM_NAMES: ['Синие', 'Красные'], clearTimeout() {}, clearHint() {},
     plural(n, forms) { return n % 100 >= 11 && n % 100 <= 14 ? forms[2] : n % 10 === 1 ? forms[0] : n % 10 >= 2 && n % 10 <= 4 ? forms[1] : forms[2]; }, toast() {},
     cancelMovement() { calls.push(['cancel']); context.movement = null; context.combat = null; },
     resetBotContext() { context.lastTurn = null; context.reviewingTurn = false; context.movement = null; },
@@ -302,7 +302,11 @@ test('rejoining restores read-only last-turn controls and new server state ends 
     const confirmed = plain(ui.context.state);
     ui.$('#review-previous').events.click();
     assert.equal(ui.context.reviewingTurn, true); assert.equal(ui.context.humanCanMove(), false);
-    assert.deepEqual(plain(ui.context.visibleState()), before);
+    const shown = plain(ui.context.visibleState());
+    assert.deepEqual(shown, inspectCell(before, DEFAULT_CONFIG, to, piece.id).position);
+    assert.equal(shown.pieces.some(p => p.q === piece.q && p.r === piece.r), false, 'origin is empty');
+    assert.deepEqual(shown.pieces.find(p => p.id === piece.id), { ...piece, q: to.q, r: to.r });
+    assert.deepEqual(plain(ui.context.lastTurn.before.state), before, 'replay keeps the original move input');
     assert.deepEqual(plain(ui.context.state), confirmed, 'review never replaces the authoritative state');
     ui.$('#review-current').events.click();
     assert.deepEqual(plain(ui.context.visibleState()), confirmed);
@@ -394,4 +398,25 @@ test('history arrows cannot change the selected turn while its combat replay run
   assert.equal(ui.context.canReviewPrevious(),false);
   vm.runInContext(app.split('\n').find(line=>line.includes("$('#review-current').disabled =")),ui.context);
   assert.equal(ui.$('#review-current').disabled,true);
+});
+
+test('the room card is absent outside online mode; room creation stays in start settings', () => {
+  const ui=setup(); ui.context.playMode='local'; ui.context.renderOnlineRoom();
+  assert.equal(ui.$('.multiplayer-panel').hidden,true);
+  assert.doesNotMatch(html,/id="room-open"/);
+  assert.match(html,/<option value="online">Вдвоём по ссылке<\/option>/);
+  ui.context.playMode='online'; ui.context.renderOnlineRoom();
+  assert.equal(ui.$('.multiplayer-panel').hidden,false);
+  ui.context.playMode='bot'; ui.context.renderOnlineRoom();
+  assert.equal(ui.$('.multiplayer-panel').hidden,true);
+});
+
+test('online start names room creation and start buttons have no arrow decoration', () => {
+  const ui=setup();
+  const label=app.split('\n').find(line=>line.includes("$('#start-game').textContent ="));
+  vm.runInContext('let choosingOnline=true;'+label,ui.context);
+  assert.equal(ui.$('#start-game').textContent,'Создать комнату');
+  vm.runInContext('choosingOnline=false;'+label,ui.context);
+  assert.equal(ui.$('#start-game').textContent,'Начать');
+  assert.doesNotMatch(html,/↗/);
 });

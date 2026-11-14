@@ -246,7 +246,7 @@ test('history replays the selected combat for players, spectators and local game
     const ui=presentationHarness(mode);
     ui.context.roomView={selfSeat:seat,canMove:true};
     ui.context.reviewingTurn=true;
-    ui.context.reviewTurn={before:ui.before,action:ui.action};
+    ui.context.reviewTurn={before:ui.before,action:ui.action,position:ui.forecast.position};
     // The live position and its most recent action are unrelated to this battle.
     ui.context.state={...ui.result.state,ply:12};
     ui.context.lastTurn={before:{...ui.before,state:ui.context.state},action:{pass:true}};
@@ -262,7 +262,7 @@ test('history replays the selected combat for players, spectators and local game
       assert.equal(ui.context.humanCanMove(),false);
       ui.time.advance(10000);
       assert.equal(ui.context.combat,null);
-      assert.equal(ui.context.visibleState(),ui.before.state);
+      assert.equal(ui.context.visibleState(),ui.forecast.position);
       assert.equal(ui.context.reviewingTurn,true);
       assert.equal(ui.botStarts(),0);
       assert.equal(JSON.stringify({state:ui.context.state,history:ui.context.history,log:ui.context.log,lastTurn:ui.context.lastTurn,reviewTurn:ui.context.reviewTurn}),saved);

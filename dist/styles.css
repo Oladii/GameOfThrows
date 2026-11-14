@@ -752,6 +752,7 @@ to{opacity:1}}
 .settings-layout .input-grid>*{min-width:0}
 /* Start options: turn order first, position on a separate full-width row. */
 #start-dialog .play-mode-field{grid-column:auto}
+#start-dialog .play-mode-field:has(#play-mode[data-online="true"]){grid-column:1/-1}
 #start-dialog .position-field{grid-column:1/-1}
 /* shadcn/ui line tabs: compact on desktop, contained on small screens. */
 #onboarding{min-width:0;max-width:min(1040px,100%)}
