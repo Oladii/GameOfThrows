@@ -172,7 +172,7 @@ test('tutorial has only two tabs and reuses the battle view for both shield demo
   for (const type of TYPES) assert.ok(formation.includes(`aria-label="${LABELS[type]}: урон ${DEFAULT_CONFIG.stats[type].damage}, стойкость ${DEFAULT_CONFIG.stats[type].fortitude}"`));
   assert.doesNotMatch(nodes['#onboarding-body'].innerHTML, /Исторические примеры|прежние правила/);
   vm.runInContext('onboardingStep = 1; renderOnboarding()', context);
-  assert.deepEqual([...nodes['#onboarding-body'].innerHTML.matchAll(/data-showcase-battle="([^"]+)"/g)].map(m=>m[1]),['unit-shield','unit-shield-defense','unit-drum-shield','unit-archer']);
+  assert.deepEqual([...nodes['#onboarding-body'].innerHTML.matchAll(/data-showcase-battle="([^"]+)"/g)].map(m=>m[1]),['unit-shield','unit-shield-defense','unit-drum-shield','unit-archer','unit-flag-defense']);
   assert.doesNotMatch(nodes['#onboarding-body'].innerHTML,/data-lesson-scene="unit-/);
   assert.deepEqual(Array.from(vm.runInContext('onboardingSteps',context)),['Цель игры','Фигуры']);
   vm.runInContext('onboardingStep = 1; renderOnboarding()', context);

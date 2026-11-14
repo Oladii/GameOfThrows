@@ -36,12 +36,22 @@ export function createShowcaseBattle() {
 }
 
 // Unit demos share the tutorial battle's controller, preview and combat presentation.
-export const UNIT_BATTLE_SCENES = ['unit-shield', 'unit-shield-defense', 'unit-drum-shield', 'unit-archer'];
+export const UNIT_BATTLE_SCENES = ['unit-shield', 'unit-shield-defense', 'unit-drum-shield', 'unit-archer', 'unit-flag-defense'];
 export function createUnitBattle(sceneKey) {
   const config = clone(DEFAULT_CONFIG);
   config.geometry = 'hex'; config.size = 3; config.victoryCondition = 'all-units';
   const piece = (id, type, team, q, r) => ({id, type, team, q, r});
   const scenarios = {
+    'unit-flag-defense': {
+      title: 'Флаг — не обуза',
+      description: 'Аура флага добавляет стойкости его защитникам.',
+      pieces: [piece('blue','shield',1,0,-1), piece('flag','defenseLamp',1,0,1), piece('enemy','shield',0,0,-2), piece('enemy-flag','defenseLamp',0,0,-3)],
+      actions: [{id:'flag',to:{q:0,r:3}}],
+      copy: [
+        ['Рядом с флагом стойкость нашего броненосца — 6: он выдерживает атаку в 5 урона. Выбери оранжевый флаг и отведи его на отмеченную клетку. Посмотри, что произойдёт с защитником.'],
+        ['Флаг отошёл, и броненосец потерял +1 к стойкости. Без ауры у него 5 стойкости против 5 урона — защитник погиб.']
+      ]
+    },
     'unit-shield': {
       title: 'Броненосец — ветеран',
       description: 'Обычный броненосец не может ходить назад, но как только он достигает противоположного края он становится ветераном. Ветеран может ходить назад и наносить урон на дистанции.',

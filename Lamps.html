@@ -542,7 +542,7 @@ body:has(#rules-dialog[open]){overflow:hidden}
           <p class="muted tiny">Нажмите на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.74</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-13T23:22:57.266Z">Сборка 14.11.2026, 02:22:57 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.75</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-14T14:37:29.934Z">Сборка 14.11.2026, 17:37:29 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -2907,12 +2907,22 @@ function createShowcaseBattle() {
 }
 
 // Unit demos share the tutorial battle's controller, preview and combat presentation.
-const UNIT_BATTLE_SCENES = ['unit-shield', 'unit-shield-defense', 'unit-drum-shield', 'unit-archer'];
+const UNIT_BATTLE_SCENES = ['unit-shield', 'unit-shield-defense', 'unit-drum-shield', 'unit-archer', 'unit-flag-defense'];
 function createUnitBattle(sceneKey) {
   const config = clone(DEFAULT_CONFIG);
   config.geometry = 'hex'; config.size = 3; config.victoryCondition = 'all-units';
   const piece = (id, type, team, q, r) => ({id, type, team, q, r});
   const scenarios = {
+    'unit-flag-defense': {
+      title: 'Флаг — не обуза',
+      description: 'Аура флага добавляет стойкости его защитникам.',
+      pieces: [piece('blue','shield',1,0,-1), piece('flag','defenseLamp',1,0,1), piece('enemy','shield',0,0,-2), piece('enemy-flag','defenseLamp',0,0,-3)],
+      actions: [{id:'flag',to:{q:0,r:3}}],
+      copy: [
+        ['Рядом с флагом стойкость нашего броненосца — 6: он выдерживает атаку в 5 урона. Выбери оранжевый флаг и отведи его на отмеченную клетку. Посмотри, что произойдёт с защитником.'],
+        ['Флаг отошёл, и броненосец потерял +1 к стойкости. Без ауры у него 5 стойкости против 5 урона — защитник погиб.']
+      ]
+    },
     'unit-shield': {
       title: 'Броненосец — ветеран',
       description: 'Обычный броненосец не может ходить назад, но как только он достигает противоположного края он становится ветераном. Ветеран может ходить назад и наносить урон на дистанции.',
