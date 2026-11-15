@@ -56,7 +56,7 @@ test('training follows the same selection and hover union',()=>{
 test('click selection restores inspection after render resets hover',()=>{
  const source=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');let click,hover='0,0',selected=false;
  const cell={dataset:{cell:'0,0'}};
- const context=vm.createContext({$:()=>({addEventListener:(_,handler)=>click=handler}),gameAudio:{click(){}},focusBoardCell(){},onCell(){selected=true;hover=null;},hoverCell(event){assert.equal(selected,true);hover=event.target.closest().dataset.cell;},clearSelection(){}});
+ const context=vm.createContext({$:()=>({addEventListener:(_,handler)=>click=handler}),gameAudio:{click(){}},focusBoardCell(){},activateBoardCell(){selected=true;hover=null;},hoverCell(event){assert.equal(selected,true);hover=event.target.closest().dataset.cell;},clearSelection(){}});
  vm.runInContext(source.slice(source.indexOf("$('.board-wrap').addEventListener('click'"),source.indexOf("$('#board').addEventListener('mousedown'")),context);
  click({target:{closest:()=>cell}});assert.equal(hover,'0,0');
 });

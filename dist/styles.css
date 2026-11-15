@@ -610,12 +610,15 @@ main{padding-top:8px}
 }
 .selection-panel{margin:18px 0 0;padding-top:14px}
 .selection-panel .piece-heading{margin-top:12px}
-.selection-panel .stat-box{padding:10px}
+.selection-panel #inspector{display:flex;flex-direction:column;gap:8px;width:100%}
+.selection-panel .stat-grid{border-top:1px solid #dfe3d5;padding-top:8px}
+.selection-panel .stat-box{padding:0;border:0;border-radius:0;background:none}
 .selection-panel .stat-box span{font-size:12px}
 .selection-panel .unit-description{margin:0 0 12px}
-.selection-panel .unit-aura,.selection-panel .sources{margin:24px 0 0;padding:0;border:0;font-size:12px;line-height:1.6}
+.selection-panel .unit-aura,.selection-panel .sources{margin:0;font-size:12px;line-height:1.6}
 .selection-panel .unit-aura>strong,.selection-panel .sources>strong{display:inline-block;margin-bottom:4px;font-size:14px;line-height:1.4;font-weight:650;color:var(--ink)}
-.selection-panel .allied-bonus-list{margin-top:12px;gap:12px}
+.selection-panel .allied-bonus-list{margin-top:8px;gap:8px}
+.selection-panel .sources>p{margin:0}
 .selection-panel .sources .allied-bonus-list strong{font-size:12px;font-weight:600}
 /* Badge examples use the live board badge renderer. */
 .badge-examples{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;padding:20px 24px 24px}

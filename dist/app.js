@@ -50,6 +50,7 @@ document.addEventListener('pointerdown', event => {
   if (!soundControl.contains(event.target)) setSoundScaleOpen(false);
 });
 document.addEventListener('pointerdown', () => { void gameAudio.unlock(); }, { capture: true });
+document.addEventListener('click', () => { void gameAudio.unlock(); }, { capture: true });
 document.addEventListener('keydown', () => { void gameAudio.unlock(); }, { capture: true });
 document.addEventListener('visibilitychange', () => { if (document.hidden) gameAudio.stopAll(); });
 addEventListener('pagehide', () => gameAudio.stopAll());
@@ -578,7 +579,7 @@ function renderInspector(context) {
   const sourceDetails = sources.map(({source, bonuses}) => `<li><strong>${LABELS[source.type]}</strong><span>${Object.entries(bonuses).filter(([,value]) => value > 0).map(([field,value]) => `+${value} ${bonusLabels[field]}`).join(', ')}</span></li>`).join('');
   const aura = shieldCanRetreat(piece, config) ? config.shieldPromotion.allies ?? config.shieldPromotion : base;
   const bonuses = [[piece.type === 'attackLamp' ? config.drumShieldMoveBonus ?? 0 : 0, config.drumMoveAllies ? 'шаг союзников' : 'шаг щитоносцев'], [aura.damageBonus, 'урон'], [aura.rangeBonus, 'дальность'], [aura.defenseBonus, config.shieldDefenseOnly && piece.type === 'shield' ? 'стойкость щитоносцев' : 'стойкость']].filter(([value]) => value > 0).map(([value, name]) => `${name} +${value}`).join(', ');
-  panel.innerHTML = `<div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' veteran' : ''}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p>${context.isPreview && context.piece?.id === selected ? '<p class="preview-label">Параметры после предполагаемого перемещения</p>' : ''}<div class="stat-grid">${stats}</div>${info.aura > 0 ? `<p class="unit-aura"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><br>${bonuses}</p>` : ''}<div class="sources"><strong>Усиления от союзников</strong>${sources.length ? `<ul class="allied-bonus-list">${sourceDetails}</ul>` : '<p>Сейчас нет усилений от союзников</p>'}</div>`;
+  panel.innerHTML = `<section class="sidebar-card inspector-card"><div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' veteran' : ''}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p>${context.isPreview && context.piece?.id === selected ? '<p class="preview-label">Параметры после предполагаемого перемещения</p>' : ''}<div class="stat-grid">${stats}</div></section>${info.aura > 0 ? `<section class="unit-aura sidebar-card"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><br>${bonuses}</section>` : ''}<section class="sources sidebar-card"><strong>Усиления от союзников</strong>${sources.length ? `<ul class="allied-bonus-list">${sourceDetails}</ul>` : '<p>Сейчас нет усилений от союзников</p>'}</section>`;
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion, allies = p.allies ?? p;
@@ -693,7 +694,7 @@ function render(deaths = []) {
   $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
   $('#start-setup').hidden = playMode === 'online' || gamePhase !== 'setup' || editor;
   $('#start-setup').disabled = refreshingNewGame;
-  $('#new-game').disabled = Boolean(movement || combat);
+  $('#new-game').disabled = false;
   $('#new-game').hidden = playMode === 'online' || gamePhase !== 'playing';
   $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : 'По ссылке' : playMode === 'bot' ? `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'}` : '2 игрока на одном экране';
   hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
@@ -779,6 +780,13 @@ function onCell(q, r) {
   if (playMode === 'online') { const action = { id: selected, to: { q, r } }; selected = null; void sendRoomMove(action); return; }
   try { const result = move(state, config, selected, { q, r }), before = currentSnapshot(), action = { id: selected, from: result.action.from, to: result.action.to }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; state = result.state; log.push({ text: `${TEAM_NAMES[result.action.team]} · ${LABELS[result.action.type]}: ${positionText(result.action.from)} → ${q}, ${r}`, detail: deathDetail(result.deaths) }); recordGameAction('move', { action, deaths: result.deaths, actor: 'human' }); selected = null; presentMove(before, action, result.deaths); } catch (error) { toast(error.message); }
 }
+function activateBoardCell(q, r) {
+  const empty = !visibleState().pieces.some(piece => piece.q === q && piece.r === r);
+  const placing = editor && tool !== 'erase' && empty;
+  const moving = !editor && humanCanMove() && selected && empty && available.some(cell => cell.q === q && cell.r === r);
+  gameAudio.click(`board:${q},${r}`, { silent: Boolean(placing || moving) });
+  onCell(q, r);
+}
 function focusBoardCell(cellKey, moveFocus = false) {
   boardFocus = cellKey;
   document.querySelectorAll('#board [data-cell]').forEach(cell => cell.setAttribute('tabindex', cell.dataset.cell === cellKey ? '0' : '-1'));
@@ -786,8 +794,7 @@ function focusBoardCell(cellKey, moveFocus = false) {
 }
 $('.board-wrap').addEventListener('click', event => {
   const cell = event.target.closest('[data-cell]');
-  gameAudio.click(cell ? `board:${cell.dataset.cell}` : null);
-  if (cell) { focusBoardCell(cell.dataset.cell); onCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event); }
+  if (cell) { focusBoardCell(cell.dataset.cell); activateBoardCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event); }
   else clearSelection();
 });
 $('#board').addEventListener('mousedown', event => { if (event.target === $('#board')) event.preventDefault(); });
@@ -795,7 +802,7 @@ $('#board').addEventListener('keydown', event => {
   const cell = event.target.closest('[data-cell]');
   if (!cell) return;
   if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault(); gameAudio.click(); onCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event);
+    event.preventDefault(); activateBoardCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event);
   } else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
     event.preventDefault();
     const [q, r] = cell.dataset.cell.split(',').map(Number);
@@ -841,7 +848,8 @@ function dismissDialog(dialog) {
   dialog.close();
 }
 async function openNewGame() {
-  if (playMode === 'online' || gamePhase !== 'playing' || refreshingNewGame || movement || combat) return;
+  if (playMode === 'online' || gamePhase !== 'playing' || refreshingNewGame) return;
+  // The move is already committed; preserve its result before canceling its presentation.
   const backup = { snapshot: currentSnapshot(), history: clone(history), lastTurn: clone(lastTurn), playMode, humanTeam, firstMove, botDifficulty };
   resetBotContext(); previousGame = backup; gamePhase = 'setup'; editor = false;
   applyStartPreferences();

@@ -4,14 +4,14 @@ const SOUND_PREFERENCE = 'game-of-trows-sound-v1';
 const VOLUME_PREFERENCE = 'game-of-trows-volume-v1';
 const silentSound = () => {};
 // Overall listening level, independent of the balance between individual cues.
-export const GAME_MASTER_GAIN = 2;
+export const GAME_MASTER_GAIN = 4.5;
 // Quiet, damped table sounds with subdued movement and short interface ticks.
 export const GAME_SOUND_PROFILES = {
   slide: { gain: .045, lowpass: 450, highpass: 220, duration: .10, attack: .015 },
   place: { gain: .04, lowpass: 400, highpass: 240, duration: .055, attack: .012 },
   remove: { gain: .06, lowpass: 10000 },
-  click: { gain: .08, lowpass: 1800 },
-  hover: { gain: .35, lowpass: 10000 }
+  click: { gain: .04, lowpass: 2500, highpass: 550, duration: .006, attack: .0005 },
+  hover: { gain: .175, lowpass: 10000 }
 };
 
 // Only a straight, unobstructed route slides. A bend or an intermediate
@@ -35,6 +35,7 @@ export class GameAudio {
     this.enabled = true; this.volume = .5; this.context = null; this.buffers = {}; this.loading = null;
     this.epoch = 0; this.voices = new Set(); this.lastClick = -Infinity;
     this.lastHover = -Infinity; this.hoverKey = null;
+    this.hoverVoice = silentSound; this.clickVoice = silentSound;
     try {
       const saved = this.storage()?.getItem(VOLUME_PREFERENCE);
       if (saved != null && saved.trim() !== '' && Number.isFinite(Number(saved))) {
@@ -79,6 +80,7 @@ export class GameAudio {
     this.epoch++;
     this.hoverKey = null;
     for (const stop of [...this.voices]) stop();
+    this.hoverVoice = silentSound; this.clickVoice = silentSound;
   }
   play(name, { duration = null } = {}) {
     if (!this.enabled || this.hidden()) return silentSound;
@@ -139,11 +141,17 @@ export class GameAudio {
     else void this.unlock().then(start).catch(cleanup);
     return stop;
   }
-  click(cellKey) {
+  click(cellKey, { silent = false } = {}) {
     // Remember the clicked cell even when replacing its DOM triggers focusout.
     if (cellKey !== undefined) this.hoverKey = cellKey;
+    if (silent) {
+      this.lastHover = this.now(); this.hoverVoice(); this.clickVoice();
+      return;
+    }
     if (this.now() - this.lastClick < 35) return;
-    this.lastClick = this.now(); this.lastHover = this.now(); this.play('click');
+    this.lastClick = this.now(); this.lastHover = this.now();
+    this.hoverVoice(); this.clickVoice();
+    this.clickVoice = this.play('click');
   }
   hover(cellKey) {
     if (cellKey === this.hoverKey) return;
@@ -151,7 +159,8 @@ export class GameAudio {
     // Hover never unlocks audio, queues delayed ticks, or replays missed cells.
     if (!cellKey || !this.enabled || this.hidden() || this.context?.state !== 'running'
       || !this.buffers.hover || this.now() - this.lastHover < 65) return;
-    this.lastHover = this.now(); this.play('hover');
+    this.lastHover = this.now();
+    this.hoverVoice(); this.hoverVoice = this.play('hover');
   }
   movement(route, pieces, durationMs, { instant = false } = {}) {
     const kind = movementSoundKind(route, pieces), epoch = this.epoch;

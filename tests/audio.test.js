@@ -190,3 +190,29 @@ test('tutorial uses the same movement cues and cancels a pending arrival on rest
   const battle=new ShowcaseBattle({audio,clock:{now:()=>0,requestFrame:()=>1,cancelFrame(){}}});
   battle.playAction(TRAINING_ACTIONS[0]);battle.restart();assert.equal(starts,2);assert.equal(cancels,1);assert.equal(finishes,1);
 });
+
+test('a silent destination click cancels the hover voice without playing a selection cue', async () => {
+  const h = harness(); await h.audio.unlock(); h.audio.hover('board:0,1');
+  const started = h.starts.length, stopped = h.stops.length;
+  h.audio.click('board:0,1', { silent: true });
+  assert.equal(h.starts.length, started); assert.ok(h.stops.length > stopped);
+  h.tick(200); h.audio.hover('board:0,1'); assert.equal(h.starts.length, started);
+  h.audio.click('board:0,2'); assert.equal(h.starts.length, started + 1);
+  assert.equal(h.starts.at(-1).buffer, h.audio.buffers.click);
+});
+test('board activation keeps selection audible and destination movement silent in local and online play', () => {
+  const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
+  const fn = app.slice(app.indexOf('function activateBoardCell('), app.indexOf('function focusBoardCell('));
+  const cues = [], actions = [], ctx = vm.createContext({ editor: false, tool: 'shield', selected: 'piece',
+    visibleState: () => ({ pieces: [{ id: 'piece', q: 0, r: 0 }] }), humanCanMove: () => true,
+    available: [{ q: 0, r: 1 }], gameAudio: { click(key, options) { cues.push({ key, ...options }); } },
+    onCell(q, r) { actions.push([q, r]); } });
+  vm.runInContext(fn, ctx);
+  for (const mode of ['bot', 'local', 'online']) {
+    ctx.playMode = mode; ctx.activateBoardCell(0, 1); assert.equal(cues.at(-1).silent, true);
+    ctx.activateBoardCell(0, 0); assert.equal(cues.at(-1).silent, false);
+    ctx.activateBoardCell(2, 2); assert.equal(cues.at(-1).silent, false);
+  }
+  ctx.editor = true; ctx.activateBoardCell(0, 1); assert.equal(cues.at(-1).silent, true);
+  assert.equal(actions.length, 10);
+});
