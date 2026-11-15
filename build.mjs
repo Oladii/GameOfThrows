@@ -14,7 +14,10 @@ const strip = code => code.replace(/^import .*?;\n/gm, '').replace(/^export /gm,
 const [multiplayerClient, multiplayerSession] = await Promise.all(['multiplayer-client.js', 'multiplayer-session.js'].map(read));
 const script = [rules, engine, client, startPosition, moveAnimation, gameArchive, tokenAssets, tokenPresentation, boardPresentation, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, hint, guideController, multiplayerClient, multiplayerSession, app].map(strip).join('\n').replaceAll('</script', '<\\/script');
 const workerSource = JSON.stringify([rules, engine, defensiveSelection, formationStrategy, bot, worker].map(strip).join('\n')).replaceAll('<', '\\u003c');
-let illustratedHtml = html;
+// Published standalone pages use the hosted API; the development page keeps its local API.
+const publicRoomEndpoint = html.match(/<meta name="game-archive-endpoint" content="([^"]+)">/)?.[1];
+if (!publicRoomEndpoint) throw new Error('Missing production room API endpoint');
+let illustratedHtml = html.replace('<meta name="game-room-endpoint" content="">', `<meta name="game-room-endpoint" content="${publicRoomEndpoint}">`);
 const [brandIcon, favicon] = await Promise.all([
   fs.readFile(root + 'dist/brand/logo-target-sword-v3-tripod.png'),
   fs.readFile(root + 'dist/token-art/bullseye.svg')
