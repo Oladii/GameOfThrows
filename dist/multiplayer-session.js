@@ -186,7 +186,8 @@ export class MultiplayerSession {
       throw failure;
     } finally { if (this.#current(generation)) { this.#pending = false; this.#emit(); } }
   }
-  claimSeat(team) { return this.#command('seat', { team }); }
+  claimSeat(team, wantsFirst) { return this.#command('seat', { team, ...(typeof wantsFirst === 'boolean' ? { wantsFirst } : {}) }); }
+  setFirstMovePreference(wantsFirst) { return this.#command('first-move', { wantsFirst }); }
   stand() { return this.#command('stand', {}); }
   move(action) {
     if (!this.view.canMove) return Promise.reject(new MultiplayerError('cannot_move'));

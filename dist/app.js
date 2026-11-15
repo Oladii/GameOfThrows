@@ -73,6 +73,8 @@ let playMode = 'bot', humanTeam = DEFAULT_START_CHOICES.humanTeam, lastTurn = nu
 let reviewTurn = null, reviewLoading = false, reviewRequest = 0;
 const ROOM_STORAGE = 'trows-online-room-v1';
 let roomSession = null, roomView = null, roomLocalGame = null, roomTarget = null, roomSnapshot = null, roomConnecting = false, roomLeaving = false, roomError = '';
+let roomWantsFirst = true;
+const roomFirstMoveNotices = new Set();
 const botRunner = new BotRunner();
 const hintRunner = new BotRunner();
 let hint = null, hintThinkingTimer = null;
@@ -1031,7 +1033,23 @@ function renderScoreboard(position) {
   }).join('');
   if ($('#scoreboard').innerHTML !== markup) $('#scoreboard').innerHTML = markup;
 }
+function renderFirstMoveNotice() {
+  const snapshot = roomView?.snapshot, choice = snapshot?.firstMove, seat = roomView?.selfSeat;
+  const dialog = $('#first-move-dialog');
+  if (playMode !== 'online' || !snapshot?.matchId || !choice?.contested || (seat !== 0 && seat !== 1) || choice.team === seat) {
+    if (dialog.open) dialog.close();
+    return;
+  }
+  const key = `room-first-move:${snapshot.roomId}:${snapshot.matchId}:${snapshot.self.guestId}`;
+  if (roomFirstMoveNotices.has(key)) return;
+  try { if (sessionStorage.getItem(key)) { roomFirstMoveNotices.add(key); return; } } catch { /* In-memory tracking still prevents repeat polls. */ }
+  $('#first-move-message').textContent = `${choice.team === 0 ? 'Синий' : 'Красный'} тоже хотел ходить первым, и удача оказалась на его стороне.`;
+  if (!dialog.open) dialog.showModal();
+  roomFirstMoveNotices.add(key);
+  try { sessionStorage.setItem(key, 'shown'); } catch { /* Storage can be unavailable. */ }
+}
 function renderOnlineRoom() {
+  renderFirstMoveNotice();
   const online = playMode === 'online';
   document.body.classList.toggle('online-room', online);
   $('#room-panel').hidden = !online; $('.multiplayer-panel').hidden = !online;
@@ -1049,6 +1067,10 @@ function renderOnlineRoom() {
   $('#room-title').textContent = Number.isSafeInteger(snapshot?.roomNumber) ? `Игровая комната #${snapshot.roomNumber}` : 'Игровая комната';
   $('#room-panel').setAttribute('aria-busy', String(busy));
   $('#room-connected').hidden = !snapshot;
+  $('#room-first-choice').hidden = !snapshot || !waiting || closed;
+  if (waiting && seated) roomWantsFirst = snapshot.seats[roomView.selfSeat]?.wantsFirst === true;
+  $('#room-wants-first').checked = roomWantsFirst;
+  $('#room-wants-first').disabled = !canAct;
   $('#room-finish').hidden = !seated || waiting || !snapshot || closed; $('#room-finish').disabled = !canAct;
   $('#room-participants').hidden = !snapshot || closed;
   if (snapshot) {
@@ -1071,7 +1093,12 @@ $('#scoreboard').addEventListener('click', event => {
   }
   if (roomView.selfSeat != null) return;
   const team = Number(button.dataset.claimSeat);
-  if (!roomView.snapshot.seats[team]) void runRoomAction(() => roomSession.claimSeat(team));
+  if (!roomView.snapshot.seats[team]) void runRoomAction(() => roomSession.claimSeat(team, roomWantsFirst));
+});
+$('#room-wants-first').addEventListener('change', event => {
+  if (roomView?.snapshot?.phase !== 'waiting' || roomView.status !== 'connected' || roomView.pending) { renderOnlineRoom(); return; }
+  roomWantsFirst = event.target.checked;
+  if (roomView.selfSeat !== null) void runRoomAction(() => roomSession.setFirstMovePreference(roomWantsFirst));
 });
 $('#room-finish').addEventListener('click', () => { if (roomView?.selfSeat != null && ['playing', 'won'].includes(roomView.snapshot.phase)) void runRoomAction(() => roomSession.endMatch()); });
 $('#room-leave').addEventListener('click', () => { void leaveOnlineRoom(); });

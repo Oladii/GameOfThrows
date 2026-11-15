@@ -25,7 +25,7 @@ function setup() {
     document: { body: node(), querySelectorAll: () => [] }, window: { history: { replaceState(_state, _title, url) { location.href = url; } } },
     localStorage: { getItem: key => storage.get(key), setItem(key, value) { storage.set(key, value); } },
     playMode: 'online', gamePhase: 'playing', editor: false, positionKind: 'default', config: structuredClone(DEFAULT_CONFIG), state: createGame(DEFAULT_CONFIG),
-    roomSession: null, roomView: null, roomLocalGame: null, roomTarget: null, roomSnapshot: null, roomConnecting: false, roomLeaving: false, roomError: '',
+    roomWantsFirst: true, roomFirstMoveNotices: new Set(), renderFirstMoveNotice() {}, roomSession: null, roomView: null, roomLocalGame: null, roomTarget: null, roomSnapshot: null, roomConnecting: false, roomLeaving: false, roomError: '',
     currentDeaths: [], deathEffectTimer: null, movement: null, combat: null, reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false, selected: null, hover: null, inspection: null,
     lastTurn: null, history: [], log: [], gameVersion: 'test', CURRENT_GAME_VERSION: 'test', firstMove: 'north', humanTeam: 0,
     botDifficulty: 'training', previousGame: null, startPreferences: null, ready: true, available: [],
@@ -419,4 +419,34 @@ test('online start names room creation and start buttons have no arrow decoratio
   vm.runInContext('choosingOnline=false;'+label,ui.context);
   assert.equal(ui.$('#start-game').textContent,'Начать');
   assert.doesNotMatch(html,/↗/);
+});
+
+test('only the player who lost a contested first move sees the dialog, once per match', () => {
+  const ui = setup(); let shown = 0;
+  const dialog = ui.$('#first-move-dialog');
+  dialog.open = false; dialog.showModal = () => { dialog.open = true; shown++; }; dialog.close = () => { dialog.open = false; };
+  vm.runInContext(source('function renderFirstMoveNotice()', 'function renderOnlineRoom()'), ui.context);
+  const snap = snapshot({ phase: 'playing', matchId: 'match-one', state: createGame(DEFAULT_CONFIG), firstMove: { team: 0, contested: true } });
+  ui.context.roomView = view(snap, null); ui.context.renderFirstMoveNotice(); assert.equal(shown, 0);
+  ui.context.roomView = view(snap, 0); ui.context.renderFirstMoveNotice(); assert.equal(shown, 0);
+  ui.context.roomView = view(snap, 1); ui.context.renderFirstMoveNotice(); assert.equal(shown, 1);
+  assert.equal(ui.$('#first-move-message').textContent, 'Синий тоже хотел ходить первым, и удача оказалась на его стороне.');
+  dialog.close(); ui.context.renderFirstMoveNotice(); assert.equal(shown, 1);
+  snap.matchId = 'match-two'; snap.firstMove.team = 1; ui.context.roomView = view(snap, 0);
+  ui.context.renderFirstMoveNotice(); assert.equal(shown, 2);
+  assert.match(ui.$('#first-move-message').textContent, /^Красный тоже/);
+  snap.firstMove.contested = false; ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, false);
+});
+
+test('first move checkbox is available while waiting and carries the choice with the seat', () => {
+  const ui = setup(), snap = snapshot(); ui.context.roomView = view(snap);
+  ui.context.renderOnlineRoom();
+  assert.equal(ui.$('#room-first-choice').hidden, false); assert.equal(ui.$('#room-wants-first').checked, true);
+  const claims = []; ui.context.roomSession = { claimSeat: (...args) => claims.push(args) };
+  ui.context.runRoomAction = task => task(); ui.context.roomWantsFirst = false;
+  vm.runInContext(source("$('#scoreboard').addEventListener", "$('#room-wants-first').addEventListener"), ui.context);
+  ui.$('#scoreboard').events.click({ target: { closest: () => ({ dataset: { claimSeat: '1' }, disabled: false }) } });
+  assert.deepEqual(claims, [[1, false]]);
+  ui.context.roomView = view(snapshot({ phase: 'playing', state: createGame(DEFAULT_CONFIG) }), 0);
+  ui.context.renderOnlineRoom(); assert.equal(ui.$('#room-first-choice').hidden, true);
 });
