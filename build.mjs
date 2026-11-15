@@ -19,10 +19,10 @@ const publicRoomEndpoint = html.match(/<meta name="game-archive-endpoint" conten
 if (!publicRoomEndpoint) throw new Error('Missing production room API endpoint');
 let illustratedHtml = html.replace('<meta name="game-room-endpoint" content="">', `<meta name="game-room-endpoint" content="${publicRoomEndpoint}">`);
 const [brandIcon, favicon] = await Promise.all([
-  fs.readFile(root + 'dist/brand/logo-target-sword-v3-tripod.png'),
+  fs.readFile(root + 'dist/brand/game-of-trows-v1.png'),
   fs.readFile(root + 'dist/token-art/bullseye.svg')
 ]);
-illustratedHtml = illustratedHtml.replaceAll('src="./brand/logo-target-sword-v3-tripod.png"', 'src="data:image/png;base64,' + brandIcon.toString('base64') + '"');
+illustratedHtml = illustratedHtml.replaceAll('src="./brand/game-of-trows-v1.png"', 'src="data:image/png;base64,' + brandIcon.toString('base64') + '"');
 illustratedHtml = illustratedHtml.replaceAll('href="./token-art/bullseye.svg"', 'href="data:image/svg+xml;base64,' + favicon.toString('base64') + '"');
 const selectBundle = (await read('game-selects.js')).replaceAll('</script', '<\\/script');
 const standalone = illustratedHtml.replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${css}\n</style>`).replace('<script type="module" src="/app.js"></script>', () => `<script id="bot-worker-source" type="application/json">${workerSource}</script>\n<script>${selectBundle}</script>\n<script type="module">\n${script}\n</script>`).replace('href="/" aria-label="Game Of Trows — главная"', 'href="#" aria-label="Game Of Trows — главная"');
