@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG, TYPES, LABELS } from '../dist/rules.js';
-import { createGame, move, reachable, inspectCell } from '../dist/engine.js';
+import { createGame, move, reachable, inspectCell, movementPath, analyze } from '../dist/engine.js';
+import { createMovementPlan } from '../dist/move-animation.js';
 import { hexGridPoint } from '../dist/board-presentation.js';
 
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
@@ -25,13 +26,13 @@ function setup() {
     document: { body: node(), querySelectorAll: () => [] }, window: { history: { replaceState(_state, _title, url) { location.href = url; } } },
     localStorage: { getItem: key => storage.get(key), setItem(key, value) { storage.set(key, value); } },
     playMode: 'online', gamePhase: 'playing', editor: false, positionKind: 'default', config: structuredClone(DEFAULT_CONFIG), state: createGame(DEFAULT_CONFIG),
-    roomWantsFirst: true, roomFirstMoveNotices: new Set(), renderFirstMoveNotice() {}, roomSession: null, roomView: null, roomLocalGame: null, roomTarget: null, roomSnapshot: null, roomConnecting: false, roomLeaving: false, roomError: '',
+    roomMovePreview: null, roomWantsFirst: true, roomFirstMoveNotices: new Set(), renderFirstMoveNotice() {}, roomSession: null, roomView: null, roomLocalGame: null, roomTarget: null, roomSnapshot: null, roomConnecting: false, roomLeaving: false, roomError: '',
     currentDeaths: [], deathEffectTimer: null, movement: null, combat: null, reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false, selected: null, hover: null, inspection: null,
     lastTurn: null, history: [], log: [], gameVersion: 'test', CURRENT_GAME_VERSION: 'test', firstMove: 'north', humanTeam: 0,
     BOT_DIFFICULTIES: { training: { label: 'Неопытный' }, normal: { label: 'Опытный' }, hard: { label: 'Воевода' } }, botDifficulty: 'training', previousGame: null, startPreferences: null, ready: true, available: [],
     inspectCell, clone: structuredClone, DEFAULT_CONFIG, TYPES, LABELS, icon: () => '<svg></svg>', createGame, hexGridPoint, TEAM_NAMES: ['Синие', 'Красные'], clearTimeout() {}, clearHint() {},
     plural(n, forms) { return n % 100 >= 11 && n % 100 <= 14 ? forms[2] : n % 10 === 1 ? forms[0] : n % 10 >= 2 && n % 10 <= 4 ? forms[1] : forms[2]; }, toast() {},
-    cancelMovement() { calls.push(['cancel']); context.movement = null; context.combat = null; },
+    cancelMovement() { calls.push(['cancel']); context.roomMovePreview = null; context.movement = null; context.combat = null; },
     resetBotContext() { context.lastTurn = null; context.reviewingTurn = false; context.movement = null; },
     render() { calls.push(['render']); }, renderOnlineRoom() {},
     presentMove(before, action, deaths) { calls.push(['animation', plain(before), plain(action), plain(deaths)]); context.movement = { active: true }; },
@@ -470,4 +471,95 @@ test('when neither wants the first move only the selected starter sees the notic
     assert.equal(ui.$('#first-move-message').textContent, `Никто не хотел ходить первым, но удача оказалась на стороне ${team === 0 ? 'Синего' : 'Красного'}.`);
     dialog.close(); ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, false);
   }
+});
+
+function instantRoomSetup(instant = false) {
+  const ui = setup(), ctx = ui.context;
+  let finishRequest, failRequest;
+  const request = new Promise((resolve, reject) => { finishRequest = resolve; failRequest = reject; });
+  Object.assign(ctx, { movementPath, analyze, createMovementPlan, matchMedia: () => ({ matches: instant }),
+    gameAudio: { movement() { return { finish() {}, cancel() {} }; } },
+    moveAnimator: { start() { ui.calls.push(['start-animation']); } },
+    presentKills(before, forecast, deaths) { ui.calls.push(['confirmed-combat', plain(deaths)]); ctx.render(); } });
+  vm.runInContext(source('function completeMovementPresentation(', 'function presentKills('), ctx);
+  vm.runInContext(declaration('visibleState'), ctx);
+  vm.runInContext(source('function combatReplayContext()', 'function canReplayCombat()'), ctx);
+  vm.runInContext(source('function canReviewPrevious()', 'async function stepReview('), ctx);
+  const before = createGame(DEFAULT_CONFIG);
+  const piece = before.pieces.find(p => p.team === before.turn && reachable(p, before, DEFAULT_CONFIG).length);
+  const to = reachable(piece, before, DEFAULT_CONFIG)[0], action = { id: piece.id, to: { q: to.q, r: to.r } };
+  const initial = snapshot({ revision: 10, phase: 'playing', matchId: 'instant-match', state: before });
+  ctx.applyRoomView(view(initial, before.turn));
+  ctx.roomSession = { move() { ui.calls.push(['request']); return request; } };
+  const outcome = move(before, DEFAULT_CONFIG, piece.id, to);
+  const next = snapshot({ revision: 11, phase: 'playing', matchId: initial.matchId, state: outcome.state,
+    lastAction: { revision: 11, matchId: initial.matchId, beforeState: before,
+      action: { ...action, from: outcome.action.from }, deaths: outcome.deaths } });
+  return { ...ui, ctx, before, piece, to, action, next, initial, finishRequest, failRequest,
+    complete() { const completed = ctx.movement; ctx.movement = null; ctx.completeMovementPresentation(completed); } };
+}
+
+test('own move starts before the server replies, holds at destination, and never resolves combat locally', async () => {
+  const ui = instantRoomSetup(), request = ui.ctx.sendRoomMove(ui.action);
+  assert.deepEqual(ui.calls.slice(-2).map(call => call[0]), ['start-animation', 'request']);
+  assert.equal(ui.ctx.humanCanMove(), false);
+  assert.deepEqual(plain(ui.ctx.state), ui.before);
+  ui.complete();
+  const shown = ui.ctx.visibleState().pieces.find(p => p.id === ui.piece.id);
+  assert.deepEqual([shown.q, shown.r], [ui.to.q, ui.to.r]);
+  assert.equal(ui.calls.some(call => call[0] === 'confirmed-combat'), false);
+  assert.equal(ui.ctx.canReviewPrevious(), false);
+  assert.equal(ui.ctx.combatReplayContext(), null);
+  assert.deepEqual(plain(ui.ctx.state), ui.before);
+  ui.ctx.applyRoomView(view(ui.next, ui.before.turn));
+  assert.equal(ui.calls.filter(call => call[0] === 'start-animation').length, 1);
+  assert.equal(ui.calls.filter(call => call[0] === 'confirmed-combat').length, 1);
+  assert.deepEqual(plain(ui.ctx.state), ui.next.state);
+  assert.equal(ui.ctx.roomMovePreview, null);
+  ui.finishRequest(); await request;
+});
+
+test('a fast server acknowledgement preserves the running movement and starts combat only once it finishes', async () => {
+  const ui = instantRoomSetup(), request = ui.ctx.sendRoomMove(ui.action), moving = ui.ctx.movement;
+  ui.ctx.applyRoomView(view(ui.next, ui.before.turn));
+  assert.equal(ui.ctx.movement, moving);
+  assert.equal(ui.ctx.roomMovePreview.confirmed, true);
+  assert.equal(ui.calls.some(call => call[0] === 'confirmed-combat'), false);
+  ui.complete(); ui.finishRequest(); await request;
+  assert.equal(ui.calls.filter(call => call[0] === 'start-animation').length, 1);
+  assert.equal(ui.calls.filter(call => call[0] === 'confirmed-combat').length, 1);
+  assert.equal(ui.ctx.roomMovePreview, null);
+});
+
+test('a rejected move rolls the display back to confirmed state without a local combat or history entry', async () => {
+  const ui = instantRoomSetup(), request = ui.ctx.sendRoomMove(ui.action);
+  ui.complete(); ui.failRequest(Object.assign(new Error('offline'), { code: 'network_error' })); await request;
+  assert.equal(ui.ctx.roomMovePreview, null);
+  assert.deepEqual(plain(ui.ctx.visibleState()), ui.before);
+  assert.equal(ui.ctx.history.length, 0);
+  assert.equal(ui.calls.some(call => call[0] === 'confirmed-combat'), false);
+});
+
+test('reduced motion previews instantly but still waits for authoritative combat', async () => {
+  const ui = instantRoomSetup(true), request = ui.ctx.sendRoomMove(ui.action);
+  assert.equal(ui.ctx.movement, null);
+  assert.equal(ui.ctx.roomMovePreview.completed, true);
+  assert.equal(ui.calls.some(call => call[0] === 'confirmed-combat'), false);
+  ui.ctx.applyRoomView(view(ui.next, ui.before.turn)); ui.finishRequest(); await request;
+  assert.equal(ui.ctx.roomMovePreview, null);
+  assert.equal(ui.calls.filter(call => call[0] === 'confirmed-combat').length, 1);
+});
+
+test('a different authoritative move cancels the preview, and a late request error cannot roll it back', async () => {
+  const ui = instantRoomSetup(), request = ui.ctx.sendRoomMove(ui.action);
+  const others = ui.before.pieces.filter(p => p.team === ui.before.turn && p.id !== ui.piece.id && reachable(p, ui.before, DEFAULT_CONFIG).length);
+  const p = others[0], to = reachable(p, ui.before, DEFAULT_CONFIG)[0], outcome = move(ui.before, DEFAULT_CONFIG, p.id, to);
+  const different = { ...ui.next, state: outcome.state,
+    lastAction: { ...ui.next.lastAction, action: { id: p.id, from: outcome.action.from, to }, deaths: outcome.deaths } };
+  ui.ctx.applyRoomView(view(different, ui.before.turn));
+  assert.equal(ui.ctx.roomMovePreview, null);
+  const authoritativeMovement = ui.ctx.movement;
+  ui.failRequest(Object.assign(new Error('conflict'), { code: 'revision_conflict' })); await request;
+  assert.deepEqual(plain(ui.ctx.state), outcome.state);
+  assert.equal(ui.ctx.movement, authoritativeMovement);
 });

@@ -177,7 +177,7 @@ test('main presentation emits one movement cue for human/bot path and reduced mo
       inspectCell:()=>({report:new Map()}),analyze(){},point:p=>p,createMovementPlan:()=>({duration:260}),
       matchMedia:()=>({matches:instant}),gameAudio:{movement(){cues++;return {finish(){finishes++;}};}},
       render(){},presentKills(){},moveAnimator:{start(){visuals++;}}});
-    vm.runInContext(app.slice(app.indexOf('function presentMove('),app.indexOf('function presentKills(')),ctx);
+    vm.runInContext(app.slice(app.indexOf('function completeMovementPresentation('),app.indexOf('function presentKills(')),ctx);
     ctx.presentMove(before,{id:piece.id,to:destination},[]);
     assert.equal(cues,1);assert.equal(finishes,instant?1:0);assert.equal(visuals,instant?0:1);
   }

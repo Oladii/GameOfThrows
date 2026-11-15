@@ -113,6 +113,7 @@ let playMode = 'bot', humanTeam = DEFAULT_START_CHOICES.humanTeam, lastTurn = nu
 let reviewTurn = null, reviewLoading = false, reviewRequest = 0;
 const ROOM_STORAGE = 'trows-online-room-v1';
 let roomSession = null, roomView = null, roomLocalGame = null, roomTarget = null, roomSnapshot = null, roomConnecting = false, roomLeaving = false, roomError = '';
+let roomMovePreview = null;
 let roomWantsFirst = true;
 const roomFirstMoveNotices = new Set();
 const botRunner = new BotRunner();
@@ -185,7 +186,7 @@ let movement = null, combat = null;
 const moveAnimator = new MovementAnimator(frame => {
   const token = $('#moving-token');
   if (token) { token.setAttribute('transform', `translate(${frame.x},${frame.y})`); token.dataset.progress = String(frame.progress); }
-}, () => { const completed = movement; movement = null; if (completed) { completed.sound?.finish(); presentKills(completed.before, completed.forecast, completed.deaths); } });
+}, () => { const completed = movement; movement = null; completeMovementPresentation(completed); });
 const combatAnimator = new CombatAnimator((phase, frame) => {
   if (!combat) return;
   const previousPhase = combat.phase;
@@ -333,23 +334,35 @@ function applyStartPreferences() {
 if (freshNewGameRequested && gamePhase === 'setup') applyStartPreferences();
 function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
-function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && (reviewTurn || lastTurn) ? (reviewTurn?.position || (reviewTurn || lastTurn).before.state) : state; }
+function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : roomMovePreview ? roomMovePreview.position : reviewingTurn && (reviewTurn || lastTurn) ? (reviewTurn?.position || (reviewTurn || lastTurn).before.state) : state; }
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
-function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
+function humanCanMove() { return gamePhase === 'playing' && !roomMovePreview && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
-function cancelMovement() { movement?.sound?.cancel(); combat?.stopRemoval?.(); moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
+function cancelMovement() { roomMovePreview = null; movement?.sound?.cancel(); combat?.stopRemoval?.(); moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
 function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
-function presentMove(before, action, deaths) {
+function completeMovementPresentation(completed) {
+  if (!completed) return;
+  completed.sound?.finish();
+  if (completed.preview) {
+    if (roomMovePreview !== completed.preview) return;
+    completed.preview.completed = true;
+    if (!completed.preview.confirmed) { render(); return; }
+    roomMovePreview = null;
+  }
+  presentKills(completed.before, completed.forecast, completed.deaths);
+}
+function presentMove(before, action, deaths, preview = null) {
   cancelMovement();
   const piece = action && !action.pass ? before.state.pieces.find(p => p.id === action.id) : null;
   const route = piece ? movementPath(piece, before.state, before.config, action.to) : [];
   const forecast = piece ? inspectCell(before.state, before.config, action.to, piece.id) : { position: before.state, report: analyze(before.state, before.config) };
-  if (route.length < 2) { presentKills(before, forecast, deaths); return; }
+  if (preview) { roomMovePreview = preview; preview.position = forecast.position; preview.forecast = forecast; }
+  if (route.length < 2) { completeMovementPresentation({ before, forecast, deaths, preview }); return; }
   const plan = createMovementPlan(route.map(point));
   const instant = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sound = gameAudio.movement(route, before.state.pieces, plan.duration, { instant });
-  if (instant) { sound.finish(); presentKills(before, forecast, deaths); return; }
-  movement = { before, piece, plan, route, deaths, forecast, sound };
+  if (instant) { completeMovementPresentation({ before, forecast, deaths, sound, preview }); return; }
+  movement = { before, piece, action: { ...action, from: action.from || { q: piece.q, r: piece.r } }, plan, route, deaths, forecast, sound, preview };
   render(); moveAnimator.start(plan);
 }
 function presentKills(before, forecast, deaths) {
@@ -362,7 +375,7 @@ function presentKills(before, forecast, deaths) {
   combatAnimator.startSequence(presentation.groups);
 }
 function combatReplayContext() {
-  if (gamePhase !== 'playing' || editor || reviewLoading || movement || combat || currentDeaths.length) return null;
+  if (gamePhase !== 'playing' || editor || roomMovePreview || reviewLoading || movement || combat || currentDeaths.length) return null;
   const replayFor = turn => {
     if (!turn?.action) return null;
     const { before, action } = turn;
@@ -718,7 +731,7 @@ function render(deaths = []) {
   if (gamePhase === 'setup') boardMessage = editor ? 'Выбери фигуру и пустую клетку для перестановки. Палитра добавляет фигуры. «Готово» завершает настройку позиции' : '';
   if (reviewingTurn) boardMessage = `Просмотр истории. ${lastMoveText}. Стрелки переключают ходы. Escape возвращает к партии`;
   if (currentDeaths.length) boardMessage = 'Расчёт боя: погибшие фигуры удаляются одновременно';
-  if (movement) boardMessage = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(lastAction.from)} → ${positionText(lastAction.to)}. Движение…`;
+  if (movement) boardMessage = `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]}: ${positionText(movement.action.from)} → ${positionText(movement.action.to)}. Движение…`;
   if (combat) boardMessage = combat.phase === 'dimming' ? 'Выделяем участников расчёта боя' : combat.phase === 'attacks' ? 'Стрелки по очереди показывают вклад в смертельный урон каждой цели' : 'Показ гибели. Ход перейдёт другой стороне после завершения расчёта';
   $('#board-hint').textContent = boardMessage;
   $('#board-hint').hidden = true;
@@ -762,7 +775,7 @@ function onCell(q, r) {
   if (occupant) { selected = selected === occupant.id ? null : occupant.id; render(); return; }
   if (!selected) return;
   if (!available.some(c => c.q === q && c.r === r)) { clearSelection(); return; }
-  if (playMode === 'online') { const action = { id: selected, to: { q, r } }; selected = null; void runRoomAction(() => roomSession.move(action)); return; }
+  if (playMode === 'online') { const action = { id: selected, to: { q, r } }; selected = null; void sendRoomMove(action); return; }
   try { const result = move(state, config, selected, { q, r }), before = currentSnapshot(), action = { id: selected, from: result.action.from, to: result.action.to }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; state = result.state; log.push({ text: `${TEAM_NAMES[result.action.team]} · ${LABELS[result.action.type]}: ${positionText(result.action.from)} → ${q}, ${r}`, detail: deathDetail(result.deaths) }); recordGameAction('move', { action, deaths: result.deaths, actor: 'human' }); selected = null; presentMove(before, action, result.deaths); } catch (error) { toast(error.message); }
 }
 function focusBoardCell(cellKey, moveFocus = false) {
@@ -891,12 +904,12 @@ $('#editor-done').addEventListener('click', () => {
 });
 $('#replay-combat').addEventListener('click', replayCombat);
 function canReviewPrevious() {
-  if (gamePhase !== 'playing' || editor || movement || combat || currentDeaths.length || reviewLoading) return false;
+  if (gamePhase !== 'playing' || editor || roomMovePreview || movement || combat || currentDeaths.length || reviewLoading) return false;
   const ply = visibleState().ply;
   return playMode === 'online' ? ply > 0 : history.some(entry => entry.action && entry.state.ply < ply);
 }
 async function stepReview(direction) {
-  if (movement || combat || currentDeaths.length) return;
+  if (roomMovePreview || movement || combat || currentDeaths.length) return;
   if (direction < 0 ? !canReviewPrevious() : !reviewingTurn || reviewLoading) return;
   const ply = visibleState().ply + direction, request = ++reviewRequest;
   cancelBot(); selected = null;
@@ -986,6 +999,7 @@ function applyRoomView(view) {
   if (next && previous && next.revision < previous.revision) return;
   roomView = view;
   if (view.status === 'connected' && view.error === null) roomError = '';
+  if (view.status === 'closed' && roomMovePreview) { cancelMovement(); render(); }
   if (!next || previous?.roomId === next.roomId && previous.revision === next.revision) {
     if (!movement && !combat && !currentDeaths.length && previousView?.canMove !== view.canMove) render();
     else renderOnlineRoom();
@@ -996,7 +1010,12 @@ function applyRoomView(view) {
     && next.revision === previous.revision + 1 && action?.revision === next.revision
     && action.matchId === next.matchId && next.state.ply === previous.state.ply + 1
     && JSON.stringify(action.beforeState) === JSON.stringify(previous.state));
-  cancelMovement(); clearTimeout(deathEffectTimer); currentDeaths = []; clearHint();
+  const preview = roomMovePreview;
+  const confirmsPreview = Boolean(preview && animate && next.roomId === preview.roomId && next.matchId === preview.matchId
+    && previous.revision === preview.revision && action.action.id === preview.action.id
+    && action.action.to.q === preview.action.to.q && action.action.to.r === preview.action.to.r);
+  if (!confirmsPreview) cancelMovement();
+  clearTimeout(deathEffectTimer); currentDeaths = []; clearHint();
   reviewRequest++; reviewLoading = false; reviewTurn = null;
   reviewingTurn = false; selected = null; hover = null; inspection = null; lastTurn = null;
   roomSnapshot = next; roomTarget = next.roomId;
@@ -1008,7 +1027,11 @@ function applyRoomView(view) {
   if (action && next.state && action.matchId === next.matchId && action.beforeState.ply + 1 === next.state.ply) {
     lastTurn = { before: { ...currentSnapshot(), state: clone(action.beforeState) }, action: clone(action.action) };
   }
-  if (animate) { presentMove(before, action.action, action.deaths || []); }
+  if (confirmsPreview) {
+    preview.confirmed = true;
+    if (movement?.preview === preview) { movement.deaths = action.deaths || []; render(); }
+    else { roomMovePreview = null; presentKills(preview.before, preview.forecast, action.deaths || []); }
+  } else if (animate) { presentMove(before, action.action, action.deaths || []); }
   else render();
 }
 async function connectOnlineRoom(rejoin = false) {
@@ -1038,6 +1061,24 @@ async function runRoomAction(action) {
   try { await action(); }
   catch (error) { if (roomSession === session) roomError = roomErrorText(error); }
   if (playMode === 'online' && roomSession === session) renderOnlineRoom();
+}
+async function sendRoomMove(action) {
+  if (!humanCanMove()) return;
+  const session = roomSession;
+  return runRoomAction(async () => {
+    const before = currentSnapshot(), piece = before.state.pieces.find(piece => piece.id === action.id);
+    const snapshot = roomView.snapshot;
+    const preview = { before, action: clone(action), roomId: snapshot.roomId, matchId: snapshot.matchId,
+      revision: snapshot.revision, confirmed: false, completed: false };
+    try {
+      presentMove(before, { ...action, from: { q: piece.q, r: piece.r } }, [], preview);
+      await session.move(action);
+    }
+    catch (error) {
+      if (roomMovePreview === preview && !preview.confirmed) { cancelMovement(); render(); }
+      throw error;
+    }
+  });
 }
 async function leaveOnlineRoom() {
   if (playMode !== 'online' || roomLeaving) return;
@@ -1222,7 +1263,7 @@ document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('clic
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
 document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog') && !soundControl.contains(event.target)) { event.preventDefault(); soundButton.focus(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { if (selected) gameAudio.click(); reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
-matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; completed.sound?.finish(); presentKills(completed.before, completed.forecast, completed.deaths); } });
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; completeMovementPresentation(completed); } });
 let attackReachInView = true;
 function updateAttackReachPlayback() {
   $('#board').classList.toggle('attack-reach-paused', document.hidden || !attackReachInView);
