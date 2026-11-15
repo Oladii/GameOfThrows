@@ -20,31 +20,31 @@ const soundControl = $('#sound-control'), soundScale = $('#sound-scale'), soundV
 function renderSoundButton() {
   const percent = Math.round(gameAudio.volume * 100);
   soundButton.dataset.muted = String(!gameAudio.enabled);
-  soundButton.title = `Громкость: ${percent}%`;
+  soundButton.title = soundScale.hidden ? `Громкость: ${percent}%` : 'Закрыть настройку звука';
   soundVolume.value = percent;
   soundVolume.style.setProperty('--volume', `${percent}%`);
   soundVolume.setAttribute('aria-valuetext', `${percent}%`);
   $('#sound-value').textContent = `${percent}%`;
 }
 function setSoundScaleOpen(open, restoreFocus = false) {
-  soundButton.hidden = open; soundScale.hidden = !open;
+  soundScale.hidden = !open;
   $('#app-version').hidden = open;
   soundControl.classList.toggle('is-open', open);
   soundButton.setAttribute('aria-expanded', String(open));
+  soundButton.setAttribute('aria-label', open ? 'Закрыть настройку звука' : 'Громкость');
+  renderSoundButton();
   if (open) soundVolume.focus({preventScroll:true});
   else if (restoreFocus) soundButton.focus({preventScroll:true});
 }
 renderSoundButton();
-soundButton.addEventListener('click', () => setSoundScaleOpen(true));
+soundButton.addEventListener('click', () => setSoundScaleOpen(soundScale.hidden, true));
 soundVolume.addEventListener('input', () => { gameAudio.setVolume(Number(soundVolume.value) / 100); renderSoundButton(); });
 soundVolume.addEventListener('change', () => gameAudio.play('click'));
 soundControl.addEventListener('keydown', event => {
   if (event.key === 'Escape') { event.stopPropagation(); setSoundScaleOpen(false, true); }
 });
-soundControl.addEventListener('focusout', () => {
-  queueMicrotask(() => {
-    if (!soundScale.hidden && !soundControl.contains(document.activeElement)) setSoundScaleOpen(false);
-  });
+soundControl.addEventListener('focusout', event => {
+  if (event.relatedTarget && !soundControl.contains(event.relatedTarget)) setSoundScaleOpen(false);
 });
 document.addEventListener('pointerdown', event => {
   if (!soundControl.contains(event.target)) setSoundScaleOpen(false);

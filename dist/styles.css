@@ -128,7 +128,7 @@ select{font-size:11px}
 .incoming-box.dead .survival-label{color:var(--red)}
 .sources{font-size:10px;color:var(--muted);line-height:1.8;margin:15px 0}
 .sources strong{font-weight:550;color:var(--ink)}
-.preview-label{background:var(--accent);border-radius:6px;font-size:13px;padding:7px 8px;margin:0 0 12px;line-height:1.4}
+.preview-label{background:#f1e6d0;border-radius:6px;font-size:13px;padding:7px 8px;margin:0 0 12px;line-height:1.4}
 .log-heading{display:flex;align-items:center;justify-content:space-between}
 .log-heading h2{font-size:14px;margin:0}
 .log-heading>span{font-size:10px;color:var(--muted)}
@@ -949,9 +949,9 @@ main{padding:14px}
 .scoreboard{display:grid;grid-template-columns:minmax(0,1fr)}
 }
 
-#sound-control{flex:0 0 auto;min-width:0}
+#sound-control{display:flex;align-items:center;gap:8px;flex:0 0 auto;min-width:0}
 #sound-control.is-open{flex:1}
-#sound-scale{display:flex;align-items:center;gap:12px;height:40px;padding:0 12px;background:var(--button-soft);border-radius:12px}
+#sound-scale{display:flex;flex:1;min-width:0;align-items:center;gap:12px;height:40px;padding:0 12px;background:var(--button-soft);border-radius:12px}
 #sound-volume{appearance:none;-webkit-appearance:none;flex:1;min-width:0;width:100%;height:40px;margin:0;padding:0;border:0;outline:none!important;background:transparent;cursor:pointer}
 #sound-scale:focus-within{background:var(--button-soft)}
 #sound-volume::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(to right,var(--ink) var(--volume,50%),#d1c0a3 var(--volume,50%))}
@@ -980,3 +980,5 @@ main{padding:14px}
 .team-card.match-result.draw{padding-right:12px}
 .team-card.match-result.draw::before{display:none}
 @media(max-width:700px){.team-card.match-result{height:auto;min-height:72px;padding-right:80px}.team-card.match-result.draw{padding-right:12px}}
+
+#sound-toggle[aria-expanded="false"] [data-sound-icon="close"],#sound-toggle[aria-expanded="true"] [data-sound-icon="on"],#sound-toggle[aria-expanded="true"] [data-sound-icon="off"]{display:none}
