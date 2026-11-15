@@ -23,7 +23,9 @@ jobs:
               raise SystemExit('Room cleanup secret is not configured')
           request = urllib.request.Request(
               'https://game-of-trows-archive.designsystembarkalov.chatgpt.site/api/internal/rooms/cleanup',
-              data=b'', method='POST', headers={'Authorization': 'Bearer ' + token})
+              data=b'', method='POST', headers={
+                  'Authorization': 'Bearer ' + token,
+                  'User-Agent': 'GameOfTrows-RoomCleanup/1.0 (+https://github.com/Oladii/GameOfThrows)'})
           try:
               with urllib.request.urlopen(request, timeout=45) as response:
                   result = json.load(response)
