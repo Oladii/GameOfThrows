@@ -6,6 +6,7 @@ import { consumeNewGameRefresh, refreshNewGamePage, hasNewerGameVersion, needsNe
 import { clone, key, cells, validateConfig, validateState, createGame, analyze, inspectCell, effective, reachable, movementPath, shieldCanRetreat, archerHasEdgeBonus, move, pass, resolve } from './engine.js';
 import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from './bot-client.js';
 import { classifyPosition, prepareStartPosition } from './start-position.js';
+import { DEFAULT_START_CHOICES, resolveStartChoices } from './start-preferences.js';
 import { createMovementPlan, sampleMovement, MovementAnimator, CombatAnimator, DEATH_EFFECT_DURATION } from './move-animation.js';
 import { GameRecorder } from './game-archive.js';
 import { hexGridPoint, hexGridPolygon, inspectionDamageArrows, renderHintArrow, renderUnitBadges, lethalAttackPresentation, renderDamageArrows, unitStatParts, alliedBonusDetails, damageArrowMarkers, auraCircleMarkup, renderDeathEffects, renderMovingToken, unitAppearance, attackReachPresentation } from './board-presentation.js';
@@ -64,11 +65,11 @@ const icon = (type, piece = null) => `<svg viewBox="0 0 24 24" fill="none" strok
 const unitBadges = renderUnitBadges;
 let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], log = [];
 let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, latestRulesVersion = null, versionCheckPending = false;
-let firstMove = 'random';
+let firstMove = DEFAULT_START_CHOICES.firstMove;
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
-let botDifficulty = DEFAULT_BOT_DIFFICULTY;
+let botDifficulty = DEFAULT_START_CHOICES.botDifficulty;
 let startPreferences = null;
-let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false, combatReplayCache = null;
+let playMode = 'bot', humanTeam = DEFAULT_START_CHOICES.humanTeam, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false, combatReplayCache = null;
 let reviewTurn = null, reviewLoading = false, reviewRequest = 0;
 const ROOM_STORAGE = 'trows-online-room-v1';
 let roomSession = null, roomView = null, roomLocalGame = null, roomTarget = null, roomSnapshot = null, roomConnecting = false, roomLeaving = false, roomError = '';
@@ -134,7 +135,8 @@ const STORAGE = archiveIsSite ? 'lamps-prototype-v1' : 'lamps-local-playtest13-v
 const PRESET_REVISION = 1;
 const START_PREFS_REVISION = 2;
 let presetUpdated = false, balanceUpdated = false, commanderUpdated = false;
-let refreshingNewGame = false;
+let refreshingNewGame = false, startRefreshController = null;
+const freshNewGameStartRequested = new URL(location.href).searchParams.get('_newGame') === 'start';
 const freshNewGameRequested = consumeNewGameRefresh(location, window.history);
 let currentDeaths = [], deathEffectTimer;
 let movement = null, combat = null;
@@ -161,7 +163,7 @@ const combatAnimator = new CombatAnimator((phase, frame) => {
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
 function currentSnapshot() { return clone({ config, state, log, positionKind, gameVersion }); }
 function checkpoint(actor = 'other', action = null) { history.push({ ...currentSnapshot(), actor, action }); }
-function currentStartPreferences() { return readStartPreferences({ firstMove, playMode, humanTeam, botDifficulty, positionKind, customSetup: positionKind === 'custom' ? { config, state } : null }); }
+function currentStartPreferences() { return readStartPreferences({ firstMove, playMode, humanTeam, botDifficulty, explicit: startPreferences?.explicit, defaults: startPreferences?.defaults, positionKind, customSetup: positionKind === 'custom' ? { config, state } : null }); }
 function save() {
   if (playMode === 'online') return true;
   try {
@@ -203,9 +205,7 @@ function readStartPreferences(value) {
   const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const preferences = {
     playMode: input.playMode === 'local' ? 'local' : 'bot',
-    humanTeam: input.humanTeam === 0 ? 0 : 1,
-    firstMove: ['north', 'south', 'random'].includes(input.firstMove) ? input.firstMove : 'random',
-    botDifficulty: readBotDifficulty(input.botDifficulty),
+    ...resolveStartChoices(input),
     positionKind: 'default', customSetup: null
   };
   if (input.positionKind === 'custom' && input.customSetup) {
@@ -217,6 +217,10 @@ function readStartPreferences(value) {
     } catch { /* Invalid custom data must not discard the other preferences. */ }
   }
   return preferences;
+}
+function rememberStartChoice(key, value) {
+  const preferences = currentStartPreferences();
+  startPreferences = readStartPreferences({ ...preferences, [key]: value, explicit: { ...preferences.explicit, [key]: true } });
 }
 function pendingSetupBalance(input, revision) {
   const updated = updateSavedBalance(input, revision);
@@ -264,6 +268,7 @@ try {
       firstMove, playMode, humanTeam, botDifficulty,
       ...(gamePhase === 'setup' ? { positionKind, customSetup: { config, state } } : {})
     });
+    if (gamePhase === 'setup') ({ firstMove, humanTeam, botDifficulty } = startPreferences);
   }
 } catch { toast('Сохранённая позиция не прошла проверку. Загружена исходная расстановка'); }
 function resetNewGameDefaults() {
@@ -282,7 +287,7 @@ function applyStartPreferences() {
 }
 // Standard setups use this release's rules; explicitly chosen custom setups
 // and the player's other start selections survive the refresh.
-if (freshNewGameRequested && gamePhase === 'setup' && previousGame) applyStartPreferences();
+if (freshNewGameRequested && gamePhase === 'setup') applyStartPreferences();
 function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
 function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : reviewingTurn && (reviewTurn || lastTurn) ? (reviewTurn?.position || (reviewTurn || lastTurn).before.state) : state; }
@@ -573,10 +578,11 @@ function renderGameResult(position) {
   }
 }
 function renderUpdateNotice() {
-  const pageUpdate = hasNewerGameVersion(CURRENT_GAME_VERSION, latestVersion) || hasNewerGameVersion(CURRENT_RULES_VERSION, latestRulesVersion);
+  const rulesUpdate = needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentRulesVersion: CURRENT_RULES_VERSION, latestRulesVersion });
+  const pageUpdate = hasNewerGameVersion(CURRENT_GAME_VERSION, latestVersion);
   const notice = $('#update-notice');
-  notice.hidden = playMode === 'online' || !(pageUpdate || needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentRulesVersion: CURRENT_RULES_VERSION, latestRulesVersion }));
-  notice.textContent = pageUpdate ? 'Доступно обновление игры. Обнови вкладку, чтобы применить его' : 'Правила игры обновлены. Начни новую партию, чтобы играть по ним';
+  notice.hidden = playMode === 'online' || !(rulesUpdate || pageUpdate);
+  notice.textContent = rulesUpdate ? 'Правила игры обновлены. Начни новую партию, чтобы играть по ним' : 'Доступно обновление игры. Обнови вкладку, чтобы применить его';
 }
 async function checkGameVersion() {
   if (versionCheckPending || document.visibilityState === 'hidden') return;
@@ -589,8 +595,10 @@ async function checkGameVersion() {
   } finally { versionCheckPending = false; }
 }
 function renderStartSettings() {
+  for (const id of ['first-move', 'play-mode', 'human-side', 'bot-difficulty', 'position-kind']) $('#' + id).disabled = refreshingNewGame;
   $('#first-move').value = firstMove;
   const choosingOnline = $('#play-mode').dataset.online === 'true' && playMode !== 'online';
+  $('#start-game').disabled = refreshingNewGame;
   $('#start-game').textContent = choosingOnline ? 'Создать комнату' : 'Начать';
   $('#play-mode').value = choosingOnline ? 'online' : playMode; $('#human-side').value = String(humanTeam);
   $('#bot-difficulty').value = botDifficulty;
@@ -600,7 +608,7 @@ function renderStartSettings() {
   $('#settings-open').hidden = positionKind !== 'custom';
   $('#position-kind').value = positionKind;
   globalThis.window?.gameSelects?.sync();
-  $('#configure-position').disabled = positionKind !== 'custom';
+  $('#configure-position').disabled = positionKind !== 'custom' || refreshingNewGame;
   $('#configure-position').hidden = positionKind !== 'custom';
 }
 function render(deaths = []) {
@@ -755,7 +763,11 @@ function openStartSettings() {
   const dialog = $('#start-dialog');
   if (!dialog.open) dialog.showModal();
 }
+function cancelStartRefresh() {
+  startRefreshController?.abort(); startRefreshController = null; refreshingNewGame = false;
+}
 function dismissDialog(dialog) {
+  if (dialog.id === 'start-dialog') cancelStartRefresh();
   if (dialog.id === 'start-dialog' && previousGame && gamePhase === 'setup' && !editor) return returnToGame();
   dialog.close();
 }
@@ -768,9 +780,18 @@ async function openNewGame() {
   openStartSettings();
   save();
 }
+async function refreshAndStartGame() {
+  const controller = new AbortController(); startRefreshController = controller;
+  refreshingNewGame = true; renderStartSettings();
+  const navigated = save() && await refreshNewGamePage({ location, online: navigator.onLine !== false, startGame: true, signal: controller.signal });
+  if (controller.signal.aborted || startRefreshController !== controller || navigated) return;
+  startRefreshController = null; refreshingNewGame = false; renderStartSettings();
+  toast('Не удалось загрузить обновление. Проверь подключение и нажми «Начать» ещё раз');
+}
 function startGame() {
   if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
   if ($('#play-mode').value === 'online') { openOnlineRoom(); return; }
+  if (hasNewerGameVersion(CURRENT_RULES_VERSION, latestRulesVersion) && $('#bot-worker-source')) { void refreshAndStartGame(); return; }
   try {
     const next = prepareStartPosition(state, config, startingTeam());
     startPreferences = currentStartPreferences();
@@ -779,20 +800,12 @@ function startGame() {
     history = []; log = []; previousGame = null; selected = null; $('#start-dialog').close(); render();
   } catch (error) { toast(error.message); }
 }
-$('#start-setup').addEventListener('click', async () => {
-  if (playMode === 'online' || gamePhase !== 'setup' || refreshingNewGame || editor) return;
-  if (hasNewerGameVersion(CURRENT_GAME_VERSION, latestVersion) && $('#bot-worker-source')) {
-    refreshingNewGame = true; render();
-    if (save() && await refreshNewGamePage({ location, online: navigator.onLine !== false })) return;
-    refreshingNewGame = false; render();
-    toast('Обновление недоступно. Можно продолжить в текущей версии');
-  }
-  openStartSettings();
-});
+$('#start-setup').addEventListener('click', openStartSettings);
 $('#new-game').addEventListener('click', openNewGame);
 $('#start-game').addEventListener('click', startGame);
 function returnToGame() {
   if (playMode === 'online' || !previousGame || gamePhase !== 'setup') return;
+  cancelStartRefresh();
   const backup = previousGame; resetBotContext();
   config = backup.snapshot.config; state = backup.snapshot.state; log = backup.snapshot.log; positionKind = backup.snapshot.positionKind; gameVersion = backup.snapshot.gameVersion ?? null;
   history = backup.history; lastTurn = backup.lastTurn; playMode = backup.playMode; humanTeam = backup.humanTeam; firstMove = backup.firstMove; botDifficulty = readBotDifficulty(backup.botDifficulty);
@@ -800,10 +813,10 @@ function returnToGame() {
   archiveRecorder.resume(archiveGameMetadata());
 }
 $('#start-dialog').addEventListener('cancel', event => { event.preventDefault(); dismissDialog(event.currentTarget); });
-$('#first-move').addEventListener('change', event => { if (gamePhase !== 'setup') return; firstMove = event.target.value; save(); });
+$('#first-move').addEventListener('change', event => { if (gamePhase !== 'setup') return; firstMove = event.target.value; rememberStartChoice('firstMove', firstMove); save(); });
 $('#play-mode').addEventListener('change', event => { if (playMode === 'online' || gamePhase !== 'setup') return; if ($('#play-mode').dataset) $('#play-mode').dataset.online = String(event.target.value === 'online'); if (event.target.value === 'online') { render(); return; } resetBotContext(false); playMode = event.target.value; selected = null; render(); });
-$('#human-side').addEventListener('change', event => { if (gamePhase !== 'setup') return; resetBotContext(false); humanTeam = Number(event.target.value); selected = null; render(); });
-$('#bot-difficulty').addEventListener('change', event => { if (gamePhase !== 'setup') return; resetBotContext(false); botDifficulty = readBotDifficulty(event.target.value); render(); });
+$('#human-side').addEventListener('change', event => { if (gamePhase !== 'setup') return; resetBotContext(false); humanTeam = Number(event.target.value); rememberStartChoice('humanTeam', humanTeam); selected = null; render(); });
+$('#bot-difficulty').addEventListener('change', event => { if (gamePhase !== 'setup') return; resetBotContext(false); botDifficulty = readBotDifficulty(event.target.value); rememberStartChoice('botDifficulty', botDifficulty); render(); });
 $('#position-kind').addEventListener('change', event => {
   if (playMode === 'online' || gamePhase !== 'setup' || editor) return;
   try {
@@ -813,7 +826,7 @@ $('#position-kind').addEventListener('change', event => {
   } catch (error) { render(); toast(error.message); }
 });
 $('#configure-position').addEventListener('click', () => {
-  if (playMode === 'online' || gamePhase !== 'setup' || positionKind !== 'custom' || editor) return;
+  if (playMode === 'online' || gamePhase !== 'setup' || positionKind !== 'custom' || editor || refreshingNewGame) return;
   resetBotContext(); editor = true; history = []; selected = null; $('#start-dialog').close(); render();
 });
 $('#editor-done').addEventListener('click', () => {
@@ -1147,7 +1160,8 @@ void checkGameVersion();
 setInterval(() => { void checkGameVersion(); }, 60000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkGameVersion(); });
 addEventListener('online', () => { void checkGameVersion(); });
-if (freshNewGameRequested && gamePhase === 'setup' && previousGame) openStartSettings();
+if (freshNewGameStartRequested && gamePhase === 'setup') startGame();
+else if (freshNewGameRequested && gamePhase === 'setup' && previousGame) openStartSettings();
 if (presetUpdated) toast('Подготовлена расстановка с одним барабаном и одним знаменем. Нажми «Начать», чтобы играть');
 
 if (balanceUpdated) toast(commanderUpdated ? 'Командир: урон 3, дальность 2. Расстановка сохранена' : 'Обновлена расстановка: щитоносец в центре, два новых лукаря; знамя и барабан отодвинуты назад');

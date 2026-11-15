@@ -113,7 +113,7 @@ test('update notice distinguishes refreshing the app from starting a match with 
   context.latestVersion = '0.1.83'; context.latestRulesVersion = '0.1.84';
   context.renderUpdateNotice();
   assert.equal(notice.hidden, false);
-  assert.match(notice.textContent, /Обнови вкладку/);
+  assert.match(notice.textContent, /Начни новую партию/);
   context.CURRENT_GAME_VERSION = '0.1.84'; context.CURRENT_RULES_VERSION = '0.1.84';
   context.renderUpdateNotice();
   assert.equal(notice.hidden, false);
@@ -122,4 +122,25 @@ test('update notice distinguishes refreshing the app from starting a match with 
   assert.equal(notice.hidden, true);
   context.playMode = 'online'; context.latestVersion = '0.1.85'; context.renderUpdateNotice();
   assert.equal(notice.hidden, true);
+});
+
+
+test('confirmed start survives the release refresh as a one-shot URL intent', async () => {
+  const location = page();
+  assert.equal(await refreshNewGamePage({ location, startGame: true, fetchPage: async () => response() }), true);
+  assert.equal(new URL(location.replaced).searchParams.get('_newGame'), 'start');
+  location.href = location.replaced;
+  const history = { replaceState(_state, _title, href) { location.href = href; } };
+  assert.equal(consumeNewGameRefresh(location, history), true);
+  assert.equal(consumeNewGameRefresh(location, history), false);
+});
+
+test('canceling a confirmed start prevents late navigation even if the transport ignores abort', async () => {
+  const location = page(), controller = new AbortController(); let finish;
+  const pending = refreshNewGamePage({ location, startGame: true, signal: controller.signal,
+    fetchPage: async () => ({ ok: true, text: () => new Promise(resolve => { finish = resolve; }) }) });
+  await Promise.resolve();
+  controller.abort(); finish(gameHtml);
+  assert.equal(await pending, false);
+  assert.equal(location.replaced, undefined);
 });

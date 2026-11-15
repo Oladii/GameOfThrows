@@ -1,3 +1,5 @@
+import { DEFAULT_START_CHOICES, resolveStartChoices } from '../dist/start-preferences.js';
+import { hasNewerGameVersion } from '../dist/new-game-refresh.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -20,18 +22,18 @@ function setup() {
   const handlers = new Map();
   const nodes = { '#start-dialog': { close() {} } };
   for (const id of ['bot-difficulty', 'first-move', 'play-mode', 'human-side']) nodes['#' + id] = { addEventListener(type, callback) { handlers.set(id, callback); if (id === 'bot-difficulty') handler = callback; } };
-  const context = vm.createContext({ DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty, clone, createGame, classifyPosition,
+  const context = vm.createContext({ DEFAULT_START_CHOICES, resolveStartChoices, hasNewerGameVersion, CURRENT_RULES_VERSION: '0.1.20', latestRulesVersion: null, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty, clone, createGame, classifyPosition,
     config: clone(DEFAULT_CONFIG), state: clone(createGame(DEFAULT_CONFIG)), gamePhase: 'playing', editor: false,
     playMode: 'bot', humanTeam: 1, firstMove: 'south', history: [], log: [], lastTurn: null, previousGame: null, positionKind: 'default',
     STORAGE: 'test', BALANCE_REVISION: 5, PRESET_REVISION: 1, START_PREFS_REVISION: 1, CURRENT_GAME_VERSION: '0.1.20', gameVersion: '0.1.19',
-    DEFAULT_CONFIG, upgradeSelectedBalancePreset, validateConfig, validateState, prepareStartPosition, startPreferences: null, refreshingNewGame: false, movement: null, combat: null,
+    DEFAULT_CONFIG, upgradeSelectedBalancePreset, validateConfig, validateState, prepareStartPosition, startPreferences: null, refreshingNewGame: false, startRefreshController: null, AbortController, movement: null, combat: null,
     localStorage: { setItem(key, value) { saved = JSON.parse(value); } },
     $: selector => nodes[selector], resetBotContext() {}, openStartSettings() {}, renderStartSettings() {},
     archiveRecorder: { resume() {}, start() {} }, toast(message) { throw Error(message); }, readSnapshot: clone, readLastTurn: value => value,
     recentBotHistory: () => [], botRunner: { run(value) { request = value; } },
     render() { context.save(); }, currentSnapshot: () => clone({ config: context.config, state: context.state, log: context.log, positionKind: context.positionKind, gameVersion: context.gameVersion }) });
   vm.runInContext(app.match(/^let botDifficulty = .*$/m)[0], context);
-  for (const name of ['readStartPreferences', 'currentStartPreferences', 'applyStartPreferences', 'save', 'archiveGameMetadata', 'readPreviousGame', 'resetNewGameDefaults', 'openNewGame', 'returnToGame', 'startBot', 'startingTeam', 'startGame']) vm.runInContext(declaration(name), context);
+  for (const name of ['cancelStartRefresh', 'dismissDialog', 'rememberStartChoice', 'readStartPreferences', 'currentStartPreferences', 'applyStartPreferences', 'save', 'archiveGameMetadata', 'readPreviousGame', 'resetNewGameDefaults', 'openNewGame', 'returnToGame', 'startBot', 'startingTeam', 'startGame']) vm.runInContext(declaration(name), context);
   for (const id of ['bot-difficulty', 'first-move', 'play-mode', 'human-side']) vm.runInContext(app.split('\n').find(line => line.startsWith(`$('#${id}').addEventListener`)), context);
   return { context, run: code => vm.runInContext(code, context), saved: () => saved, request: () => request,
     change: value => handler({ target: { value } }), changePreference: (id, value) => handlers.get(id)({ target: { value } }) };
@@ -82,7 +84,7 @@ test('all start selections survive cancel, serialization and the next new game w
   await ui.run('openNewGame()');
   ui.changePreference('first-move', 'north'); ui.changePreference('human-side', '0');
   ui.changePreference('play-mode', 'local'); ui.change('training');
-  assert.deepEqual(ui.saved().startPreferences, { firstMove: 'north', playMode: 'local', humanTeam: 0, botDifficulty: 'training', positionKind: 'default', customSetup: null });
+  assert.deepEqual(ui.saved().startPreferences, { firstMove: 'north', playMode: 'local', humanTeam: 0, botDifficulty: 'training', positionKind: 'default', customSetup: null, explicit: {firstMove:true,humanTeam:true,botDifficulty:true}, defaults: DEFAULT_START_CHOICES });
   ui.run('returnToGame()');
   assert.equal(ui.run('botDifficulty'), 'hard'); assert.equal(ui.context.playMode, 'bot');
   assert.equal(ui.context.humanTeam, 1); assert.equal(ui.context.firstMove, 'south');
@@ -114,9 +116,9 @@ test('custom setup remembers the original formation and rules, never the later b
 test('invalid remembered values fall back safely without discarding other valid selections', () => {
   const ui = setup();
   const defaults = ui.run("readStartPreferences({ playMode: 'invalid', humanTeam: 4, firstMove: 'none', botDifficulty: 'constructor' })");
-  assert.deepEqual(clone(defaults), { playMode: 'bot', humanTeam: 1, firstMove: 'random', botDifficulty: 'training', positionKind: 'default', customSetup: null });
+  assert.deepEqual(clone(defaults), { playMode: 'bot', humanTeam: 1, firstMove: 'random', botDifficulty: 'training', positionKind: 'default', customSetup: null, explicit: {firstMove:false,humanTeam:false,botDifficulty:false}, defaults: DEFAULT_START_CHOICES });
   const custom = ui.run("readStartPreferences({ playMode: 'local', humanTeam: 0, firstMove: 'south', botDifficulty: 'hard', positionKind: 'custom', customSetup: {config: {}, state: {pieces: [{id: 'bad'}]}} })");
-  assert.deepEqual(clone(custom), { playMode: 'local', humanTeam: 0, firstMove: 'south', botDifficulty: 'hard', positionKind: 'default', customSetup: null });
+  assert.deepEqual(clone(custom), { playMode: 'local', humanTeam: 0, firstMove: 'south', botDifficulty: 'hard', positionKind: 'default', customSetup: null, explicit: {firstMove:true,humanTeam:true,botDifficulty:true}, defaults: DEFAULT_START_CHOICES });
 });
 
 test('all three names appear in setup and the active game caption', () => {
@@ -228,4 +230,73 @@ test('local13 reset defaults restores all 26 standard pieces from a custom setup
   assert.deepEqual(clone(ui.context.config),DEFAULT_CONFIG);
   assert.deepEqual(clone(ui.context.state),clone(createGame(DEFAULT_CONFIG)));
   assert.equal(ui.context.state.pieces.length,26);
+});
+
+test('choosing the old default explicitly remains a manual preference after cancel and reopen', async () => {
+  const ui = setup();
+  await ui.run('openNewGame()');
+  ui.change('hard'); ui.change('training');
+  ui.changePreference('human-side', '0'); ui.changePreference('human-side', '1');
+  ui.changePreference('first-move', 'north'); ui.changePreference('first-move', 'random');
+  assert.deepEqual(ui.saved().startPreferences.explicit, { firstMove: true, humanTeam: true, botDifficulty: true });
+  ui.run('returnToGame()'); await ui.run('openNewGame()');
+  assert.equal(ui.run('botDifficulty'), 'training'); assert.equal(ui.context.humanTeam, 1); assert.equal(ui.context.firstMove, 'random');
+  assert.deepEqual(ui.saved().startPreferences.explicit, { firstMove: true, humanTeam: true, botDifficulty: true });
+});
+
+test('confirming a rules update refreshes once and never starts or archives a stale game on failure', async () => {
+  const ui = setup(); let requests = 0, starts = 0, finish;
+  const messages = [];
+  const originalQuery = ui.context.$;
+  ui.context.$ = selector => selector === '#bot-worker-source' ? {} : originalQuery(selector);
+  ui.context.latestRulesVersion = '0.1.21'; ui.context.location = { href: 'https://example.test/game/' };
+  ui.context.navigator = { onLine: true }; ui.context.toast = text => messages.push(text);
+  ui.context.archiveRecorder.start = () => starts++;
+  ui.context.refreshNewGamePage = options => {
+    requests++; assert.equal(options.startGame, true);
+    assert.equal(ui.saved().gamePhase, 'setup'); assert.ok(ui.saved().previousGame);
+    assert.equal(ui.saved().startPreferences.botDifficulty, 'hard');
+    return new Promise(resolve => { finish = resolve; });
+  };
+  ui.run(declaration('refreshAndStartGame'));
+  await ui.run('openNewGame()'); ui.change('hard');
+  ui.run('startGame(); startGame()');
+  assert.equal(requests, 1); assert.equal(ui.context.refreshingNewGame, true); assert.equal(starts, 0);
+  finish(false); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(ui.context.refreshingNewGame, false); assert.equal(ui.context.gamePhase, 'setup');
+  assert.equal(starts, 0); assert.equal(messages.length, 1);
+  ui.run('startGame()'); finish(true); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(requests, 2); assert.equal(starts, 0);
+});
+
+test('closing settings cancels a pending release start and ignores its late result', async () => {
+  const ui = setup(); let finish, signal;
+  const messages = [], original = ui.context.currentSnapshot();
+  ui.context.location = { href: 'https://example.test/game/' }; ui.context.navigator = { onLine: true };
+  ui.context.toast = message => messages.push(message);
+  ui.context.refreshNewGamePage = options => { signal = options.signal; return new Promise(resolve => { finish = resolve; }); };
+  ui.run(declaration('refreshAndStartGame'));
+  await ui.run('openNewGame()');
+  const pending = ui.run('refreshAndStartGame()');
+  assert.equal(ui.context.refreshingNewGame, true);
+  ui.run('returnToGame()');
+  assert.equal(signal.aborted, true); assert.equal(ui.context.refreshingNewGame, false);
+  finish(false); await pending;
+  assert.deepEqual(messages, []); assert.equal(ui.context.gamePhase, 'playing');
+  assert.deepEqual(ui.context.currentSnapshot(), original);
+});
+
+
+test('closing setup without a previous match also cancels a pending release start', async () => {
+  const ui = setup(); let finish, signal, closed = 0;
+  ui.context.gamePhase = 'setup'; ui.context.previousGame = null;
+  ui.context.location = { href: 'https://example.test/game/' }; ui.context.navigator = { onLine: true };
+  ui.context.toast = () => assert.fail('canceled refresh must not show a failure');
+  ui.context.refreshNewGamePage = options => { signal = options.signal; return new Promise(resolve => { finish = resolve; }); };
+  ui.run(declaration('refreshAndStartGame'));
+  const pending = ui.run('refreshAndStartGame()');
+  ui.context.dismissDialog({ id: 'start-dialog', close() { closed++; } });
+  assert.equal(closed, 1); assert.equal(signal.aborted, true); assert.equal(ui.context.refreshingNewGame, false);
+  finish(true); await pending;
+  assert.equal(ui.context.gamePhase, 'setup'); assert.equal(ui.context.previousGame, null);
 });

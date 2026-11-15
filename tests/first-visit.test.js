@@ -1,3 +1,5 @@
+import { DEFAULT_START_CHOICES, resolveStartChoices } from '../dist/start-preferences.js';
+import { hasNewerGameVersion } from '../dist/new-game-refresh.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -50,7 +52,7 @@ function boot({ raw = null, roll = 0.1, storageError = false, href = 'http://loc
     return nodes.get(selector);
   };
   const noop = () => {};
-  context = vm.createContext({
+  context = vm.createContext({ DEFAULT_START_CHOICES, resolveStartChoices, hasNewerGameVersion, CURRENT_RULES_VERSION: '0.1.20', latestRulesVersion: null,
     DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance,
     clone, createGame, validateConfig, validateState, analyze, reachable, shieldCanRetreat, inspectCell,
     DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty, classifyPosition, prepareStartPosition,
@@ -107,7 +109,7 @@ for (const [roll, turn] of [[0.1, 0], [0.9, 1]]) {
     assert.ok(ui.writes.some(write => !write.ready && write.saved.gamePhase === 'playing'));
     assert.equal(ui.saved().gamePhase, 'playing'); assert.equal(ui.saved().state.turn, turn);
     assert.deepEqual(ui.saved().startPreferences, {
-      playMode: 'bot', humanTeam: 1, firstMove: 'random', botDifficulty: 'training', positionKind: 'default', customSetup: null
+      playMode: 'bot', humanTeam: 1, firstMove: 'random', botDifficulty: 'training', positionKind: 'default', customSetup: null, explicit: {firstMove:false,humanTeam:false,botDifficulty:false}, defaults: DEFAULT_START_CHOICES
     });
     assert.deepEqual(ui.timers.map(({ delay, ready }) => ({ delay, ready })), turn === 0 ? [{ delay: 420, ready: true }] : []);
     ui.render();
@@ -160,7 +162,7 @@ test('a saved battle resumes its progress, history and choices without preparing
     startPreferences: { playMode: 'local', humanTeam: 1, firstMove: 'south', botDifficulty: 'hard', positionKind: 'default', customSetup: null }
   });
   const ui = boot({ raw: JSON.stringify(saved) });
-  assert.deepEqual(ui.saved(), saved);
+  assert.deepEqual(ui.saved(), { ...saved, startPreferences: { ...saved.startPreferences, ...resolveStartChoices(saved.startPreferences) } });
   assert.equal(ui.read('gamePhase'), 'playing'); assert.equal(ui.read('gameVersion'), '0.1.70');
   assert.deepEqual(ui.read('state'), state); assert.deepEqual(ui.read('history'), saved.history);
   assert.deepEqual(ui.read('lastTurn'), saved.lastTurn);

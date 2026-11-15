@@ -1,3 +1,5 @@
+import { DEFAULT_START_CHOICES, resolveStartChoices } from '../dist/start-preferences.js';
+import { hasNewerGameVersion } from '../dist/new-game-refresh.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -17,7 +19,7 @@ function setup(overrides={}){
   const saved={...snapshot,balanceRevision:16,presetRevision:1,startPrefsRevision:1,gamePhase:'setup',editor:false,history:[],lastTurn:null,...overrides};
   let checkpoints=0;
   const readSnapshot=value=>({...clone(value),config:validateConfig(value.config),state:validateState(value.state,value.config)});
-  const context=vm.createContext({DEFAULT_CONFIG,PREVIOUS_LOCAL_CONFIG,BALANCE_REVISION,updateSavedBalance,upgradeSelectedBalancePreset,clone,validateConfig,validateState,createGame,classifyPosition,startPreferences:null,
+  const context=vm.createContext({ DEFAULT_START_CHOICES, resolveStartChoices, hasNewerGameVersion, CURRENT_RULES_VERSION: '0.1.20', latestRulesVersion: null,DEFAULT_CONFIG,PREVIOUS_LOCAL_CONFIG,BALANCE_REVISION,updateSavedBalance,upgradeSelectedBalancePreset,clone,validateConfig,validateState,createGame,classifyPosition,startPreferences:null,
     config:clone(DEFAULT_CONFIG),state:createGame(DEFAULT_CONFIG),history:[],log:[],lastTurn:null,previousGame:null,selected:null,
     STORAGE:'lamps-prototype-v1',CURRENT_GAME_VERSION:'0.1.39',PRESET_REVISION:1,START_PREFS_REVISION:2,
     firstMove:'random',playMode:'bot',humanTeam:1,botDifficulty:'easy',readBotDifficulty:value=>value||'easy',gameVersion:'0.1.39',gamePhase:'setup',positionKind:'default',editor:false,
@@ -30,7 +32,7 @@ function setup(overrides={}){
 test('release39 selects existing production saves while localhost and standalone keep the local profile',()=>{
   const declaration=app.match(/^const archiveIsSite = .*;$/m)[0]+'\n'+app.match(/^const STORAGE = .*;$/m)[0]+'\nSTORAGE';
   for(const [origin,pathname,expected]of [['https://oladii.github.io','/GameOfThrows/','lamps-prototype-v1'],['http://127.0.0.1:35810','/','lamps-local-playtest13-v1'],['null','/Lamps.html','lamps-local-playtest13-v1']])assert.equal(vm.runInNewContext(declaration,{location:{origin,pathname}}),expected);
-  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.83');
+  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.84');
 });
 
 test('a fully known production revision16 standard pending setup upgrades to current13',()=>{
@@ -52,7 +54,7 @@ test('production revision16 active games, editors, custom settings and custom po
 });
 
 test('fresh preparation defaults to random, and revision1 setup changes only the first-move preference',()=>{
-  const declaration=app.match(/^let firstMove = .*;$/m)[0];assert.equal(vm.runInNewContext(declaration+'\nfirstMove'),'random');
+  const declaration=app.match(/^let firstMove = .*;$/m)[0];assert.equal(vm.runInNewContext(declaration+'\nfirstMove', {DEFAULT_START_CHOICES}),'random');
   assert.match(app,/const START_PREFS_REVISION = 2;/);
   const config=clone(DEFAULT_CONFIG),state=createGame(config),history=[{config,state,log:[],positionKind:'custom',gameVersion:'0.1.37'}],lastTurn={saved:true};
   const ui=setup({config,state,history,lastTurn,balanceRevision:21,startPrefsRevision:1,gamePhase:'setup',editor:true,positionKind:'custom',playMode:'local',humanTeam:0,firstMove:'south',botDifficulty:'hard'});
@@ -75,7 +77,7 @@ test('reloading retains next-game preferences separately from the restored battl
   const config=clone(DEFAULT_CONFIG),state=createGame(config);state.ply=12;
   const preferences={playMode:'local',humanTeam:0,firstMove:'north',botDifficulty:'training',positionKind:'default',customSetup:null};
   const ui=setup({config,state,balanceRevision:23,startPrefsRevision:2,gamePhase:'playing',playMode:'bot',humanTeam:1,firstMove:'south',botDifficulty:'hard',startPreferences:preferences});
-  assert.deepEqual(plain(ui.context.startPreferences),preferences);
+  assert.deepEqual(plain(ui.context.startPreferences),{...preferences,...resolveStartChoices(preferences)});
   assert.equal(ui.context.playMode,'bot');assert.equal(ui.context.botDifficulty,'hard');
   assert.equal(ui.context.firstMove,'south');assert.deepEqual(plain(ui.context.state),state);
 });
@@ -83,7 +85,7 @@ test('reloading retains next-game preferences separately from the restored battl
 test('old running saves migrate their explicit choices without treating the battle as a custom start',()=>{
   const config=clone(DEFAULT_CONFIG),state=createGame(config);state.ply=16;
   const ui=setup({config,state,balanceRevision:23,startPrefsRevision:2,gamePhase:'playing',positionKind:'custom',playMode:'local',humanTeam:0,firstMove:'north',botDifficulty:'hard'});
-  assert.deepEqual(plain(ui.context.startPreferences),{playMode:'local',humanTeam:0,firstMove:'north',botDifficulty:'hard',positionKind:'default',customSetup:null});
+  assert.deepEqual(plain(ui.context.startPreferences),{playMode:'local',humanTeam:0,firstMove:'north',botDifficulty:'hard',positionKind:'default',customSetup:null,explicit:{firstMove:true,humanTeam:true,botDifficulty:true},defaults:DEFAULT_START_CHOICES});
   assert.deepEqual(plain(ui.context.state),state);
 });
 
@@ -92,7 +94,7 @@ test('starting a random game rolls exactly once and fixes that turn for the runn
   const startGame=app.slice(app.indexOf('function startGame()'),app.indexOf("\n$('#start-setup').addEventListener"));
   for(const [roll,expected]of [[0.1,0],[0.9,1]]){
     let rolls=0,starts=0;
-    const context=vm.createContext({playMode:'local',config:clone(DEFAULT_CONFIG),state:createGame(DEFAULT_CONFIG),firstMove:'random',gamePhase:'setup',editor:false,refreshingNewGame:false,history:[],log:[],previousGame:null,selected:null,
+    const context=vm.createContext({hasNewerGameVersion,CURRENT_RULES_VERSION:'0.1.20',latestRulesVersion:null,playMode:'local',config:clone(DEFAULT_CONFIG),state:createGame(DEFAULT_CONFIG),firstMove:'random',gamePhase:'setup',editor:false,refreshingNewGame:false,history:[],log:[],previousGame:null,selected:null,
       Math:{random:()=>{rolls++;return roll;},floor:Math.floor},prepareStartPosition,currentStartPreferences:()=>({firstMove:'random'}),resetBotContext(){},classifyPosition,CURRENT_GAME_VERSION:'0.1.39',gameVersion:'0.1.37',archiveGameMetadata:()=>({}),archiveRecorder:{start(){starts++;}},$:()=>({close(){}}),render(){},toast:message=>{throw Error(message);}});
     vm.runInContext(startingTeam+'\n'+startGame+'\nstartGame();startGame();',context);
     assert.equal(rolls,1);assert.equal(starts,1);assert.equal(context.state.turn,expected);assert.equal(context.gamePhase,'playing');
