@@ -25,7 +25,7 @@ function setup() {
     boardFocus: '0,1', restoringBoardFocus: false, fieldView: null, movement: null, combat: null, currentDeaths: [],
     available: [], editor: false, playMode: 'local', humanTeam: 0, gamePhase: 'playing', reviewingTurn: false,
     TEAM_NAMES, LABELS, cells, key, shieldCanRetreat, archerHasEdgeBonus, inspectCell, renderDamageArrows, inspectionDamageArrows, damageArrowMarkers, ICON_PATHS: {},
-    $: node, document: { activeElement: cell, querySelectorAll: () => [] },
+    $: node, gameAudio: { hover() {} }, document: { activeElement: cell, querySelectorAll: () => [] },
     visibleState: () => state, isBotTurn: () => false, paintAuras() {}, paintAttackReach() {}, renderInspector() {},
     point: p => ({ x: p.q * 57, y: p.r * 49.5 }), polygon: () => '',
     unitAppearance: () => ({}), renderTokenBody: () => '', unitBadges: () => '', renderDeathEffects: () => '', hintTrace: () => '', lastMoveTrace: () => '', movingTokenMarkup: () => '' });
@@ -55,6 +55,16 @@ test('intentional focus and pointer inspection still show arrows after the turn'
     context.clearHover();
     assert.equal(layer.innerHTML, '');
   }
+});
+test('clearing visual inspection on focusout does not reset the audio pointer cell', () => {
+  const {context,cell}=setup(),audioEvents=[];
+  context.gameAudio.hover=key=>audioEvents.push(key);
+  context.hoverCell({type:'pointermove',target:cell});
+  context.clearHover(); // Focus can leave the old SVG node during selection/render.
+  context.boardMarkup();
+  context.hoverCell({type:'pointermove',target:cell});
+  assert.deepEqual(audioEvents,['board:0,1','board:0,1']);
+  assert.ok(!audioEvents.includes(null),'only a physical pointer leave may reset the audio cell');
 });
 
 test('the focus restoration guard is released if the browser rejects focus', () => {

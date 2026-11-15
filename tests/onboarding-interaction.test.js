@@ -147,6 +147,6 @@ test('real-game keyboard commands cannot change the hidden match while learning'
     $: () => ({ hidden: false }),
     deleteEditorSelection() { assert.fail('hidden game editor must not receive guide keys'); },
     render() { assert.fail('guide keys must not render or advance the hidden match'); } });
-  vm.runInContext(app.split('\n').find(line => line.startsWith("document.addEventListener('keydown'")), context);
+  vm.runInContext(app.split('\n').find(line => line.startsWith("document.addEventListener('keydown'") && line.includes('deleteEditorSelection(event)')), context);
   for (const key of ['Escape', 'Backspace', 'z']) handler({ key, ctrlKey: key === 'z' });
 });

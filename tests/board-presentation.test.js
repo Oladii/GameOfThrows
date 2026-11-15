@@ -180,7 +180,7 @@ test('the moving token keeps the destination threat before simultaneous deaths a
   assert.equal(outcome.report.get('s').dead, true);
   const context = vm.createContext({ config, playMode: 'local', movement: null, inspectCell, movementPath, renderMovingToken,
     ICON_PATHS: {}, point: c => ({ x: c.q, y: c.r }), createMovementPlan: points => ({ points }),
-    cancelMovement() {}, matchMedia: () => ({ matches: false }), render() {},
+    cancelMovement() {}, gameAudio: { movement: () => ({ finish() {}, cancel() {} }) }, matchMedia: () => ({ matches: false }), render() {},
     sampleMovement: () => ({ x: 0, y: 0, progress: .2 }), moveAnimator: { active: false, start() {} } });
   vm.runInContext(appSource.slice(appSource.indexOf('function presentMove('),appSource.indexOf('function lastTurnFromHistory(')),context);
   vm.runInContext(appSource.slice(appSource.indexOf('function movingTokenMarkup('),appSource.indexOf('function inspectionContext(')),context);

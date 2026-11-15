@@ -65,7 +65,7 @@ function boot({ raw = null, roll = 0.1, storageError = false, href = 'http://loc
     },
     archiveRecorder: { start(value) { starts.push(clone(value)); }, resume(value) { resumes.push(clone(value)); } },
     botRunner: { active: false, cancel: noop }, hintRunner: { cancel: noop },
-    moveAnimator: { cancel: noop }, combatAnimator: { cancel: noop },
+    moveAnimator: { cancel: noop }, combatAnimator: { cancel: noop }, gameAudio: { stopAll: noop },
     clearTimeout: noop, clearInterval: noop,
     setTimeout(callback, delay) { timers.push({ callback, delay, ready: vm.runInContext('ready', context) }); return timers.length; },
     toast(message) { messages.push(message); }, renderHint: noop, renderUpdateNotice: noop,
