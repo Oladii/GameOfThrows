@@ -376,10 +376,21 @@ dialog{padding:22px 16px;width:calc(100% - 22px);max-height:94vh}
 .unit-reference-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:10px}
 .unit-reference-table th:first-child{width:48%;text-align:left}
 .unit-reference-table thead th{padding:4px 0 7px}
+.reference-stat{position:relative;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;vertical-align:middle;cursor:default}
+.reference-stat>svg{display:block;width:20px;height:20px}
+.reference-stat>.reference-step-icon{width:23px;height:23px}
+.reference-stat>.reference-damage-icon{width:25px;height:25px}
+.reference-stat-hint{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);z-index:20;padding:5px 8px;border-radius:var(--radius-control);background:var(--ink);color:var(--surface);font-size:12px;line-height:16px;font-weight:400;white-space:nowrap;pointer-events:none}
+.unit-reference-table th:last-child .reference-stat-hint{left:auto;right:0;transform:none}
+.reference-stat:hover .reference-stat-hint,.reference-stat:focus .reference-stat-hint{display:block}
+.reference-stat:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+
 .unit-reference-table tbody th,.unit-reference-table tbody td{padding:7px 0 5px;text-align:center;border-top:1px solid #dfe3d5}
 .unit-reference-table tbody th{font-weight:600}
 .reference-unit{display:flex;align-items:center;gap:3px;white-space:nowrap}
-.reference-unit svg{width:13px;height:17px;flex-shrink:0;color:var(--blue)}
+.reference-unit svg{width:13px;height:17px;flex-shrink:0;color:var(--blue);stroke-width:2}
+.reference-unit>svg{opacity:.9}
+.reference-unit svg svg path{stroke-width:7.2}
 .unit-reference-table .reference-aura td{text-align:left;font-size:9px;line-height:1.5;font-weight:400;color:#63715e;padding:2px 1px 7px;border-top:0}
 .reference-note{font-size:9px;line-height:1.5;color:var(--muted);margin:8px 0 1px;border-top:1px solid #dfe3d5;padding-top:7px}
 @media(max-width:700px){
@@ -605,7 +616,7 @@ main{padding-top:8px}
 .unit-reference-table thead th{white-space:nowrap;padding:4px 4px 8px}
 .unit-reference-table tbody th{padding-right:8px}
 .unit-reference-table tbody td:not([colspan]){padding-left:4px;padding-right:4px}
-.reference-unit{gap:6px}
+.reference-unit{gap:3px}
 @media(min-width:701px){
 .left-panel{min-width:320px}
 .workspace{grid-template-columns:minmax(0,1fr) 320px;gap:20px}
@@ -885,7 +896,7 @@ main{padding:14px}
 #room-retry{margin-top:8px}
 .online-room :is(button,input,select,a,[tabindex]):focus-visible{outline:2px solid var(--ink)!important;outline-offset:3px}
 .online-room .room-panel ::selection{background:#d9e3c9;color:var(--ink)}
-.online-room.room-waiting .board-footer{display:none}
+.online-room.room-waiting .board-footer,.online-room.room-waiting .reference-panel{display:none}
 .arena-top[hidden] + .room-first-choice[hidden] + .scoreboard{margin-top:0}
 
 .team-card{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:17px 35px;align-content:start;gap:6px;height:76px;min-height:76px;padding:8px 10px;border-radius:9px}
@@ -949,7 +960,7 @@ main{padding:14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.89</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-15T12:15:29.211Z">Сборка 15.11.2026, 15:15:29 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.90</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-15T13:10:26.259Z">Сборка 15.11.2026, 16:10:26 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -4789,7 +4800,14 @@ function unitReferenceMarkup(promotionOpen = false) {
     if (type === 'shield') aura = shieldDescriptionMarkup(promotionOpen);
     return `<tr data-reference-type="${type}"><th scope="row"><span class="reference-unit">${icon(type)}<span>${LABELS[type]}</span></span></th>${fields.map(field => `<td data-stat="${field}">${stats[field]}</td>`).join('')}</tr>${aura ? `<tr class="reference-aura" data-reference-aura="${type}"><td colspan="5">${aura}</td></tr>` : ''}`;
   }).join('');
-  return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th><th scope="col" title="Максимальный шаг">Шаг</th><th scope="col">Урон</th><th scope="col" title="Дальность атаки">Дал</th><th scope="col" title="Стойкость">Стойк</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  const statIcons = [
+    ['move', 'Шаг', '<svg class="reference-step-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.1 2.1C2.8 2.5 2.9 7.5 4.3 11l4.8-1.1C9.2 6.4 7.6 1.7 5.1 2.1Zm-.2 10.5.5 2.3c.3 1.5 1.5 2.4 2.7 2.1 1.2-.3 1.7-1.7 1.4-3.2L9 11.6Zm13.8-4.5c-2.5-.4-4.1 4.3-4 7.8l4.8 1.1c1.4-3.5 1.5-8.5-.8-8.9Zm-4 9.5-.5 2.2c-.3 1.5.2 2.9 1.4 3.2 1.2.3 2.4-.6 2.7-2.1l.5-2.3Z"/></svg>'],
+    ['damage', 'Урон', '<svg class="reference-damage-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path transform="rotate(-45 12 12)" d="m12 2 2 3v10h2v2h-3v4h1v2h-4v-2h1v-4H8v-2h2V5Z"/></svg>'],
+    ['range', 'Дальность атаки', '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm0 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z"/><path d="M10.75 1h2.5v6h-2.5Zm0 16h2.5v6h-2.5ZM1 10.75h6v2.5H1Zm16 0h6v2.5h-6Z"/><circle cx="12" cy="12" r="2"/></svg>'],
+    ['fortitude', 'Стойкость', '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="m12 2 8 3v6c0 5-4 8-8 11-4-3-8-6-8-11V5Zm-1 4v3H8v2h3v6h2v-6h3V9h-3V6Z"/></svg>']
+  ];
+  const headings = statIcons.map(([field, label, image]) => `<th scope="col" aria-label="${label}"><span class="reference-stat" tabindex="0" aria-label="${label}" aria-describedby="reference-stat-${field}-hint">${image}<span class="reference-stat-hint" role="tooltip" id="reference-stat-${field}-hint">${label}</span></span></th>`).join('');
+  return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th>' + headings + '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 function renderGameResult(position) {
   const finished = position.winner !== null && gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn;

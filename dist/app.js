@@ -542,7 +542,14 @@ function unitReferenceMarkup(promotionOpen = false) {
     if (type === 'shield') aura = shieldDescriptionMarkup(promotionOpen);
     return `<tr data-reference-type="${type}"><th scope="row"><span class="reference-unit">${icon(type)}<span>${LABELS[type]}</span></span></th>${fields.map(field => `<td data-stat="${field}">${stats[field]}</td>`).join('')}</tr>${aura ? `<tr class="reference-aura" data-reference-aura="${type}"><td colspan="5">${aura}</td></tr>` : ''}`;
   }).join('');
-  return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th><th scope="col" title="Максимальный шаг">Шаг</th><th scope="col">Урон</th><th scope="col" title="Дальность атаки">Дал</th><th scope="col" title="Стойкость">Стойк</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  const statIcons = [
+    ['move', 'Шаг', '<svg class="reference-step-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.1 2.1C2.8 2.5 2.9 7.5 4.3 11l4.8-1.1C9.2 6.4 7.6 1.7 5.1 2.1Zm-.2 10.5.5 2.3c.3 1.5 1.5 2.4 2.7 2.1 1.2-.3 1.7-1.7 1.4-3.2L9 11.6Zm13.8-4.5c-2.5-.4-4.1 4.3-4 7.8l4.8 1.1c1.4-3.5 1.5-8.5-.8-8.9Zm-4 9.5-.5 2.2c-.3 1.5.2 2.9 1.4 3.2 1.2.3 2.4-.6 2.7-2.1l.5-2.3Z"/></svg>'],
+    ['damage', 'Урон', '<svg class="reference-damage-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path transform="rotate(-45 12 12)" d="m12 2 2 3v10h2v2h-3v4h1v2h-4v-2h1v-4H8v-2h2V5Z"/></svg>'],
+    ['range', 'Дальность атаки', '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm0 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z"/><path d="M10.75 1h2.5v6h-2.5Zm0 16h2.5v6h-2.5ZM1 10.75h6v2.5H1Zm16 0h6v2.5h-6Z"/><circle cx="12" cy="12" r="2"/></svg>'],
+    ['fortitude', 'Стойкость', '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="m12 2 8 3v6c0 5-4 8-8 11-4-3-8-6-8-11V5Zm-1 4v3H8v2h3v6h2v-6h3V9h-3V6Z"/></svg>']
+  ];
+  const headings = statIcons.map(([field, label, image]) => `<th scope="col" aria-label="${label}"><span class="reference-stat" tabindex="0" aria-label="${label}" aria-describedby="reference-stat-${field}-hint">${image}<span class="reference-stat-hint" role="tooltip" id="reference-stat-${field}-hint">${label}</span></span></th>`).join('');
+  return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th>' + headings + '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 function renderGameResult(position) {
   const finished = position.winner !== null && gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn;
