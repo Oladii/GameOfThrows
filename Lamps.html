@@ -938,7 +938,7 @@ main{padding:0 14px 14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.83</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-15T00:01:42.570Z">Сборка 15.11.2026, 03:01:42 МСК</span></span>
+        <span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.83</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-15T00:23:59.799Z">Сборка 15.11.2026, 03:23:59 МСК</span></span>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -4273,7 +4273,7 @@ let firstMove = 'random';
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
 let startPreferences = null;
-let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
+let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false, combatReplayCache = null;
 let reviewTurn = null, reviewLoading = false, reviewRequest = 0;
 const ROOM_STORAGE = 'trows-online-room-v1';
 let roomSession = null, roomView = null, roomLocalGame = null, roomTarget = null, roomSnapshot = null, roomConnecting = false, roomLeaving = false, roomError = '';
@@ -4516,13 +4516,27 @@ function presentKills(before, forecast, deaths) {
   combatAnimator.startSequence(presentation.groups);
 }
 function combatReplayContext() {
-  const turn = reviewingTurn ? reviewTurn : lastTurn;
-  if (!turn?.action || gamePhase !== 'playing' || editor || reviewLoading || movement || combat || currentDeaths.length) return null;
-  const { before, action } = turn;
-  const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
-    : inspectCell(before.state, before.config, action.to, action.id);
-  const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
-  return deaths.length ? { before, forecast, deaths } : null;
+  if (gamePhase !== 'playing' || editor || reviewLoading || movement || combat || currentDeaths.length) return null;
+  const replayFor = turn => {
+    if (!turn?.action) return null;
+    const { before, action } = turn;
+    const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
+      : inspectCell(before.state, before.config, action.to, action.id);
+    const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
+    return deaths.length ? { before, forecast, deaths } : null;
+  };
+  if (reviewingTurn) return replayFor(reviewTurn);
+  if (playMode !== 'bot' || !lastTurn) return replayFor(lastTurn);
+  // A quiet reply from the bot must not hide the most recent battle. Cache the
+  // search so pointer movement does not recalculate the entire match history.
+  if (combatReplayCache?.turn === lastTurn && combatReplayCache.history === history && combatReplayCache.length === history.length) return combatReplayCache.result;
+  let result = replayFor(lastTurn);
+  for (let index = history.length - 1; !result && index >= 0; index--) {
+    const entry = history[index];
+    result = replayFor({ before: entry, action: entry.action });
+  }
+  combatReplayCache = { turn: lastTurn, history, length: history.length, result };
+  return result;
 }
 function canReplayCombat() { return Boolean(combatReplayContext()); }
 function replayCombat() {

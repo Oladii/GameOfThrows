@@ -68,7 +68,7 @@ let firstMove = 'random';
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let botDifficulty = DEFAULT_BOT_DIFFICULTY;
 let startPreferences = null;
-let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
+let playMode = 'bot', humanTeam = 1, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false, combatReplayCache = null;
 let reviewTurn = null, reviewLoading = false, reviewRequest = 0;
 const ROOM_STORAGE = 'trows-online-room-v1';
 let roomSession = null, roomView = null, roomLocalGame = null, roomTarget = null, roomSnapshot = null, roomConnecting = false, roomLeaving = false, roomError = '';
@@ -311,13 +311,27 @@ function presentKills(before, forecast, deaths) {
   combatAnimator.startSequence(presentation.groups);
 }
 function combatReplayContext() {
-  const turn = reviewingTurn ? reviewTurn : lastTurn;
-  if (!turn?.action || gamePhase !== 'playing' || editor || reviewLoading || movement || combat || currentDeaths.length) return null;
-  const { before, action } = turn;
-  const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
-    : inspectCell(before.state, before.config, action.to, action.id);
-  const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
-  return deaths.length ? { before, forecast, deaths } : null;
+  if (gamePhase !== 'playing' || editor || reviewLoading || movement || combat || currentDeaths.length) return null;
+  const replayFor = turn => {
+    if (!turn?.action) return null;
+    const { before, action } = turn;
+    const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
+      : inspectCell(before.state, before.config, action.to, action.id);
+    const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
+    return deaths.length ? { before, forecast, deaths } : null;
+  };
+  if (reviewingTurn) return replayFor(reviewTurn);
+  if (playMode !== 'bot' || !lastTurn) return replayFor(lastTurn);
+  // A quiet reply from the bot must not hide the most recent battle. Cache the
+  // search so pointer movement does not recalculate the entire match history.
+  if (combatReplayCache?.turn === lastTurn && combatReplayCache.history === history && combatReplayCache.length === history.length) return combatReplayCache.result;
+  let result = replayFor(lastTurn);
+  for (let index = history.length - 1; !result && index >= 0; index--) {
+    const entry = history[index];
+    result = replayFor({ before: entry, action: entry.action });
+  }
+  combatReplayCache = { turn: lastTurn, history, length: history.length, result };
+  return result;
 }
 function canReplayCombat() { return Boolean(combatReplayContext()); }
 function replayCombat() {

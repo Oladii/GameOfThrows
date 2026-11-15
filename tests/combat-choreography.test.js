@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { PREVIOUS_FORMATION_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
-import { analyze, inspectCell, move, pass } from '../dist/engine.js';
+import { analyze, inspectCell, move, pass, reachable } from '../dist/engine.js';
 import { CombatAnimator, COMBAT_DIM_DURATION, ARROW_REVEAL_INTERVAL, ATTACK_HOLD_DURATION, DEATH_EFFECT_DURATION } from '../dist/move-animation.js';
 import { lethalAttackPresentation, renderDamageArrows, renderUnitBadges } from '../dist/board-presentation.js';
 
@@ -97,7 +97,7 @@ function presentationHarness(mode='local') {
   const forecast=inspectCell(before.state,config,action.to,action.id), time=clock(), snapshots=[];
   let botStarts=0,botCancels=0;const notices=[];
   const context=vm.createContext({config,state:result.state,combat:null,movement:null,currentDeaths:[],reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false,lastTurn:null,gamePhase:'playing',editor:false,playMode:mode,humanTeam:0,
-    ready:true,botIssue:'',botSuspended:false,botTimer:null,botRunner:{active:false},$:()=>null,lethalAttackPresentation,analyze,inspectCell,selected:null,fieldView:null,
+    ready:true,botIssue:'',botSuspended:false,botTimer:null,botRunner:{active:false},$:()=>null,lethalAttackPresentation,analyze,inspectCell,selected:null,fieldView:null,history:[],combatReplayCache:null,
     toast(message){notices.push(message);},cancelBot(){botCancels++;time.clearTimer(context.botTimer);context.botTimer=null;},
     setTimeout:(fn,ms)=>time.setTimer(fn,ms),highlightSources(){},moveAnimator:{cancel(){}},startBot(){botStarts++;},
     CombatAnimator:class extends CombatAnimator{constructor(onPhase,onFrame){super(onPhase,onFrame,time);}},
@@ -215,6 +215,29 @@ test('replay blocks duplicate clicks and postpones the pending bot until the pre
   ui.context.replayCombat();assert.equal(ui.context.combat,presentation);assert.equal(ui.botCancels(),1);
   ui.time.advance(420);assert.equal(ui.botStarts(),0);
   ui.time.advance(10000);assert.equal(ui.botStarts(),1);
+});
+
+test('a quiet bot reply keeps the last battle replayable without changing live state or the selected history turn', () => {
+  const ui=presentationHarness('bot');
+  const quietBefore={config:ui.before.config,state:structuredClone(ui.result.state),log:[]};
+  const actor=quietBefore.state.pieces.find(p=>p.team===quietBefore.state.turn);
+  const to=reachable(actor,quietBefore.state,quietBefore.config)[0];
+  const quietAction={id:actor.id,to:{q:to.q,r:to.r}};
+  const outcome=move(quietBefore.state,quietBefore.config,actor.id,quietAction.to);
+  assert.equal(outcome.deaths.length,0);
+  ui.context.history=[{...ui.before,action:ui.action},{...quietBefore,action:quietAction}];
+  ui.context.lastTurn={before:quietBefore,action:quietAction};ui.context.state=outcome.state;
+  const committed=JSON.stringify({state:ui.context.state,history:ui.context.history,lastTurn:ui.context.lastTurn});
+  const replay=ui.context.combatReplayContext();
+  assert.equal(replay.before,ui.context.history[0]);
+  assert.equal(ui.context.combatReplayContext(),replay,'reuse the calculation until the move or history changes');
+  ui.context.replayCombat();assert.equal(ui.context.combat.deaths.length,ui.result.deaths.length);
+  ui.time.advance(10000);
+  assert.equal(JSON.stringify({state:ui.context.state,history:ui.context.history,lastTurn:ui.context.lastTurn}),committed);
+  ui.context.reviewingTurn=true;ui.context.reviewTurn=ui.context.lastTurn;
+  assert.equal(ui.context.canReplayCombat(),false,'history stays tied to its selected peaceful turn');
+  ui.context.reviewingTurn=false;ui.context.history=[{...quietBefore,action:quietAction}];
+  assert.equal(ui.context.canReplayCombat(),false,'discard a cached battle removed from history');
 });
 
 test('replay supports a saved pass calculation and disables its button when nobody died', () => {
