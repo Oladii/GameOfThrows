@@ -1,0 +1,14 @@
+{
+  "generator": "built-in imagegen",
+  "reference": "game-of-trows-v1.png",
+  "assets": [
+    {
+      "file": "team-red.png",
+      "prompt": "Create a production game UI asset from the reference logo: isolate and reconstruct ONLY the crimson red fabric flag on the left side, with its antique dark iron almost horizontal pole and gold spear finial pointing to the LEFT, gold cloth trim, rich dimensional painted fabric folds. Remove ALL letters, logo shield, central emblem, blue flag and everything else. One standalone red banner, fully visible, vertically hanging short broad cloth beneath a gently slanted pole as in reference. Compact roughly square composition, close crop with small transparent margins. Match precisely the reference’s polished fantasy game rendered material style. True transparent background, no text, no extra symbols. This asset will sit at the left edge of a short horizontal UI team card."
+    },
+    {
+      "file": "team-blue.png",
+      "prompt": "Create matching counterpart of this exact flag asset. Change ONLY two things: mirror the entire object horizontally so the gold spear finial points to the RIGHT; change crimson fabric to rich royal cobalt BLUE matching a fantasy game blue team. Keep the gold trim gold, keep iron pole dark metallic, all composition, fabric folds, dimensions, transparency and materials identical. Single flag, no text, no logo, true transparent background."
+    }
+  ]
+}

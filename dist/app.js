@@ -565,7 +565,7 @@ function renderInspector(context) {
   const descriptions = {
     scoutLamp: `Увеличивает дальность союзных лукарей на ${base.rangeBonus}. Не увеличивает дальность щитоносцев. ${base.damage > 0 && base.range > 0 ? `Атакует самостоятельно: урон ${base.damage}, дальность ${base.range}. Дальность не увеличивается от аур.` : 'Может атаковать только рядом с союзным ветераном'}`,
     shield: `Ходит вперёд и вбок, сражается вблизи и прикрывает соседних ${config.shieldDefenseOnly ? 'союзных щитоносцев' : 'союзников'}. Завершив ход на чужом краю, получает постоянное усиление`,
-    archer: `Атакует по прямым лучам сетки. Союзные ауры усиливают урон, дальность и стойкость. ${config.archerEdgeDamageBonus > 0 ? `Достигнув чужого края, навсегда получает +${config.archerEdgeDamageBonus} к урону и венок, даже после отхода. Ауру ветерана не получает.` : 'В правилах этой партии усиление лукаря за край не включено.'}${base.aura > 0 && base.damageBonus > 0 ? ' Его аура усиливает атаку союзников, кроме него самого.' : ''}`,
+    archer: `Стреляет издалека, прячется за щитоносцами. Союзные ауры усиливают урон, дальность и стойкость. ${config.archerEdgeDamageBonus > 0 ? `Достигнув чужого края, навсегда получает +${config.archerEdgeDamageBonus} к урону и венок, даже после отхода. Ауру ветерана не получает.` : 'В правилах этой партии усиление лукаря за край не включено.'}${base.aura > 0 && base.damageBonus > 0 ? ' Его аура усиливает атаку союзников, кроме него самого.' : ''}`,
     attackLamp: `${config.drumMoveAllies ? 'Ускоряет всех союзников' : 'Ускоряет союзных щитоносцев'}: +${config.drumShieldMoveBonus ?? 0} к шагу при начале действия в ауре.${base.damageBonus > 0 ? ` Также даёт +${base.damageBonus} к урону.` : ''} Сам себя не усиливает. Может атаковать только под поддержкой союзного ветерана.`,
     horn: `Усиливает урон всех союзников на ${base.damageBonus}. Сам себя не усиливает. Может атаковать только под поддержкой союзного ветерана.`,
     defenseLamp: 'Повышает стойкость союзников. Может атаковать только под поддержкой союзного ветерана'
@@ -579,7 +579,7 @@ function renderInspector(context) {
   const sourceDetails = sources.map(({source, bonuses}) => `<li><strong>${LABELS[source.type]}</strong><span>${Object.entries(bonuses).filter(([,value]) => value > 0).map(([field,value]) => `+${value} ${bonusLabels[field]}`).join(', ')}</span></li>`).join('');
   const aura = shieldCanRetreat(piece, config) ? config.shieldPromotion.allies ?? config.shieldPromotion : base;
   const bonuses = [[piece.type === 'attackLamp' ? config.drumShieldMoveBonus ?? 0 : 0, config.drumMoveAllies ? 'шаг союзников' : 'шаг щитоносцев'], [aura.damageBonus, 'урон'], [aura.rangeBonus, 'дальность'], [aura.defenseBonus, config.shieldDefenseOnly && piece.type === 'shield' ? 'стойкость щитоносцев' : 'стойкость']].filter(([value]) => value > 0).map(([value, name]) => `${name} +${value}`).join(', ');
-  panel.innerHTML = `<section class="sidebar-card inspector-card"><div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' veteran' : ''}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p>${context.isPreview && context.piece?.id === selected ? '<p class="preview-label">Параметры после предполагаемого перемещения</p>' : ''}<div class="stat-grid">${stats}</div></section>${info.aura > 0 ? `<section class="unit-aura sidebar-card"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><br>${bonuses}</section>` : ''}<section class="sources sidebar-card"><strong>Усиления от союзников</strong>${sources.length ? `<ul class="allied-bonus-list">${sourceDetails}</ul>` : '<p>Сейчас нет усилений от союзников</p>'}</section>`;
+  panel.innerHTML = `<section class="sidebar-card inspector-card"><div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' veteran' : ''}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p>${context.isPreview && context.piece?.id === selected ? '<p class="preview-label">Параметры после предполагаемого перемещения</p>' : ''}<div class="stat-grid">${stats}</div>${info.aura > 0 ? `<section class="unit-aura"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><p>${bonuses}</p></section>` : ''}<section class="sources"><strong>Усиления от союзников</strong>${sources.length ? `<ul class="allied-bonus-list">${sourceDetails}</ul>` : '<p>Сейчас нет усилений от союзников</p>'}</section></section>`;
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion, allies = p.allies ?? p;
@@ -588,12 +588,19 @@ function shieldPromotionDescription() {
 function shieldDescriptionMarkup(open = false) {
   return `<p class="shield-description">Ходит вперёд и вбок. Аура ${config.stats.shield.aura} ${plural(config.stats.shield.aura, ['клетка', 'клетки', 'клеток'])}: стойкость ${config.shieldDefenseOnly ? 'союзных щитоносцев' : 'союзников'} +${config.stats.shield.defenseBonus}. Ауры других фигур не увеличивают дальность атаки щитоносцев.</p><details class="shield-promotion" data-shield-promotion${open ? ' open' : ''}><summary>Ветеран</summary><p>Завершив ход на противоположном краю, усиливается: ${shieldPromotionDescription()}</p></details>`;
 }
-function unitReferenceMarkup(promotionOpen = false) {
+function archerPromotionMarkup(open = false) {
+  const enabled = config.archerEdgeDamageBonus > 0;
+  const bonus = enabled ? config.archerEdgeDamageBonus : DEFAULT_CONFIG.archerEdgeDamageBonus;
+  return `<details class="archer-promotion" data-archer-promotion${open ? ' open' : ''}><summary>Ветеран</summary><p>Достигнув чужого края, навсегда получает +${bonus} к урону. Усиление даётся один раз и сохраняется после отхода. Венок отмечает ветерана. Союзники от него усилений не получают.</p>${enabled ? '' : '<p>Это стандартное правило; в текущей партии усиление за край не включено</p>'}</details>`;
+}
+function unitReferenceMarkup(promotionOpen = false, archerPromotionOpen = false) {
   const rows = TYPES.filter(type => config.stats[type]).map(type => {
     const stats = config.stats[type], fields = ['move', 'damage', 'range', 'fortitude'];
     let aura = '';
     if (type === 'archer' && stats.aura > 0 && stats.damageBonus > 0) aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон союзников +${stats.damageBonus}, кроме самого лукаря. Бонусы нескольких лукарей складываются.`;
-    if (type === 'archer' && config.archerEdgeDamageBonus > 0) aura += ` После чужого края навсегда получает +${config.archerEdgeDamageBonus} к урону. Венок отмечает усиление; дополнительной ауры нет`;
+    if (type === 'archer') {
+      aura = `<p class="archer-description">Стреляет издалека, прячется за щитоносцами${aura ? `. ${aura}` : ''}</p>${archerPromotionMarkup(archerPromotionOpen)}`;
+    }
     if (type === 'scoutLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: дальность +${stats.rangeBonus}. Щитоносцы и командиры с собственной атакой этот бонус не получают`;
     if (type === 'attackLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: шаг ${config.drumMoveAllies ? 'всех союзников' : 'щитоносцев'} +${config.drumShieldMoveBonus ?? 0} при начале действия в ауре${stats.damageBonus > 0 ? `, урон +${stats.damageBonus}` : ''}`;
     if (type === 'horn') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон всех союзников +${stats.damageBonus}`;
@@ -610,40 +617,57 @@ function unitReferenceMarkup(promotionOpen = false) {
   const headings = statIcons.map(([field, label, image]) => `<th scope="col" aria-label="${label}"><span class="reference-stat" tabindex="0" aria-label="${label}" aria-describedby="reference-stat-${field}-hint">${image}<span class="reference-stat-hint" role="tooltip" id="reference-stat-${field}-hint">${label}</span></span></th>`).join('');
   return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th>' + headings + '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
-function renderGameResult(position) {
-  const finished = position.winner !== null && gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn;
+function matchResult(position) {
+  const finished = !editor && !roomMovePreview && position.winner !== null && gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn;
+  if (!finished) return null;
+  const winner = position.winner;
+  const loss = [0, 1].map(team => {
+    const pieces = position.pieces.filter(piece => piece.team === team);
+    if (config.victoryCondition === 'all-units') return pieces.length ? null : 'all';
+    if (config.victoryCondition === 'flag-or-combat' && !pieces.some(piece => piece.type === 'defenseLamp')) return 'flag';
+    return pieces.some(piece => piece.type === 'shield' || piece.type === 'archer') ? null : 'combat';
+  });
   let reason = '';
-  if (finished && ['flag-or-combat', 'combat-units'].includes(config.victoryCondition)) {
-    const loss = [0, 1].map(team => {
-      const pieces = position.pieces.filter(piece => piece.team === team);
-      if (config.victoryCondition === 'flag-or-combat') {
-        if (!pieces.some(piece => piece.type === 'defenseLamp')) return 'flag';
-        if (pieces.length === 1) return 'only-flag';
-      }
-      return pieces.some(piece => piece.type === 'shield' || piece.type === 'archer') ? null : 'combat';
-    });
-    if (position.winner === 'draw') {
-      if (loss[0] && loss[0] === loss[1]) {
-        reason = { flag: 'Знамёна обеих сторон уничтожены', 'only-flag': 'У обеих сторон остались только знамёна', combat: 'У обеих сторон не осталось щитоносцев и лукарей' }[loss[0]];
-      } else if (loss[0] && loss[1]) {
-        reason = loss.map((kind, team) => {
-          const side = team === 0 ? 'Синих' : 'Красных';
-          return kind === 'flag' ? `Знамя ${side} уничтожено` : kind === 'only-flag' ? `У ${side} осталось только знамя` : `У ${side} не осталось щитоносцев и лукарей`;
-        }).join('. ');
-      }
-    } else if ([0, 1].includes(position.winner)) {
-      reason = { flag: 'Знамя противника уничтожено', 'only-flag': 'У противника осталось только знамя', combat: 'У противника не осталось щитоносцев и лукарей' }[loss[1 - position.winner]] || '';
+  if (winner === 'draw') {
+    if (loss[0] && loss[0] === loss[1]) {
+      reason = { flag: 'Знамёна обеих сторон уничтожены', combat: 'У обеих сторон уничтожены все лучники и щитоносцы', all: 'Все фигуры обеих сторон уничтожены' }[loss[0]];
+    } else if (loss[0] && loss[1]) {
+      reason = loss.map((kind, team) => kind === 'flag' ? `Знамя ${team === 0 ? 'Синих' : 'Красных'} уничтожено` : `У ${team === 0 ? 'Синих' : 'Красных'} уничтожены все лучники и щитоносцы`).join('. ');
     }
+  } else {
+    reason = { flag: 'Уничтожено знамя противника', combat: 'Уничтожены все лучники и щитоносцы', all: 'Уничтожены все фигуры противника' }[loss[1 - winner]] || '';
   }
-  const victory = finished ? `${position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Синих' : 'Красных'}`}${reason ? '. ' + reason : ''}` : '';
+  const viewerTeam = playMode === 'bot' ? humanTeam : playMode === 'online' ? roomView?.selfSeat : null;
+  const owner = winner === viewerTeam ? 'Вы' : playMode === 'bot' ? `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'}` : playMode === 'online' && viewerTeam != null ? 'Соперник' : '';
+  // The stored result "draw" means both sides lost; retain the wire format for saved games and rooms.
+  return { winner, title: winner === 'draw' ? 'Поражение обеих сторон' : `Победили ${winner === 0 ? 'Синие' : 'Красные'}${owner ? ` (${owner})` : ''}`, reason };
+}
+function connectionStatus() {
+  if (playMode !== 'online') return '';
+  if (roomView?.status !== 'connected') return 'Нет связи с вами';
+  const snapshot = roomView.snapshot, viewer = roomView.selfSeat;
+  const offline = team => snapshot?.seats[team] && !snapshot.participants.some(person => person.guestId === snapshot.seats[team].guestId && person.present);
+  if (viewer === 0 || viewer === 1) {
+    if (offline(viewer)) return 'Нет связи с вами';
+    if (offline(1 - viewer)) return 'Нет связи с соперником';
+  } else {
+    const sides = [0, 1].filter(offline);
+    if (sides.length === 2) return 'Нет связи с игроками';
+    if (sides.length) return `Нет связи с ${sides[0] === 0 ? 'Синими' : 'Красными'}`;
+  }
+  return '';
+}
+function renderGameResult(position) {
+  const result = matchResult(position), finished = Boolean(result);
   const resolvingCombat = Boolean(combat || currentDeaths.length);
   $('#mode-caption').hidden = playMode === 'bot' || resolvingCombat || Boolean(movement);
-  $('#move-counter').textContent = resolvingCombat ? 'Расчёт боя…' : movement ? 'Движение…' : gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${victory ? '. ' + victory : ''}`;
-  $('.arena-top').dataset.result = !finished ? '' : position.winner === 'draw' ? 'draw' : playMode === 'bot' && position.winner !== humanTeam ? 'loss' : 'win';
-  if (playMode === 'online') {
-    if (gamePhase === 'setup') $('#move-counter').textContent = 'Ожидание игроков';
-    if (finished && roomView?.selfSeat !== null && position.winner !== 'draw') $('.arena-top').dataset.result = position.winner === roomView.selfSeat ? 'win' : 'loss';
-  }
+  const viewerTeam = playMode === 'bot' ? humanTeam : playMode === 'online' ? roomView?.selfSeat : null;
+  const turnStatus = finished || reviewingTurn || editor ? '' : connectionStatus() || (viewerTeam === 0 || viewerTeam === 1
+    ? position.turn === viewerTeam ? 'Ваш ход' : 'Ждем хода противника'
+    : `Ход ${position.turn === 0 ? 'синих' : 'красных'}`);
+  $('#move-counter').textContent = resolvingCombat ? 'Расчёт боя…' : movement ? 'Движение…' : gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${turnStatus ? ' • ' + turnStatus : ''}`;
+  $('.arena-top').dataset.result = '';
+  if (playMode === 'online' && gamePhase === 'setup') $('#move-counter').textContent = 'Ожидание игроков';
 }
 function renderUpdateNotice() {
   const rulesUpdate = needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentRulesVersion: CURRENT_RULES_VERSION, latestRulesVersion });
@@ -696,7 +720,7 @@ function render(deaths = []) {
   $('#start-setup').disabled = refreshingNewGame;
   $('#new-game').disabled = false;
   $('#new-game').hidden = playMode === 'online' || gamePhase !== 'playing';
-  $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : 'По ссылке' : playMode === 'bot' ? `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'}` : '2 игрока на одном экране';
+  $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : 'По ссылке' : playMode === 'bot' ? `${BOT_DIFFICULTIES[botDifficulty].label.toLocaleLowerCase('ru-RU')}${botDifficulty === 'hard' ? '' : ' бот'}` : '2 игрока на одном экране';
   hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
@@ -705,7 +729,7 @@ function render(deaths = []) {
   $('#board').setAttribute('data-combat-phase', combat?.phase || 'idle');
   renderGameResult(state);
   renderScoreboard(state);
-  $('#unit-reference').innerHTML = unitReferenceMarkup(Boolean($('#unit-reference [data-shield-promotion]')?.open));
+  $('#unit-reference').innerHTML = unitReferenceMarkup(Boolean($('#unit-reference [data-shield-promotion]')?.open), Boolean($('#unit-reference [data-archer-promotion]')?.open));
   $('#config-summary').innerHTML = `<div class="summary-row"><span>Групп на игрока</span><strong>${config.army.groups}</strong></div><div class="summary-row"><span>Состав группы</span><strong>${config.army.shields} ${plural(config.army.shields, ['щитоносец', 'щитоносца', 'щитоносцев'])} + ${config.army.archers} ${plural(config.army.archers, ['лукарь', 'лукаря', 'лукарей'])}</strong></div><div class="summary-row"><span>Барабаны / горны / знамёна / командиры</span><strong>${config.army.attackLamps} / ${config.army.horns ?? 0} / ${config.army.defenseLamps} / ${config.army.scoutLamps}</strong></div><div class="summary-row"><span>Дополнительно в центре</span><strong>${(config.army.centralShields ?? 0) + (config.army.rearShields ?? 0)} щитоносцев / ${config.army.rearArchers ?? 0} лукарей</strong></div><div class="summary-row"><span>Стрельба</span><strong>${config.geometry === 'hex' ? '6 лучей через грани' : config.experiments.squareDiagonals ? '8 направлений' : '4 направления'}</strong></div>`;
   $('#editor-controls').hidden = !editor;
   $('#pass-turn').hidden = !config.experiments.allowPass || gamePhase !== 'playing';
@@ -1110,30 +1134,33 @@ function renderScoreboard(position) {
   const waiting = !snapshot || snapshot.phase === 'waiting';
   const seated = roomView?.selfSeat === 0 || roomView?.selfSeat === 1;
   const canClaim = snapshot && waiting && !seated && roomView.status === 'connected' && !roomView.pending && !roomConnecting;
+  const result = matchResult(position);
+  if (result) {
+    const markup = `<div class="team-card match-result ${result.winner === 'draw' ? 'draw' : result.winner === 1 ? 'south' : 'north'}" role="status" aria-live="polite"><div class="team-card-heading"><span class="team-title">${result.title}</span></div>${result.reason ? `<div class="match-result-reason">${result.reason}</div>` : ''}</div>`;
+    if ($('#scoreboard').innerHTML !== markup) $('#scoreboard').innerHTML = markup;
+    return;
+  }
   const markup = [0, 1].map(team => {
     const seat = snapshot?.seats[team], free = online && !seat;
-    const role = online ? free ? 'Ожидаем игрока' : roomView.selfSeat === team ? 'Вы' : 'Живой человек' : playMode === 'bot' ? team === humanTeam ? 'Вы' : `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'}` : '';
-    const title = `<span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${role ? ` — ${role}` : ''}</span>`;
+    const side = team === 0 ? 'Синих' : 'Красных';
+    const role = online ? free ? `${TEAM_NAMES[team]} — ожидаем игрока` : roomView.selfSeat === team ? `Вы играете за ${side}` : seated ? `Соперник играет за ${side}` : `Игрок за ${side}`
+      : playMode === 'bot' ? team === humanTeam ? `Вы играете за ${side}` : `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'} играет за ${side}` : `Игрок за ${side}`;
+    const title = `<span class="team-title">${role}</span>`;
     const pieces = position.pieces.filter(piece => piece.team === team), count = pieces.length;
     const active = gamePhase === 'playing' && position.turn === team && position.winner === null && !editor && !combat && !currentDeaths.length;
     const roster = TYPES.map(type => {
       const amount = pieces.filter(piece => piece.type === type).length, label = `${LABELS[type]}: ${amount}`;
       return `<li class="team-unit ${amount ? '' : 'empty'}" data-unit-type="${type}" title="${label}" aria-label="${label}">${icon(type)}<span aria-hidden="true">${amount}</span></li>`;
     }).join('');
-    const finished = gamePhase === 'playing' && position.winner !== null && !editor && !reviewingTurn && !movement && !combat && !currentDeaths.length && !roomMovePreview;
-    const turnLabel = !online ? 'Ваш ход' : !seated ? 'Ходят' : roomView.selfSeat === team ? 'Ваш ход' : 'Ход соперника';
-    const waitingLabel = position.winner !== null ? ' ' : !online ? 'Ожидает вашего хода' : !seated ? 'Ждут хода противника' : roomView.selfSeat === team ? 'Ожидаем ход соперника' : 'Ожидает вашего хода';
-    const turn = finished ? position.winner === team ? 'Победа' : 'Поражение' : gamePhase === 'setup' ? online ? '' : 'Расстановка' : combat || currentDeaths.length ? 'Расчёт боя' : active ? movement ? 'Движение' : reviewingTurn ? '' : playMode === 'bot' && team !== humanTeam ? 'Ход бота' : turnLabel : waitingLabel;
-    const offline = online && seat && (!snapshot.participants.some(person => person.guestId === seat.guestId && person.present) || roomView.selfSeat === team && roomView.status !== 'connected');
     if (online) {
       const canStand = roomView?.status === 'connected' && !roomView.pending && !roomConnecting;
       const action = free ? `<button class="button outline full" type="button" data-claim-seat="${team}" ${canClaim ? '' : 'disabled'}>Играть за ${team ? 'красных' : 'синих'}</button>`
         : waiting && roomView.selfSeat === team && roomView.status !== 'closed' ? `<button class="button subtle full" type="button" data-stand-seat="${team}" ${canStand ? '' : 'disabled'}>Отменить выбор</button>` : '';
       const details = free ? '' : `<span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul>`;
-      const body = action ? `<div class="team-card-action">${action}</div>` : `<div class="turn-tag">${offline && !finished ? 'Нет связи' : turn}</div><div class="team-card-details">${details}</div>`;
-      return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" data-room-seat="${team}"><div class="team-card-heading">${title}</div><div class="team-card-body">${body}</div></div>`;
+      const body = action ? `<div class="team-card-action">${action}</div>` : `<div class="team-card-details">${details}</div>`;
+      return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" role="group" data-room-seat="${team}" aria-label="${TEAM_NAMES[team]}"><div class="team-card-heading">${title}</div><div class="team-card-body">${body}</div></div>`;
     }
-    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div class="team-card-heading">${title}</div><div class="team-card-body"><div class="turn-tag">${turn}</div><div class="team-card-details"><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div></div></div>`;
+    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" role="group" aria-label="${TEAM_NAMES[team]}"><div class="team-card-heading">${title}</div><div class="team-card-body"><div class="team-card-details"><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div></div></div>`;
   }).join('');
   if ($('#scoreboard').innerHTML !== markup) $('#scoreboard').innerHTML = markup;
 }
@@ -1188,6 +1215,7 @@ function renderOnlineRoom() {
   $('#room-error').textContent = roomError || connectionError; $('#room-error').hidden = !$('#room-error').textContent;
   $('#room-retry').hidden = busy || (!roomError && !connectionError && !closed);
   $('#room-retry').textContent = closed || roomView?.error?.code === 'room_not_found' ? 'Войти снова' : 'Повторить подключение';
+  renderGameResult(visibleState());
   renderScoreboard(visibleState());
 }
 $('#scoreboard').addEventListener('click', event => {

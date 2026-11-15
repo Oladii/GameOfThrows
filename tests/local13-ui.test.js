@@ -86,7 +86,7 @@ test('interactive training opens directly and production retains its original sa
   assert.doesNotMatch(app, /localStorage\.(?:removeItem|clear)\(/);
   assert.doesNotMatch(app, /next\.stats\.attackLamp\.damage = 2/);
   assert.match(app, /createGuideController\(\{/);
-  assert.match(html, /<section id="rules-dialog" class="guide-screen" aria-label="Как играть" hidden>/);
+  assert.match(html, /<section id="rules-dialog" class="guide-screen" aria-label="Обучение" hidden>/);
   assert.doesNotMatch(html, /id="about-title"|class="about-switch"|id="about-guide-tab"|id="about-reference-tab"/);
   assert.doesNotMatch(html, /id="onboarding-open"|id="cancel-new-game"/);
   assert.match(html, /id="rules-open"/);

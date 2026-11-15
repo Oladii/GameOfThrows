@@ -41,7 +41,7 @@ function setup() {
     checkpoint() { throw new Error('Online UI must not record local history'); }
   });
   vm.runInContext(declaration('point') + '\n' + declaration('currentSnapshot') + '\n' + declaration('humanCanMove') + '\n'
-    + source('function savedRoomReference()', '\nconst statFields ='), context);
+    + source('function matchResult(', 'function renderUpdateNotice(') + source('function savedRoomReference()', '\nconst statFields ='), context);
   return { context, $, storage, calls, location };
 }
 function snapshot(overrides = {}) {
@@ -57,7 +57,7 @@ function view(snap, selfSeat = null, overrides = {}) {
 test('the scoreboard offers free sides without rosters, names or player actions', () => {
   const ui = setup(), snap = snapshot(); ui.context.roomView = view(snap); ui.context.renderOnlineRoom();
   const markup = ui.$('#scoreboard').innerHTML;
-  assert.match(markup, /Синие — Ожидаем игрока/); assert.match(markup, /Красные — Ожидаем игрока/);
+  assert.match(markup, /aria-label="Синие"><div class="team-card-heading"><span class="team-title">Синие — ожидаем игрока/); assert.match(markup, /aria-label="Красные"><div class="team-card-heading"><span class="team-title">Красные — ожидаем игрока/);
   assert.match(markup, /Играть за синих/); assert.match(markup, /Играть за красных/);
   assert.doesNotMatch(markup, /team-roster|team-count/);
   assert.equal(ui.$('#room-finish').hidden, true);
@@ -87,7 +87,7 @@ test('selecting a side is sufficient; its card offers cancellation only before t
     let stands = 0; ui.context.roomView = view(snap, team); ui.context.roomSession = { stand: () => { stands++; } };
     ui.context.renderOnlineRoom();
     const waiting = ui.$('#scoreboard').innerHTML;
-    assert.match(waiting, new RegExp(`${team === 0 ? 'Синие' : 'Красные'} — Вы`));
+    assert.match(waiting, new RegExp(`aria-label="${team === 0 ? 'Синие' : 'Красные'}"><div class="team-card-heading"><span class="team-title">Вы играете за ${team === 0 ? 'Синих' : 'Красных'}`));
     assert.equal((waiting.match(/class="team-roster"/g) || []).length, 0);
     assert.match(waiting, /data-claim-seat="[01]" disabled/);
     assert.match(waiting, new RegExp(`data-stand-seat="${team}"`)); assert.match(waiting, /Отменить выбор/);
@@ -155,7 +155,9 @@ test('same-revision presence refresh preserves animation while updating connecti
   ui.context.applyRoomView(view(snap, 0)); ui.context.movement = { active: true };
   ui.context.applyRoomView(view({ ...snap, participants: [{ guestId: 'me', present: false, seat: 0 }] }, 0));
   assert.equal(ui.context.movement.active, true);
-  assert.match(ui.$('#scoreboard').innerHTML, /Нет связи/);
+  assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /Нет связи/);
+  ui.context.movement = null; ui.context.renderOnlineRoom();
+  assert.match(ui.$('#move-counter').textContent, /Нет связи с вами/);
 });
 
 test('finish clears displayed seats and readiness, and early finish never claims a winner', () => {
@@ -163,7 +165,7 @@ test('finish clears displayed seats and readiness, and early finish never claims
   ui.context.applyRoomView(view(ended)); ui.context.renderOnlineRoom();
   assert.equal(ui.context.gamePhase, 'setup'); assert.equal(ui.context.state.winner, null);
   assert.equal(ui.$('.board-wrap').hidden, true);
-  assert.equal((ui.$('#scoreboard').innerHTML.match(/Ожидаем игрока/g) || []).length, 2);
+  assert.equal((ui.$('#scoreboard').innerHTML.match(/ожидаем игрока/g) || []).length, 2);
   assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /Победа|победа/);
   assert.equal(ui.$('#room-finish').hidden, true);
 });
@@ -231,7 +233,7 @@ test('the room counts players and spectators with Russian plurals and no duplica
     participants: [{ guestId: 'me', present: true, seat: 0 }, { guestId: 'other', present: true, seat: 1 }, { guestId: 'viewer', present: true, seat: null }] });
   ui.context.roomView = view(snap, 0); ui.context.renderOnlineRoom();
   assert.equal(ui.$('#room-participants').textContent, '2 игрока и 1 зритель');
-  assert.match(ui.$('#scoreboard').innerHTML, /Синие — Вы/); assert.match(ui.$('#scoreboard').innerHTML, /Красные — Живой человек/);
+  assert.match(ui.$('#scoreboard').innerHTML, /aria-label="Синие"><div class="team-card-heading"><span class="team-title">Вы играете за Синих/); assert.match(ui.$('#scoreboard').innerHTML, /aria-label="Красные"><div class="team-card-heading"><span class="team-title">Соперник играет за Красных/);
   assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /data-claim-seat/);
 });
 
@@ -265,17 +267,14 @@ test('selecting online mode waits for Start before creating a room', () => {
   ui.context.startGame(); assert.equal(opened, 1);
 });
 
-test('turn labels follow the viewer perspective for either color and spectators', () => {
-  const tags = ui => [...ui.$('#scoreboard').innerHTML.matchAll(/<div class="turn-tag">([^<]*)<\/div>/g)].map(match => match[1]);
+test('team cards contain identities rather than duplicate turn statuses', () => {
   for (const selfSeat of [0, 1, null]) for (const turn of [0, 1]) {
     const ui = setup(), position = createGame(DEFAULT_CONFIG); position.turn = turn;
-    const snap = snapshot({ phase: 'playing', state: position, seats: [{ guestId: 'blue', ready: true }, { guestId: 'red', ready: true }],
+    const snap = snapshot({ phase: 'playing', state: position, seats: [{ guestId: 'blue' }, { guestId: 'red' }],
       participants: [{ guestId: 'blue', present: true, seat: 0 }, { guestId: 'red', present: true, seat: 1 }] });
     ui.context.state = position; ui.context.roomView = view(snap, selfSeat); ui.context.renderOnlineRoom();
-    const labels = tags(ui);
-    if (selfSeat === null) { assert.equal(labels[turn], 'Ходят'); assert.equal(labels[1 - turn], 'Ждут хода противника'); }
-    else if (turn === selfSeat) { assert.equal(labels[selfSeat], 'Ваш ход'); assert.equal(labels[1 - selfSeat], 'Ожидает вашего хода'); }
-    else { assert.equal(labels[turn], 'Ход соперника'); assert.equal(labels[selfSeat], 'Ожидаем ход соперника'); }
+    assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /turn-tag|Ваш ход|Ход соперника|Ожидает вашего хода/);
+    for (const team of [0, 1]) assert.ok(ui.$('#scoreboard').innerHTML.includes(`${team === selfSeat ? 'Вы играете за' : selfSeat === null ? 'Игрок за' : 'Соперник играет за'} ${team ? 'Красных' : 'Синих'}`));
   }
 });
 
@@ -456,8 +455,8 @@ test('first move checkbox is available while waiting and carries the choice with
   const ui = setup(); ui.context.playMode = 'bot'; ui.context.humanTeam = 1;
   for (const [difficulty, label] of [['training','Неопытный бот'],['normal','Опытный бот'],['hard','Воевода']]) {
     ui.context.botDifficulty = difficulty; ui.context.renderScoreboard(ui.context.state);
-    assert.match(ui.$('#scoreboard').innerHTML, new RegExp(`Синие — ${label}`));
-    assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /Воевода бот/);
+    assert.match(ui.$('#scoreboard').innerHTML, new RegExp(`aria-label="Синие"><div class="team-card-heading"><span class="team-title">${label} играет за Синих`));
+    assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /воевода бот/);
   }
 });
 test('when neither wants the first move only the selected starter sees the notice', () => {
@@ -564,20 +563,25 @@ test('a different authoritative move cancels the preview, and a late request err
   assert.equal(ui.ctx.movement, authoritativeMovement);
 });
 
-test('finished team cards show victory and defeat, with two defeats for a draw', () => {
+test('finished matches replace both team cards with one full-width result', () => {
   for (const mode of ['bot', 'local', 'online']) for (const winner of [0, 1, 'draw']) {
     const ui = setup(), position = createGame(DEFAULT_CONFIG); position.winner = winner;
     ui.context.playMode = mode;
     ui.context.roomView = view(snapshot({ phase: 'won', state: position, seats: [{ guestId: 'blue' }, { guestId: 'red' }] }), 0);
     ui.context.renderScoreboard(position);
     const labels = [...ui.$('#scoreboard').innerHTML.matchAll(/<div class="turn-tag">([^<]*)<\/div>/g)].map(match => match[1]);
-    assert.deepEqual(labels, [0, 1].map(team => team === winner ? 'Победа' : 'Поражение'));
+    assert.deepEqual(labels, []);
+    const markup = ui.$('#scoreboard').innerHTML;
+    assert.equal((markup.match(/class="team-card /g) || []).length, 1);
+    assert.match(markup, /match-result/);
+    assert.doesNotMatch(markup, /team-roster|data-claim-seat|data-stand-seat/);
+    assert.ok(markup.includes(winner === 'draw' ? 'Поражение обеих сторон' : `Победили ${winner === 0 ? 'Синие' : 'Красные'}`));
   }
 });
 test('team results stay hidden during combat, movement, history, setup and unconfirmed moves', () => {
   for (const fields of [{ movement: {} }, { combat: {} }, { currentDeaths: [{}] }, { reviewingTurn: true }, { editor: true }, { gamePhase: 'setup' }, { roomMovePreview: {} }]) {
     const ui = setup(), position = createGame(DEFAULT_CONFIG); position.winner = 0;
     ui.context.playMode = 'bot'; Object.assign(ui.context, fields); ui.context.renderScoreboard(position);
-    assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /Победа|Поражение/);
+    assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /Победили|Поражение|match-result/);
   }
 });

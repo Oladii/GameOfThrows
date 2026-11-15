@@ -38,7 +38,7 @@ test('explanation discloses allied casualties instead of claiming safety', () =>
   const state = position([piece('s', 'shield', 0, 0, 0), piece('e', 'archer', 1, 2, 0)]);
   const hint = explainHint(state, config, { id: 's', to: { q: 1, r: 0 } });
   assert.match(hint.reasons.join(' '), /потеря союзных фигур/);
-  assert.match(hint.reasons.join(' '), /Победителя не будет/);
+  assert.match(hint.reasons.join(' '), /поражению обеих сторон/);
 });
 
 test('quiet support move explains actual allied stat increases', () => {

@@ -10,8 +10,8 @@ export const GAME_SOUND_PROFILES = {
   slide: { gain: .045, lowpass: 450, highpass: 220, duration: .10, attack: .015 },
   place: { gain: .04, lowpass: 400, highpass: 240, duration: .055, attack: .012 },
   remove: { gain: .06, lowpass: 10000 },
-  click: { gain: .04, lowpass: 2500, highpass: 550, duration: .006, attack: .0005 },
-  hover: { gain: .175, lowpass: 10000 }
+  click: { gain: .02, lowpass: 2500, highpass: 550, duration: .006, attack: .0005 },
+  hover: { gain: .0875, lowpass: 10000 }
 };
 
 // Only a straight, unobstructed route slides. A bend or an intermediate

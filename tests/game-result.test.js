@@ -3,149 +3,100 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { winnerForPieces } from '../dist/engine.js';
-
-const app=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
-function setup(victoryCondition = 'all-units') {
-  const nodes={'#mode-caption':{hidden:false},'#move-counter':{textContent:''},'.arena-top':{dataset:{}}};
-  const context=vm.createContext({config:{victoryCondition},gamePhase:'playing',editor:false,playMode:'bot',humanTeam:1,movement:null,combat:null,currentDeaths:[],reviewingTurn:false,$:s=>nodes[s]});
-  vm.runInContext(app.slice(app.indexOf('function renderGameResult('),app.indexOf('function render(deaths')),context);
-  return {context,nodes,render:(winner,pieces=[])=>context.renderGameResult({ply:65,winner,pieces})};
+const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
+function setup(victoryCondition = 'flag-or-combat') {
+  const nodes = { '#mode-caption': {}, '#move-counter': {}, '.arena-top': { dataset: {} } };
+  const context = vm.createContext({ config: { victoryCondition }, gamePhase: 'playing', editor: false, playMode: 'bot', humanTeam: 1,
+    movement: null, combat: null, currentDeaths: [], reviewingTurn: false, roomMovePreview: null, roomView: null,
+    BOT_DIFFICULTIES: { normal: { label: 'Опытный' } }, botDifficulty: 'normal', $: s => nodes[s] });
+  vm.runInContext(app.slice(app.indexOf('function matchResult('), app.indexOf('function renderUpdateNotice(')), context);
+  return { context, nodes };
 }
-test('victory is written beside the turn counter with an inline result background',()=>{
-  const ui=setup();
-  for(const [winner,label] of [[0,'Ход 66. Победа Синих'],[1,'Ход 66. Победа Красных'],['draw','Ход 66. Ничья']]) {
-    ui.render(winner);assert.equal(ui.nodes['#move-counter'].textContent,label);assert.equal(Boolean(ui.nodes['.arena-top'].dataset.result),true);
-  }
-  ui.render(null);assert.equal(ui.nodes['#move-counter'].textContent,'Ход 66');assert.equal(ui.nodes['.arena-top'].dataset.result,'');
-});
-test('the result stays neutral through movement, combat, removal, setup and history review',()=>{
-  for(const [field,value] of [['movement',{}],['combat',{phase:'attacks'}],['combat',{phase:'deaths'}],['currentDeaths',[{}]],['gamePhase','setup'],['reviewingTurn',true]]) {
-    const ui=setup();ui.context[field]=value;ui.render(0);
-    assert.ok(!ui.nodes['#move-counter'].textContent.includes('Победа'));
-    assert.equal(ui.nodes['.arena-top'].dataset.result,'');
-  }
-});
-
-
-test('flag victories name the destroyed opposing flag for either winning team',()=>{
-  for(const [winner,label] of [[0,'Синих'],[1,'Красных']]) {
-    const ui=setup('flag-or-combat');
-    ui.render(winner,[{type:'defenseLamp',team:winner}]);
-    assert.equal(ui.nodes['#move-counter'].textContent,`Ход 66. Победа ${label}. Знамя противника уничтожено`);
-    assert.equal(Boolean(ui.nodes['.arena-top'].dataset.result),true);
-  }
-});
-
-test('surviving combat units and legacy rules retain concise results',()=>{
-  for(const winner of [0,1]) {
-    const ui=setup('flag-or-combat');
-    ui.render(winner,[{type:'defenseLamp',team:1-winner},{type:'archer',team:1-winner}]);
-    assert.equal(ui.nodes['#move-counter'].textContent,`Ход 66. Победа ${winner===0?'Синих':'Красных'}`);
-    for(const condition of ['combat-units','all-units',undefined]) {
-      ui.context.config.victoryCondition=condition;ui.render(winner,[]);
-      assert.ok(!ui.nodes['#move-counter'].textContent.includes('Знамя противника уничтожено'));
-    }
-  }
-  const draw=setup('flag-or-combat');draw.render('draw',[]);
-  assert.equal(draw.nodes['#move-counter'].textContent,'Ход 66. Ничья. Знамёна обеих сторон уничтожены');
-});
-
-test('a missing flag never reveals the reason before the final result is visible',()=>{
-  for(const [field,value] of [['movement',{}],['combat',{phase:'attacks'}],['combat',{phase:'deaths'}],['currentDeaths',[{}]],['gamePhase','setup'],['reviewingTurn',true]]) {
-    const ui=setup('flag-or-combat');ui.context[field]=value;ui.render(0,[]);
-    assert.ok(!ui.nodes['#move-counter'].textContent.includes('Знамя противника уничтожено'));
-    assert.equal(ui.nodes['.arena-top'].dataset.result,'');
-  }
-  const active=setup('flag-or-combat');active.render(null,[]);
-  assert.equal(active.nodes['#move-counter'].textContent,'Ход 66');
-});
-
-
 const army = (team, types) => types.map((type, i) => ({ id: `${team}-${i}`, team, type }));
-function checkEnding(condition, north, south, winner, reason) {
-  const pieces = [...army(0, north), ...army(1, south)];
-  const result = winnerForPieces(pieces, { victoryCondition: condition });
-  assert.equal(result, winner, 'fixture outcome comes from the current engine');
-  const ui = setup(condition);
-  ui.render(result, pieces);
-  const label = winner === 'draw' ? 'Ничья' : `Победа ${winner === 0 ? 'Синих' : 'Красных'}`;
-  assert.equal(ui.nodes['#move-counter'].textContent, `Ход 66. ${label}. ${reason}`);
-  assert.equal(Boolean(ui.nodes['.arena-top'].dataset.result), true);
-}
-const aliveArmy = ['defenseLamp', 'shield'];
-test('either winner explains an opposing lone flag, without treating it as destroyed', () => {
-  checkEnding('flag-or-combat', aliveArmy, ['defenseLamp'], 0, 'У противника осталось только знамя');
-  checkEnding('flag-or-combat', ['defenseLamp'], aliveArmy, 1, 'У противника осталось только знамя');
-  checkEnding('flag-or-combat', ['defenseLamp'], ['defenseLamp'], 'draw', 'У обеих сторон остались только знамёна');
+const alive = ['defenseLamp', 'shield'];
+const support = ['defenseLamp', 'scoutLamp', 'horn'];
+const endings = [
+  ['flag-or-combat', alive, ['archer'], 0, 'Уничтожено знамя противника'],
+  ['flag-or-combat', ['archer'], alive, 1, 'Уничтожено знамя противника'],
+  ['flag-or-combat', alive, ['defenseLamp'], 0, 'Уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', ['defenseLamp'], alive, 1, 'Уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', alive, support, 0, 'Уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', support, alive, 1, 'Уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', ['archer'], ['shield'], 'draw', 'Знамёна обеих сторон уничтожены'],
+  ['flag-or-combat', support, support, 'draw', 'У обеих сторон уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', ['defenseLamp'], ['defenseLamp'], 'draw', 'У обеих сторон уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', ['archer'], ['defenseLamp'], 'draw', 'Знамя Синих уничтожено. У Красных уничтожены все лучники и щитоносцы'],
+  ['combat-units', ['shield'], ['defenseLamp'], 0, 'Уничтожены все лучники и щитоносцы'],
+  ['combat-units', ['scoutLamp'], ['archer'], 1, 'Уничтожены все лучники и щитоносцы'],
+  ['combat-units', ['horn'], ['scoutLamp'], 'draw', 'У обеих сторон уничтожены все лучники и щитоносцы'],
+  ['all-units', ['shield'], [], 0, 'Уничтожены все фигуры противника'],
+  ['all-units', [], [], 'draw', 'Все фигуры обеих сторон уничтожены']
+];
+for (const [condition, north, south, winner, reason] of endings) test(`result explains ${condition}: ${north} / ${south}`, () => {
+  const ui = setup(condition), pieces = [...army(0, north), ...army(1, south)];
+  assert.equal(winnerForPieces(pieces, { victoryCondition: condition }), winner);
+  const position = { ply: 65, turn: 1, winner, pieces };
+  const result = ui.context.matchResult(position);
+  assert.equal(result.reason, reason); assert.equal(result.winner, winner);
+  assert.equal(result.title, winner === 'draw' ? 'Поражение обеих сторон' : `Победили ${winner === 0 ? 'Синие (Опытный бот)' : 'Красные (Вы)'}`);
+  ui.context.renderGameResult(position);
+  assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 66');
+  assert.equal(ui.nodes['.arena-top'].dataset.result, '');
 });
-test('support and an armed commander do not count as surviving shield or archer units', () => {
-  const support = ['defenseLamp', 'scoutLamp', 'horn'];
-  checkEnding('flag-or-combat', aliveArmy, support, 0, 'У противника не осталось щитоносцев и лукарей');
-  checkEnding('flag-or-combat', support, aliveArmy, 1, 'У противника не осталось щитоносцев и лукарей');
-  checkEnding('flag-or-combat', support, support, 'draw', 'У обеих сторон не осталось щитоносцев и лукарей');
-});
-test('destroyed flags take priority, and mixed draws identify both sides correctly', () => {
-  checkEnding('flag-or-combat', aliveArmy, ['horn'], 0, 'Знамя противника уничтожено');
-  checkEnding('flag-or-combat', ['archer'], ['shield'], 'draw', 'Знамёна обеих сторон уничтожены');
-  checkEnding('flag-or-combat', ['archer'], ['defenseLamp'], 'draw', 'Знамя Синих уничтожено. У Красных осталось только знамя');
-  checkEnding('flag-or-combat', ['defenseLamp', 'horn'], ['shield'], 'draw', 'У Синих не осталось щитоносцев и лукарей. Знамя Красных уничтожено');
-  checkEnding('flag-or-combat', ['defenseLamp'], ['defenseLamp', 'horn'], 'draw', 'У Синих осталось только знамя. У Красных не осталось щитоносцев и лукарей');
-});
-test('combat-only rules explain lost combat units regardless of flags', () => {
-  checkEnding('combat-units', ['shield'], ['defenseLamp'], 0, 'У противника не осталось щитоносцев и лукарей');
-  checkEnding('combat-units', ['scoutLamp'], ['archer'], 1, 'У противника не осталось щитоносцев и лукарей');
-  checkEnding('combat-units', ['horn'], ['scoutLamp'], 'draw', 'У обеих сторон не осталось щитоносцев и лукарей');
-});
-test('only-flag reasons stay hidden in every transient state and during active games', () => {
-  for (const [field, value] of [['movement', {}], ['combat', { phase: 'attacks' }], ['currentDeaths', [{}]], ['gamePhase', 'setup'], ['reviewingTurn', true]]) {
-    const ui = setup('flag-or-combat'); ui.context[field] = value;
-    ui.render('draw', [...army(0, ['defenseLamp']), ...army(1, ['defenseLamp'])]);
-    assert.doesNotMatch(ui.nodes['#move-counter'].textContent, /Ничья|знамя|щитоносцев/);
-    assert.equal(ui.nodes['.arena-top'].dataset.result, '');
+test('winner ownership follows both bot and online sides, local players and spectators', () => {
+  for (const playMode of ['bot', 'online', 'local']) for (const selfSeat of [0, 1, null]) for (const winner of [0, 1]) {
+    const ui = setup(); Object.assign(ui.context, { playMode, humanTeam: selfSeat ?? 1, roomView: { selfSeat } });
+    const result = ui.context.matchResult({ winner, pieces: [], ply: 4, turn: 0 });
+    const viewer = playMode === 'bot' ? selfSeat ?? 1 : playMode === 'online' ? selfSeat : null;
+    const owner = winner === viewer ? 'Вы' : playMode === 'bot' ? 'Опытный бот' : playMode === 'online' && viewer !== null ? 'Соперник' : '';
+    assert.equal(result.title, `Победили ${winner === 0 ? 'Синие' : 'Красные'}${owner ? ` (${owner})` : ''}`);
   }
-  const ui = setup('flag-or-combat'); ui.render(null, [...army(0, ['defenseLamp']), ...army(1, ['defenseLamp'])]);
-  assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 66');
 });
-
-
-test('result background reflects the human side and leaves no extra rematch control', () => {
-  const ui = setup();
-  ui.render(0); assert.equal(ui.nodes['.arena-top'].dataset.result, 'loss');
-  ui.render(1); assert.equal(ui.nodes['.arena-top'].dataset.result, 'win');
-  ui.render('draw'); assert.equal(ui.nodes['.arena-top'].dataset.result, 'draw');
-  ui.render(null); assert.equal(ui.nodes['.arena-top'].dataset.result, '');
-  const html = fs.readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
-  assert.ok(!html.includes('id="play-again"'));
-  assert.match(html, /id="board" focusable="false" tabindex="-1"/);
-});
-
-
-test('combat replaces the whole turn line until every death effect completes', () => {
-  const ui = setup(); ui.context.playMode = 'local';
-  for (const phase of ['dimming', 'attacks', 'deaths']) {
-    ui.context.combat = { phase }; ui.render(0);
-    assert.equal(ui.nodes['#move-counter'].textContent, 'Расчёт боя…');
-    assert.equal(ui.nodes['#mode-caption'].hidden, true);
+test('no result appears before animations finish or in setup, editor, review and unconfirmed move', () => {
+  for (const patch of [{ movement: {} }, { combat: {} }, { currentDeaths: [{}] }, { gamePhase: 'setup' }, { editor: true }, { reviewingTurn: true }, { roomMovePreview: {} }]) {
+    const ui = setup(); Object.assign(ui.context, patch);
+    assert.equal(ui.context.matchResult({ winner: 0, pieces: [] }), null);
   }
-  ui.context.combat = null; ui.context.currentDeaths = [{}]; ui.render(0);
-  assert.equal(ui.nodes['#move-counter'].textContent, 'Расчёт боя…');
-  assert.equal(ui.nodes['#mode-caption'].hidden, true);
-  ui.context.currentDeaths = []; ui.render(null);
-  assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 66');
-  assert.equal(ui.nodes['#mode-caption'].hidden, false);
+  assert.equal(setup().context.matchResult({ winner: null, pieces: [] }), null);
+});
+test('turn status follows the viewer, preserves transient states and history', () => {
+  for (const playMode of ['bot', 'online']) for (const viewer of [0, 1]) for (const turn of [0, 1]) {
+    const ui = setup(); Object.assign(ui.context, { playMode, humanTeam: viewer, roomView: { selfSeat: viewer, status: 'connected' } });
+    ui.context.renderGameResult({ ply: 3, turn, winner: null, pieces: [] });
+    assert.equal(ui.nodes['#move-counter'].textContent, `Ход 4 • ${viewer === turn ? 'Ваш ход' : 'Ждем хода противника'}`);
+  }
+  for (const playMode of ['online', 'local']) for (const turn of [0, 1]) {
+    const ui = setup(); Object.assign(ui.context, { playMode, roomView: { selfSeat: null, status: 'connected' } });
+    const position = { ply: 4, turn, winner: null, pieces: [] };
+    ui.context.renderGameResult(position);
+    assert.equal(ui.nodes['#move-counter'].textContent, `Ход 5 • Ход ${turn === 0 ? 'синих' : 'красных'}`);
+    ui.context.reviewingTurn = true; ui.context.renderGameResult(position);
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Просмотр · Ход 5');
+  }
+  for (const [patch, label] of [[{ movement: {} }, 'Движение…'], [{ combat: {} }, 'Расчёт боя…'], [{ currentDeaths: [{}] }, 'Расчёт боя…'], [{ gamePhase: 'setup' }, 'Подготовка'], [{ gamePhase: 'setup', playMode: 'online' }, 'Ожидание игроков']]) {
+    const ui = setup(); Object.assign(ui.context, patch); ui.context.renderGameResult({ ply: 3, turn: 0, winner: 1, pieces: [] });
+    assert.equal(ui.nodes['#move-counter'].textContent, label);
+  }
 });
 
-
-test('movement replaces the entire turn line just like combat', () => {
-  const ui = setup(); ui.context.playMode = 'local'; ui.context.movement = {}; ui.render(null);
-  assert.equal(ui.nodes['#move-counter'].textContent, 'Движение…');
-  assert.equal(ui.nodes['#mode-caption'].hidden, true);
-  ui.context.movement = null; ui.render(null);
-  assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 66');
-  assert.equal(ui.nodes['#mode-caption'].hidden, false);
-});
-
-test('bot difficulty is hidden from the turn line in normal play', () => {
-  const ui = setup(); ui.render(null);
-  assert.equal(ui.nodes['#mode-caption'].hidden, true);
+test('connection status replaces turn status for both seats and clears on reconnect', () => {
+  for (const selfSeat of [0, 1]) {
+    const ui = setup(), position = { ply: 3, turn: selfSeat, winner: null, pieces: [] };
+    const snapshot = { seats: [{ guestId: 'blue' }, { guestId: 'red' }], participants: [{ guestId: 'blue', present: true }, { guestId: 'red', present: true }] };
+    Object.assign(ui.context, { playMode: 'online', roomView: { selfSeat, status: 'reconnecting', snapshot } });
+    ui.context.renderGameResult(position);
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с вами');
+    ui.context.roomView.status = 'connected'; snapshot.participants[1-selfSeat].present = false;
+    ui.context.renderGameResult(position);
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с соперником');
+    snapshot.participants[selfSeat].present = false;
+    ui.context.renderGameResult(position);
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с вами');
+    snapshot.participants.forEach(person => { person.present = true; });
+    ui.context.renderGameResult(position);
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Ваш ход');
+    ui.context.roomView.selfSeat = null; snapshot.participants[0].present = false;
+    ui.context.renderGameResult(position);
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с Синими');
+  }
 });

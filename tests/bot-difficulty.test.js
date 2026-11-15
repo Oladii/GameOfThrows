@@ -130,7 +130,7 @@ test('all three names appear in setup and the active game caption', () => {
     assert.match(html, new RegExp(`<option value="${value}"[^>]*>${label}</option>`));
     const node = {};
     vm.runInNewContext(caption, { $: () => node, playMode: 'bot', botDifficulty: value, BOT_DIFFICULTIES });
-    assert.equal(node.textContent, `${label}${value === 'hard' ? '' : ' бот'}`);
+    assert.equal(node.textContent, `${label.toLocaleLowerCase('ru-RU')}${value === 'hard' ? '' : ' бот'}`);
   }
 });
 
