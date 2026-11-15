@@ -573,7 +573,10 @@ function renderGameResult(position) {
   }
 }
 function renderUpdateNotice() {
-  $('#update-notice').hidden = playMode === 'online' || !needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentRulesVersion: CURRENT_RULES_VERSION, latestRulesVersion });
+  const pageUpdate = hasNewerGameVersion(CURRENT_GAME_VERSION, latestVersion) || hasNewerGameVersion(CURRENT_RULES_VERSION, latestRulesVersion);
+  const notice = $('#update-notice');
+  notice.hidden = playMode === 'online' || !(pageUpdate || needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentRulesVersion: CURRENT_RULES_VERSION, latestRulesVersion }));
+  notice.textContent = pageUpdate ? 'Доступно обновление игры. Обнови вкладку, чтобы применить его' : 'Правила игры обновлены. Начни новую партию, чтобы играть по ним';
 }
 async function checkGameVersion() {
   if (versionCheckPending || document.visibilityState === 'hidden') return;
@@ -617,7 +620,7 @@ function render(deaths = []) {
   $('#start-setup').disabled = refreshingNewGame;
   $('#new-game').disabled = Boolean(movement || combat);
   $('#new-game').hidden = playMode === 'online' || gamePhase !== 'playing';
-  $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : 'По ссылке' : playMode === 'bot' ? `Бот · ${BOT_DIFFICULTIES[botDifficulty].label}` : '2 игрока на одном экране';
+  $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : 'По ссылке' : playMode === 'bot' ? `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'}` : '2 игрока на одном экране';
   hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];

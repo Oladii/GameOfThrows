@@ -1,4 +1,6 @@
 import test from 'node:test';
+import fs from 'node:fs';
+import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { freshNewGameUrl, consumeNewGameRefresh, refreshNewGamePage, hasNewerGameVersion, needsNewGame, latestGameVersion } from '../dist/new-game-refresh.js';
 
@@ -94,4 +96,30 @@ test('UI releases do not require replacing a match; real rules changes do', asyn
   const unmarked = await latestGameVersion({ location: page(), includeRules: true, fetchPage: async () => response('<span id="version-number">v0.1.99</span>') });
   assert.equal(unmarked.rulesVersion, null);
   assert.equal(needsNewGame({ phase: 'playing', savedVersion: '0.1.42', currentRulesVersion: '0.1.42', latestRulesVersion: unmarked.rulesVersion }), false);
+});
+
+
+test('update notice distinguishes refreshing the app from starting a match with loaded rules', () => {
+  const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
+  const renderNotice = app.slice(app.indexOf('function renderUpdateNotice()'), app.indexOf('async function checkGameVersion()'));
+  const notice = {};
+  const context = vm.createContext({ $: () => notice, hasNewerGameVersion, needsNewGame,
+    playMode: 'bot', gamePhase: 'playing', gameVersion: '0.1.80', CURRENT_GAME_VERSION: '0.1.83',
+    CURRENT_RULES_VERSION: '0.1.80', latestVersion: '0.1.84', latestRulesVersion: '0.1.80' });
+  vm.runInContext(renderNotice, context);
+  context.renderUpdateNotice();
+  assert.equal(notice.hidden, false);
+  assert.equal(notice.textContent, 'Доступно обновление игры. Обнови вкладку, чтобы применить его');
+  context.latestVersion = '0.1.83'; context.latestRulesVersion = '0.1.84';
+  context.renderUpdateNotice();
+  assert.equal(notice.hidden, false);
+  assert.match(notice.textContent, /Обнови вкладку/);
+  context.CURRENT_GAME_VERSION = '0.1.84'; context.CURRENT_RULES_VERSION = '0.1.84';
+  context.renderUpdateNotice();
+  assert.equal(notice.hidden, false);
+  assert.equal(notice.textContent, 'Правила игры обновлены. Начни новую партию, чтобы играть по ним');
+  context.gameVersion = '0.1.84'; context.renderUpdateNotice();
+  assert.equal(notice.hidden, true);
+  context.playMode = 'online'; context.latestVersion = '0.1.85'; context.renderUpdateNotice();
+  assert.equal(notice.hidden, true);
 });
