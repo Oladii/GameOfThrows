@@ -338,9 +338,11 @@ dialog{padding:22px 16px;width:calc(100% - 22px);max-height:94vh}
 .moving-token.south .piece-circle{fill:var(--rust)}
 .moving-token .piece-circle{stroke:#fffdf7;stroke-width:3;filter:drop-shadow(0 2px 1px #1b332215)}
 .last-move-trace{pointer-events:none}
-.last-move-trace circle,.last-move-trace polyline{fill:none;stroke:#9b7325;stroke-width:1.6;stroke-dasharray:4 3;opacity:.55}
-.last-move-trace .move-arrival{stroke-dasharray:none}
-.last-move-trace polyline{stroke-linecap:round;stroke-linejoin:round}
+.move-origin-token{filter:grayscale(1);opacity:.6}
+.last-move-trace>.move-arrival{fill:none;stroke:var(--move-color);stroke-width:2;opacity:.65}
+.last-move-trace>polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.move-trace-outline{stroke:var(--surface);stroke-width:6}
+.move-trace-arrow{stroke:var(--move-color);stroke-width:3.2}
 .piece.veteran:not(.fatal)>.piece-circle,.moving-token.veteran>.piece-circle,.preview-ghost.veteran:not(.fatal)>circle,.lesson-piece.veteran:not(.lesson-fatal)>circle{stroke:#c7a56b;stroke-width:3.5}
 .veteran .piece-icon{stroke-width:1.8}
 .unit-icon.veteran{border:2px solid #c7a56b}
