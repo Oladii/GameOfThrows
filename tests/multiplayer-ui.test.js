@@ -154,7 +154,7 @@ test('same-revision presence refresh preserves animation while updating connecti
   ui.context.applyRoomView(view(snap, 0)); ui.context.movement = { active: true };
   ui.context.applyRoomView(view({ ...snap, participants: [{ guestId: 'me', present: false, seat: 0 }] }, 0));
   assert.equal(ui.context.movement.active, true);
-  assert.match(ui.$('#scoreboard').innerHTML, /НЕТ СВЯЗИ/);
+  assert.match(ui.$('#scoreboard').innerHTML, /Нет связи/);
 });
 
 test('finish clears displayed seats and readiness, and early finish never claims a winner', () => {
@@ -273,7 +273,7 @@ test('turn labels follow the viewer perspective for either color and spectators'
     ui.context.state = position; ui.context.roomView = view(snap, selfSeat); ui.context.renderOnlineRoom();
     const labels = tags(ui);
     if (selfSeat === null) { assert.equal(labels[turn], 'Ходят'); assert.equal(labels[1 - turn], 'Ждут хода противника'); }
-    else if (turn === selfSeat) { assert.equal(labels[selfSeat], 'Ваш ход'); assert.equal(labels[1 - selfSeat], 'Ждут пока вы походите'); }
+    else if (turn === selfSeat) { assert.equal(labels[selfSeat], 'Ваш ход'); assert.equal(labels[1 - selfSeat], 'Ожидает вашего хода'); }
     else { assert.equal(labels[turn], 'Ход соперника'); assert.equal(labels[selfSeat], 'Ожидаем ход соперника'); }
   }
 });

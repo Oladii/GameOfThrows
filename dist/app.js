@@ -1017,16 +1017,16 @@ function renderScoreboard(position) {
       const amount = pieces.filter(piece => piece.type === type).length, label = `${LABELS[type]}: ${amount}`;
       return `<li class="team-unit ${amount ? '' : 'empty'}" data-unit-type="${type}" title="${label}" aria-label="${label}">${icon(type)}<span aria-hidden="true">${amount}</span></li>`;
     }).join('');
-    const turnLabel = !online ? 'ТВОЙ ХОД' : !seated ? 'Ходят' : roomView.selfSeat === team ? 'Ваш ход' : 'Ход соперника';
-    const waitingLabel = !online || position.winner !== null ? ' ' : !seated ? 'Ждут хода противника' : roomView.selfSeat === team ? 'Ожидаем ход соперника' : 'Ждут пока вы походите';
-    const turn = gamePhase === 'setup' ? online ? '' : 'РАССТАНОВКА' : combat || currentDeaths.length ? 'РАСЧЁТ БОЯ' : active ? movement ? 'ДВИЖЕНИЕ' : reviewingTurn ? '' : playMode === 'bot' && team !== humanTeam ? 'ХОД БОТА' : turnLabel : waitingLabel;
+    const turnLabel = !online ? 'Ваш ход' : !seated ? 'Ходят' : roomView.selfSeat === team ? 'Ваш ход' : 'Ход соперника';
+    const waitingLabel = position.winner !== null ? ' ' : !online ? 'Ожидает вашего хода' : !seated ? 'Ждут хода противника' : roomView.selfSeat === team ? 'Ожидаем ход соперника' : 'Ожидает вашего хода';
+    const turn = gamePhase === 'setup' ? online ? '' : 'Расстановка' : combat || currentDeaths.length ? 'Расчёт боя' : active ? movement ? 'Движение' : reviewingTurn ? '' : playMode === 'bot' && team !== humanTeam ? 'Ход бота' : turnLabel : waitingLabel;
     const offline = online && seat && (!snapshot.participants.some(person => person.guestId === seat.guestId && person.present) || roomView.selfSeat === team && roomView.status !== 'connected');
     if (online) {
       const canStand = roomView?.status === 'connected' && !roomView.pending && !roomConnecting;
       const action = free ? `<button class="button outline full" type="button" data-claim-seat="${team}" ${canClaim ? '' : 'disabled'}>Играть за ${team ? 'красных' : 'синих'}</button>`
         : waiting && roomView.selfSeat === team && roomView.status !== 'closed' ? `<button class="button subtle full" type="button" data-stand-seat="${team}" ${canStand ? '' : 'disabled'}>Отменить выбор</button>` : '';
       const details = free ? '' : `<span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul>`;
-      const body = action ? `<div class="team-card-action">${action}</div>` : `<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div><div class="team-card-details">${details}</div>`;
+      const body = action ? `<div class="team-card-action">${action}</div>` : `<div class="turn-tag">${offline ? 'Нет связи' : turn}</div><div class="team-card-details">${details}</div>`;
       return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" data-room-seat="${team}"><div class="team-card-heading">${title}</div><div class="team-card-body">${body}</div></div>`;
     }
     return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div class="team-card-heading">${title}</div><div class="team-card-body"><div class="turn-tag">${turn}</div><div class="team-card-details"><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div></div></div>`;
