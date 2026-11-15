@@ -26,7 +26,7 @@ function setup() {
     STORAGE: 'test', BALANCE_REVISION: 5, PRESET_REVISION: 1, START_PREFS_REVISION: 1, CURRENT_GAME_VERSION: '0.1.20', gameVersion: '0.1.19',
     DEFAULT_CONFIG, upgradeSelectedBalancePreset, validateConfig, validateState, prepareStartPosition, startPreferences: null, refreshingNewGame: false, movement: null, combat: null,
     localStorage: { setItem(key, value) { saved = JSON.parse(value); } },
-    $: selector => nodes[selector], resetBotContext() {}, openStartSettings() {},
+    $: selector => nodes[selector], resetBotContext() {}, openStartSettings() {}, renderStartSettings() {},
     archiveRecorder: { resume() {}, start() {} }, toast(message) { throw Error(message); }, readSnapshot: clone, readLastTurn: value => value,
     recentBotHistory: () => [], botRunner: { run(value) { request = value; } },
     render() { context.save(); }, currentSnapshot: () => clone({ config: context.config, state: context.state, log: context.log, positionKind: context.positionKind, gameVersion: context.gameVersion }) });
@@ -165,23 +165,38 @@ test('new game discards even older or custom characteristics and returning resto
   assert.deepEqual(clone(ui.context.history), oldHistory);
 });
 
-test('new game saves before refresh, locks duplicate requests and leaves setup usable when refresh fails', async () => {
-  const ui = setup(); let finishRefresh, called = 0;
-  ui.context.$ = selector => selector === '#bot-worker-source' ? {} : { close() {} };
+test('new game opens settings immediately without refreshing or repainting the board', async () => {
+  const ui = setup(); let opened = 0;
+  ui.context.state.ply = 8;
+  const before = ui.context.currentSnapshot();
+  ui.context.openStartSettings = () => { opened++; };
+  ui.context.refreshNewGamePage = () => assert.fail('opening settings must not refresh the page');
+  ui.context.render = () => assert.fail('opening settings must not repaint the board');
   ui.context.location = { protocol: 'https:' }; ui.context.navigator = { onLine: true };
-  ui.context.toast = () => {};
-  ui.context.refreshNewGamePage = () => {
-    called++; assert.ok(ui.saved().previousGame); assert.equal(ui.saved().gamePhase, 'setup');
-    return new Promise(resolve => { finishRefresh = resolve; });
-  };
-  const pending = ui.run('openNewGame()');
-  assert.equal(ui.context.refreshingNewGame, true);
-  await ui.run('openNewGame()'); assert.equal(called, 1);
-  finishRefresh(false); await pending;
+  await ui.run('openNewGame()');
+  assert.equal(opened, 1);
   assert.equal(ui.context.refreshingNewGame, false);
-  assert.equal(ui.context.gamePhase, 'setup');
-  assert.deepEqual(clone(ui.context.config), DEFAULT_CONFIG);
-  ui.run('returnToGame()'); assert.equal(ui.context.gamePhase, 'playing');
+  assert.deepEqual(clone(ui.context.previousGame.snapshot), before);
+  await ui.run('openNewGame()'); assert.equal(opened, 1);
+  ui.context.render = () => ui.context.save();
+  ui.run('returnToGame()');
+  assert.deepEqual(ui.context.currentSnapshot(), before);
+});
+
+test('editing start settings updates only the dialog while the current board stays visible', async () => {
+  const ui = setup(); let updated = 0;
+  await ui.run('openNewGame()');
+  const before = clone(ui.context.previousGame);
+  ui.context.$ = selector => {
+    assert.equal(selector, '#start-dialog', 'the board must not be touched');
+    return { open: true };
+  };
+  ui.context.renderStartSettings = () => { updated++; };
+  ui.run(declaration('render'));
+  ui.change('hard');
+  assert.equal(updated, 1);
+  assert.equal(ui.saved().startPreferences.botDifficulty, 'hard');
+  assert.deepEqual(clone(ui.context.previousGame), before);
 });
 
 test('blocked game storage prevents navigation without discarding the in-memory backup', async () => {

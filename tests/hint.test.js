@@ -117,7 +117,7 @@ for (const failure of ['calculation', 'explanation']) test(`${failure} failure c
 
 test('first render reads recommendation state without shadowing the board message', () => {
   const stopped = new Error('Reached normal rendering');
-  const context = vm.createContext({ hint: null, renderHint() {}, renderUpdateNotice() { throw stopped; } });
+  const context = vm.createContext({ previousGame: null, hint: null, renderHint() {}, renderUpdateNotice() { throw stopped; } });
   vm.runInContext(declaration('render'), context);
   assert.throws(() => context.render(), error => error === stopped);
 });

@@ -585,7 +585,24 @@ async function checkGameVersion() {
     renderUpdateNotice();
   } finally { versionCheckPending = false; }
 }
+function renderStartSettings() {
+  $('#first-move').value = firstMove;
+  const choosingOnline = $('#play-mode').dataset.online === 'true' && playMode !== 'online';
+  $('#start-game').textContent = choosingOnline ? 'Создать комнату' : 'Начать';
+  $('#play-mode').value = choosingOnline ? 'online' : playMode; $('#human-side').value = String(humanTeam);
+  $('#bot-difficulty').value = botDifficulty;
+  $('#human-side-field').hidden = choosingOnline || playMode !== 'bot';
+  $('.first-move-field').hidden = choosingOnline; $('.position-field').hidden = choosingOnline; $('.custom-game-actions').hidden = choosingOnline;
+  $('#settings-open').disabled = gamePhase !== 'setup' || positionKind !== 'custom' || editor || refreshingNewGame;
+  $('#settings-open').hidden = positionKind !== 'custom';
+  $('#position-kind').value = positionKind;
+  globalThis.window?.gameSelects?.sync();
+  $('#configure-position').disabled = positionKind !== 'custom';
+  $('#configure-position').hidden = positionKind !== 'custom';
+}
 function render(deaths = []) {
+  // Keep the current board behind the start dialog while its draft is edited.
+  if (previousGame && gamePhase === 'setup' && !editor && $('#start-dialog').open) { renderStartSettings(); save(); return; }
   if (hint && (hint.positionKey !== hintPositionKey() || !canRequestHint())) clearHint();
   if (hint) selected = null;
   renderHint();
@@ -594,23 +611,12 @@ function render(deaths = []) {
   clearTimeout(deathEffectTimer);
   deaths = combat?.phase === 'deaths' ? combat.activeDeaths : deaths;
   currentDeaths = Array.isArray(deaths) && !matchMedia('(prefers-reduced-motion: reduce)').matches ? deaths : [];
-  $('#first-move').value = firstMove;
-  const choosingOnline = $('#play-mode').dataset.online === 'true' && playMode !== 'online';
-  $('#start-game').textContent = choosingOnline ? 'Создать комнату' : 'Начать';
-  $('#play-mode').value = choosingOnline ? 'online' : playMode; $('#human-side').value = String(humanTeam);
-  $('#bot-difficulty').value = botDifficulty;
-  $('#human-side-field').hidden = choosingOnline || playMode !== 'bot'; $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
-  $('.first-move-field').hidden = choosingOnline; $('.position-field').hidden = choosingOnline; $('.custom-game-actions').hidden = choosingOnline;
+  renderStartSettings();
+  $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
   $('#start-setup').hidden = playMode === 'online' || gamePhase !== 'setup' || editor;
   $('#start-setup').disabled = refreshingNewGame;
-  $('#settings-open').disabled = gamePhase !== 'setup' || positionKind !== 'custom' || editor || refreshingNewGame;
-  $('#settings-open').hidden = positionKind !== 'custom';
   $('#new-game').disabled = Boolean(movement || combat);
   $('#new-game').hidden = playMode === 'online' || gamePhase !== 'playing';
-  $('#position-kind').value = positionKind;
-  globalThis.window?.gameSelects?.sync();
-  $('#configure-position').disabled = positionKind !== 'custom';
-  $('#configure-position').hidden = positionKind !== 'custom';
   $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : 'По ссылке' : playMode === 'bot' ? `Бот · ${BOT_DIFFICULTIES[botDifficulty].label}` : '2 игрока на одном экране';
   hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
@@ -755,15 +761,9 @@ async function openNewGame() {
   const backup = { snapshot: currentSnapshot(), history: clone(history), lastTurn: clone(lastTurn), playMode, humanTeam, firstMove, botDifficulty };
   resetBotContext(); previousGame = backup; gamePhase = 'setup'; editor = false;
   applyStartPreferences();
-  const canRefresh = Boolean($('#bot-worker-source')) && ['http:', 'https:'].includes(location.protocol);
-  refreshingNewGame = canRefresh; render();
-  if (canRefresh && save()) {
-    toast('Проверяем обновление игры…');
-    if (await refreshNewGamePage({ location, online: navigator.onLine !== false })) return;
-    toast('Обновление недоступно. Новая игра подготовлена в текущей версии');
-  }
-  refreshingNewGame = false; render();
+  renderStartSettings();
   openStartSettings();
+  save();
 }
 function startGame() {
   if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
