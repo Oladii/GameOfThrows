@@ -70,11 +70,12 @@ function setup() {
   return { context, get request() { return request; }, get requests() { return requests; }, get cancelled() { return cancelled; }, finish(value) { result(value); }, fail() { error(new Error('timeout')); } };
 }
 
-test('hint always uses hard search and does not execute its result', () => {
+test('hint uses the dedicated advisor with random choice and does not execute its result', () => {
   const fixture = setup(), original = JSON.stringify(fixture.context.state);
   fixture.context.requestHint();
-  assert.equal(fixture.request.options.depth, 4);
+  assert.equal(fixture.request.options.depth, undefined);
   assert.equal(fixture.request.options.adviceDiversity, true);
+  assert.equal(fixture.request.options.advisor, true);
   assert.equal(fixture.context.hint.pending, true);
   assert.equal(fixture.context.selected, null);
   assert.equal(fixture.context.hover, null);
@@ -168,7 +169,7 @@ test('advice can start at turn transition while animations still block movement'
   fixture.context.movement = { active: true };
   fixture.context.combat = { active: true };
   fixture.context.requestHint();
-  assert.equal(fixture.request.options.depth, 4);
+  assert.equal(fixture.request.options.depth, undefined);
   fixture.context.clearHint(); fixture.context.isBotTurn = () => true;
   assert.equal(fixture.context.canRequestHint(), false);
   fixture.context.isBotTurn = () => false; fixture.context.reviewingTurn = true;

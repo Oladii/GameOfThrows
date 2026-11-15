@@ -1,5 +1,18 @@
 import { oneReplySafety } from './defensive-selection.mjs';
 import { analyze, cells, effective, attacks, isRay, distance, isLethalDamage, createSearchMovement, pass, reachable, shieldCanRetreat, archerHasEdgeBonus, validateConfig, validateState } from './engine.js';
+// Advice treats simultaneous defeat as a loss; the opponent safety policy stays frozen.
+export function advisorReplySafety(position, team, legalActions, simulate) {
+  if (position.winner === team) return { safe: true, status: 'own-win', replies: 0 };
+  if (position.winner === 'draw') return { safe: false, status: 'draw', replies: 0 };
+  if (position.winner !== null) return { safe: false, status: 'opponent-win', replies: 0 };
+  const actions = legalActions(position);
+  let replies = 0;
+  for (const action of actions) {
+    const outcome = simulate(position, action); replies++;
+    if (outcome.state.winner === 1 - team || outcome.state.winner === 'draw') return { safe: false, status: 'opponent-reply-win', replies };
+  }
+  return { safe: true, status: actions.length ? 'safe-one-reply' : 'no-legal-replies', replies };
+}
 export function createStrategyPolicy(PLAN){
 if(!['formation','ranged','veteran'].includes(PLAN))throw Error('Unknown plan');
 const key=p=>`${p.q},${p.r}`;
@@ -238,12 +251,14 @@ function coordinationRoutes(state, config) {
  */
 function chooseBotAction(inputState, inputConfig, options = {}) {
   const started = performance.now(), config = validateConfig(inputConfig), state = validateState(inputState, config);
-  const adviceDiversity = options.adviceDiversity === true;
+  const advisor = options.advisor === true;
+  const adviceDiversity = advisor || options.adviceDiversity === true;
+  const rootBeam = advisor ? 16 : ROOT_BEAM, replyBeam = advisor ? 4 : REPLY_BEAM;
   const forgiving = options.forgiving === true && !adviceDiversity;
   const choiceSeed = options.seed ?? 17001;
   // Randomness chooses from the shortlist; it never changes the search or its beam.
   const depth = options.depth ?? 4, seed = adviceDiversity ? 17001 : choiceSeed;
-  if (!Number.isInteger(depth) || depth < 2 || depth > 4) throw new Error('Глубина бота должна быть от 2 до 4 полуходов.');
+  if (!Number.isInteger(depth) || depth < 2 || depth > (advisor ? 6 : 4)) throw new Error('Недопустимая глубина поиска.');
   if (!Number.isFinite(choiceSeed)) throw new Error('Неверное начальное значение бота.');
   const seen = new Map(Array.isArray(options.seenPositions) ? options.seenPositions : []);
   const historicalCounts = new Map();
@@ -275,6 +290,7 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
   };
   const simulate = (position, action) => {
     stats.nodes++;
+    if (advisor && stats.nodes % 128 === 0 && performance.now() > options.deadline) { const error = new Error('Advisor search deadline'); error.name = 'AdvisorSearchTimeout'; throw error; }
     const outcome = action.pass ? pass(position, config) : movement.move(position, action.id, action.to);
     return { ...outcome, evaluationReport: outcome.deaths.length ? analyze(outcome.state, config) : outcome.report };
   };
@@ -312,7 +328,7 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
   // is mutual: neither side can ever win alone. Approach an actual exchange
   // rather than reject the best attainable result as though a win existed.
   const veteranPair = state.pieces.length === 2 && state.pieces[0].team !== state.pieces[1].team && state.pieces.every(p => shieldCanRetreat(p, config));
-  if (veteranPair) {
+  if (veteranPair && !advisor) {
     const powers = [...analyze(state, config).values()];
     const equal = ['damage', 'range', 'fortitude'].every(k => powers[0][k] === powers[1][k]);
     if (equal && powers[0].damage > 0 && powers[0].range > 0 && powers[0].damage >= powers[0].fortitude) {
@@ -360,7 +376,7 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
     } catch (error) { if (error !== STOP) throw error; }
     stats.finishingNodes = stats.nodes - startNodes;
   }
-  const beam = ranked.slice(0, ROOT_BEAM);
+  const beam = ranked.slice(0, rootBeam);
   // Every unit retains its best candidate. Ordinary shields also retain one
   // forward move, avoiding accidental exclusion of slow promotion plans.
   for (const piece of state.pieces.filter(p => p.team === team)) {
@@ -389,7 +405,7 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
         const repeated = (seen.get(key) || 0) + pathKeys.filter(k => k === key).length >= 3;
         return { action, outcome, pathKeys, terminal: outcome.state.winner !== null || repeated,
           immediate: evaluateFor(outcome.state, outcome.evaluationReport, config, team, repeated) };
-      }).sort((a, b) => maximizing ? b.immediate - a.immediate : a.immediate - b.immediate).slice(0, REPLY_BEAM);
+      }).sort((a, b) => maximizing ? b.immediate - a.immediate : a.immediate - b.immediate).slice(0, replyBeam);
     }
   };
   const adviceScores = new Map();
@@ -397,9 +413,9 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
   for (const candidate of beam) {
     const node = { ...candidate, pathKeys: [botPositionKey(candidate.outcome.state, config)] };
     const bonus = adviceDiversity ? 0 : candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
-    const score = alphaBeta(node, searchDepth - 1, adviceDiversity ? -Infinity : bestScore + candidate.penalty - bonus, Infinity, context) - candidate.penalty + bonus;
+    const score = alphaBeta(node, searchDepth - 1, adviceDiversity && !advisor ? -Infinity : bestScore - (advisor ? 8 : 0) + candidate.penalty - bonus, Infinity, context) - candidate.penalty + bonus;
     if (options.showcaseCandidates) showcaseCandidates.push({ action: candidate.action, score });
-    if (adviceDiversity) adviceScores.set(candidate, score);
+    if (adviceDiversity && (!advisor || score > bestScore - 8)) adviceScores.set(candidate, score);
     if (score > bestScore) { best = candidate; bestScore = score; }
   }
   if (PLAN === 'formation') {
@@ -409,7 +425,7 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
     const startNodes = stats.nodes;
     const checked = new Map();
     const inspect = candidate => {
-      if (!checked.has(candidate)) checked.set(candidate, oneReplySafety(candidate.outcome.state, team, legalActions, simulate));
+      if (!checked.has(candidate)) checked.set(candidate, (advisor ? advisorReplySafety : oneReplySafety)(candidate.outcome.state, team, legalActions, simulate));
       return checked.get(candidate);
     };
     const selected = inspect(best);
@@ -427,9 +443,9 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
         for (const candidate of safe) {
           const node = { ...candidate, pathKeys: [botPositionKey(candidate.outcome.state, config)] };
           const bonus = adviceDiversity ? 0 : candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
-          const score = alphaBeta(node, searchDepth - 1, adviceDiversity ? -Infinity : bestScore + candidate.penalty - bonus, Infinity, context) - candidate.penalty + bonus;
+          const score = alphaBeta(node, searchDepth - 1, adviceDiversity && !advisor ? -Infinity : bestScore - (advisor ? 8 : 0) + candidate.penalty - bonus, Infinity, context) - candidate.penalty + bonus;
           if (options.showcaseCandidates) showcaseCandidates.push({ action: candidate.action, score });
-          if (adviceDiversity) adviceScores.set(candidate, score);
+          if (adviceDiversity && (!advisor || score > bestScore - 8)) adviceScores.set(candidate, score);
           if (score > bestScore) { best = candidate; bestScore = score; }
         }
         stats.defense.status = inspect(best).status;
