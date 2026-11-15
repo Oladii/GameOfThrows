@@ -121,7 +121,7 @@ test('result background reflects the human side and leaves no extra rematch cont
 
 
 test('combat replaces the whole turn line until every death effect completes', () => {
-  const ui = setup();
+  const ui = setup(); ui.context.playMode = 'local';
   for (const phase of ['dimming', 'attacks', 'deaths']) {
     ui.context.combat = { phase }; ui.render(0);
     assert.equal(ui.nodes['#move-counter'].textContent, 'Расчёт боя…');
@@ -137,10 +137,15 @@ test('combat replaces the whole turn line until every death effect completes', (
 
 
 test('movement replaces the entire turn line just like combat', () => {
-  const ui = setup(); ui.context.movement = {}; ui.render(null);
+  const ui = setup(); ui.context.playMode = 'local'; ui.context.movement = {}; ui.render(null);
   assert.equal(ui.nodes['#move-counter'].textContent, 'Движение…');
   assert.equal(ui.nodes['#mode-caption'].hidden, true);
   ui.context.movement = null; ui.render(null);
   assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 66');
   assert.equal(ui.nodes['#mode-caption'].hidden, false);
+});
+
+test('bot difficulty is hidden from the turn line in normal play', () => {
+  const ui = setup(); ui.render(null);
+  assert.equal(ui.nodes['#mode-caption'].hidden, true);
 });

@@ -866,17 +866,16 @@ main{padding:0 14px 14px}
 .online-room .room-panel ::selection{background:#d9e3c9;color:var(--ink)}
 .online-room.room-waiting .board-footer{display:none}
 
-.online-room .team-card{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:18px 44px;align-content:start;gap:6px;height:90px;min-height:90px;padding:10px 12px}
-.online-room .team-title{display:block;font-size:12px;font-weight:600;line-height:18px;color:var(--blue)}
-.online-room .south .team-title{color:var(--rust)}
-.online-room .team-title .team-dot{display:inline-block;margin-right:6px}
-.online-room .turn-tag{font-size:12px;line-height:16px;font-weight:400;letter-spacing:0;min-height:16px;margin:0;opacity:1}
-.online-room .team-card-body{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:16px 20px;gap:8px}
-.online-room .team-card-body:has(.team-card-action){display:block}
-.online-room .team-card-action{height:44px;display:flex;align-items:center}
-.online-room .team-card-details{display:contents}
-.online-room .team-card-details .team-count{font-size:12px;line-height:16px;font-weight:400;font-variant-numeric:tabular-nums;text-align:right}
-.online-room .team-card-details .team-roster{grid-column:1/-1;align-items:center;flex-basis:auto}
-.online-room .team-unit{font-size:12px;line-height:20px;font-weight:500}
-.online-room .team-unit svg{width:16px;height:16px}
-.online-room .team-card-action .button{height:36px;min-height:36px;padding:8px 10px;font-size:12px;margin:0}
+.team-card{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:17px 35px;align-content:start;gap:6px;height:76px;min-height:76px;padding:8px 10px;border-radius:9px}
+.team-card .team-title{display:flex;gap:6px;font-size:12px;font-weight:600;line-height:16.8px;color:var(--blue)}
+.team-card.south .team-title{color:var(--rust)}
+.team-card .turn-tag{font-size:11px;line-height:15.4px;font-weight:600;letter-spacing:0;min-height:15px;margin:0;opacity:1}
+.team-card-body{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:15px 16px;gap:4px}
+.team-card-body:has(.team-card-action){display:block}
+.team-card-action{height:35px;display:flex;align-items:center}
+.team-card-details{display:contents}
+.team-card-details .team-count{grid-column:2;grid-row:2;font-size:11px;line-height:15.4px;font-weight:500;font-variant-numeric:tabular-nums;text-align:right}
+.team-card-details .team-roster{grid-column:1;grid-row:2;justify-content:flex-start;align-items:center;flex-basis:auto;gap:4px}
+.team-card .team-unit{min-width:30px;font-size:11px;line-height:15.4px;font-weight:600;gap:4px}
+.team-card .team-unit svg{width:15px;height:15px}
+.team-card-action .button{height:35px;min-height:35px;padding:8px 10px;font-size:12px;margin:0}

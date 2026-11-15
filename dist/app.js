@@ -571,7 +571,7 @@ function renderGameResult(position) {
   }
   const victory = finished ? `${position.winner === 'draw' ? 'Ничья' : `Победа ${position.winner === 0 ? 'Синих' : 'Красных'}`}${reason ? '. ' + reason : ''}` : '';
   const resolvingCombat = Boolean(combat || currentDeaths.length);
-  $('#mode-caption').hidden = resolvingCombat || Boolean(movement);
+  $('#mode-caption').hidden = playMode === 'bot' || resolvingCombat || Boolean(movement);
   $('#move-counter').textContent = resolvingCombat ? 'Расчёт боя…' : movement ? 'Движение…' : gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${victory ? '. ' + victory : ''}`;
   $('.arena-top').dataset.result = !finished ? '' : position.winner === 'draw' ? 'draw' : playMode === 'bot' && position.winner !== humanTeam ? 'loss' : 'win';
   if (playMode === 'online') {
@@ -1009,7 +1009,7 @@ function renderScoreboard(position) {
   const canClaim = snapshot && waiting && !seated && roomView.status === 'connected' && !roomView.pending && !roomConnecting;
   const markup = [0, 1].map(team => {
     const seat = snapshot?.seats[team], free = online && !seat;
-    const role = online ? free ? 'Ожидаем игрока' : roomView.selfSeat === team ? 'Вы' : 'Живой человек' : playMode === 'bot' ? team === humanTeam ? 'Ты' : 'Бот' : '';
+    const role = online ? free ? 'Ожидаем игрока' : roomView.selfSeat === team ? 'Вы' : 'Живой человек' : playMode === 'bot' ? team === humanTeam ? 'Ты' : `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'}` : '';
     const title = `<span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${role ? ` — ${role}` : ''}</span>`;
     const pieces = position.pieces.filter(piece => piece.team === team), count = pieces.length;
     const active = gamePhase === 'playing' && position.turn === team && position.winner === null && !editor && !combat && !currentDeaths.length;
@@ -1029,21 +1029,23 @@ function renderScoreboard(position) {
       const body = action ? `<div class="team-card-action">${action}</div>` : `<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div><div class="team-card-details">${details}</div>`;
       return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" data-room-seat="${team}"><div class="team-card-heading">${title}</div><div class="team-card-body">${body}</div></div>`;
     }
-    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"${online ? ` data-room-seat="${team}"` : ''}><div>${title}<div class="turn-tag">${offline ? 'НЕТ СВЯЗИ' : turn}</div></div><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div>`;
+    return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div class="team-card-heading">${title}</div><div class="team-card-body"><div class="turn-tag">${turn}</div><div class="team-card-details"><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div></div></div>`;
   }).join('');
   if ($('#scoreboard').innerHTML !== markup) $('#scoreboard').innerHTML = markup;
 }
 function renderFirstMoveNotice() {
   const snapshot = roomView?.snapshot, choice = snapshot?.firstMove, seat = roomView?.selfSeat;
   const dialog = $('#first-move-dialog');
-  if (playMode !== 'online' || !snapshot?.matchId || !choice?.contested || (seat !== 0 && seat !== 1) || choice.team === seat) {
+  const neitherWantsFirst = choice && !choice.contested && snapshot.seats.every(player => player?.wantsFirst === false);
+  const shouldNotify = choice && (choice.contested ? choice.team !== seat : neitherWantsFirst && choice.team === seat);
+  if (playMode !== 'online' || !snapshot?.matchId || (seat !== 0 && seat !== 1) || !shouldNotify) {
     if (dialog.open) dialog.close();
     return;
   }
   const key = `room-first-move:${snapshot.roomId}:${snapshot.matchId}:${snapshot.self.guestId}`;
   if (roomFirstMoveNotices.has(key)) return;
   try { if (sessionStorage.getItem(key)) { roomFirstMoveNotices.add(key); return; } } catch { /* In-memory tracking still prevents repeat polls. */ }
-  $('#first-move-message').textContent = `${choice.team === 0 ? 'Синий' : 'Красный'} тоже хотел ходить первым, и удача оказалась на его стороне.`;
+  $('#first-move-message').textContent = neitherWantsFirst ? `Никто не хотел ходить первым, но удача оказалась на стороне ${choice.team === 0 ? 'Синего' : 'Красного'}.` : `${choice.team === 0 ? 'Синий' : 'Красный'} тоже хотел ходить первым, и удача оказалась на его стороне.`;
   if (!dialog.open) dialog.showModal();
   roomFirstMoveNotices.add(key);
   try { sessionStorage.setItem(key, 'shown'); } catch { /* Storage can be unavailable. */ }

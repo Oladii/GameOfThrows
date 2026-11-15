@@ -28,7 +28,7 @@ function setup() {
     roomWantsFirst: true, roomFirstMoveNotices: new Set(), renderFirstMoveNotice() {}, roomSession: null, roomView: null, roomLocalGame: null, roomTarget: null, roomSnapshot: null, roomConnecting: false, roomLeaving: false, roomError: '',
     currentDeaths: [], deathEffectTimer: null, movement: null, combat: null, reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false, selected: null, hover: null, inspection: null,
     lastTurn: null, history: [], log: [], gameVersion: 'test', CURRENT_GAME_VERSION: 'test', firstMove: 'north', humanTeam: 0,
-    botDifficulty: 'training', previousGame: null, startPreferences: null, ready: true, available: [],
+    BOT_DIFFICULTIES: { training: { label: 'Неопытный' }, normal: { label: 'Опытный' }, hard: { label: 'Воевода' } }, botDifficulty: 'training', previousGame: null, startPreferences: null, ready: true, available: [],
     inspectCell, clone: structuredClone, DEFAULT_CONFIG, TYPES, LABELS, icon: () => '<svg></svg>', createGame, hexGridPoint, TEAM_NAMES: ['Синие', 'Красные'], clearTimeout() {}, clearHint() {},
     plural(n, forms) { return n % 100 >= 11 && n % 100 <= 14 ? forms[2] : n % 10 === 1 ? forms[0] : n % 10 >= 2 && n % 10 <= 4 ? forms[1] : forms[2]; }, toast() {},
     cancelMovement() { calls.push(['cancel']); context.movement = null; context.combat = null; },
@@ -449,4 +449,25 @@ test('first move checkbox is available while waiting and carries the choice with
   assert.deepEqual(claims, [[1, false]]);
   ui.context.roomView = view(snapshot({ phase: 'playing', state: createGame(DEFAULT_CONFIG) }), 0);
   ui.context.renderOnlineRoom(); assert.equal(ui.$('#room-first-choice').hidden, true);
+});
+
+ test('bot difficulty belongs to its team title, including Voivode without a suffix', () => {
+  const ui = setup(); ui.context.playMode = 'bot'; ui.context.humanTeam = 1;
+  for (const [difficulty, label] of [['training','Неопытный бот'],['normal','Опытный бот'],['hard','Воевода']]) {
+    ui.context.botDifficulty = difficulty; ui.context.renderScoreboard(ui.context.state);
+    assert.match(ui.$('#scoreboard').innerHTML, new RegExp(`Синие — ${label}`));
+    assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /Воевода бот/);
+  }
+});
+test('when neither wants the first move only the selected starter sees the notice', () => {
+  const ui = setup(), dialog = ui.$('#first-move-dialog');
+  dialog.open = false; dialog.showModal = () => { dialog.open = true; }; dialog.close = () => { dialog.open = false; };
+  vm.runInContext(source('function renderFirstMoveNotice()', 'function renderOnlineRoom()'), ui.context);
+  for (const team of [0,1]) {
+    const snap = snapshot({ phase: 'playing', state: createGame(DEFAULT_CONFIG), matchId: 'neither-' + team, seats: [{ wantsFirst: false }, { wantsFirst: false }], firstMove: { team, contested: false } });
+    ui.context.roomView = view(snap, 1-team); ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, false);
+    ui.context.roomView = view(snap, team); ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, true);
+    assert.equal(ui.$('#first-move-message').textContent, `Никто не хотел ходить первым, но удача оказалась на стороне ${team === 0 ? 'Синего' : 'Красного'}.`);
+    dialog.close(); ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, false);
+  }
 });
