@@ -17,15 +17,19 @@ jobs:
           ROOM_CLEANUP_TOKEN: ${{ secrets.ROOM_CLEANUP_TOKEN }}
         run: |
           python3 - <<'PY'
-          import json, os, urllib.request
+          import json, os, urllib.request, urllib.error
           token = os.environ.get('ROOM_CLEANUP_TOKEN', '')
           if len(token) != 64:
               raise SystemExit('Room cleanup secret is not configured')
           request = urllib.request.Request(
               'https://game-of-trows-archive.designsystembarkalov.chatgpt.site/api/internal/rooms/cleanup',
               data=b'', method='POST', headers={'Authorization': 'Bearer ' + token})
-          with urllib.request.urlopen(request, timeout=45) as response:
-              result = json.load(response)
+          try:
+              with urllib.request.urlopen(request, timeout=45) as response:
+                  result = json.load(response)
+          except urllib.error.HTTPError as error:
+              detail = error.read(1000).decode('utf-8', 'replace').replace(token, '[redacted]')
+              raise SystemExit('Cleanup HTTP ' + str(error.code) + ': ' + detail)
           if result.get('ok') is not True or not isinstance(result.get('deleted'), int):
               raise SystemExit('Unexpected cleanup response')
           print('Expired rooms removed:', result['deleted'])
