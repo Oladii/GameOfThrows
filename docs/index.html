@@ -708,7 +708,7 @@ to{opacity:1}}
 .board-footer,.turn-actions{flex-wrap:wrap}
 .move-hint{margin:0 0 18px;border-top:0;padding-top:0;font-size:14px;line-height:1.65}
 .move-hint[hidden]{display:none}
-.move-hint h2{font-size:17px;line-height:1.4;margin:0 0 12px}
+.move-hint h2{font-size:17px;line-height:1.4;margin:0 0 6px}
 .move-hint p{margin:0 0 12px}
 .hint-thinking{font-size:inherit;font-weight:400;color:var(--muted)}
 .hint-thinking span{display:inline-block;min-width:1.4em;text-align:left}
@@ -977,7 +977,7 @@ main{padding:14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.92</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-15T13:57:03.398Z">Сборка 15.11.2026, 16:57:03 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.93</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-15T14:18:27.206Z">Сборка 15.11.2026, 17:18:27 МСК</span></span></div>
       </aside>
       <section class="arena" aria-label="Игровая доска">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -4744,7 +4744,7 @@ function pendingSetupBalance(input, revision) {
   // Only an exact historical standard preset adopts the current new-game rules.
   return (revision ?? 0) < BALANCE_REVISION && same(updated, PREVIOUS_LOCAL_CONFIG) ? clone(DEFAULT_CONFIG) : updated;
 }
-let autoStartFreshGame = false;
+let autoStartFreshGame = false, autoStartSavedBot = false;
 try {
   const raw = localStorage.getItem(STORAGE);
   autoStartFreshGame = raw === null;
@@ -4784,6 +4784,7 @@ try {
       ...(gamePhase === 'setup' ? { positionKind, customSetup: { config, state } } : {})
     });
     if (gamePhase === 'setup') ({ firstMove, humanTeam, botDifficulty } = startPreferences);
+    autoStartSavedBot = gamePhase === 'setup' && playMode === 'bot' && positionKind === 'default' && !editor && !previousGame;
   }
 } catch { toast('Сохранённая позиция не прошла проверку. Загружена исходная расстановка'); }
 function resetNewGameDefaults() {
@@ -5582,16 +5583,17 @@ function renderScoreboard(position) {
       const amount = pieces.filter(piece => piece.type === type).length, label = `${LABELS[type]}: ${amount}`;
       return `<li class="team-unit ${amount ? '' : 'empty'}" data-unit-type="${type}" title="${label}" aria-label="${label}">${icon(type)}<span aria-hidden="true">${amount}</span></li>`;
     }).join('');
+    const finished = gamePhase === 'playing' && position.winner !== null && !editor && !reviewingTurn && !movement && !combat && !currentDeaths.length && !roomMovePreview;
     const turnLabel = !online ? 'Ваш ход' : !seated ? 'Ходят' : roomView.selfSeat === team ? 'Ваш ход' : 'Ход соперника';
     const waitingLabel = position.winner !== null ? ' ' : !online ? 'Ожидает вашего хода' : !seated ? 'Ждут хода противника' : roomView.selfSeat === team ? 'Ожидаем ход соперника' : 'Ожидает вашего хода';
-    const turn = gamePhase === 'setup' ? online ? '' : 'Расстановка' : combat || currentDeaths.length ? 'Расчёт боя' : active ? movement ? 'Движение' : reviewingTurn ? '' : playMode === 'bot' && team !== humanTeam ? 'Ход бота' : turnLabel : waitingLabel;
+    const turn = finished ? position.winner === team ? 'Победа' : 'Поражение' : gamePhase === 'setup' ? online ? '' : 'Расстановка' : combat || currentDeaths.length ? 'Расчёт боя' : active ? movement ? 'Движение' : reviewingTurn ? '' : playMode === 'bot' && team !== humanTeam ? 'Ход бота' : turnLabel : waitingLabel;
     const offline = online && seat && (!snapshot.participants.some(person => person.guestId === seat.guestId && person.present) || roomView.selfSeat === team && roomView.status !== 'connected');
     if (online) {
       const canStand = roomView?.status === 'connected' && !roomView.pending && !roomConnecting;
       const action = free ? `<button class="button outline full" type="button" data-claim-seat="${team}" ${canClaim ? '' : 'disabled'}>Играть за ${team ? 'красных' : 'синих'}</button>`
         : waiting && roomView.selfSeat === team && roomView.status !== 'closed' ? `<button class="button subtle full" type="button" data-stand-seat="${team}" ${canStand ? '' : 'disabled'}>Отменить выбор</button>` : '';
       const details = free ? '' : `<span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul>`;
-      const body = action ? `<div class="team-card-action">${action}</div>` : `<div class="turn-tag">${offline ? 'Нет связи' : turn}</div><div class="team-card-details">${details}</div>`;
+      const body = action ? `<div class="team-card-action">${action}</div>` : `<div class="turn-tag">${offline && !finished ? 'Нет связи' : turn}</div><div class="team-card-details">${details}</div>`;
       return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" data-room-seat="${team}"><div class="team-card-heading">${title}</div><div class="team-card-body">${body}</div></div>`;
     }
     return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}"><div class="team-card-heading">${title}</div><div class="team-card-body"><div class="turn-tag">${turn}</div><div class="team-card-details"><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div></div></div>`;
@@ -5747,7 +5749,7 @@ document.addEventListener('visibilitychange', updateAttackReachPlayback);
 updateAttackReachPlayback();
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
 const initialRoomId = new URL(location.href).searchParams.get('room');
-if (autoStartFreshGame && !initialRoomId) startGame();
+if ((autoStartFreshGame || autoStartSavedBot && !freshNewGameRequested) && !initialRoomId) startGame();
 ready = true; render();
 globalThis.window?.gameSelects?.mount();
 void checkGameVersion();

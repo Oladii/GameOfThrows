@@ -40,7 +40,7 @@ const functions = [
 
 // Keep real startup, persistence, rendering and bot scheduling together. Only
 // the DOM, visual leaf functions, recorder and timer execution are replaced.
-function boot({ raw = null, roll = 0.1, storageError = false, href = 'http://localhost/' } = {}) {
+function boot({ raw = null, roll = 0.1, storageError = false, fresh = false, href = 'http://localhost/' } = {}) {
   const nodes = new Map(), writes = [], starts = [], resumes = [], timers = [], messages = [];
   let rolls = 0, closed = 0, context;
   const node = selector => {
@@ -52,7 +52,7 @@ function boot({ raw = null, roll = 0.1, storageError = false, href = 'http://loc
     return nodes.get(selector);
   };
   const noop = () => {};
-  context = vm.createContext({ roomMovePreview: null, DEFAULT_START_CHOICES, resolveStartChoices, hasNewerGameVersion, CURRENT_RULES_VERSION: '0.1.20', latestRulesVersion: null,
+  context = vm.createContext({ roomMovePreview: null, freshNewGameRequested: fresh, DEFAULT_START_CHOICES, resolveStartChoices, hasNewerGameVersion, CURRENT_RULES_VERSION: '0.1.20', latestRulesVersion: null,
     DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance,
     clone, createGame, validateConfig, validateState, analyze, reachable, shieldCanRetreat, inspectCell,
     DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty, classifyPosition, prepareStartPosition,
@@ -134,7 +134,7 @@ test('existing setup, editor, custom deployment and previous-game backup survive
     snapshot: { config: earlier.config, state: earlier.state, log: [], positionKind: 'default', gameVersion: version, actor: 'other', action: null },
     history: [], lastTurn: null, playMode: 'bot', humanTeam: 1, botDifficulty: 'training', firstMove: 'north'
   };
-  for (const overrides of [{}, { editor: true }, { positionKind: 'custom', config: customConfig, state: customState }, { previousGame }]) {
+  for (const overrides of [{}, { editor: true }, { positionKind: 'custom', config: customConfig, state: customState }, { previousGame }, { previousGame, playMode: 'bot' }]) {
     const saved = savedSetup(overrides), ui = boot({ raw: JSON.stringify(saved) });
     assert.equal(ui.read('gamePhase'), 'setup'); assert.equal(ui.read('editor'), saved.editor);
     assert.deepEqual(ui.read('config'), saved.config); assert.deepEqual(ui.read('state'), saved.state);
@@ -190,4 +190,46 @@ test('a first visit through an invitation does not start an unrelated solo match
   assert.equal(ui.read('gamePhase'), 'setup');
   assert.equal(ui.starts.length, 0);
   assert.equal(ui.timers.length, 0);
+});
+
+test('a saved standard bot setup starts on arrival with the chosen side, difficulty and first move', () => {
+  for (const turn of [0, 1]) {
+    const saved = savedSetup({ playMode: 'bot', humanTeam: 1, botDifficulty: 'easy', firstMove: turn === 0 ? 'north' : 'south' });
+    const ui = boot({ raw: JSON.stringify(saved) });
+    assert.equal(ui.read('gamePhase'), 'playing');
+    assert.equal(ui.starts.length, 1); assert.equal(ui.resumes.length, 0); assert.equal(ui.rolls(), 0);
+    assert.equal(ui.read('state.turn'), turn);
+    assert.deepEqual(ui.read('({playMode,humanTeam,botDifficulty,firstMove})'), {
+      playMode: saved.playMode, humanTeam: saved.humanTeam, botDifficulty: saved.botDifficulty, firstMove: saved.firstMove
+    });
+    assert.equal(ui.nodes.get('#start-setup').hidden, true);
+    const reload = boot({ raw: JSON.stringify(ui.saved()) });
+    assert.equal(reload.starts.length, 0); assert.equal(reload.resumes.length, 1);
+    assert.deepEqual(reload.read('state'), ui.read('state'));
+  }
+});
+
+test('a saved bot setup never starts a solo game when the URL invites the player into a room', () => {
+  const saved = savedSetup({ playMode: 'bot', botDifficulty: 'easy' });
+  const ui = boot({ raw: JSON.stringify(saved), href: 'http://localhost/?room=existing-room' });
+  assert.equal(ui.read('gamePhase'), 'setup'); assert.equal(ui.starts.length, 0); assert.equal(ui.timers.length, 0);
+});
+
+test('bot editor and custom deployment remain drafts on arrival', () => {
+  for (const overrides of [{ editor: true }, { positionKind: 'custom' }]) {
+    const saved = savedSetup({ playMode: 'bot', ...overrides });
+    if (overrides.positionKind === 'custom') {
+      const occupied = new Set(saved.state.pieces.map(p => `${p.q},${p.r}`));
+      Object.assign(saved.state.pieces[0], cells(saved.config).find(p => !occupied.has(`${p.q},${p.r}`)));
+    }
+    const ui = boot({ raw: JSON.stringify(saved) });
+    assert.equal(ui.read('gamePhase'), 'setup'); assert.equal(ui.starts.length, 0);
+    assert.deepEqual(ui.read('state'), saved.state);
+  }
+});
+
+test('an explicit new-game refresh keeps the start flow in control of a saved bot draft', () => {
+  const saved = savedSetup({ playMode: 'bot', botDifficulty: 'easy' });
+  const ui = boot({ raw: JSON.stringify(saved), fresh: true });
+  assert.equal(ui.read('gamePhase'), 'setup'); assert.equal(ui.starts.length, 0);
 });

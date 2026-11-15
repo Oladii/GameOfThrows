@@ -563,3 +563,21 @@ test('a different authoritative move cancels the preview, and a late request err
   assert.deepEqual(plain(ui.ctx.state), outcome.state);
   assert.equal(ui.ctx.movement, authoritativeMovement);
 });
+
+test('finished team cards show victory and defeat, with two defeats for a draw', () => {
+  for (const mode of ['bot', 'local', 'online']) for (const winner of [0, 1, 'draw']) {
+    const ui = setup(), position = createGame(DEFAULT_CONFIG); position.winner = winner;
+    ui.context.playMode = mode;
+    ui.context.roomView = view(snapshot({ phase: 'won', state: position, seats: [{ guestId: 'blue' }, { guestId: 'red' }] }), 0);
+    ui.context.renderScoreboard(position);
+    const labels = [...ui.$('#scoreboard').innerHTML.matchAll(/<div class="turn-tag">([^<]*)<\/div>/g)].map(match => match[1]);
+    assert.deepEqual(labels, [0, 1].map(team => team === winner ? 'Победа' : 'Поражение'));
+  }
+});
+test('team results stay hidden during combat, movement, history, setup and unconfirmed moves', () => {
+  for (const fields of [{ movement: {} }, { combat: {} }, { currentDeaths: [{}] }, { reviewingTurn: true }, { editor: true }, { gamePhase: 'setup' }, { roomMovePreview: {} }]) {
+    const ui = setup(), position = createGame(DEFAULT_CONFIG); position.winner = 0;
+    ui.context.playMode = 'bot'; Object.assign(ui.context, fields); ui.context.renderScoreboard(position);
+    assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /Победа|Поражение/);
+  }
+});
