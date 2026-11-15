@@ -1,0 +1,127 @@
+{
+  "runtime_files": {
+    "slide": "slide.wav",
+    "place": "place.wav",
+    "click": "click.wav",
+    "remove": "remove.wav",
+    "hover": "hover.wav"
+  },
+  "runtime_sources": {
+    "slide": {
+      "source": "rsellick, kettlebell on concrete rock stone metal drag impact.wav",
+      "url": "https://freesound.org/people/rsellick/sounds/545544/",
+      "license": "CC0-1.0"
+    },
+    "place": {
+      "source": "rsellick, kettlebell on concrete rock stone metal drag impact.wav",
+      "url": "https://freesound.org/people/rsellick/sounds/545544/",
+      "license": "CC0-1.0"
+    },
+    "remove": {
+      "source": "User recording 5.m4a",
+      "source_sha256": "2593de04f7ba3a04cc00b24af534123527011ef30f8ad0d69427e9a4bab51c48",
+      "authorization": "User supplied recording and explicitly approved this removal sound",
+      "processing": "Short excerpts, gentle EQ, 6ms attack and 35ms release, gain adjustment; no pitch/speed change or added reverb",
+      "excerpt": {
+        "name": "remove",
+        "start": 1.19,
+        "duration": 0.06,
+        "filters": "highpass=f=180:p=2,lowpass=f=1300:p=2,atrim=start=1.19:duration=0.06,asetpts=PTS-STARTPTS",
+        "gain_db": 5.64,
+        "actual_duration": 0.06,
+        "peak_dbfs": -25.0,
+        "rms_dbfs": -43.7,
+        "clipped_samples": 0,
+        "edges_zero": true
+      },
+      "wav_sha256": "4f328a5b8f8df7d5a4de5a2ef71edbb4f96827c0efff7da8424a85039330daa0",
+      "runtime_note": "Single approved 60ms sample; gain .06 balances the existing movement mix; master volume still applies"
+    },
+    "click": {
+      "url": "https://ios-sounds.itsnoahevans.co.uk/sounds/Tock.caf",
+      "provenance": "Third-party archive reports extraction from iOS 14 Beta 1 IPSW; not independently authenticated",
+      "license_status": "Redistribution permission not established; user explicitly requested integration and publication",
+      "processing": "CAF converted to mono PCM16 WAV at 44100 Hz; runtime gain and lowpass in audio.js",
+      "wav_sha256": "9bc09be1a3046828a97ac0f07df0deb10a99426e92de0582f88385757a6d7bab"
+    },
+    "hover": {
+      "url": "https://ios-sounds.itsnoahevans.co.uk/sounds/nano/TimerWheelHoursDetent_Haptic.caf",
+      "provenance": "Third-party archive reports extraction from iOS 14 Beta 1 IPSW; not independently authenticated",
+      "license_status": "Redistribution permission not established; user explicitly requested integration and publication",
+      "processing": "CAF converted to mono PCM16 WAV at 44100 Hz; runtime gain and lowpass in audio.js",
+      "wav_sha256": "90deeca3bf5afe75271de86856624d0674ad05d1fdccbd54613ba1c404a1c47c"
+    }
+  },
+  "legacy_foley_recording": {
+    "source_title": "kettlebell on concrete rock stone metal drag impact.wav",
+    "author": "rsellick",
+    "source_url": "https://freesound.org/people/rsellick/sounds/545544/",
+    "downloaded_url": "https://cdn.freesound.org/previews/545/545544_6233742-hq.mp3",
+    "source_kind": "Public high-quality MP3 preview, not the original WAV",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "source_sha256": "800f9ba310a925b8e0c6793e5f34584f94b9125ff6727d6c96b4a79564cfc092",
+    "modifications": "Mono conversion, excerpt selection, high/low-pass EQ, fades, gain adjustment",
+    "perceptual_review": "Draft auditions for the user; not independently auditioned by the agent",
+    "sounds": [
+      {
+        "name": "01-slide",
+        "start": 7.54,
+        "duration": 0.54,
+        "peak_db": -17,
+        "filters": "highpass=f=100,lowpass=f=1500:p=2,afade=t=in:d=0.045,afade=t=out:st=0.39:d=0.15",
+        "file": "01-slide.wav",
+        "measured_duration": 0.54,
+        "measured_peak_db": -17.0,
+        "measured_rms_db": -33.2,
+        "bytes": 47672,
+        "audition_file": "01-slide-demo.wav",
+        "audition_repeats": 3
+      },
+      {
+        "name": "02-place",
+        "start": 6.727,
+        "duration": 0.23,
+        "peak_db": -16,
+        "filters": "highpass=f=85,lowpass=f=1100:p=2,afade=t=in:d=0.004,afade=t=out:st=0.075:d=0.155",
+        "file": "02-place.wav",
+        "measured_duration": 0.23,
+        "measured_peak_db": -16.0,
+        "measured_rms_db": -30.75,
+        "bytes": 20330,
+        "audition_file": "02-place-demo.wav",
+        "audition_repeats": 3
+      },
+      {
+        "name": "03-click",
+        "start": 6.731,
+        "duration": 0.045,
+        "peak_db": -25,
+        "filters": "highpass=f=450,lowpass=f=2400:p=2,afade=t=in:d=0.002,afade=t=out:st=0.008:d=0.037",
+        "file": "03-click.wav",
+        "measured_duration": 0.04501133786848072,
+        "measured_peak_db": -25.0,
+        "measured_rms_db": -38.11,
+        "bytes": 4014,
+        "audition_file": "03-click-demo.wav",
+        "audition_repeats": 3
+      },
+      {
+        "name": "04-remove-v2",
+        "start": 6.734,
+        "duration": 0.035,
+        "peak_db": -25,
+        "filters": "highpass=f=100,lowpass=f=650:p=2,lowpass=f=650:p=2,afade=t=in:d=0.003,afade=t=out:st=0.006:d=0.029",
+        "file": "04-remove-v2.wav",
+        "measured_duration": 0.03501133786848073,
+        "measured_peak_db": -25.0,
+        "measured_rms_db": -35.2,
+        "bytes": 3132,
+        "audition_file": "04-remove-v2-demo.wav",
+        "audition_repeats": 3,
+        "runtime_file": "remove.wav",
+        "user_approved": true
+      }
+    ]
+  }
+}

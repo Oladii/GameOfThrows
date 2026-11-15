@@ -5,7 +5,7 @@ import { renderShowcaseBattle, ShowcaseBattle } from './onboarding-showcase.js';
 
 // Owns the standalone guide screen and its isolated battle controllers.
 export function createGuideController({ document: doc = globalThis.document, window: win = globalThis.window,
-  icons = {}, renderBadges = () => '', beforeOpen = () => {}, onClose = () => {}, clock = {} } = {}) {
+  icons = {}, renderBadges = () => '', beforeOpen = () => {}, onClose = () => {}, clock = {}, audio = null } = {}) {
   const $ = selector => doc.querySelector(selector);
   const onboardingSteps = ['Цель игры', 'Фигуры'];
   let onboardingStep = 0, onboardingShowcase = null, onboardingUnitBattles = {};
@@ -31,6 +31,7 @@ export function createGuideController({ document: doc = globalThis.document, win
     suppressGuideTabStops();
   }
   function stop() {
+    audio?.stopAll();
     onboardingShowcase?.stop();
     Object.values(onboardingUnitBattles).forEach(battle => battle.stop());
   }
@@ -83,7 +84,7 @@ export function createGuideController({ document: doc = globalThis.document, win
     const create=()=>new ShowcaseBattle({
       sceneKey:sceneKey==='main'?null:sceneKey,
       onChange:()=>redrawShowcase(sceneKey),onPreview:()=>refreshShowcasePreview(sceneKey),
-      reducedMotion, clock,
+      reducedMotion, clock, audio,
       onFrame:frame=>{
         const token=showcaseScene(sceneKey)?.querySelector(`#${sceneKey==='main'?'training':sceneKey}-moving-token`);
         if(token)token.setAttribute('transform',`translate(${frame.x},${frame.y})`);
@@ -133,7 +134,10 @@ export function createGuideController({ document: doc = globalThis.document, win
   }
   function previewShowcaseMove(event) {
     const scene=event.target.closest?.('[data-showcase-battle]');
-    if(!scene)return;
+    if(!scene) {
+      if (event.type === 'pointermove' && event.pointerType !== 'touch') audio?.hover(null);
+      return;
+    }
     const battle=ensureShowcaseBattle(scene.dataset.showcaseBattle||'main');
     if (battle.busy) return;
     const cell = event.target.closest?.('[data-showcase-cell]');
@@ -145,7 +149,11 @@ export function createGuideController({ document: doc = globalThis.document, win
     }
     const [q, r] = cell ? cell.dataset.showcaseCell.split(',').map(Number) : [];
     const piece = unit && battle.position.pieces.find(piece => piece.id === unit.dataset.showcasePiece);
-    battle.preview(cell ? { q, r } : piece || null);
+    const hovered = cell ? { q, r } : piece || null;
+    if (event.type === 'pointermove' && event.pointerType !== 'touch') {
+      audio?.hover(hovered ? `guide:${scene.dataset.showcaseBattle || 'main'}:${hovered.q},${hovered.r}` : null);
+    }
+    battle.preview(hovered);
   }
   $('#onboarding-body').addEventListener('pointerover', previewShowcaseMove);
   $('#onboarding-body').addEventListener('pointermove', previewShowcaseMove);
@@ -153,9 +161,17 @@ export function createGuideController({ document: doc = globalThis.document, win
   $('#onboarding-body').addEventListener('pointerout', event => {
     if (onboardingPreviewByKeyboard) return;
     const scene=event.target.closest?.('[data-showcase-battle]');
-    if(scene&&scene!==event.relatedTarget?.closest?.('[data-showcase-battle]'))ensureShowcaseBattle(scene.dataset.showcaseBattle||'main').preview(null);
+    if(scene&&scene!==event.relatedTarget?.closest?.('[data-showcase-battle]')) ensureShowcaseBattle(scene.dataset.showcaseBattle||'main').preview(null);
   });
+  $('#onboarding-body').addEventListener('pointerleave', () => audio?.hover(null));
   $('#onboarding-body').addEventListener('click', event => {
+    if (event.target.closest('.showcase-field')) {
+      const sceneKey = showcaseSceneKey(event.target), cell = event.target.closest('[data-showcase-cell]');
+      const unit = event.target.closest('[data-showcase-piece]');
+      const piece = unit && ensureShowcaseBattle(sceneKey).position.pieces.find(piece => piece.id === unit.dataset.showcasePiece);
+      const cellKey = cell?.dataset.showcaseCell ?? (piece ? `${piece.q},${piece.r}` : null);
+      audio?.click(cellKey ? `guide:${sceneKey}:${cellKey}` : null);
+    }
     const control = event.target.closest('[data-showcase-action],[data-showcase-piece],[data-showcase-cell]');
     if (control) updateShowcaseBattle(control);
     else if (event.target.closest('.showcase-field')) ensureShowcaseBattle(showcaseSceneKey(event.target)).clearSelection();
@@ -163,7 +179,7 @@ export function createGuideController({ document: doc = globalThis.document, win
   $('#onboarding-body').addEventListener('keydown', event => {
     const trainingCell = event.target.closest('[data-showcase-cell]');
     if (trainingCell?.dataset?.showcaseCell !== undefined) {
-      if (['Enter', ' '].includes(event.key)) { event.preventDefault(); updateShowcaseBattle(trainingCell); }
+      if (['Enter', ' '].includes(event.key)) { event.preventDefault(); audio?.click(); updateShowcaseBattle(trainingCell); }
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
         event.preventDefault();
         const battle = ensureShowcaseBattle(showcaseSceneKey(trainingCell));

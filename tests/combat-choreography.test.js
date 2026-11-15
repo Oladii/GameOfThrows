@@ -95,9 +95,10 @@ function presentationHarness(mode='local') {
   const config=structuredClone(DEFAULT_CONFIG), before={config,log:[],state:position([piece('mover','archer',0,0,0),piece('enemy','archer',1,1,1),piece('spectator','shield',1,-4,2),piece('ally-spectator','shield',0,4,-2)])};
   const action={id:'mover',to:{q:0,r:1}}, result=move(before.state,config,action.id,action.to);
   const forecast=inspectCell(before.state,config,action.to,action.id), time=clock(), snapshots=[];
-  let botStarts=0,botCancels=0;const notices=[];
+  let botStarts=0,botCancels=0;const notices=[],sounds=[];
   const context=vm.createContext({config,state:result.state,combat:null,movement:null,currentDeaths:[],reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false,lastTurn:null,gamePhase:'playing',editor:false,playMode:mode,humanTeam:0,
     ready:true,botIssue:'',botSuspended:false,botTimer:null,botRunner:{active:false},$:()=>null,lethalAttackPresentation,analyze,inspectCell,selected:null,fieldView:null,history:[],combatReplayCache:null,
+    gameAudio:{play(name){sounds.push(name);return ()=>{};}},
     toast(message){notices.push(message);},cancelBot(){botCancels++;time.clearTimer(context.botTimer);context.botTimer=null;},
     setTimeout:(fn,ms)=>time.setTimer(fn,ms),highlightSources(){},moveAnimator:{cancel(){}},startBot(){botStarts++;},
     CombatAnimator:class extends CombatAnimator{constructor(onPhase,onFrame){super(onPhase,onFrame,time);}},
@@ -105,7 +106,7 @@ function presentationHarness(mode='local') {
   for(const name of ['visibleState','isBotTurn','humanCanMove','queueBot','presentKills','combatReplayContext','canReplayCombat','replayCombat','cancelMovement'])vm.runInContext(declaration(name),context);
   const start=source.indexOf('const combatAnimator = new CombatAnimator('),end=source.indexOf('function toast(',start);
   vm.runInContext(source.slice(start,end),context);
-  return {context,time,before,result,forecast,snapshots,start(){context.presentKills(before,forecast,result.deaths);},botStarts:()=>botStarts,botCancels:()=>botCancels,notices,action};
+  return {context,time,before,result,forecast,snapshots,sounds,start(){context.presentKills(before,forecast,result.deaths);},botStarts:()=>botStarts,botCancels:()=>botCancels,notices,action};
 }
 
 test('combat dims for 300ms, reveals mutual arrows 300ms apart, holds the last for 1s and then kills together', () => {
@@ -118,11 +119,14 @@ test('combat dims for 300ms, reveals mutual arrows 300ms apart, holds the last f
   ui.time.advance(ARROW_REVEAL_INTERVAL-1);assert.equal(ui.context.combat.arrowCount,1);
   ui.time.advance(1);assert.equal(ui.context.combat.arrowCount,2);
   ui.time.advance(ATTACK_HOLD_DURATION-1);assert.equal(ui.context.combat.phase,'attacks');
+  assert.deepEqual(ui.sounds,[],'no removal cue while attacks are being explained');
   ui.time.advance(1);assert.equal(ui.context.combat.phase,'deaths');
+  assert.deepEqual(ui.sounds,['remove'],'simultaneous deaths share one quiet cue');
   assert.equal(ui.context.combat.activeDeaths.length,2);
   assert.equal(ui.context.visibleState().turn,0);assert.equal(ui.context.visibleState().pieces.length,2);
   ui.time.advance(DEATH_EFFECT_DURATION-1);assert.ok(ui.context.combat);
   ui.time.advance(1);assert.equal(ui.context.combat,null);assert.equal(ui.context.visibleState().turn,1);
+  ui.context.render();assert.deepEqual(ui.sounds,['remove'],'rendering and completion do not repeat removal');
   assert.equal(ui.context.humanCanMove(),true);assert.deepEqual(ui.context.visibleState(),ui.result.state);
 });
 

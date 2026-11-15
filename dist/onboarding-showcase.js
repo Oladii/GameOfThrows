@@ -124,10 +124,10 @@ export function createUnitBattle(sceneKey) {
 // This isolated lesson executes the approved moves through the regular engine.
 // Its snapshots and timers never touch the player's saved game or bot.
 export class ShowcaseBattle {
-  constructor({ onChange = () => {}, onPreview = onChange, onFrame = () => {}, clock = {}, reducedMotion = () => false, sceneKey = null } = {}) {
+  constructor({ onChange = () => {}, onPreview = onChange, onFrame = () => {}, clock = {}, reducedMotion = () => false, sceneKey = null, audio = null } = {}) {
     this.initialSceneKey=sceneKey;
     Object.assign(this, sceneKey?createUnitBattle(sceneKey):createShowcaseBattle());
-    Object.assign(this, { onChange, onPreview, onFrame, clock, reducedMotion });
+    Object.assign(this, { onChange, onPreview, onFrame, clock, reducedMotion, audio });
     this.presentation = null; this.replyTimer = null; this.serial = 0;
     this.setTimer = clock.setTimer || ((callback, delay) => setTimeout(callback, delay));
     this.clearTimer = clock.clearTimer || (handle => clearTimeout(handle));
@@ -163,7 +163,10 @@ export class ShowcaseBattle {
     const before = clone(this.position), forecast = inspectCell(before, this.config, action.to, action.id);
     const outcome = move(before, this.config, action.id, action.to);
     const piece = before.pieces.find(piece => piece.id === action.id);
-    const plan = createMovementPlan(movementPath(piece, before, this.config, action.to).map(showcasePoint));
+    const route = movementPath(piece, before, this.config, action.to);
+    const plan = createMovementPlan(route.map(showcasePoint));
+    const instant = this.reducedMotion();
+    const sound = this.audio?.movement(route, before.pieces, plan.duration, { instant });
     this.selectedId = null; this.previewCell = null; this.hoverCell = null; this.phase = 'playing';
     const combat = lethalAttackPresentation(forecast.position, forecast.report, outcome.deaths);
     const presentation = { before, forecast, outcome, action, combat, visiblePosition: forecast.position,
@@ -185,6 +188,7 @@ export class ShowcaseBattle {
       presentation.groupIndex = frame.groupIndex; presentation.arrowCount = frame.arrowCount;
       presentation.activeDeaths = phase === 'deaths' ? combat.groups[frame.groupIndex].deaths : [];
       if (phase === 'deaths') {
+        if (presentation.activeDeaths.length) presentation.stopRemoval = this.audio?.play('remove');
         const removed = new Set(presentation.activeDeaths.map(piece => piece.id));
         presentation.visiblePosition = { ...presentation.visiblePosition, pieces: presentation.visiblePosition.pieces.filter(piece => !removed.has(piece.id)) };
       }
@@ -197,6 +201,7 @@ export class ShowcaseBattle {
     };
     const startCombat = () => {
       if (this.presentation !== presentation) return;
+      sound?.finish();
       if (!this.sceneKey && before.turn === 0) {
         presentation.phase = 'awaiting-combat';
         presentation.proceedCombat = resolveCombat;
@@ -207,9 +212,9 @@ export class ShowcaseBattle {
     const movement = new MovementAnimator(frame => {
       if (this.presentation === presentation) { presentation.frame = frame; this.onFrame(frame); }
     }, startCombat, this.clock);
-    presentation.animator = { cancel() { movement.cancel(); animator.cancel(); } };
+    presentation.animator = { cancel() { sound?.cancel(); presentation.stopRemoval?.(); movement.cancel(); animator.cancel(); } };
     this.onChange();
-    if (this.reducedMotion()) startCombat();
+    if (instant) startCombat();
     else movement.start(plan);
   }
   continueCombat() {

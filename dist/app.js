@@ -12,7 +12,47 @@ import { GameRecorder } from './game-archive.js';
 import { hexGridPoint, hexGridPolygon, inspectionDamageArrows, renderHintArrow, renderUnitBadges, lethalAttackPresentation, renderDamageArrows, unitStatParts, alliedBonusDetails, damageArrowMarkers, auraCircleMarkup, renderDeathEffects, renderMovingToken, unitAppearance, attackReachPresentation } from './board-presentation.js';
 import { createGuideController } from './guide-controller.js';
 import { MultiplayerSession } from './multiplayer-session.js';
+import { GameAudio } from './audio.js';
 const $ = selector => document.querySelector(selector);
+const gameAudio = new GameAudio();
+const soundButton = $('#sound-toggle');
+const soundControl = $('#sound-control'), soundScale = $('#sound-scale'), soundVolume = $('#sound-volume');
+function renderSoundButton() {
+  const percent = Math.round(gameAudio.volume * 100);
+  soundButton.dataset.muted = String(!gameAudio.enabled);
+  soundButton.title = `Громкость: ${percent}%`;
+  soundVolume.value = percent;
+  soundVolume.style.setProperty('--volume', `${percent}%`);
+  soundVolume.setAttribute('aria-valuetext', `${percent}%`);
+  $('#sound-value').textContent = `${percent}%`;
+}
+function setSoundScaleOpen(open, restoreFocus = false) {
+  soundButton.hidden = open; soundScale.hidden = !open;
+  $('#app-version').hidden = open;
+  soundControl.classList.toggle('is-open', open);
+  soundButton.setAttribute('aria-expanded', String(open));
+  if (open) soundVolume.focus({preventScroll:true});
+  else if (restoreFocus) soundButton.focus({preventScroll:true});
+}
+renderSoundButton();
+soundButton.addEventListener('click', () => setSoundScaleOpen(true));
+soundVolume.addEventListener('input', () => { gameAudio.setVolume(Number(soundVolume.value) / 100); renderSoundButton(); });
+soundVolume.addEventListener('change', () => gameAudio.play('click'));
+soundControl.addEventListener('keydown', event => {
+  if (event.key === 'Escape') { event.stopPropagation(); setSoundScaleOpen(false, true); }
+});
+soundControl.addEventListener('focusout', () => {
+  queueMicrotask(() => {
+    if (!soundScale.hidden && !soundControl.contains(document.activeElement)) setSoundScaleOpen(false);
+  });
+});
+document.addEventListener('pointerdown', event => {
+  if (!soundControl.contains(event.target)) setSoundScaleOpen(false);
+});
+document.addEventListener('pointerdown', () => { void gameAudio.unlock(); }, { capture: true });
+document.addEventListener('keydown', () => { void gameAudio.unlock(); }, { capture: true });
+document.addEventListener('visibilitychange', () => { if (document.hidden) gameAudio.stopAll(); });
+addEventListener('pagehide', () => gameAudio.stopAll());
 const CURRENT_GAME_VERSION = $('#version-number').textContent.replace(/^v/, '');
 const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
@@ -145,7 +185,7 @@ let movement = null, combat = null;
 const moveAnimator = new MovementAnimator(frame => {
   const token = $('#moving-token');
   if (token) { token.setAttribute('transform', `translate(${frame.x},${frame.y})`); token.dataset.progress = String(frame.progress); }
-}, () => { const completed = movement; movement = null; if (completed) presentKills(completed.before, completed.forecast, completed.deaths); });
+}, () => { const completed = movement; movement = null; if (completed) { completed.sound?.finish(); presentKills(completed.before, completed.forecast, completed.deaths); } });
 const combatAnimator = new CombatAnimator((phase, frame) => {
   if (!combat) return;
   const previousPhase = combat.phase;
@@ -155,6 +195,7 @@ const combatAnimator = new CombatAnimator((phase, frame) => {
     combat.groupIndex = frame.groupIndex; combat.arrowCount = frame.arrowCount;
     if (phase === 'deaths') {
       combat.activeDeaths = combat.groups[frame.groupIndex].deaths;
+      if (combat.activeDeaths.length) combat.stopRemoval = gameAudio.play('remove');
       const removed = new Set(combat.activeDeaths.map(p => p.id));
       combat.visiblePosition = { ...combat.visiblePosition, pieces: combat.visiblePosition.pieces.filter(p => !removed.has(p.id)) };
     } else combat.activeDeaths = [];
@@ -296,16 +337,19 @@ function visibleState() { return movement ? movement.before.state : combat ? com
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
 function humanCanMove() { return gamePhase === 'playing' && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
-function cancelMovement() { moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
-function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
+function cancelMovement() { movement?.sound?.cancel(); combat?.stopRemoval?.(); moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
+function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function presentMove(before, action, deaths) {
   cancelMovement();
   const piece = action && !action.pass ? before.state.pieces.find(p => p.id === action.id) : null;
   const route = piece ? movementPath(piece, before.state, before.config, action.to) : [];
   const forecast = piece ? inspectCell(before.state, before.config, action.to, piece.id) : { position: before.state, report: analyze(before.state, before.config) };
-  if (route.length < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) { presentKills(before, forecast, deaths); return; }
+  if (route.length < 2) { presentKills(before, forecast, deaths); return; }
   const plan = createMovementPlan(route.map(point));
-  movement = { before, piece, plan, route, deaths, forecast };
+  const instant = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sound = gameAudio.movement(route, before.state.pieces, plan.duration, { instant });
+  if (instant) { sound.finish(); presentKills(before, forecast, deaths); return; }
+  movement = { before, piece, plan, route, deaths, forecast, sound };
   render(); moveAnimator.start(plan);
 }
 function presentKills(before, forecast, deaths) {
@@ -712,8 +756,8 @@ function onCell(q, r) {
     if (tool === 'erase') { if (occupant) { checkpoint(); state.pieces = state.pieces.filter(p => p !== occupant); selected = null; state.winner = null; render(); } return; }
     if (occupant) { selected = selected === occupant.id ? null : occupant.id; render(); return; }
     const moving = state.pieces.find(p => p.id === selected);
-    if (moving) { checkpoint(); moving.q = q; moving.r = r; state.winner = null; selected = null; render(); return; }
-    checkpoint(); const id = 'e' + crypto.randomUUID(); state.pieces.push({ id, type: tool, team: editorTeam, q, r, group: null }); state.winner = null; selected = id; render(); return;
+    if (moving) { checkpoint(); moving.q = q; moving.r = r; state.winner = null; selected = null; render(); gameAudio.play('place'); return; }
+    checkpoint(); const id = 'e' + crypto.randomUUID(); state.pieces.push({ id, type: tool, team: editorTeam, q, r, group: null }); state.winner = null; selected = id; render(); gameAudio.play('place'); return;
   }
   if (occupant) { selected = selected === occupant.id ? null : occupant.id; render(); return; }
   if (!selected) return;
@@ -728,6 +772,7 @@ function focusBoardCell(cellKey, moveFocus = false) {
 }
 $('.board-wrap').addEventListener('click', event => {
   const cell = event.target.closest('[data-cell]');
+  gameAudio.click(cell ? `board:${cell.dataset.cell}` : null);
   if (cell) { focusBoardCell(cell.dataset.cell); onCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event); }
   else clearSelection();
 });
@@ -736,7 +781,7 @@ $('#board').addEventListener('keydown', event => {
   const cell = event.target.closest('[data-cell]');
   if (!cell) return;
   if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault(); onCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event);
+    event.preventDefault(); gameAudio.click(); onCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event);
   } else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
     event.preventDefault();
     const [q, r] = cell.dataset.cell.split(',').map(Number);
@@ -747,6 +792,7 @@ $('#board').addEventListener('keydown', event => {
 function hoverCell(event) {
   if (restoringBoardFocus || combat || movement) return;
   const c = event.target.closest('[data-cell]'), k = c?.dataset.cell;
+  if (event.type === 'pointermove' && event.pointerType !== 'touch') gameAudio.hover(k ? `board:${k}` : null);
   if (!k || k === hover) return; hover = k;
   const [q, r] = k.split(',').map(Number);
   inspection = inspectCell(visibleState(), config, { q, r }, editor || gamePhase !== 'playing' || reviewingTurn || isBotTurn() ? null : selected, report);
@@ -755,7 +801,7 @@ function hoverCell(event) {
 function clearHover() { hover = null; inspection = null; paintAuras(); highlightSources(); }
 $('#board').addEventListener('pointermove', hoverCell);
 $('#board').addEventListener('focusin', hoverCell);
-$('#board').addEventListener('pointerleave', clearHover);
+$('#board').addEventListener('pointerleave', () => { gameAudio.hover(null); clearHover(); });
 $('#board').addEventListener('focusout', event => { if (!$('#board').contains(event.relatedTarget)) clearHover(); });
 document.addEventListener('click', dismissHintOnClick, true);
 $('#show-hint').addEventListener('click', requestHint);
@@ -886,7 +932,7 @@ document.querySelector('.team-select').addEventListener('click', event => { cons
 $('#piece-palette').addEventListener('click', event => { const b = event.target.closest('[data-tool]'); if (b) { tool = b.dataset.tool; selected = null; render(); } });
 $('#erase-tool').addEventListener('click', () => { tool = 'erase'; selected = null; render(); });
 $('#clear-board').addEventListener('click', () => { if (!editor) return; resetBotContext(); checkpoint(); state = { pieces: [], turn: 0, ply: 0, winner: null }; log = []; selected = null; render(); });
-$('#resolve-position').addEventListener('click', () => { if (!editor) return; resetBotContext(); checkpoint(); const result = resolve(state, config); state = result.state; state.ply = 0; state.winner = null; log.push({ text: 'Расчёт позиции без перемещения', detail: deathDetail(result.deaths) }); selected = null; render(result.deaths); toast(deathDetail(result.deaths)); });
+$('#resolve-position').addEventListener('click', () => { if (!editor) return; resetBotContext(); checkpoint(); const result = resolve(state, config); state = result.state; state.ply = 0; state.winner = null; log.push({ text: 'Расчёт позиции без перемещения', detail: deathDetail(result.deaths) }); selected = null; render(result.deaths); if (result.deaths.length) gameAudio.play('remove'); toast(deathDetail(result.deaths)); });
 $('#pass-turn').addEventListener('click', () => { if (playMode === 'online' || !humanCanMove()) return; try { const result = pass(state, config), before = currentSnapshot(), action = { pass: true }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; log.push({ text: `${TEAM_NAMES[state.turn]} · пропуск хода`, detail: deathDetail(result.deaths) }); state = result.state; recordGameAction('pass', { action, deaths: result.deaths, actor: 'human' }); selected = null; presentMove(before, action, result.deaths); } catch (e) { toast(e.message); } });
 
 function savedRoomReference() {
@@ -1169,14 +1215,14 @@ $('#settings-form').addEventListener('submit', event => {
   } catch (error) { $('#settings-error').textContent = error.message; }
 });
 $('#reset-defaults').addEventListener('click', () => fillSettings(DEFAULT_CONFIG));
-createGuideController({ icons: ICON_PATHS, renderBadges: unitBadges,
-  beforeOpen: () => { cancelBot(); cancelMovement(); }, onClose: render });
+createGuideController({ icons: ICON_PATHS, renderBadges: unitBadges, audio: gameAudio,
+  beforeOpen: () => { cancelBot(); cancelMovement(); gameAudio.stopAll(); }, onClose: render });
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
-document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog')) { event.preventDefault(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
+document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog') && !soundControl.contains(event.target)) { event.preventDefault(); soundButton.focus(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { if (selected) gameAudio.click(); reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
-matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; presentKills(completed.before, completed.forecast, completed.deaths); } });
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; completed.sound?.finish(); presentKills(completed.before, completed.forecast, completed.deaths); } });
 let attackReachInView = true;
 function updateAttackReachPlayback() {
   $('#board').classList.toggle('attack-reach-paused', document.hidden || !attackReachInView);
