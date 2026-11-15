@@ -1009,7 +1009,7 @@ function renderScoreboard(position) {
   const canClaim = snapshot && waiting && !seated && roomView.status === 'connected' && !roomView.pending && !roomConnecting;
   const markup = [0, 1].map(team => {
     const seat = snapshot?.seats[team], free = online && !seat;
-    const role = online ? free ? 'Ожидаем игрока' : roomView.selfSeat === team ? 'Вы' : 'Живой человек' : playMode === 'bot' ? team === humanTeam ? 'Ты' : `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'}` : '';
+    const role = online ? free ? 'Ожидаем игрока' : roomView.selfSeat === team ? 'Вы' : 'Живой человек' : playMode === 'bot' ? team === humanTeam ? 'Вы' : `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'}` : '';
     const title = `<span class="team-title"><span class="team-dot"></span>${TEAM_NAMES[team]}${role ? ` — ${role}` : ''}</span>`;
     const pieces = position.pieces.filter(piece => piece.team === team), count = pieces.length;
     const active = gamePhase === 'playing' && position.turn === team && position.winner === null && !editor && !combat && !currentDeaths.length;
