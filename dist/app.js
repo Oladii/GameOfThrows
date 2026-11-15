@@ -421,17 +421,16 @@ function lastMoveTrace() {
   const turn = reviewTurn || lastTurn;
   if (gamePhase !== 'playing' || !reviewingTurn || !turn?.action || turn.action.pass) return '';
   const source = turn.before.state.pieces.find(p => p.id === turn.action.id);
-  const route = source ? movementPath(source, turn.before.state, turn.before.config, turn.action.to) : [];
-  const points = (route.length > 1 ? route : [turn.action.from, turn.action.to]).map(point);
+  const points = [turn.action.from, turn.action.to].map(point);
   const from = points[0], to = points.at(-1), start = { ...from }, end = { ...to };
   const next = points[1], prior = points.at(-2), firstLength = Math.hypot(next.x - from.x, next.y - from.y), lastLength = Math.hypot(to.x - prior.x, to.y - prior.y);
   if (!firstLength || !lastLength) return '';
   start.x += (next.x - from.x) / firstLength * 20; start.y += (next.y - from.y) / firstLength * 20;
   end.x -= (to.x - prior.x) / lastLength * 25; end.y -= (to.y - prior.y) / lastLength * 25;
-  const path = [start, ...points.slice(1, -1), end].map(p => `${p.x},${p.y}`).join(' '), color = turn.before.state.turn ? '#af6a4b' : '#3e607c';
+  const path = `M${start.x},${start.y}L${end.x},${end.y}`, color = '#9b7325';
   const appearance = source && unitAppearance(source, turn.before.config, ICON_PATHS, source.team, playMode === 'online' && roomView?.selfSeat === 0);
   const origin = appearance ? `<g class="move-origin-token" transform="translate(${from.x},${from.y})">${renderTokenBody({ ...appearance, veteran: false }, source.team)}</g>` : '';
-  return `<g class="last-move-trace" style="--move-color:${color}" aria-hidden="true"><title>Перемещение в просматриваемом ходе</title><defs><marker id="last-move-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker></defs>${origin}<polyline class="move-trace-outline" points="${path}"/><polyline class="move-trace-arrow" points="${path}" marker-end="url(#last-move-arrow)"/><circle class="move-arrival" cx="${to.x}" cy="${to.y}" r="26"/></g>`;
+  return `<g class="last-move-trace" style="--move-color:${color};--hint-color:${color}" aria-hidden="true"><title>Перемещение в просматриваемом ходе</title><defs><marker id="last-move-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker></defs>${origin}<path class="damage-arrow-path" d="${path}" marker-end="url(#last-move-arrow)"/><circle class="move-arrival" cx="${to.x}" cy="${to.y}" r="26"/></g>`;
 }
 function movingTokenMarkup() {
   if (!movement) return '';
