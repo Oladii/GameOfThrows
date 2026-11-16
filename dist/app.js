@@ -78,7 +78,7 @@ const archiveRecorder = new GameRecorder({
   onStatus: renderArchiveStatus
 });
 renderArchiveStatus(archiveRecorder.status);
-const browserAnalytics = new BrowserAnalytics({ enabled:archiveIsSite && Boolean(archiveEndpoint),endpoint:archiveEndpoint });
+const browserAnalytics = new BrowserAnalytics({ enabled:archiveIsSite && Boolean(archiveEndpoint),geoEnabled:true,endpoint:archiveEndpoint });
 function analyticsContext(localGameId) {
   if (gamePhase !== 'playing' || editor || state.winner !== null || docGuideOpen()) return null;
   const gameId = playMode === 'online' ? roomView?.selfSeat != null ? roomView?.matchId : null : localGameId;

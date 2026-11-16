@@ -1044,7 +1044,7 @@ main{padding:14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.104</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-16T17:17:04.430Z">Сборка 16.11.2026, 20:17:04 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.105</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-16T22:08:28.343Z">Сборка 17.11.2026, 01:08:28 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -2735,8 +2735,9 @@ class GameRecorder {
 
 // A separate bounded queue keeps analytics failures out of game state and controls.
 class BrowserAnalytics {
-  constructor({ enabled = false, endpoint = '', storage = null, identity = new ArchiveIndexedDBStorage(globalThis.indexedDB), fetch = globalThis.fetch?.bind(globalThis), uuid = () => crypto.randomUUID(), now = () => Date.now() } = {}) {
+  constructor({ enabled = false, geoEnabled = false, geoTimeoutMs = 2500, endpoint = '', storage = null, identity = new ArchiveIndexedDBStorage(globalThis.indexedDB), fetch = globalThis.fetch?.bind(globalThis), uuid = () => crypto.randomUUID(), now = () => Date.now() } = {}) {
     this.enabled = enabled; this.endpoint = endpoint; this.storage = storage;
+    this.geoEnabled = geoEnabled; this.geoTimeoutMs = geoTimeoutMs; this.geoKey = 'trows-ipapi-location-v1';
     if (!storage) { try { this.storage=globalThis.localStorage; } catch {} } this.identity = identity; this.fetch = fetch; this.uuid = uuid; this.now = now;
     this.sessionId = uuid(); this.context = null; this.last = now(); this.pendingSeconds = 0; this.key = `trows-analytics-${this.sessionId}`; this.queue = []; this.chain = Promise.resolve();
   }
@@ -2749,6 +2750,48 @@ class BrowserAnalytics {
     }).then(() => { void this.flush(); }).catch(() => {});
   }
   save() { try { this.storage?.setItem(this.key, JSON.stringify({playerId:this.playerId,events:this.queue})); } catch {} }
+  async location() {
+    if (!this.enabled || !this.geoEnabled || !this.fetch) return null;
+    if (this.geoPending) return this.geoPending;
+    const time = this.now();
+    let cached = this.geoCache;
+    try { cached = JSON.parse(this.storage?.getItem(this.geoKey) || 'null') || cached; } catch {}
+    const clean = value => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,100) || null : null;
+    const normalize = value => {
+      if (!value || typeof value !== 'object') return null;
+      const geo = {source:'ipapi.is',country:clean(value.country),region:clean(value.region),city:clean(value.city)};
+      return geo.city ? geo : null;
+    };
+    if (Number.isFinite(cached?.retryAt) && cached.retryAt > time && cached.retryAt <= time + 86400_000) return normalize(cached.geo);
+    const save = (geo, delay) => {
+      this.geoCache = {retryAt:this.now()+delay,geo};
+      try { this.storage?.setItem(this.geoKey,JSON.stringify(this.geoCache)); } catch {}
+    };
+    // A short cross-tab lease, followed by a daily cache, protects the anonymous quota.
+    save(null,60_000);
+    this.geoPending = (async () => {
+      const controller = new AbortController();
+      let timeout;
+      try {
+        const {response,raw} = await Promise.race([
+          (async () => {
+            const response = await this.fetch('https://api.ipapi.is/',{method:'GET',credentials:'omit',referrerPolicy:'no-referrer',signal:controller.signal});
+            return {response,raw:response.ok ? await response.json() : null};
+          })(),
+          new Promise((_,reject) => { timeout=setTimeout(() => {controller.abort();reject(new Error('Geo timeout'));},this.geoTimeoutMs); }),
+        ]);
+        if (!response.ok) { save(null,response.status===429 ? 86400_000 : 3600_000); return null; }
+        // Support both the anonymous response and the older nested location format.
+        const value = raw?.location ? {country:raw.location.country_code || raw.location.country,region:raw.location.state,city:raw.location.city} : raw;
+        const geo = raw?.error ? null : normalize(value);
+        // Never retain or send the response's IP, coordinates, ASN or company.
+        save(geo,geo ? 86400_000 : 3600_000);
+        return geo;
+      } catch { save(null,3600_000); return null; }
+      finally { clearTimeout(timeout); }
+    })().finally(() => { this.geoPending=null; });
+    return this.geoPending;
+  }
   flush() {
     if (this.flushing) return this.flushing;
     this.flushing = this.send().finally(() => { this.flushing=null; });
@@ -2767,9 +2810,10 @@ class BrowserAnalytics {
         data.events=data.events.filter(e=>this.now()-Date.parse(e.at)<30*86400_000);
         if (!data.events.length) { this.storage.removeItem(key); continue; }
         const batch = data.events.slice(0,20);
+        const geo = await this.location();
         const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),15000);
         let response;
-        try { response = await this.fetch(`${this.endpoint}/api/analytics`, {method:'POST', headers:{'Content-Type':'application/json'},body:JSON.stringify({playerId:data.playerId,events:batch}),keepalive:true,signal:controller.signal}); } finally { clearTimeout(timeout); }
+        try { response = await this.fetch(`${this.endpoint}/api/analytics`, {method:'POST', headers:{'Content-Type':'application/json'},body:JSON.stringify({playerId:data.playerId,events:batch,...(geo ? {geo} : {})}),keepalive:true,signal:controller.signal}); } finally { clearTimeout(timeout); }
         if (!response.ok) continue;
         // Another request may have appended while the network was pending.
         const latest=JSON.parse(this.storage.getItem(key)||'null'); if (!latest) continue;
@@ -4759,7 +4803,7 @@ const archiveRecorder = new GameRecorder({
   onStatus: renderArchiveStatus
 });
 renderArchiveStatus(archiveRecorder.status);
-const browserAnalytics = new BrowserAnalytics({ enabled:archiveIsSite && Boolean(archiveEndpoint),endpoint:archiveEndpoint });
+const browserAnalytics = new BrowserAnalytics({ enabled:archiveIsSite && Boolean(archiveEndpoint),geoEnabled:true,endpoint:archiveEndpoint });
 function analyticsContext(localGameId) {
   if (gamePhase !== 'playing' || editor || state.winner !== null || docGuideOpen()) return null;
   const gameId = playMode === 'online' ? roomView?.selfSeat != null ? roomView?.matchId : null : localGameId;

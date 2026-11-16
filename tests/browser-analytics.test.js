@@ -30,3 +30,36 @@ test('a slow network request does not block recording subsequent events',async()
  release();await f.client.flush();
  assert.equal(JSON.parse(f.storage.getItem(f.client.key)).events[0].type,'tutorial_open');
 });
+
+test('ipapi location is cached across reloads and only coarse fields reach analytics',async()=>{
+ const lookups=[],posts=[];
+ const fetch=async(url,r)=>{if(url==='https://api.ipapi.is/'){lookups.push(r);return {ok:true,json:async()=>({ip:'secret-ip',lat:52.7,lon:6.1,city:'Meppel',region:'Drenthe',country:'The Netherlands',company:'secret-company'})};}posts.push(JSON.parse(r.body));return {ok:true};};
+ const f=fixture({geoEnabled:true,fetch});
+ f.client.event('visit');await f.client.chain;await f.client.flush();
+ assert.equal(lookups.length,1);assert.equal(lookups[0].credentials,'omit');assert.equal(lookups[0].referrerPolicy,'no-referrer');
+ assert.deepEqual(posts[0].geo,{source:'ipapi.is',country:'The Netherlands',region:'Drenthe',city:'Meppel'});
+ assert.doesNotMatch(JSON.stringify([...f.storage.data])+JSON.stringify(posts),/secret|"lat"|"lon"|company/);
+ const next=fixture({storage:f.storage,geoEnabled:true,fetch});await next.client.location();assert.equal(lookups.length,1);
+ f.advance(86400_001);await f.client.location();assert.equal(lookups.length,2);
+});
+test('ipapi deduplicates in-flight and cross-tab lookups; 429 backs off for a day',async()=>{
+ let release,count=0;
+ const f=fixture({geoEnabled:true,fetch:async()=>{count++;return new Promise(resolve=>{release=()=>resolve({ok:false,status:429});});}});
+ const first=f.client.location(),same=f.client.location();
+ const other=fixture({storage:f.storage,geoEnabled:true,fetch:async()=>{throw Error('must not request');}});
+ assert.equal(await other.client.location(),null);release();assert.deepEqual(await Promise.all([first,same]),[null,null]);
+ await f.client.location();f.advance(3600_000);await f.client.location();assert.equal(count,1);
+});
+test('geo body timeout cannot hold analytics and failure does not retry each event',async()=>{
+ let lookups=0,posts=0;
+ const f=fixture({geoEnabled:true,geoTimeoutMs:10,fetch:async(url)=>{if(url==='https://api.ipapi.is/'){lookups++;return {ok:true,json:()=>new Promise(()=>{})};}posts++;return {ok:true};}});
+ f.client.event('visit');await f.client.chain;await f.client.flush();assert.equal(posts,1);
+ f.client.event('tutorial_open');await f.client.chain;await f.client.flush();assert.equal(posts,2);assert.equal(lookups,1);
+});
+test('disabled analytics never calls ipapi, and nested/null/error responses are handled',async()=>{
+ const off=fixture({enabled:false,geoEnabled:true,fetch:async()=>{throw Error('disabled');}});assert.equal(await off.client.location(),null);assert.equal(off.storage.length,0);
+ for(const raw of [{location:{country_code:'RU',state:'Tatarstan',city:'Kazan',latitude:55}}, {city:null}, {error:'quota',city:'fake'}]){
+  const f=fixture({geoEnabled:true,fetch:async()=>({ok:true,json:async()=>raw})});
+  assert.equal((await f.client.location())?.city??null,raw.location?'Kazan':null);
+ }
+});
