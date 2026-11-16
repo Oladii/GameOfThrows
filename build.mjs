@@ -35,6 +35,8 @@ for (const color of ['red', 'blue']) {
   const flag = await fs.readFile(root + `dist/brand/team-${color}.png`);
   illustratedCss = illustratedCss.replaceAll(`./brand/team-${color}.png`, 'data:image/png;base64,' + flag.toString('base64'));
 }
+const advisor = await fs.readFile(root + 'dist/brand/advisor.png');
+illustratedCss = illustratedCss.replaceAll('./brand/advisor.png', 'data:image/png;base64,' + advisor.toString('base64'));
 const standalone = illustratedHtml.replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${illustratedCss}\n</style>`).replace('<script type="module" src="/app.js"></script>', () => `<script id="bot-worker-source" type="application/json">${workerSource}</script>\n<script>${selectBundle}</script>\n<script type="module">\n${script}\n</script>`).replace('href="/" aria-label="Game Of Trows — главная"', 'href="#" aria-label="Game Of Trows — главная"');
 await fs.mkdir(root + 'docs', { recursive: true });
 await Promise.all([

@@ -131,12 +131,13 @@ test('pending advice replaces left reference, animates dots and keeps the button
   vm.runInContext(declaration('renderHint'), context); context.renderHint();
   assert.equal(node('#show-hint').disabled, true);
   assert.equal(node('#show-hint').textContent, 'Попросить совет');
-  assert.match(node('#move-hint').innerHTML, /<h2>Совет<\/h2>.*Думовую/);
+  assert.match(node('#move-hint').innerHTML, /Думовую/);
+  assert.doesNotMatch(node('#move-hint').innerHTML, /<h2>/);
   tick(); assert.equal(node('#hint-thinking-dots').textContent, '..');
   tick(); assert.equal(node('#hint-thinking-dots').textContent, '...');
   tick(); assert.equal(node('#hint-thinking-dots').textContent, '.');
   context.hint = { title: 'Спасаем фигуру', reasons: ['Уходим из-под атаки.'] }; context.renderHint();
-  assert.match(node('#move-hint').innerHTML, /<h2>Совет<\/h2><p>Уходим из-под атаки/);
+  assert.match(node('#move-hint').innerHTML, /^<div class="hint-bubble"><p>Уходим из-под атаки/);
   assert.doesNotMatch(node('#move-hint').innerHTML, /Думовую|<h2>Спасаем/);
   assert.equal(node('#show-hint').disabled, true); assert.equal(cleared, true);
   context.hint = { failed: true, title: 'Советник уснул. Попробуй ещё раз', reasons: [] }; context.renderHint();
@@ -151,13 +152,15 @@ test('pending advice replaces left reference, animates dots and keeps the button
   assert.equal(node('#show-hint').textContent, 'Попросить совет');
 });
 
-test('any click dismisses advice without replacing the board or consuming the click', () => {
+test('sidebar clicks preserve advice; outside clicks dismiss it without consuming the click', () => {
   let removed = false, restored = false;
   const context = vm.createContext({ hint: { title: 'Совет' },
     clearHint() { context.hint = null; }, renderHint() {},
     $: () => ({ remove() { removed = true; } }),
     renderInspector() { restored = true; }, inspectionContext: () => ({}) });
   vm.runInContext(declaration('dismissHintOnClick'), context);
+  context.dismissHintOnClick({ target: { closest: selector => selector.includes('.left-panel') ? {} : null } });
+  assert.notEqual(context.hint, null); assert.equal(removed, false); assert.equal(restored, false);
   context.dismissHintOnClick({ target: { closest: () => null } });
   assert.equal(context.hint, null); assert.equal(removed, true); assert.equal(restored, true);
 });

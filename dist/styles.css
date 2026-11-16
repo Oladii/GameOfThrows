@@ -697,10 +697,13 @@ to{opacity:1}}
 .update-notice{background:#fff1bd;color:#684b13;border-bottom:1px solid #d8bd71;padding:10px 24px;font-size:13px;line-height:1.5;text-align:center;flex-shrink:0}
 /* A recommendation never moves a piece or obscures board controls. */
 .board-footer,.turn-actions{flex-wrap:wrap}
-.move-hint{margin:0 0 18px;border-top:0;padding-top:0;font-size:14px;line-height:1.65}
+.move-hint{position:relative;margin:0 0 210px;color:var(--ink);font-size:14px;line-height:1.65;overflow-wrap:anywhere}
+.hint-bubble{position:relative;border:1px solid transparent;border-radius:32px;padding:20px 24px;background:#fff;filter:drop-shadow(0 1px 2px #66502c26)}
+.move-hint::before{content:"";position:absolute;top:calc(100% + 18px);left:0;width:131px;height:180px;background:url('./brand/advisor.png') center / contain no-repeat;pointer-events:none}
+.hint-bubble::after{content:"";position:absolute;bottom:-12px;right:30px;width:30px;height:14px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 14'%3E%3Cpath d='M0 0C8 0 9 4 8 9Q7 13 11 11C20 7 22 0 30 0Z' fill='white'/%3E%3C/svg%3E") no-repeat;pointer-events:none}
 .move-hint[hidden]{display:none}
-.move-hint h2{font-size:17px;line-height:1.4;margin:0 0 6px}
 .move-hint p{margin:0 0 12px}
+.move-hint p:last-child{margin-bottom:0}
 .hint-thinking{font-size:inherit;font-weight:400;color:var(--muted)}
 .hint-thinking span{display:inline-block;min-width:1.4em;text-align:left}
 .hint-trace .damage-arrow-path,.last-move-trace>.damage-arrow-path{fill:none;stroke:var(--hint-color,#44834a);stroke-width:2.5;stroke-dasharray:5 3;opacity:.9;filter:url(#damage-arrow-outline)}
@@ -831,7 +834,7 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 .topbar .brand{font-size:18px;letter-spacing:1px}
 .guide-toolbar{margin-bottom:18px}}
 .topbar #new-game{border-color:var(--ink)}
-.left-panel{padding-top:0;scrollbar-gutter:auto;scrollbar-width:none}
+.left-panel{padding:0 8px;margin:0 -8px;scrollbar-gutter:auto;scrollbar-width:none}
 .left-panel::-webkit-scrollbar{display:none}
 .reference-panel,.selection-panel{margin-top:0;padding-top:0;border-top:0}
 .selection-panel .piece-heading{margin:0 0 8px}

@@ -150,9 +150,9 @@ function renderHint() {
   panel.hidden = !hint;
   panel.setAttribute('aria-busy', String(Boolean(hint?.pending)));
   if (!hint?.pending) { clearInterval(hintThinkingTimer); hintThinkingTimer = null; }
-  panel.innerHTML = !hint ? '' : `<h2>Совет</h2>${hint.pending
+  panel.innerHTML = !hint ? '' : `<div class="hint-bubble">${hint.pending
     ? '<p class="hint-thinking">Думовую<span id="hint-thinking-dots">.</span></p>'
-    : `${hint.failed ? `<p>${escape(hint.title)}</p>` : ''}${hint.reasons.map(reason => `<p>${escape(reason)}</p>`).join('')}`}`;
+    : `${hint.failed ? `<p>${escape(hint.title)}</p>` : ''}${hint.reasons.map(reason => `<p>${escape(reason)}</p>`).join('')}`}</div>`;
   if (hint?.pending && hintThinkingTimer === null) {
     let dots = 1;
     hintThinkingTimer = setInterval(() => {
@@ -162,7 +162,7 @@ function renderHint() {
   }
 }
 function dismissHintOnClick(event) {
-  if (!hint || event.target.closest?.('#show-hint')) return;
+  if (!hint || event.target.closest?.('#show-hint, .left-panel')) return;
   clearHint(); renderHint();
   $('#board .hint-trace')?.remove();
   renderInspector(inspectionContext());
