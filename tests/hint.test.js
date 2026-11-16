@@ -26,8 +26,7 @@ test('explanation reports a verified immediate win and enemy loss', () => {
   config.stats.shield.damage = 10;
   const state = position([piece('s', 'shield', 0, 0, 0), piece('e', 'defenseLamp', 1, 2, 0)]);
   const hint = explainHint(state, config, { id: 's', to: { q: 1, r: 0 } });
-  assert.match(hint.reasons.join(' '), /условие победы/);
-  assert.match(hint.reasons.join(' '), /условие победы/);
+  assert.equal(hint.reasons[0], 'Убираем знамя противника и выигрываем бой.');
 });
 
 test('explanation discloses allied casualties instead of claiming safety', () => {
@@ -37,15 +36,15 @@ test('explanation discloses allied casualties instead of claiming safety', () =>
   config.stats.archer.damage = 10;
   const state = position([piece('s', 'shield', 0, 0, 0), piece('e', 'archer', 1, 2, 0)]);
   const hint = explainHint(state, config, { id: 's', to: { q: 1, r: 0 } });
-  assert.match(hint.reasons.join(' '), /потеря союзных фигур/);
-  assert.match(hint.reasons.join(' '), /поражению обеих сторон/);
+  assert.deepEqual(hint.reasons, ['После этого хода проиграют обе стороны.']);
+  assert.equal(hint.suppressArrow, true);
 });
 
 test('quiet support move explains actual allied stat increases', () => {
   const config = clone(DEFAULT_CONFIG); config.victoryCondition = 'all-units';
   const state = position([piece('d', 'attackLamp', 0, 0, 0), piece('a', 'archer', 0, 3, 0), piece('e', 'archer', 1, 0, 5)]);
   const hint = explainHint(state, config, { id: 'd', to: { q: 1, r: 0 } });
-  assert.match(hint.reasons.join(' '), /союзники смогут быстрее занять нужные клетки/);
+  assert.match(hint.reasons.join(' '), /Подведём барабан к лукарю, чтобы увеличить дальность хода/);
 });
 
 test('pass and absence of legal actions have distinct explanations', () => {
@@ -177,4 +176,34 @@ test('advice can start at turn transition while animations still block movement'
   assert.equal(fixture.context.canRequestHint(), false);
   fixture.context.isBotTurn = () => false; fixture.context.reviewingTurn = true;
   assert.equal(fixture.context.canRequestHint(), false);
+});
+
+
+test('own terminal defeat is an admission, not a recommended arrow or a positive plan', () => {
+  const config = clone(DEFAULT_CONFIG); config.victoryCondition = 'all-units'; config.stats.archer.damage = 10; config.stats.shield.damage = 1;
+  const state = position([piece('s', 'shield', 0, 0, 0), piece('e', 'archer', 1, 2, 0)]);
+  const original = JSON.stringify(state);
+  const hint = explainHint(state, config, { id: 's', to: { q: 1, r: 0 } });
+  assert.deepEqual(hint.reasons, ['Ход ведёт к поражению. Дальше сражаться смысла нет. Прости, я очень старался, но подвёл тебя.']);
+  assert.equal(hint.suppressArrow, true);
+  const context = vm.createContext({ hint: { ...hint, action: { id: 's', to: { q: 1, r: 0 } } } });
+  vm.runInContext(declaration('hintTrace'), context);
+  assert.equal(context.hintTrace(), '');
+  assert.equal(JSON.stringify(state), original);
+});
+
+test('entering an aura names the actual provider and the actual increase', () => {
+  const config = clone(DEFAULT_CONFIG); config.victoryCondition = 'all-units';
+  const state = position([piece('h', 'horn', 0, 0, 0), piece('a', 'archer', 0, 3, 0), piece('e', 'archer', 1, 0, 5)]);
+  const hint = explainHint(state, config, { id: 'a', to: { q: 2, r: 0 } });
+  assert.match(hint.reasons.join(' '), /Переведём лукаря в ауру горна, чтобы увеличить урон/);
+  assert.doesNotMatch(hint.reasons.join(' '), /дальность атаки|стойкость|дальность хода/);
+});
+
+test('a commander does not promise extra range to an armed commander', () => {
+  const config = clone(DEFAULT_CONFIG); config.victoryCondition = 'all-units';
+  const state = position([piece('c', 'scoutLamp', 0, 0, 0), piece('a', 'archer', 0, 3, 0), piece('c2', 'scoutLamp', 0, 3, 1), piece('e', 'archer', 1, 0, 5)]);
+  const hint = explainHint(state, config, { id: 'c', to: { q: 1, r: 0 } });
+  assert.match(hint.reasons.join(' '), /Подведём командира к лукарю, чтобы увеличить дальность атаки/);
+  assert.doesNotMatch(hint.reasons.join(' '), /к командиру/);
 });

@@ -168,7 +168,7 @@ function dismissHintOnClick(event) {
   renderInspector(inspectionContext());
 }
 function hintTrace() {
-  if (!hint?.action || hint.action.pass || hint.pending || movement || combat || currentDeaths.length) return '';
+  if (!hint?.action || hint.suppressArrow || hint.action.pass || hint.pending || movement || combat || currentDeaths.length) return '';
   const piece = state.pieces.find(p => p.id === hint.action.id);
   return piece ? renderHintArrow(piece, hint.action.to, point) : '';
 }
