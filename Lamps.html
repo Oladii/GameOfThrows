@@ -1044,7 +1044,7 @@ main{padding:14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.102</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-16T15:57:49.051Z">Сборка 16.11.2026, 18:57:49 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.103</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-16T16:09:04.258Z">Сборка 16.11.2026, 19:09:04 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -3941,6 +3941,13 @@ function names(pieces, grammaticalCase = 0) {
   return join([...groups].map(([type, count]) => count === 1 ? unitForms[type][grammaticalCase]
     : `${unitForms[type][grammaticalCase === 1 ? 4 : grammaticalCase === 2 ? 5 : 3]} (${count})`));
 }
+function beneficiaryNames(pieces) {
+  const groups = new Map();
+  for (const piece of pieces) groups.set(piece.type, (groups.get(piece.type) || 0) + 1);
+  const counts = ['', '', 'двух', 'трёх', 'четырёх', 'пяти', 'шести', 'семи', 'восьми', 'девяти', 'десяти', 'одиннадцати', 'двенадцати', 'тринадцати'];
+  return join([...groups].map(([type, count]) => count === 1 ? unitForms[type][2]
+    : counts[count] ? `${counts[count]} ${unitForms[type][5]}` : `${unitForms[type][5]} (${count})`));
+}
 const gains = { damage: 'урон', fortitude: 'стойкость', move: 'дальность хода', range: 'дальность атаки' };
 
 // Keep template history across advice requests, independent of unit names.
@@ -4004,6 +4011,7 @@ function explainHint(state, config, action, voice = (_, variants) => variants[0]
     }
     // Compare effective values and remove each provider to establish causality.
     // This also covers unblocking an existing aura, without crediting the mover for it.
+    const auraBenefits = [];
     for (const ally of forecast.position.pieces.filter(p => p.team === team && survivors.has(p.id))) {
       const previous = before.get(ally.id), current = after.get(ally.id);
       const increases = Object.keys(gains).filter(field => current[field] > previous[field]);
@@ -4014,12 +4022,25 @@ function explainHint(state, config, action, voice = (_, variants) => variants[0]
         const oldWithout = effective(state.pieces.find(p => p.id === ally.id), { ...state, pieces: state.pieces.filter(p => p.id !== sourceId) }, config);
         const fields = increases.filter(field => current[field] > without[field] && current[field] - without[field] > previous[field] - oldWithout[field]);
         if (!fields.length) continue;
-        title = reasons.length ? title : 'Усиливаем строй';
+        auraBenefits.push({ ally, source, fields });
+      }
+    }
+    if (auraBenefits.length) {
+      title = reasons.length ? title : 'Усиливаем строй';
+      if (auraBenefits.length === 1) {
+        const { ally, source, fields } = auraBenefits[0];
         const effect = join(fields.map(field => gains[field]));
         const increase = fields.length === 1 ? 'увеличится' : 'увеличатся';
         if (source.id === piece.id) reasons.push(say('aura-provider', `Подведём ${unit(piece)} к ${unit(ally, 1)}, чтобы увеличить ${effect}.`, `Поставим ${unit(piece)} ближе к ${unit(ally, 1)}. Увеличим ${effect}.`, `Подведём ${unit(piece)}: у ${unit(ally, 2)} ${increase} ${effect}.`));
         else if (ally.id === piece.id) reasons.push(say('aura-recipient', `Переведём ${unit(piece)} в ауру ${unit(source, 2)}, чтобы увеличить ${effect}.`, `Поставим ${unit(piece)} под действие ${unit(source, 2)}. Увеличим ${effect}.`, `Поставим ${unit(piece)} в ауру ${unit(source, 2)}. Получим прибавку: ${effect}.`));
         else reasons.push(say('aura-unblock', `Этим манёвром открываем ${unit(ally, 1)} ауру ${unit(source, 2)}, чтобы увеличить ${effect}.`, `Освободим путь ауре ${unit(source, 2)}. У ${unit(ally, 2)} ${increase} ${effect}.`, `Уберём преграду для ауры ${unit(source, 2)}, чтобы увеличить ${effect} у ${unit(ally, 2)}.`));
+      } else {
+        // One clause per actual bonus, with each recipient listed only once.
+        const effects = Object.keys(gains).flatMap(field => {
+          const recipients = [...new Map(auraBenefits.filter(b => b.fields.includes(field)).map(b => [b.ally.id, b.ally])).values()];
+          return recipients.length ? [`${gains[field]} у ${beneficiaryNames(recipients)}`] : [];
+        }).join('; ');
+        reasons.push(say('aura-group', `Переместим ${unit(piece)}: увеличим ${effects}.`, `Этим манёвром увеличим ${effects}.`, `Переставим ${unit(piece)}. Прибавка от аур: ${effects}.`));
       }
     }
     const targets = forecast.position.pieces.filter(p => p.team !== team && after.get(p.id).attackers.some(a => a.id === piece.id));

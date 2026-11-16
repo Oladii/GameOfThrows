@@ -233,3 +233,27 @@ test('random extremes still avoid adjacent wording repeats and keep histories se
     }
   }
 });
+
+test('one aura move groups all recipients instead of spending a reason on each', () => {
+  const config = clone(DEFAULT_CONFIG); config.victoryCondition = 'all-units';
+  const state = position([piece('h', 'horn', 0, 0, 0), piece('a', 'archer', 0, 3, 0), piece('b', 'archer', 0, 3, -1), piece('s', 'shield', 0, 2, 1), piece('e', 'archer', 1, 0, 5)]);
+  const original = JSON.stringify(state);
+  const voice = createHintVoice(() => 0), variants = new Set();
+  for (let i = 0; i < 3; i++) {
+    const hint = explainHint(state, config, { id: 'h', to: { q: 1, r: 0 } }, voice);
+    assert.equal(hint.reasons.length, 1);
+    assert.match(hint.reasons[0], /урон у двух лукарей и щитоносца/);
+    variants.add(hint.reasons[0]);
+  }
+  assert.equal(variants.size, 2); // Remember only the last template.
+  assert.equal(JSON.stringify(state), original);
+});
+
+test('grouped aura gains keep different bonuses attached to their actual recipients', () => {
+  const config = clone(DEFAULT_CONFIG); config.victoryCondition = 'all-units'; config.stats.horn.rangeBonus = 1;
+  const state = position([piece('h', 'horn', 0, 0, 0), piece('a', 'archer', 0, 3, 0), piece('s', 'shield', 0, 2, 1), piece('e', 'archer', 1, 0, 5)]);
+  const hint = explainHint(state, config, { id: 'h', to: { q: 1, r: 0 } });
+  assert.equal(hint.reasons.length, 1);
+  assert.match(hint.reasons[0], /урон у лукаря и щитоносца; дальность атаки у лукаря/);
+  assert.doesNotMatch(hint.reasons[0], /дальность атаки у .*щитоносца/);
+});

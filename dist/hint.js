@@ -16,6 +16,13 @@ function names(pieces, grammaticalCase = 0) {
   return join([...groups].map(([type, count]) => count === 1 ? unitForms[type][grammaticalCase]
     : `${unitForms[type][grammaticalCase === 1 ? 4 : grammaticalCase === 2 ? 5 : 3]} (${count})`));
 }
+function beneficiaryNames(pieces) {
+  const groups = new Map();
+  for (const piece of pieces) groups.set(piece.type, (groups.get(piece.type) || 0) + 1);
+  const counts = ['', '', 'двух', 'трёх', 'четырёх', 'пяти', 'шести', 'семи', 'восьми', 'девяти', 'десяти', 'одиннадцати', 'двенадцати', 'тринадцати'];
+  return join([...groups].map(([type, count]) => count === 1 ? unitForms[type][2]
+    : counts[count] ? `${counts[count]} ${unitForms[type][5]}` : `${unitForms[type][5]} (${count})`));
+}
 const gains = { damage: 'урон', fortitude: 'стойкость', move: 'дальность хода', range: 'дальность атаки' };
 
 // Keep template history across advice requests, independent of unit names.
@@ -79,6 +86,7 @@ export function explainHint(state, config, action, voice = (_, variants) => vari
     }
     // Compare effective values and remove each provider to establish causality.
     // This also covers unblocking an existing aura, without crediting the mover for it.
+    const auraBenefits = [];
     for (const ally of forecast.position.pieces.filter(p => p.team === team && survivors.has(p.id))) {
       const previous = before.get(ally.id), current = after.get(ally.id);
       const increases = Object.keys(gains).filter(field => current[field] > previous[field]);
@@ -89,12 +97,25 @@ export function explainHint(state, config, action, voice = (_, variants) => vari
         const oldWithout = effective(state.pieces.find(p => p.id === ally.id), { ...state, pieces: state.pieces.filter(p => p.id !== sourceId) }, config);
         const fields = increases.filter(field => current[field] > without[field] && current[field] - without[field] > previous[field] - oldWithout[field]);
         if (!fields.length) continue;
-        title = reasons.length ? title : 'Усиливаем строй';
+        auraBenefits.push({ ally, source, fields });
+      }
+    }
+    if (auraBenefits.length) {
+      title = reasons.length ? title : 'Усиливаем строй';
+      if (auraBenefits.length === 1) {
+        const { ally, source, fields } = auraBenefits[0];
         const effect = join(fields.map(field => gains[field]));
         const increase = fields.length === 1 ? 'увеличится' : 'увеличатся';
         if (source.id === piece.id) reasons.push(say('aura-provider', `Подведём ${unit(piece)} к ${unit(ally, 1)}, чтобы увеличить ${effect}.`, `Поставим ${unit(piece)} ближе к ${unit(ally, 1)}. Увеличим ${effect}.`, `Подведём ${unit(piece)}: у ${unit(ally, 2)} ${increase} ${effect}.`));
         else if (ally.id === piece.id) reasons.push(say('aura-recipient', `Переведём ${unit(piece)} в ауру ${unit(source, 2)}, чтобы увеличить ${effect}.`, `Поставим ${unit(piece)} под действие ${unit(source, 2)}. Увеличим ${effect}.`, `Поставим ${unit(piece)} в ауру ${unit(source, 2)}. Получим прибавку: ${effect}.`));
         else reasons.push(say('aura-unblock', `Этим манёвром открываем ${unit(ally, 1)} ауру ${unit(source, 2)}, чтобы увеличить ${effect}.`, `Освободим путь ауре ${unit(source, 2)}. У ${unit(ally, 2)} ${increase} ${effect}.`, `Уберём преграду для ауры ${unit(source, 2)}, чтобы увеличить ${effect} у ${unit(ally, 2)}.`));
+      } else {
+        // One clause per actual bonus, with each recipient listed only once.
+        const effects = Object.keys(gains).flatMap(field => {
+          const recipients = [...new Map(auraBenefits.filter(b => b.fields.includes(field)).map(b => [b.ally.id, b.ally])).values()];
+          return recipients.length ? [`${gains[field]} у ${beneficiaryNames(recipients)}`] : [];
+        }).join('; ');
+        reasons.push(say('aura-group', `Переместим ${unit(piece)}: увеличим ${effects}.`, `Этим манёвром увеличим ${effects}.`, `Переставим ${unit(piece)}. Прибавка от аур: ${effects}.`));
       }
     }
     const targets = forecast.position.pieces.filter(p => p.team !== team && after.get(p.id).attackers.some(a => a.id === piece.id));
