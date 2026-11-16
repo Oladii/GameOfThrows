@@ -1,3 +1,4 @@
+import { BrowserAnalytics } from './browser-analytics.js';
 import { explainHint, createHintVoice } from './hint.js';
 import { boardNavigationTarget } from './board-navigation.js';
 import { renderTokenBody, HORN_ICON_PATH, COMMANDER_ICON_PATH } from './token-presentation.js';
@@ -77,6 +78,22 @@ const archiveRecorder = new GameRecorder({
   onStatus: renderArchiveStatus
 });
 renderArchiveStatus(archiveRecorder.status);
+const browserAnalytics = new BrowserAnalytics({ enabled:archiveIsSite && Boolean(archiveEndpoint),endpoint:archiveEndpoint });
+function analyticsContext(localGameId) {
+  if (gamePhase !== 'playing' || editor || state.winner !== null || docGuideOpen()) return null;
+  const gameId = playMode === 'online' ? roomView?.selfSeat != null ? roomView?.matchId : null : localGameId;
+  return gameId ? {gameId,humanTeam:playMode === 'online' ? roomView.selfSeat : humanTeam,...(playMode === 'bot' ? {botDifficulty} : {})} : null;
+}
+function docGuideOpen() { return document.body.classList.contains('guide-open'); }
+async function trackGameTime() { const id=playMode === 'online' ? null : await archiveRecorder.analyticsGameId(); browserAnalytics.tick(analyticsContext(id),!document.hidden && document.hasFocus()); }
+async function trackHint(type) { const key=hintPositionKey(), id=await archiveRecorder.analyticsGameId(); if(key!==hintPositionKey())return; const context=analyticsContext(id); if (context) browserAnalytics.event(type,context); }
+// Initialization waits until the game and room state have been restored.
+setTimeout(() => { browserAnalytics.event('visit'); trackGameTime(); },0);
+setInterval(() => { trackGameTime(); void browserAnalytics.flush(); },1000*15);
+addEventListener('visibilitychange',trackGameTime); addEventListener('focus',trackGameTime); addEventListener('blur',trackGameTime);
+addEventListener('online',() => void browserAnalytics.flush());
+addEventListener('pagehide',() => { browserAnalytics.tick(null,false); void browserAnalytics.flush(); });
+
 async function retryArchive() {
   if (archiveRetrying) return;
   archiveRetrying = true; renderArchiveStatus(archiveRecorder.status);
@@ -127,6 +144,7 @@ function canRequestHint() { return playMode !== 'online' && gamePhase === 'playi
 function requestHint() {
   if (!canRequestHint()) return;
   if (hint) { const retry = hint.failed; clearHint(); if (!retry) { render(); return; } }
+  trackHint('hint_requested');
   const positionKey = hintPositionKey(), recent = recentBotHistory(), lastActions = new Map();
   for (const entry of recent) if (entry.action?.id) lastActions.set(entry.action.id, entry.action);
   selected = null; hover = null; inspection = null;
@@ -134,7 +152,7 @@ function requestHint() {
   hintRunner.run({ state, config, options: { advisor: true, seed: crypto.getRandomValues(new Uint32Array(1))[0], adviceDiversity: true,
     previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
     if (hint?.positionKey !== positionKey || hintPositionKey() !== positionKey || !canRequestHint()) return;
-    try { hint = { positionKey, ...explainHint(state, config, result?.action, hintVoice), action: result?.action }; }
+    try { hint = { positionKey, ...explainHint(state, config, result?.action, hintVoice), action: result?.action }; trackHint('hint_shown'); }
     catch { hint = { positionKey, failed: true, title: 'Советник уснул. Попробуй ещё раз', reasons: [] }; }
     render();
   }, () => {
@@ -705,6 +723,7 @@ function renderStartSettings() {
   $('#configure-position').hidden = positionKind !== 'custom';
 }
 function render(deaths = []) {
+  if (typeof browserAnalytics !== 'undefined') queueMicrotask(trackGameTime);
   // Keep the current board behind the start dialog while its draft is edited.
   if (previousGame && gamePhase === 'setup' && !editor && $('#start-dialog').open) { renderStartSettings(); save(); return; }
   if (hint && (hint.positionKey !== hintPositionKey() || !canRequestHint())) clearHint();
@@ -1295,7 +1314,7 @@ $('#settings-form').addEventListener('submit', event => {
   } catch (error) { $('#settings-error').textContent = error.message; }
 });
 $('#reset-defaults').addEventListener('click', () => fillSettings(DEFAULT_CONFIG));
-createGuideController({ icons: ICON_PATHS, renderBadges: unitBadges, audio: gameAudio,
+createGuideController({ onAnalytics:(type,extra) => { browserAnalytics.event(type,extra); queueMicrotask(trackGameTime); }, icons: ICON_PATHS, renderBadges: unitBadges, audio: gameAudio,
   beforeOpen: () => { cancelBot(); cancelMovement(); gameAudio.stopAll(); }, onClose: render });
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));

@@ -5,7 +5,7 @@ import { renderShowcaseBattle, ShowcaseBattle } from './onboarding-showcase.js';
 
 // Owns the standalone guide screen and its isolated battle controllers.
 export function createGuideController({ document: doc = globalThis.document, window: win = globalThis.window,
-  icons = {}, renderBadges = () => '', beforeOpen = () => {}, onClose = () => {}, clock = {}, audio = null } = {}) {
+  icons = {}, renderBadges = () => '', beforeOpen = () => {}, onClose = () => {}, clock = {}, audio = null, onAnalytics = () => {} } = {}) {
   const $ = selector => doc.querySelector(selector);
   const onboardingSteps = ['Цель игры', 'Фигуры'];
   let onboardingStep = 0, onboardingShowcase = null, onboardingUnitBattles = {};
@@ -36,6 +36,8 @@ export function createGuideController({ document: doc = globalThis.document, win
     Object.values(onboardingUnitBattles).forEach(battle => battle.stop());
   }
   function open() {
+    completedLessons.clear();
+    onAnalytics('tutorial_open');
     stop(); beforeOpen();
     onboardingStep = 0; onboardingPreviewByKeyboard = false;
     onboardingShowcase = null; onboardingUnitBattles = {};
@@ -70,9 +72,11 @@ export function createGuideController({ document: doc = globalThis.document, win
   function showcaseScene(sceneKey) {
     return $('#onboarding-body').querySelector(`[data-showcase-battle="${sceneKey}"]`);
   }
+  const completedLessons = new Set();
   function redrawShowcase(sceneKey='main') {
     const battle=sceneKey==='main'?onboardingShowcase:onboardingUnitBattles[sceneKey];
     if (onboardingStep !== (sceneKey==='main'?0:1) || !battle) return;
+    if (battle.phase === 'finished' && battle.position.winner !== 0 && !completedLessons.has(sceneKey)) { completedLessons.add(sceneKey); onAnalytics('lesson_complete',{lesson:sceneKey}); }
     const scene=showcaseScene(sceneKey);
     if (!scene) return;
     const focused = doc.activeElement?.closest?.('[data-showcase-cell]');
@@ -112,7 +116,7 @@ export function createGuideController({ document: doc = globalThis.document, win
       if (!battle.previewMoves.some(cell => cell.q === q && cell.r === r)) battle.clearSelection();
       else if (!battle.moveTo(destination)) battle.preview(destination);
     } else if (control.dataset.showcaseAction === 'continue') battle.continueCombat();
-    else if (control.dataset.showcaseAction === 'restart') battle.restart();
+    else if (control.dataset.showcaseAction === 'restart') { completedLessons.delete(showcaseSceneKey(control)); battle.restart(); }
   }
   function refreshShowcasePreview(sceneKey='main') {
     const scene=showcaseScene(sceneKey),battle=sceneKey==='main'?onboardingShowcase:onboardingUnitBattles[sceneKey];

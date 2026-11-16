@@ -54,7 +54,7 @@ const ArchiveSanitize = value => {
   return snapshot;
 };
 
-class ArchiveIndexedDBStorage {
+export class ArchiveIndexedDBStorage {
   constructor(indexedDB) { this.indexedDB = indexedDB; this.opened = null; this.identityOpened = null; }
   open() {
     if (!this.opened) this.opened = new Promise((resolve, reject) => {
@@ -187,6 +187,10 @@ export class GameRecorder {
     if (this.#autoFlush) this.#kick();
   }
 
+  analyticsGameId() {
+    const pending = this.#operations;
+    return pending.then(() => pending === this.#operations ? this.#activeId : null);
+  }
   get status() { return { ...this.#status, failures: this.#status.failures.map(failure => ({ ...failure })) }; }
   get onStatus() { return this.#onStatus; }
   set onStatus(listener) { this.#onStatus = listener; this.#emit(); }

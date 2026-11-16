@@ -6,6 +6,7 @@ import { UNIT_BATTLE_SCENES } from '../dist/onboarding-showcase.js';
 
 // Small DOM adapter: controllers and renderers are real; only browser plumbing is stubbed.
 function setup() {
+  const analytics = [];
   const scenes = new Map(), timers = new Map(), classes = new Set();
   let nextTimer = 0, opened = 0, closed = 0, tabs;
   const node = () => ({ hidden: true, innerHTML: '', listeners: {}, attrs: {},
@@ -32,14 +33,14 @@ function setup() {
     body: { classList: { add: value => classes.add(value), remove: value => classes.delete(value) } } };
   const win = { scrollY: 235, scrollTo(x, y) { this.scrollY = y; }, matchMedia: () => ({ matches: true }),
     gameTabs: { render(labels, selected, change) { tabs = { labels, selected, change }; } } };
-  const controller = createGuideController({ document: doc, window: win, beforeOpen: () => opened++, onClose: () => closed++,
+  const controller = createGuideController({ onAnalytics:(type,extra)=>analytics.push({type,...extra}), document: doc, window: win, beforeOpen: () => opened++, onClose: () => closed++,
     clock: { setTimer(fn) { timers.set(++nextTimer, fn); return nextTimer; }, clearTimer: id => timers.delete(id) } });
   const control = (key, data) => ({ dataset: data, closest(selector) {
     if (selector === '[data-showcase-battle]') return scenes.get(key);
     if (selector === '[data-showcase-cell]') return data.showcaseCell !== undefined ? this : null;
     return this;
   } });
-  return { controller, nodes, win, classes, scenes, timers, tabs: () => tabs,
+  return { controller, nodes, win, classes, scenes, timers, analytics, tabs: () => tabs,
     calls: () => ({ opened, closed }), html: key => scenes.get(key)?.html || '',
     click(key, data, keyboard = false) {
       const target = control(key, data);
@@ -149,4 +150,16 @@ test('real-game keyboard commands cannot change the hidden match while learning'
     render() { assert.fail('guide keys must not render or advance the hidden match'); } });
   vm.runInContext(app.split('\n').find(line => line.startsWith("document.addEventListener('keydown'") && line.includes('deleteEditorSelection(event)')), context);
   for (const key of ['Escape', 'Backspace', 'z']) handler({ key, ctrlKey: key === 'z' });
+});
+
+
+test('analytics separates opening the guide from finishing a lesson and deduplicates rerenders', () => {
+  const ui=setup();ui.controller.open();
+  assert.deepEqual(ui.analytics,[{type:'tutorial_open'}]);
+  ui.controller.goToStep(1);
+  ui.click('unit-archer-veteran',{showcasePiece:'blue'});
+  ui.click('unit-archer-veteran',{showcaseCell:'0,-3'});ui.flush();
+  assert.deepEqual(ui.analytics[1],{type:'lesson_complete',lesson:'unit-archer-veteran'});
+  ui.controller.goToStep(0);ui.controller.goToStep(1);
+  assert.equal(ui.analytics.filter(e=>e.type==='lesson_complete').length,1);
 });
