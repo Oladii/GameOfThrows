@@ -1,4 +1,4 @@
-import { explainHint } from './hint.js';
+import { explainHint, createHintVoice } from './hint.js';
 import { boardNavigationTarget } from './board-navigation.js';
 import { renderTokenBody, HORN_ICON_PATH, COMMANDER_ICON_PATH } from './token-presentation.js';
 import { DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance, upgradeSelectedBalancePreset } from './rules.js';
@@ -119,6 +119,7 @@ let roomWantsFirst = true;
 const roomFirstMoveNotices = new Set();
 const botRunner = new BotRunner();
 const hintRunner = new BotRunner();
+const hintVoice = createHintVoice();
 let hint = null, hintThinkingTimer = null;
 function clearHint() { hintRunner.cancel(); clearInterval(hintThinkingTimer); hintThinkingTimer = null; hint = null; }
 function hintPositionKey() { return JSON.stringify({ state, config }); }
@@ -133,7 +134,7 @@ function requestHint() {
   hintRunner.run({ state, config, options: { advisor: true, seed: crypto.getRandomValues(new Uint32Array(1))[0], adviceDiversity: true,
     previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
     if (hint?.positionKey !== positionKey || hintPositionKey() !== positionKey || !canRequestHint()) return;
-    try { hint = { positionKey, ...explainHint(state, config, result?.action), action: result?.action }; }
+    try { hint = { positionKey, ...explainHint(state, config, result?.action, hintVoice), action: result?.action }; }
     catch { hint = { positionKey, failed: true, title: 'Советник уснул. Попробуй ещё раз', reasons: [] }; }
     render();
   }, () => {

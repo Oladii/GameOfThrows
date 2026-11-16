@@ -18,8 +18,21 @@ function names(pieces, grammaticalCase = 0) {
 }
 const gains = { damage: 'урон', fortitude: 'стойкость', move: 'дальность хода', range: 'дальность атаки' };
 
+// Keep template history across advice requests, independent of unit names.
+export function createHintVoice(random = Math.random) {
+  const recent = new Map();
+  return (key, variants) => {
+    const previous = recent.get(key) || [];
+    const available = variants.map((_, index) => index).filter(index => !previous.includes(index));
+    const index = available[Math.floor(random() * available.length)];
+    recent.set(key, [...previous, index].slice(-Math.min(1, variants.length - 1)));
+    return variants[index];
+  };
+}
+
 // Explain the purpose through verified changes in the position, not invented search thoughts.
-export function explainHint(state, config, action) {
+export function explainHint(state, config, action, voice = (_, variants) => variants[0]) {
+  const say = (key, ...variants) => ({ key, variants });
   if (!action) return { title: 'Сейчас нет допустимого хода', reasons: ['Ни у одной нашей фигуры нет доступной клетки для хода.'] };
   const piece = action.pass ? null : state.pieces.find(p => p.id === action.id);
   const outcome = action.pass ? pass(state, config) : move(state, config, action.id, action.to);
@@ -38,30 +51,31 @@ export function explainHint(state, config, action) {
   if (outcome.state.winner === team) {
     title = 'Завершаем партию победой';
     reasons.push(enemyLosses.some(p => p.type === 'defenseLamp') && config.victoryCondition === 'flag-or-combat'
-      ? 'Уничтожаем вражеское знамя и выигрываем бой.'
-      : `Убираем ${names(enemyLosses)} противника и выигрываем бой.`);
+      ? say('win-flag', 'Уничтожаем вражеское знамя и выигрываем бой.', 'Убираем вражеское знамя. Бой выигран.', 'Уничтожаем знамя противника — это победа.')
+      : say('win-combat', `Убираем ${names(enemyLosses)} противника и выигрываем бой.`, `Уничтожаем ${names(enemyLosses)} противника. Бой выигран.`, `После этой атаки побеждаем: противник теряет ${names(enemyLosses)}.`));
   } else if (enemyLosses.length) {
     title = 'Ослабляем армию соперника';
-    reasons.push(enemyLosses.length === 1 ? `Убираем ${enemyLosses[0].type === 'defenseLamp' ? 'вражеское' : ['horn', 'attackLamp'].includes(enemyLosses[0].type) ? 'вражеский' : 'вражеского'} ${names(enemyLosses)}.` : `Убираем ${names(enemyLosses)} противника.`);
+    const enemyNames = enemyLosses.length === 1 ? `${enemyLosses[0].type === 'defenseLamp' ? 'вражеское' : ['horn', 'attackLamp'].includes(enemyLosses[0].type) ? 'вражеский' : 'вражеского'} ${names(enemyLosses)}` : `${names(enemyLosses)} противника`;
+    reasons.push(say('enemy-loss', `Убираем ${enemyNames}.`, `Этим ходом уничтожаем ${enemyNames}.`, `После нашей атаки противник потеряет ${names(enemyLosses)}.`));
   }
   const rescued = state.pieces.filter(p => p.team === team && before.get(p.id).dead && survivors.has(p.id));
   if (rescued.length) {
     if (!enemyLosses.length && outcome.state.winner === null) title = 'Спасаем фигуры от гибели';
-    reasons.push(`Этим манёвром спасаем ${names(rescued)} от ближайшей атаки. Противник уже рассчитывал ${rescued.length === 1 ? 'его' : 'их'} убрать.`);
+    reasons.push(say('rescue', `Этим манёвром спасаем ${names(rescued)} от ближайшей атаки. Противник уже рассчитывал ${rescued.length === 1 ? 'его' : 'их'} убрать.`, `Этим ходом сохраним ${names(rescued)}. Под удар пока не отдаём.`, `Спасаем ${names(rescued)} от ближайшей атаки. Оставим в строю.`));
   }
   if (piece && outcome.state.winner === null) {
     const oldStats = before.get(piece.id), newStats = after.get(piece.id);
     if (!newStats.dead && newStats.incoming < oldStats.incoming && !rescued.some(p => p.id === piece.id)) {
       title = reasons.length ? title : 'Уходим из-под обстрела';
-      reasons.push(`Переведём ${unit(piece)} сюда — по нему будут бить слабее.`);
+      reasons.push(say('less-damage', `Переведём ${unit(piece)} сюда — по нему будут бить слабее.`, `Здесь по нашей фигуре будут бить слабее. Переведём ${unit(piece)} сюда.`, `Переставим ${unit(piece)} — на этой клетке он получит меньше урона.`));
     }
     if (shieldCanRetreat(forecast.piece, config) && !shieldCanRetreat(piece, config)) {
       title = reasons.length ? title : 'Превращаем щитоносца в ветерана';
-      reasons.push('Доведём щитоносца до чужого края.');
+      reasons.push(say('shield-veteran', 'Доведём щитоносца до чужого края.', 'Выведем щитоносца на чужой край. Получим ветерана.', 'Этим ходом щитоносец достигнет чужого края и станет ветераном.'));
     }
     if (archerHasEdgeBonus(forecast.piece, config) && !archerHasEdgeBonus(piece, config)) {
       title = 'Усиливаем лукаря на чужом краю';
-      reasons.push('Доведём лукаря до чужого края, чтобы он получил постоянную прибавку к урону.');
+      reasons.push(say('archer-veteran', 'Доведём лукаря до чужого края, чтобы он получил постоянную прибавку к урону.', 'Выведем лукаря на чужой край. Прибавка к урону останется с ним.', 'На чужом краю лукарь получит постоянное усиление атаки. Доведём его туда.'));
     }
     // Compare effective values and remove each provider to establish causality.
     // This also covers unblocking an existing aura, without crediting the mover for it.
@@ -77,9 +91,10 @@ export function explainHint(state, config, action) {
         if (!fields.length) continue;
         title = reasons.length ? title : 'Усиливаем строй';
         const effect = join(fields.map(field => gains[field]));
-        if (source.id === piece.id) reasons.push(`Подведём ${unit(piece)} к ${unit(ally, 1)}, чтобы увеличить ${effect}.`);
-        else if (ally.id === piece.id) reasons.push(`Переведём ${unit(piece)} в ауру ${unit(source, 2)}, чтобы увеличить ${effect}.`);
-        else reasons.push(`Этим манёвром открываем ${unit(ally, 1)} ауру ${unit(source, 2)}, чтобы увеличить ${effect}.`);
+        const increase = fields.length === 1 ? 'увеличится' : 'увеличатся';
+        if (source.id === piece.id) reasons.push(say('aura-provider', `Подведём ${unit(piece)} к ${unit(ally, 1)}, чтобы увеличить ${effect}.`, `Поставим ${unit(piece)} ближе к ${unit(ally, 1)}. Увеличим ${effect}.`, `Подведём ${unit(piece)}: у ${unit(ally, 2)} ${increase} ${effect}.`));
+        else if (ally.id === piece.id) reasons.push(say('aura-recipient', `Переведём ${unit(piece)} в ауру ${unit(source, 2)}, чтобы увеличить ${effect}.`, `Поставим ${unit(piece)} под действие ${unit(source, 2)}. Увеличим ${effect}.`, `Поставим ${unit(piece)} в ауру ${unit(source, 2)}. Получим прибавку: ${effect}.`));
+        else reasons.push(say('aura-unblock', `Этим манёвром открываем ${unit(ally, 1)} ауру ${unit(source, 2)}, чтобы увеличить ${effect}.`, `Освободим путь ауре ${unit(source, 2)}. У ${unit(ally, 2)} ${increase} ${effect}.`, `Уберём преграду для ауры ${unit(source, 2)}, чтобы увеличить ${effect} у ${unit(ally, 2)}.`));
       }
     }
     const targets = forecast.position.pieces.filter(p => p.team !== team && after.get(p.id).attackers.some(a => a.id === piece.id));
@@ -88,8 +103,8 @@ export function explainHint(state, config, action) {
       title = reasons.length ? title : 'Готовим совместную атаку';
       const supported = newTargets.some(p => after.get(p.id).attackers.length > 1);
       reasons.push(supported
-        ? 'Подключаем бойца к общему удару. Урона пока не хватает.'
-        : `Выведем ${unit(piece)} на ${names(newTargets)} противника. Одной этой атаки пока не хватит.`);
+        ? say('joint-attack', 'Подключаем бойца к общему удару. Урона пока не хватает.', `Добавим ${unit(piece)} к общей атаке. Даже вместе пока не справляемся.`, `Подключим ${unit(piece)} к удару по противнику. Урона всё ещё недостаточно.`)
+        : say('new-attack', `Выведем ${unit(piece)} на ${names(newTargets)} противника. Одной этой атаки пока не хватит.`, `Отсюда сможем атаковать ${names(newTargets)} противника. Убрать одной атакой пока не получится.`, `Выведем ${unit(piece)} на ${names(newTargets)} противника. Для уничтожения цели понадобится больше урона.`));
     }
     if (!reasons.length) {
       const enemyFlag = state.pieces.find(p => p.team !== team && p.type === 'defenseLamp');
@@ -97,17 +112,17 @@ export function explainHint(state, config, action) {
       const oldControl = controlled(piece, state), newControl = controlled(forecast.piece, forecast.position);
       if ([...newControl].some(cell => !oldControl.has(cell))) {
         title = 'Занимаем новую линию атаки';
-        reasons.push(`Переставим ${unit(piece)} сюда, чтобы держать под обстрелом новые клетки.`);
+        reasons.push(say('new-cells', `Переставим ${unit(piece)} сюда, чтобы держать под обстрелом новые клетки.`, `Сместим ${unit(piece)}: отсюда достанем клетки, которые раньше не простреливали.`, `Переместим ${unit(piece)} сюда. Под обстрел попадут новые участки поля.`));
       } else if (enemyFlag && distance(forecast.piece, enemyFlag, config) < distance(piece, enemyFlag, config)) {
         title = 'Подводим фигуру к вражескому знамени';
-        reasons.push(`Подведём ${unit(piece)} ближе к вражескому знамени.`);
+        reasons.push(say('approach-flag', `Подведём ${unit(piece)} ближе к вражескому знамени.`, `Переведём ${unit(piece)} ближе к вражескому знамени.`, `Продвинем ${unit(piece)} к знамени противника.`));
       } else {
         title = 'Перестраиваем армию';
-        reasons.push(`Пока переставим ${unit(piece)} сюда. Прямой выгоды этот ход ещё не даёт.`);
+        reasons.push(say('quiet', `Пока переставим ${unit(piece)} сюда. Прямой выгоды этот ход ещё не даёт.`, `Переставим ${unit(piece)}. Немедленного выигрыша от этого хода нет.`, `Пока переместим ${unit(piece)} сюда. Явного преимущества этот ход ещё не даёт.`));
       }
     }
   }
-  if (ownLosses.length) reasons.push(`Этот манёвр будет стоить нам ${names(ownLosses, 2)}.`);
-  if (action.pass && !reasons.length) { title = 'Передаём инициативу'; reasons.push('Оставляем фигуры на месте и передаём ход противнику.'); }
-  return { title, reasons: reasons.slice(0, 3).concat(reasons.length > 3 && ownLosses.length ? [reasons.at(-1)] : []) };
+  if (ownLosses.length) reasons.push(say('own-loss', `Этот манёвр будет стоить нам ${names(ownLosses, 2)}.`, `За этот манёвр заплатим потерей ${names(ownLosses, 2)}.`, `После этого хода потеряем ${names(ownLosses)}.`));
+  if (action.pass && !reasons.length) { title = 'Передаём инициативу'; reasons.push(say('pass', 'Оставляем фигуры на месте и передаём ход противнику.', 'Пропускаем ход, никого не перемещаем.', 'Никого не перемещаем, передаём ход противнику.')); }
+  return { title, reasons: reasons.slice(0, 3).concat(reasons.length > 3 && ownLosses.length ? [reasons.at(-1)] : []).map(({ key, variants }) => voice(key, variants)) };
 }

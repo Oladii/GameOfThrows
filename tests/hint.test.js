@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
 import { clone, createGame, move } from '../dist/engine.js';
 import { chooseBotAction } from '../dist/bot.js';
-import { explainHint } from '../dist/hint.js';
+import { explainHint, createHintVoice } from '../dist/hint.js';
 
 const piece = (id, type, team, q, r) => ({ id, type, team, q, r });
 const position = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
@@ -61,7 +61,7 @@ function declaration(name) {
 }
 function setup() {
   let request, result, error, cancelled = 0, requests = 0;
-  const context = vm.createContext({ playMode: 'local', state: { pieces: [], turn: 0, ply: 0, winner: null }, config: {}, crypto: { getRandomValues(value) { value[0] = 12345; return value; } }, selected: 'chosen', hover: {}, inspection: {}, hint: null, hintThinkingTimer: null, clearInterval() {},
+  const context = vm.createContext({ playMode: 'local', state: { pieces: [], turn: 0, ply: 0, winner: null }, config: {}, crypto: { getRandomValues(value) { value[0] = 12345; return value; } }, selected: 'chosen', hover: {}, inspection: {}, hint: null, hintVoice: createHintVoice(), hintThinkingTimer: null, clearInterval() {},
     hintRunner: { cancel() { cancelled++; }, run(input, onResult, onError) { requests++; request = input; result = onResult; error = onError; } },
     BOT_DIFFICULTIES: { hard: { depth: 4 } }, editor: false, gamePhase: 'playing', reviewingTurn: false, isBotTurn: () => false, humanCanMove: () => true,
     recentBotHistory: () => [], render() {}, explainHint: () => ({ title: 'Ход', reasons: ['Причина'] }) });
@@ -206,4 +206,30 @@ test('a commander does not promise extra range to an armed commander', () => {
   const hint = explainHint(state, config, { id: 'c', to: { q: 1, r: 0 } });
   assert.match(hint.reasons.join(' '), /Подведём командира к лукарю, чтобы увеличить дальность атаки/);
   assert.doesNotMatch(hint.reasons.join(' '), /к командиру/);
+});
+
+
+test('wording excludes the last template even when the pieces change', () => {
+  const voice = createHintVoice(() => 0), config = clone(DEFAULT_CONFIG);
+  config.victoryCondition = 'all-units';
+  const seen = [];
+  for (let i = 0; i < 9; i++) {
+    const state = position([piece('d', 'attackLamp', 0, 0, 0), piece('a', i % 2 ? 'shield' : 'archer', 0, 3, 0), piece('e', 'archer', 1, 0, 5)]);
+    const hint = explainHint(state, config, { id: 'd', to: { q: 1, r: 0 } }, voice);
+    const text = hint.reasons[0].replace(/лукар[яю]|щитоносц[ау]/g, 'UNIT');
+    assert.ok(!seen.slice(-1).includes(text));
+    seen.push(text);
+    assert.match(hint.reasons[0], /барабан/);
+  }
+});
+
+test('random extremes still avoid adjacent wording repeats and keep histories separate', () => {
+  for (const random of [() => 0, () => 0.999999]) {
+    const voice = createHintVoice(random), variants = ['a', 'b', 'c']; let last;
+    for (let i = 0; i < 30; i++) {
+      const next = voice('attack', variants);
+      assert.ok(variants.includes(next)); assert.notEqual(next, last); last = next;
+      voice('rescue', variants);
+    }
+  }
 });
