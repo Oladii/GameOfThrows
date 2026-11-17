@@ -6,17 +6,19 @@ import { DEFAULT_CONFIG } from '../dist/rules.js';
 import { createGame, clone, move, reachable, pass, analyze } from '../dist/engine.js';
 import { chooseBotAction, botPositionKey } from '../dist/bot.js';
 import { BOT_DIFFICULTIES } from '../dist/bot-client.js';
+import { oneReplyRestraint } from '../dist/formation-strategy.mjs';
 
 const piece = (id, type, team, q, r) => ({ id, type, team, q, r });
-const opportunity = team => {
+const opportunity = (team, balance = 'equal') => {
   const state = { pieces: [piece('s', 'shield', 0, 0, 0), piece('f', 'defenseLamp', 0, 0, -5),
     piece('a', 'archer', 1, 2, 0), piece('e', 'shield', 1, -3, 3), piece('ef', 'defenseLamp', 1, 0, 5)], turn: 0, ply: 8, winner: null };
+  if (balance !== 'behind') state.pieces.push(piece('own', balance === 'ahead' ? 'shield' : 'archer', 0, 0, -4));
   return team === 0 ? state : { ...state, turn: 1, pieces: state.pieces.map(p => ({ ...p, team: 1 - p.team, q: -p.q, r: -p.r })) };
 };
 const apply = (state, config, action) => action.pass ? pass(state, config) : move(state, config, action.id, action.to);
 
 for (const [team, forgiveSeed, ordinarySeed] of [[0, 2, 11], [1, 1, 3]]) {
-  test(`training sometimes forgives a free capture on side ${team} without offering any piece in reply`, () => {
+  test(`training consistently spares a free capture on side ${team} without offering any piece in reply`, () => {
     const state = opportunity(team), before = JSON.stringify({ state, config: DEFAULT_CONFIG });
     const usual = chooseBotAction(state, DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.easy, seed: forgiveSeed });
     assert.deepEqual(apply(state, DEFAULT_CONFIG, usual.action).deaths.map(p => p.id), ['a']);
@@ -38,9 +40,9 @@ for (const [team, forgiveSeed, ordinarySeed] of [[0, 2, 11], [1, 1, 3]]) {
     assert.ok(replies > 0);
     const normal = chooseBotAction(state, DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.easy, seed: ordinarySeed });
     const strict = chooseBotAction(state, DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.training, seed: ordinarySeed });
-    assert.equal(strict.stats.forgiveness.applied, false);
-    assert.deepEqual(strict.action, normal.action);
-    assert.equal(strict.stats.score, normal.stats.score);
+    assert.deepEqual(apply(state, DEFAULT_CONFIG, normal.action).deaths.map(p => p.id), ['a']);
+    assert.equal(strict.stats.forgiveness.applied, true);
+    assert.equal(apply(state, DEFAULT_CONFIG, strict.action).deaths.length, 0);
     assert.equal(JSON.stringify({ state, config: DEFAULT_CONFIG }), before);
   });
 }
@@ -123,26 +125,31 @@ test('forgiving never weakens requested advice', () => {
   assert.equal(combined.stats.forgiveness, undefined);
 });
 
-test('training usually forgives the same free capture across different seeds', () => {
+test('restraint is based on the position across all seeds, with extra room when ahead', () => {
   const state = opportunity(0); let spared = 0;
   for (let seed = 1; seed <= 40; seed++) {
     const result = chooseBotAction(state, DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.training, seed });
     if (!apply(state, DEFAULT_CONFIG, result.action).deaths.length) spared++;
   }
-  assert.ok(spared >= 28, `only ${spared}/40 mistakes forgiven`);
-  assert.ok(spared < 40, 'still plays an ordinary attack sometimes');
+  assert.equal(spared, 40);
+  const ahead = chooseBotAction(opportunity(0, 'ahead'), DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.training, seed: 11 });
+  assert.equal(ahead.stats.forgiveness.mode, 'ease');
+  assert.equal(ahead.stats.forgiveness.materialLead, 300);
+  assert.equal(ahead.stats.forgiveness.applied, true);
+  assert.equal(apply(opportunity(0, 'ahead'), DEFAULT_CONFIG, ahead.action).deaths.length, 0);
 });
 
-test('after a learner loses a piece, training gives a safe breather even on an otherwise strict seed', () => {
+test('recent learner losses widen the positional allowance without causing a giveaway', () => {
   const state = opportunity(0), options = { ...BOT_DIFFICULTIES.training, seed: 11 };
   const strict = chooseBotAction(state, DEFAULT_CONFIG, options);
-  assert.deepEqual(apply(state, DEFAULT_CONFIG, strict.action).deaths.map(p => p.id), ['a']);
+  assert.equal(apply(state, DEFAULT_CONFIG, strict.action).deaths.length, 0);
   const previous = { ...clone(state), ply: state.ply - 2 };
   previous.pieces.push(piece('lost', 'archer', 1, 4, 0));
   const kind = chooseBotAction(state, DEFAULT_CONFIG, { ...options, previousStates: [previous, state] });
   assert.equal(kind.stats.forgiveness.recentOpponentLoss, true);
   assert.equal(kind.stats.forgiveness.applied, true);
   assert.equal(apply(state, DEFAULT_CONFIG, kind.action).deaths.length, 0);
+  assert.ok(kind.stats.forgiveness.maxGap > strict.stats.forgiveness.maxGap);
   const expired = chooseBotAction(state, DEFAULT_CONFIG, { ...options, previousStates: [{ ...previous, ply: 0 }, state] });
   assert.equal(expired.stats.forgiveness.recentOpponentLoss, false);
   assert.deepEqual(expired.action, strict.action);
@@ -173,3 +180,72 @@ test('a standalone Worker and module reproduce the same teaching decision', () =
   assert.deepEqual(JSON.parse(JSON.stringify(messages[0].result.action)), result.action);
   assert.deepEqual(JSON.parse(JSON.stringify(messages[0].result.stats.forgiveness)), result.stats.forgiveness);
 });
+
+for (const team of [0, 1]) {
+  test(`training can recover a material deficit on side ${team} without offering a piece`, () => {
+    const state = opportunity(team, 'behind');
+    const result = chooseBotAction(state, DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.training, seed: 2 });
+    assert.equal(result.stats.forgiveness.mode, 'recover');
+    assert.equal(result.stats.forgiveness.recoveryAllowance, 300);
+    assert.equal(result.stats.forgiveness.applied, false);
+    const next = apply(state, DEFAULT_CONFIG, result.action);
+    assert.deepEqual(next.deaths.map(p => p.id), ['a']);
+    for (const enemy of next.state.pieces.filter(p => p.team !== team)) for (const to of reachable(enemy, next.state, DEFAULT_CONFIG)) {
+      assert.equal(move(next.state, DEFAULT_CONFIG, enemy.id, to).deaths.some(p => p.team === team), false);
+    }
+  });
+}
+
+test('reported learner loss analysis matches every native reply and includes the whole army', () => {
+  const state = createGame(DEFAULT_CONFIG);
+  const result = chooseBotAction(state, DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.training, seed: 2 });
+  const next = apply(state, DEFAULT_CONFIG, result.action), info = result.stats.forgiveness;
+  const values = { shield: 600, archer: 300, attackLamp: 600, horn: 600, defenseLamp: 500, scoutLamp: 400 };
+  const losses = [], saving = [];
+  for (const enemy of next.state.pieces.filter(p => p.team !== state.turn)) for (const to of reachable(enemy, next.state, DEFAULT_CONFIG)) {
+    const reply = move(next.state, DEFAULT_CONFIG, enemy.id, to);
+    const loss = reply.deaths.filter(p => p.team !== state.turn).reduce((sum, p) => sum + values[p.type], 0);
+    losses.push(loss);
+    if (!loss && reply.state.winner === null) saving.push(to);
+  }
+  assert.equal(info.lossAfter.immediate, 0);
+  assert.equal(info.lossAfter.unavoidable, Math.min(...losses));
+  assert.equal(info.lossAfter.savingReplies, saving.length);
+  const report = analyze(next.state, DEFAULT_CONFIG);
+  const pressure = next.state.pieces.filter(p => p.team !== state.turn).reduce((sum, p) => {
+    const hit = report.get(p.id);
+    return sum + (hit.incoming > 0 ? 90 * Math.min(1, hit.incoming / Math.max(1, hit.fortitude)) ** 2 + 12 * Math.max(0, hit.attackers.length - 1) : 0);
+  }, 0);
+  assert.equal(info.pressureAfter, pressure);
+});
+
+for (const team of [0, 1]) {
+  test(`loss analysis sees casualties after a protective aura disappears on side ${team}`, () => {
+    // The captured shield protects two archers. They survive the simultaneous
+    // root combat but lose the aura afterwards; the player can save only one.
+    const config = clone(DEFAULT_CONFIG);
+    config.victoryCondition = 'all-units'; config.shieldDefenseOnly = false;
+    config.stats.archer.damage = 3;
+    config.stats.defenseLamp.defenseBonus = 10; config.stats.defenseLamp.fortitude = 20;
+    config.stats.defenseLamp.move = 1;
+    const original = { turn: 0, ply: 8, winner: null, pieces: [
+      piece('s', 'shield', 0, 0, 0), piece('f', 'defenseLamp', 0, 0, -2),
+      piece('a1', 'archer', 0, -1, 0), piece('a2', 'archer', 0, 0, 1),
+      piece('es', 'shield', 1, 2, 0), piece('ef', 'defenseLamp', 1, -5, 2),
+      piece('ea1', 'archer', 1, 3, 0), piece('ea2', 'archer', 1, 2, 1)
+    ] };
+    const state = team === 0 ? original : { ...original, turn: 1,
+      pieces: original.pieces.map(p => ({ ...p, team: 1 - p.team, q: -p.q, r: -p.r })) };
+    const outcome = move(state, config, 's', { q: team ? -1 : 1, r: 0 });
+    assert.deepEqual(outcome.deaths.map(p => p.id), ['es']);
+    const legal = position => position.pieces.filter(p => p.team === position.turn)
+      .flatMap(p => reachable(p, position, config).map(to => ({ id: p.id, to })));
+    const analysis = oneReplyRestraint(outcome, team, legal, (position, action) => move(position, config, action.id, action.to),
+      pieces => pieces.reduce((sum, p) => sum + (p.type === 'shield' ? 600 : 300), 0));
+    assert.equal(analysis.safe, true);
+    assert.equal(analysis.immediateLoss, 600);
+    assert.equal(analysis.unavoidableLoss, 900);
+    assert.equal(analysis.savingReplies, 0);
+    assert.equal(analysis.replies, legal(outcome.state).length);
+  });
+}

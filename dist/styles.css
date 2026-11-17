@@ -916,33 +916,28 @@ main{padding:14px}
 .online-room.room-waiting .board-footer,.online-room.room-waiting .reference-panel{display:none}
 .room-first-choice:not([hidden]) + .scoreboard{margin-top:8px}
 
-.team-card{box-sizing:border-box;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:8px;height:72px;min-height:72px;padding:8px 12px 8px 94px;border-radius:9px;overflow:hidden;background:#f3ecde;color:#66502c}
+.scoreboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:8px}
+.team-card{box-sizing:border-box;display:flex;flex-direction:column;flex-wrap:nowrap;align-items:stretch;justify-content:center;gap:8px;height:auto;min-height:86px;padding:12px 12px 12px 76px;border-radius:9px;overflow:hidden;background:#f3ecde;color:#66502c}
 .team-card.active,.team-card.south.active{background:#f3ecde;color:#66502c;border-color:var(--line)}
-.team-card.south{order:-1;padding:8px 94px 8px 12px}
-.team-card::before{content:"";position:absolute;left:-28px;top:0;width:124px;height:128px;background:url('./brand/team-blue.png') center/contain no-repeat;pointer-events:none}
-.team-card.south::before{left:auto;right:-28px;background-image:url('./brand/team-red.png')}
-.team-card-heading{display:flex;align-items:baseline;gap:4px;min-width:0;white-space:nowrap}
-.team-card.north .team-card-heading{justify-content:flex-end}
+.team-card.south{order:-1;padding:12px 76px 12px 12px}
+.team-card::before{content:"";position:absolute;left:0;top:0;width:64px;height:100%;background:url('./brand/team-blue.png') center/contain no-repeat;pointer-events:none}
+.team-card.south::before{left:auto;right:0;background-image:url('./brand/team-red.png');background-position:center}
+.team-card-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 4px;min-width:0;white-space:normal;overflow-wrap:break-word}
+.team-card.north .team-card-heading{justify-content:flex-end;text-align:right}
 .team-card .team-title,.team-card.south .team-title,.team-card .turn-tag{display:block;font-size:13px;font-weight:500;line-height:18px;color:#66502c;margin:0;min-height:0;opacity:1;letter-spacing:0}
 .team-card .turn-tag:not(:empty)::before{content:"— ";}
 .team-card-body{min-width:0;width:100%}
 .team-card-action{min-height:35px;display:flex;align-items:center}
-.team-card:has(.team-card-action){height:auto;min-height:72px;gap:6px}
-.team-card-details{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.team-card:has(.team-card-action){gap:6px}
+.team-card-details{display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap}
 .team-card.north .team-card-details{justify-content:flex-end}
-.team-card-details .team-count{order:1;font-size:13px;line-height:20px;font-weight:500;font-variant-numeric:tabular-nums;color:inherit}
-.team-card-details .team-count::before{content:"·";margin-right:8px}
-.team-card-details .team-roster{justify-content:flex-start;align-items:center;flex-basis:auto;gap:6px;color:inherit}
-.team-card .team-unit{min-width:0;font-size:13px;line-height:20px;font-weight:500;gap:4px}
-.team-card .team-unit svg{width:20px;height:20px}
-@media(min-width:701px) and (max-width:1200px){.scoreboard{flex-direction:column}}
-@media(max-width:700px){
-.team-card{height:auto;min-height:72px;padding-left:70px}
-.team-card.south{padding-right:70px;padding-left:12px}
-.team-card::before{width:100px}
-.team-card-heading{white-space:normal;flex-wrap:wrap;gap:0 4px}
-.team-card-details{gap:4px}
-.team-card-details .team-roster{gap:5px}
+.team-card-details .team-count{order:1;font-size:12px;line-height:20px;font-weight:400;font-variant-numeric:tabular-nums;color:inherit}
+.team-card-details .team-roster{justify-content:flex-start;align-items:center;flex-wrap:wrap;flex-basis:auto;gap:6px;color:inherit}
+.team-card .team-unit{flex:0 0 auto;min-width:0;font-size:13px;line-height:20px;font-weight:500;gap:3px}
+.team-card .team-unit svg{width:18px;height:18px}
+@media(max-width:380px){
+.team-card{padding:10px 10px 10px 74px}
+.team-card.south{padding:10px 74px 10px 10px}
 }
 .team-card-action .button{height:35px;min-height:35px;padding:8px 10px;font-size:12px;margin:0}
 .team-card-action .button,.lesson-details .button:not(.primary){border-color:#dfd2b9;background:#faf6ed;color:var(--ink);text-shadow:none;box-shadow:none}
@@ -976,7 +971,7 @@ main{padding:14px}
 
 /* A completed match replaces both team cards with one shared result surface. */
 .team-card.match-result{flex:1 1 100%;grid-column:1/-1;padding:4px 108px 4px 12px;height:72px;min-height:72px}
-.team-card.match-result::before{left:auto;right:-28px}
+.team-card.match-result::before{left:auto;right:-28px;width:124px;height:128px;background-position:center;background-size:contain}
 .team-card.match-result.north::before{transform:scaleX(-1)}
 .team-card.match-result .team-card-heading{justify-content:flex-start;white-space:normal}
 .team-card.match-result .team-title{font-weight:600}

@@ -13,6 +13,29 @@ export function advisorReplySafety(position, team, legalActions, simulate) {
   }
   return { safe: true, status: actions.length ? 'safe-one-reply' : 'no-legal-replies', replies };
 }
+
+/** Native teaching analysis of both armies through every legal next reply.
+ * Own safety is universal; opponent losses are the least they can escape with.
+ * Thus deliberate opponent sacrifices do not masquerade as forced casualties.
+ */
+export function oneReplyRestraint(outcome, team, legalActions, simulate, value) {
+  const immediateLoss = value(outcome.deaths.filter(piece => piece.team !== team));
+  const result = { safe: outcome.state.winner === null && !outcome.deaths.some(piece => piece.team === team),
+    immediateLoss, unavoidableLoss: immediateLoss, savingReplies: 0, replies: 0 };
+  if (!result.safe) return result;
+  let leastReplyLoss = Infinity;
+  for (const action of legalActions(outcome.state)) {
+    const reply = simulate(outcome.state, action); result.replies++;
+    const loss = value(reply.deaths.filter(piece => piece.team !== team));
+    leastReplyLoss = Math.min(leastReplyLoss, loss);
+    if (!loss && reply.state.winner === null) result.savingReplies++;
+    if (reply.state.winner === 1 - team || reply.state.winner === 'draw'
+      || reply.deaths.some(piece => piece.team === team)) result.safe = false;
+  }
+  result.unavoidableLoss += Number.isFinite(leastReplyLoss) ? leastReplyLoss : 0;
+  return result;
+}
+
 export function createStrategyPolicy(PLAN){
 if(!['formation','ranged','veteran'].includes(PLAN))throw Error('Unknown plan');
 const key=p=>`${p.q},${p.r}`;
@@ -114,14 +137,15 @@ function tieNoise(seed, ply, action) {
   return ((hash >>> 0) / 4294967296) * .001;
 }
 
-// A separate position-based roll leaves ordinary search and tie-breaking intact.
-// The same position, ply and seed reproduce the same teaching decision.
-function forgivenessRoll(state, config, seed) {
-  let hash = 2166136261;
-  for (const char of `${seed}:${state.ply}:${botPositionKey(state, config)}:forgive`) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-  hash = Math.imul(hash ^ hash >>> 16, 0x21f0aaad);
-  hash = Math.imul(hash ^ hash >>> 15, 0x735a2d97);
-  return ((hash ^ hash >>> 15) >>> 0) / 4294967296;
+// Teaching considers the whole army, rather than only the two targets used to
+// reward concentrated attacks in the ordinary search.
+function armyPressure(state, report, attackingTeam) {
+  return state.pieces.filter(p => p.team !== attackingTeam).reduce((sum, p) => {
+    const info = report.get(p.id);
+    if (info.incoming <= 0) return sum;
+    const fraction = Math.min(1, info.incoming / Math.max(1, info.fortitude));
+    return sum + 90 * fraction * fraction + 12 * Math.max(0, info.attackers.length - 1);
+  }, 0);
 }
 
 function alphaBeta(node, remaining, alpha, beta, context) {
@@ -270,7 +294,7 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
   for (const [key, count] of historicalCounts) seen.set(key, Math.max(seen.get(key) || 0, count));
   const lastActions = new Map(Array.isArray(options.lastActions) ? options.lastActions : []);
   const stats = { depth, maxDepth: 0, nodes: 0, visits: 0, legalMoves: 0, rootCandidates: 0, score: null, elapsedMs: 0 };
-  if (forgiving) stats.forgiveness = { applied: false, considered: false, probability: .8, candidates: 0, replies: 0 };
+  if (forgiving) stats.forgiveness = { applied: false, considered: false, candidates: 0, replies: 0 };
   const showcaseCandidates = [];
   const publicAction = action => action === null ? null : action.pass ? { pass: true } : { id: action.id, to: { q: action.to.q, r: action.to.r } };
   const finish = (action, reason) => ({ action: publicAction(action), stats: { ...stats, elapsedMs: performance.now() - started, ...(reason ? { reason } : {}) },
@@ -485,57 +509,68 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
       stats.defense.checked = checked.size;
     }
     if (forgiving && Math.abs(bestScore) < 1e6 && stats.defense.status !== 'no-safe-root') {
-      // A considerate opponent keeps its tactical knowledge and defence, but
-      // often declines an attack. It becomes gentler when ahead or just after
-      // the learner lost a piece. Immediate/proven wins already returned above.
+      // Keep tactical knowledge: recover a deficit, ease off when level/ahead,
+      // and never offer an ally on any legal reply just to spare an opponent.
       const captured = best.outcome.deaths.filter(piece => piece.team !== team);
       const info = stats.forgiveness;
+      const value = pieces => pieces.reduce((sum, piece) => sum + 100 * PIECE_VALUES[piece.type], 0);
       const material = side => state.pieces.filter(piece => piece.team === side)
-        .reduce((sum, piece) => sum + 100 * PIECE_VALUES[piece.type], 0);
+        .reduce((sum, piece) => sum + 100 * PIECE_VALUES[piece.type]
+          + (shieldCanRetreat(piece, config) ? 15 : 0)
+          + (archerHasEdgeBonus(piece, config) ? 100 : 0), 0);
       info.materialLead = material(team) - material(1 - team);
+      info.recoveryAllowance = Math.max(0, -info.materialLead);
+      info.mode = info.materialLead < 0 ? 'recover' : info.materialLead > 0 ? 'ease' : 'balanced';
       const recent = Array.isArray(options.previousStates) ? options.previousStates : [];
       info.recentOpponentLoss = recent.some(previous => previous.ply < state.ply
         && state.ply - previous.ply <= 4 && previous.pieces.some(piece => piece.team !== team
           && !state.pieces.some(current => current.id === piece.id)));
-      info.probability = info.recentOpponentLoss ? 1 : info.materialLead >= 300 ? .95 : .8;
-      const pressure = candidate => coordinationPressure(candidate.outcome.state, candidate.outcome.evaluationReport, team);
+      const pressure = candidate => armyPressure(candidate.outcome.state, candidate.outcome.evaluationReport, team);
       info.pressureBefore = pressure(best);
-      info.roll = forgivenessRoll(state, config, choiceSeed);
-      if ((captured.length || info.pressureBefore > 8) && info.roll < info.probability) {
-        info.considered = true;
-        // Give up an opportunity, not our pieces: at most 600 material points
-        // and 80 positional points, with every immediate enemy reply checked.
-        info.maxGap = Math.min(600, captured.reduce((sum, piece) => sum + 100 * PIECE_VALUES[piece.type], 0)) + 80;
+      info.considered = true;
+      const teachingChecks = new Map();
+      const assess = candidate => {
+        if (teachingChecks.has(candidate)) return teachingChecks.get(candidate);
+        const result = oneReplyRestraint(candidate.outcome, team, legalActions, simulate, value);
+        info.replies += result.replies;
+        teachingChecks.set(candidate, result);
+        return result;
+      };
+      const before = assess(best);
+      info.lossBefore = { immediate: before.immediateLoss, unavoidable: before.unavoidableLoss, savingReplies: before.savingReplies };
+      const excess = assessment => Math.max(0, assessment.unavoidableLoss - info.recoveryAllowance);
+      const recovering = captured.length && value(captured) <= info.recoveryAllowance && before.safe;
+      if (!recovering && (captured.length || info.pressureBefore > 8 || before.unavoidableLoss || !before.safe)) {
+        info.maxGap = Math.min(600, before.unavoidableLoss)
+          + Math.min(180, 80 + Math.max(0, info.materialLead) / 10 + (info.recentOpponentLoss ? 40 : 0));
         info.bestScore = bestScore;
-        const quiet = ranked.filter(candidate => candidate !== best && !candidate.terminal
-          && !candidate.action.pass && candidate.penalty === 0 && candidate.outcome.deaths.length === 0
-          && (captured.length || pressure(candidate) < info.pressureBefore - 4)).slice(0, ROOT_BEAM * 3);
-        let alternative = null, alternativeScore = -Infinity, alternativePressure = Infinity;
-        for (const candidate of quiet) {
+        const pool = ranked.filter(candidate => candidate !== best && !candidate.terminal
+          && !candidate.action.pass && candidate.penalty === 0
+          && !candidate.outcome.deaths.some(piece => piece.team === team));
+        let alternative = null, alternativeScore = -Infinity, alternativePressure = Infinity, alternativeLoss = Infinity;
+        for (const candidate of pool) {
           info.candidates++;
-          const replies = legalActions(candidate.outcome.state);
-          if (!replies.length) continue;
-          let safe = true;
-          for (const action of replies) {
-            const reply = simulate(candidate.outcome.state, action); info.replies++;
-            if (reply.state.winner === 1 - team || reply.state.winner === 'draw' || reply.deaths.some(piece => piece.team === team)) { safe = false; break; }
-          }
-          if (!safe) continue;
-          checked.set(candidate, { safe: true, status: 'safe-one-reply', replies: replies.length });
+          const assessment = assess(candidate);
+          if (!assessment.safe || !assessment.replies || excess(assessment) > excess(before)) continue;
+          const candidatePressure = pressure(candidate);
+          if (before.safe && excess(assessment) === excess(before) && candidatePressure >= info.pressureBefore - 4) continue;
           const node = { ...candidate, pathKeys: [botPositionKey(candidate.outcome.state, config)] };
           // Full-window search: a cutoff bound cannot measure how much worse
           // an alternative is than the ordinary move.
           const bonus = candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
           const score = alphaBeta(node, searchDepth - 1, -Infinity, Infinity, context) - candidate.penalty + bonus;
-          if (Math.abs(score) >= 1e6 || score > bestScore || bestScore - score > info.maxGap) continue;
-          const candidatePressure = pressure(candidate);
-          if (candidatePressure < alternativePressure || (candidatePressure === alternativePressure && score > alternativeScore)) {
-            alternative = candidate; alternativeScore = score; alternativePressure = candidatePressure;
+          if (Math.abs(score) >= 1e6 || bestScore - score > info.maxGap) continue;
+          if (excess(assessment) < alternativeLoss || (excess(assessment) === alternativeLoss
+            && (candidatePressure < alternativePressure || (candidatePressure === alternativePressure && score > alternativeScore)))) {
+            alternative = candidate; alternativeScore = score; alternativePressure = candidatePressure; alternativeLoss = excess(assessment);
           }
         }
         if (alternative) {
           info.applied = true; info.skippedCaptures = captured.map(piece => piece.id);
           info.pressureAfter = alternativePressure;
+          const after = assess(alternative);
+          info.lossAfter = { immediate: after.immediateLoss, unavoidable: after.unavoidableLoss, savingReplies: after.savingReplies };
+          checked.set(alternative, { safe: true, status: 'safe-one-reply', replies: after.replies });
           info.selectedScore = alternativeScore; info.gap = bestScore - alternativeScore;
           best = alternative; bestScore = alternativeScore;
           stats.defense.status = inspect(best).status;
