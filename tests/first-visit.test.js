@@ -52,7 +52,8 @@ function boot({ raw = null, roll = 0.1, storageError = false, fresh = false, hre
     return nodes.get(selector);
   };
   const noop = () => {};
-  context = vm.createContext({ roomMovePreview: null, freshNewGameRequested: fresh, DEFAULT_START_CHOICES, resolveStartChoices, hasNewerGameVersion, CURRENT_RULES_VERSION: '0.1.20', latestRulesVersion: null,
+  context = vm.createContext({
+    tableRattle: null, tableKnocks: null, boardDrag: null, roomMovePreview: null, freshNewGameRequested: fresh, DEFAULT_START_CHOICES, resolveStartChoices, hasNewerGameVersion, CURRENT_RULES_VERSION: '0.1.20', latestRulesVersion: null,
     DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance,
     clone, createGame, validateConfig, validateState, analyze, reachable, shieldCanRetreat, inspectCell,
     DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty, classifyPosition, prepareStartPosition,

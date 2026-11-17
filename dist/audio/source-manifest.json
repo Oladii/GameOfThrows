@@ -4,7 +4,11 @@
     "place": "place.wav",
     "click": "click.wav",
     "remove": "remove.wav",
-    "hover": "hover.wav"
+    "hover": "hover.wav",
+    "knock1": "knock1.wav",
+    "knock2": "knock2.wav",
+    "knock3": "knock3.wav",
+    "scatter": "scatter.wav"
   },
   "runtime_sources": {
     "slide": {
@@ -50,6 +54,54 @@
       "license_status": "Redistribution permission not established; user explicitly requested integration and publication",
       "processing": "CAF converted to mono PCM16 WAV at 44100 Hz; runtime gain and lowpass in audio.js",
       "wav_sha256": "90deeca3bf5afe75271de86856624d0674ad05d1fdccbd54613ba1c404a1c47c"
+    },
+    "knock1": {
+      "source": "Original approved first knock, slightly quieter and more muffled",
+      "authorization": "User auditioned quiet-first-muffled-two-knocks-preview.wav and confirmed «Да, ставим» on 2026-11-18",
+      "processing": "Original approved first knock plus lowpass=f=1000:p=2,volume=-2dB; no pitch/speed change or added reverb; no additional runtime EQ.",
+      "wav_sha256": "59a4f62541f450e13841dfb10c5303ed62ace4074731dd46ff43523a86fa3830",
+      "url": "https://www.youtube.com/watch?v=rb5dEtNIKZk",
+      "license_status": "Redistribution rights not established; user explicitly requested publication with release 0.1.109",
+      "runtime_gain_note": "Existing 0.25 gain at the default master volume retained; the additional -2 dB is baked into the approved sample.",
+      "parent_wav_sha256": "c306fb78b5c5928a84075ee4e7665db5ddc1a8903a38246974ce704d45c76f1a",
+      "preview_sha256": "1f9716f4210f042af86c3224814b6f959813554b976a878602bc6a0c3e9352ad"
+    },
+    "knock2": {
+      "source": "User-approved knock mix",
+      "authorization": "Approved in this chat for the local game",
+      "processing": "Approved samples; knock1 -3 dB, knock2 unchanged, knock3 uses second timbre +6 dB; scatter -8.5 dB from the recording. No additional runtime EQ.",
+      "wav_sha256": "47e62569437e9a9381472dd7ea2b54dc2bbe8628ac86cacf8ec458c1e882e734",
+      "url": "https://www.youtube.com/watch?v=rb5dEtNIKZk",
+      "license_status": "Redistribution rights not established; user explicitly requested publication with release 0.1.109",
+      "runtime_gain_note": "Latest user adjustment: multiply current second knock level by 0.5 (50% quieter). Master volume still applies."
+    },
+    "knock3": {
+      "source": "User-approved 50/50 blend of the first and second knock timbres",
+      "authorization": "User auditioned middle-knock-soft-less-echo-and-scatter.wav and explicitly selected it for the local game on 2026-11-18",
+      "processing": "50/50 blend of original knock2.wav and previous knock3.wav; lowpass=f=850:p=2,volume='if(lt(t,0.06),1,if(lt(t,0.24),1-0.65*(t-0.06)/0.18,0.35))':eval=frame,afade=t=out:st=0.36:d=0.15; no pitch/speed change or added reverb; scatter remains a separate unchanged sample; no additional runtime EQ.",
+      "wav_sha256": "6fe704ce1ad7c57c1725c6e3230f3385765ef7b0c95df84466b2a8ddb2ff4cfe",
+      "url": "https://www.youtube.com/watch?v=rb5dEtNIKZk",
+      "license_status": "Redistribution rights not established; user explicitly requested publication with release 0.1.109",
+      "preview_sha256": "b0095dfa23078a1d723b94564d2165e5e0253765284fde7a73ca2661a5f0aaf0",
+      "blend_sources": [
+        {
+          "file": "knock2.wav",
+          "weight": 0.5,
+          "wav_sha256": "47e62569437e9a9381472dd7ea2b54dc2bbe8628ac86cacf8ec458c1e882e734"
+        },
+        {
+          "file": "previous knock3.wav",
+          "weight": 0.5,
+          "wav_sha256": "2b4b98597d3af168151d0457a9af04f1e1e6f310de4c930523049cb5ecdc33f2"
+        }
+      ]
+    },
+    "scatter": {
+      "source": "User recording 1 2.m4a, last take 10.035–10.740 s",
+      "authorization": "Approved in this chat for the local game",
+      "processing": "Approved samples; knock1 -3 dB, knock2 unchanged, knock3 uses second timbre +6 dB; scatter -8.5 dB from the recording. No additional runtime EQ.",
+      "wav_sha256": "db5abe4432e54c188b6e9fe990be3c7dbbae88cc2c2bc9a5772c089205dcec60",
+      "source_sha256": "d571671c250494344d512ad4da675332ef35397eb822246a9bc9ac9ca7bd22da"
     }
   },
   "legacy_foley_recording": {

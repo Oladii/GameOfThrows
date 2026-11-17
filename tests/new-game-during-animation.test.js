@@ -14,7 +14,7 @@ for (const phase of ['movement', 'combat']) test(`new game interrupts ${phase} a
   const lastTurn = { before: history[0], action: history[0].action };
   let canceled = 0, soundsStopped = 0;
   const dialog = { open: false, showModal() { this.open = true; }, close() { this.open = false; } };
-  const c = vm.createContext({ state: structuredClone(result), config: {}, log: [], history: structuredClone(history), lastTurn: structuredClone(lastTurn),
+  const c = vm.createContext({ tableRattle: null, state: structuredClone(result), config: {}, log: [], history: structuredClone(history), lastTurn: structuredClone(lastTurn),
     playMode: 'bot', humanTeam: 0, firstMove: 'north', botDifficulty: 'hard', gamePhase: 'playing', refreshingNewGame: false,
     positionKind: 'default', gameVersion: 'test', previousGame: null, editor: false, movement: null, combat: null,
     roomMovePreview: null, reviewRequest: 0, reviewLoading: false, reviewTurn: null, reviewingTurn: false,

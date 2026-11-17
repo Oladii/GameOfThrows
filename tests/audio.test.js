@@ -203,7 +203,7 @@ test('a silent destination click cancels the hover voice without playing a selec
 test('board activation keeps selection audible and destination movement silent in local and online play', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   const fn = app.slice(app.indexOf('function activateBoardCell('), app.indexOf('function focusBoardCell('));
-  const cues = [], actions = [], ctx = vm.createContext({ editor: false, tool: 'shield', selected: 'piece',
+  const cues = [], actions = [], ctx = vm.createContext({ tableRattle: null, editor: false, tool: 'shield', selected: 'piece',
     visibleState: () => ({ pieces: [{ id: 'piece', q: 0, r: 0 }] }), humanCanMove: () => true,
     available: [{ q: 0, r: 1 }], gameAudio: { click(key, options) { cues.push({ key, ...options }); } },
     onCell(q, r) { actions.push([q, r]); } });

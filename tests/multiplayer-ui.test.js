@@ -22,7 +22,7 @@ function node() {
 function setup() {
   const nodes = new Map(), storage = new Map(), calls = [], location = { href: 'http://localhost/?theme=light', protocol: 'http:' };
   const $ = selector => { if (!nodes.has(selector)) nodes.set(selector, node()); return nodes.get(selector); };
-  const context = vm.createContext({ MultiplayerSession: class { create() { return Promise.resolve(); } join() { return Promise.resolve(); } stop() {} }, $, URL, location, navigator: {}, ROOM_STORAGE: 'online', STORAGE: 'local',
+  const context = vm.createContext({ tableRattle: null, MultiplayerSession: class { create() { return Promise.resolve(); } join() { return Promise.resolve(); } stop() {} }, $, URL, location, navigator: {}, ROOM_STORAGE: 'online', STORAGE: 'local',
     document: { body: node(), querySelectorAll: () => [] }, window: { history: { replaceState(_state, _title, url) { location.href = url; } } },
     localStorage: { getItem: key => storage.get(key), setItem(key, value) { storage.set(key, value); } },
     playMode: 'online', gamePhase: 'playing', editor: false, positionKind: 'default', config: structuredClone(DEFAULT_CONFIG), state: createGame(DEFAULT_CONFIG),

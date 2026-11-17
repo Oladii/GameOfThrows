@@ -47,12 +47,13 @@ test('hover forecasts retain distant curves, movement hides arrows, combat revea
   context.highlightSources();
   assert.equal(paths(layer.innerHTML).length, arrows.length);
   assert.ok(paths(layer.innerHTML).every(d => d.includes('Q')));
-  assert.match(layer.innerHTML, /class="preview-ghost/);
+  assert.match(layer.innerHTML, /class="piece preview-token north/);
+  assert.doesNotMatch(layer.innerHTML, /preview-ghost/);
   context.movement = { forecast };
   context.highlightSources();
   assert.equal(paths(layer.innerHTML).length, 0);
   context.movement = null;
-  assert.doesNotMatch(layer.innerHTML, /class="preview-ghost/);
+  assert.doesNotMatch(layer.innerHTML, /preview-token/);
   context.combat = { phase: 'attacks', groups: [{ arrows }], groupIndex: 0, visiblePosition: forecast.position, arrowCount: arrows.length, report };
   context.highlightSources();
   assert.equal(paths(layer.innerHTML).length, arrows.length);

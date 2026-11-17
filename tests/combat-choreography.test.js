@@ -96,7 +96,7 @@ function presentationHarness(mode='local') {
   const action={id:'mover',to:{q:0,r:1}}, result=move(before.state,config,action.id,action.to);
   const forecast=inspectCell(before.state,config,action.to,action.id), time=clock(), snapshots=[];
   let botStarts=0,botCancels=0;const notices=[],sounds=[];
-  const context=vm.createContext({config,state:result.state,combat:null,roomMovePreview: null, movement:null,currentDeaths:[],reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false,lastTurn:null,gamePhase:'playing',editor:false,playMode:mode,humanTeam:0,
+  const context=vm.createContext({tableRattle:null,config,state:result.state,combat:null,roomMovePreview: null, movement:null,currentDeaths:[],reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false,lastTurn:null,gamePhase:'playing',editor:false,playMode:mode,humanTeam:0,
     ready:true,botIssue:'',botSuspended:false,botTimer:null,botRunner:{active:false},$:()=>null,lethalAttackPresentation,analyze,inspectCell,selected:null,fieldView:null,history:[],combatReplayCache:null,
     gameAudio:{play(name){sounds.push(name);return ()=>{};}},
     toast(message){notices.push(message);},cancelBot(){botCancels++;time.clearTimer(context.botTimer);context.botTimer=null;},

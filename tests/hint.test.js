@@ -117,7 +117,7 @@ for (const failure of ['calculation', 'explanation']) test(`${failure} failure c
 
 test('first render reads recommendation state without shadowing the board message', () => {
   const stopped = new Error('Reached normal rendering');
-  const context = vm.createContext({ previousGame: null, hint: null, renderHint() {}, renderUpdateNotice() { throw stopped; } });
+  const context = vm.createContext({ tableRattle: null, tableKnocks: null, boardDrag: null, previousGame: null, hint: null, renderHint() {}, renderUpdateNotice() { throw stopped; } });
   vm.runInContext(declaration('render'), context);
   assert.throws(() => context.render(), error => error === stopped);
 });
@@ -129,7 +129,7 @@ test('pending advice replaces left reference, animates dots and keeps the button
     $: node, escape: x => x, setInterval(callback) { tick = callback; return 5; }, clearInterval() { cleared = true; } });
   vm.runInContext(declaration('renderHint'), context); context.renderHint();
   assert.equal(node('#show-hint').disabled, true);
-  assert.equal(node('#show-hint').textContent, 'Попросить совет');
+  assert.equal(node('#show-hint').textContent, 'Подсказать ход');
   assert.match(node('#move-hint').innerHTML, /Думовую/);
   assert.doesNotMatch(node('#move-hint').innerHTML, /<h2>/);
   tick(); assert.equal(node('#hint-thinking-dots').textContent, '..');
@@ -141,14 +141,14 @@ test('pending advice replaces left reference, animates dots and keeps the button
   assert.equal(node('#show-hint').disabled, true); assert.equal(cleared, true);
   context.hint = { failed: true, title: 'Советник уснул. Попробуй ещё раз', reasons: [] }; context.renderHint();
   assert.equal(node('#show-hint').disabled, false);
-  assert.equal(node('#show-hint').textContent, 'Разбудить');
+  assert.equal(node('#show-hint').textContent, 'Подсказать ход');
   assert.match(node('#move-hint').innerHTML, /Советник уснул\. Попробуй ещё раз/);
   context.canRequestHint = () => false; context.renderHint();
   assert.equal(node('#show-hint').disabled, true);
   context.canRequestHint = () => true;
   context.hint = null; context.renderHint();
   assert.equal(node('#show-hint').disabled, false); assert.equal(node('#move-hint').hidden, true);
-  assert.equal(node('#show-hint').textContent, 'Попросить совет');
+  assert.equal(node('#show-hint').textContent, 'Подсказать ход');
 });
 
 test('sidebar clicks preserve advice; outside clicks dismiss it without consuming the click', () => {

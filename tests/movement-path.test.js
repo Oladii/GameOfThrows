@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
-import { clone, cells, directions, movementPath, reachable } from '../dist/engine.js';
+import { clone, cells, directions, movementArea, movementPath, reachable } from '../dist/engine.js';
 
 const piece = (id, type, team, q, r) => ({ id, type, team, q, r });
 const state = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
@@ -11,6 +11,25 @@ const squareConfig = () => {
   return config;
 };
 const position = ({ q, r }) => ({ q, r });
+
+test('movement shading fills occupied cells without allowing occupied landings or crossing enemies', () => {
+  for (const geometry of ['hex', 'square']) {
+    const config = squareConfig(); config.geometry = geometry; config.stats.archer.move = 2;
+    const moving = piece('moving', 'archer', 0, 0, 0);
+    const current = state([moving, piece('ally', 'shield', 0, 1, 0), piece('enemy', 'shield', 1, 0, 1)]);
+    const before = JSON.stringify(current);
+    const area = new Set(movementArea(moving, current, config).map(c => `${c.q},${c.r}`));
+    const legal = new Set(reachable(moving, current, config).map(c => `${c.q},${c.r}`));
+    for (const occupied of ['0,0', '1,0', '0,1']) {
+      assert.ok(area.has(occupied));
+      assert.ok(!legal.has(occupied));
+    }
+    assert.ok(legal.has('2,0'), 'allies remain traversable');
+    assert.ok(!area.has('0,2'), 'the highlight does not pass through the enemy');
+    assert.deepEqual(movementPath(moving, current, config, { q: 0, r: 1 }), []);
+    assert.equal(JSON.stringify(current), before);
+  }
+});
 
 function assertLegalPath(path, moving, current, config, destination) {
   const route = reachable(moving, current, config).find(cell => cell.q === destination.q && cell.r === destination.r);

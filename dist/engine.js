@@ -231,13 +231,14 @@ function resolveOwnedState(next, config, state = next) {
   next.winner = winnerForPieces(next.pieces, config);
   return { state: next, deaths, report };
 }
-function movementSearch(piece, state, config, includePath = false) {
+function movementSearch(piece, state, config, includePath = false, includeArea = false) {
   const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p]));
   const unlocked = shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config);
   // Fix the allowance at the start, even when the destination leaves the aura.
   const movementAllowance = effective(piece, state, config, occupied).move;
   const seen = new Set([`${key(piece.q, piece.r)}:${unlocked}`]), out = new Map(), queue = [{ q: piece.q, r: piece.r, steps: 0, unlocked }];
   const parents = includePath ? [-1] : null, endpoints = includePath ? new Map() : null;
+  const area = includeArea ? new Map([[key(piece.q, piece.r), { q: piece.q, r: piece.r }]]) : null;
   for (let i = 0; i < queue.length; i++) {
     const current = queue[i];
     if (current.steps >= movementAllowance) continue;
@@ -252,6 +253,7 @@ function movementSearch(piece, state, config, includePath = false) {
         ? Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)) <= config.size
         : q >= 0 && r >= 0 && q < config.size && r < config.size);
       if (!onBoard || seen.has(visit)) continue;
+      area?.set(pos, { q, r });
       const blocking = occupied.get(pos);
       if (blocking && blocking.team !== piece.team) continue;
       seen.add(visit); queue.push({ q, r, steps: current.steps + 1, unlocked: routeUnlocked });
@@ -263,10 +265,14 @@ function movementSearch(piece, state, config, includePath = false) {
       }
     }
   }
-  return { out, queue, parents, endpoints };
+  return { out, queue, parents, endpoints, area };
 }
 export function reachable(piece, state, config) {
   return [...movementSearch(piece, state, config).out.values()];
+}
+// Visual coverage includes occupied cells, while reachable stays legal landings only.
+export function movementArea(piece, state, config) {
+  return [...movementSearch(piece, state, config, false, true).area.values()];
 }
 export function movementPath(piece, state, config, destination) {
   if (!destination || !Number.isInteger(destination.q) || !Number.isInteger(destination.r)) return [];

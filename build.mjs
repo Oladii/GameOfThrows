@@ -3,11 +3,14 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('./', import.meta.url));
 const read = name => fs.readFile(root + 'dist/' + name, 'utf8');
-const soundData = Object.fromEntries(await Promise.all(['slide', 'place', 'click', 'hover', 'remove'].map(async name =>
+const soundData = Object.fromEntries(await Promise.all(['slide', 'place', 'click', 'hover', 'remove', 'knock1', 'knock2', 'knock3', 'scatter'].map(async name =>
   [name, 'data:audio/wav;base64,' + (await fs.readFile(root + `dist/audio/${name}.wav`)).toString('base64')])));
 const audioAssets = '// Generated from audio/*.wav. Per-file provenance, processing and license status: audio/source-manifest.json\nexport const GAME_AUDIO_ASSETS = ' + JSON.stringify(soundData) + ';\n';
 await fs.writeFile(root + 'dist/audio-assets.js', audioAssets);
 const audio = await read('audio.js');
+const tableKnocksSource = await read('table-knocks.js');
+const tableRattleSource = await read('table-rattle.js');
+const boardDragSource = await read('board-drag.js');
 const [sourceHtml, css, rules, engine, defensiveSelection, formationStrategy, bot, worker, client, startChoices, startPosition, moveAnimation, gameArchive, browserAnalytics, boardPresentation, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, hint, guideController, app] = await Promise.all(['index.html', 'styles.css', 'rules.js', 'engine.js', 'defensive-selection.mjs', 'formation-strategy.mjs', 'bot.js', 'bot-worker.js', 'bot-client.js', 'start-preferences.js', 'start-position.js', 'move-animation.js', 'game-archive.js', 'browser-analytics.js', 'board-presentation.js', 'onboarding-units.js', 'onboarding-showcase.js', 'board-navigation.js', 'new-game-refresh.js', 'hint.js', 'guide-controller.js', 'app.js'].map(read));
 const { version } = JSON.parse(await fs.readFile(root + 'package.json', 'utf8'));
 const [tokenAssets, tokenPresentation] = await Promise.all(['token-assets.js','token-presentation.js'].map(read));
@@ -17,7 +20,7 @@ const html = sourceHtml.replace(/(<span id="version-number"[^>]*>)[^<]*(<\/span>
 await fs.writeFile(root + 'dist/index.html', html);
 const strip = code => code.replace(/^import .*?;\n/gm, '').replace(/^export /gm, '');
 const [multiplayerClient, multiplayerSession] = await Promise.all(['multiplayer-client.js', 'multiplayer-session.js'].map(read));
-const script = [rules, engine, client, startChoices, startPosition, moveAnimation, gameArchive, browserAnalytics, tokenAssets, tokenPresentation, boardPresentation, audioAssets, audio, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, hint, guideController, multiplayerClient, multiplayerSession, app].map(strip).join('\n').replaceAll('</script', '<\\/script');
+const script = [rules, engine, client, startChoices, startPosition, moveAnimation, gameArchive, browserAnalytics, tokenAssets, tokenPresentation, boardPresentation, audioAssets, audio, tableKnocksSource, tableRattleSource, boardDragSource, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, hint, guideController, multiplayerClient, multiplayerSession, app].map(strip).join('\n').replaceAll('</script', '<\\/script');
 const workerSource = JSON.stringify([rules, engine, defensiveSelection, formationStrategy, bot, worker].map(strip).join('\n')).replaceAll('<', '\\u003c');
 // Published standalone pages use the hosted API; the development page keeps its local API.
 const publicRoomEndpoint = html.match(/<meta name="game-archive-endpoint" content="([^"]+)">/)?.[1];

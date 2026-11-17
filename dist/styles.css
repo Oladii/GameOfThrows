@@ -77,6 +77,10 @@ select{font-size:11px}
 .board-wrap{position:relative;display:grid;place-items:center;min-height:380px;padding:15px 0 8px}
 #board{width:100%;max-height:650px;overflow:visible;display:block;touch-action:manipulation}
 .cell{cursor:pointer;outline:none}
+.cell.draggable{cursor:grab;touch-action:none}
+#board.is-dragging,#board.is-dragging .cell{cursor:grabbing;user-select:none}
+.piece.drag-origin .unit-badges{display:none}
+.drag-token{pointer-events:none}
 .tile{fill:var(--tile-default);stroke:#d9d9cb;stroke-width:1.3;stroke-linejoin:round}
 .cell.alt .tile{fill:var(--tile-default)}
 .cell:hover .tile{stroke:#9da586;stroke-width:2}
@@ -272,7 +276,6 @@ dialog{padding:22px 16px;width:calc(100% - 22px);max-height:94vh}
 .range-text{font-weight:750;fill:#435b3c;text-anchor:middle;dominant-baseline:middle}
 .piece.fatal .incoming-badge,.piece.fatal .incoming-text,.preview-ghost.fatal .incoming-badge,.preview-ghost.fatal .incoming-text{visibility:hidden}
 #death-effects,.death-effects{pointer-events:none}
-.piece.preview-origin,.move-origin-token{opacity:.28}
 .piece.preview-origin .fort-indicator,.piece.preview-origin .incoming-indicator,.piece.preview-origin .attack-indicator,.piece.preview-origin .range-indicator,.piece.preview-origin .fatal-mark{display:none}
 .death-ghost{pointer-events:none}
 .death-token{animation:token-to-skull 80ms cubic-bezier(.3,0,1,1) both}
@@ -334,7 +337,10 @@ dialog{padding:22px 16px;width:calc(100% - 22px);max-height:94vh}
 .left-panel>#new-game{grid-column:1/-1}
 .left-panel .config-summary{grid-column:1/-1}
 .start-settings .button.full{margin-top:8px}}
+.piece.moving-origin .unit-badges{display:none}
 .piece.moving-origin,.lesson-piece.moving-origin{visibility:hidden}
+.piece.moving-origin.own-moving-origin{visibility:visible}
+.move-origin-token{opacity:.28}
 .moving-token{pointer-events:none}
 .moving-token.north .piece-circle{fill:var(--blue)}
 .moving-token.south .piece-circle{fill:var(--rust)}
@@ -668,9 +674,10 @@ to{opacity:1}}
 .incoming-indicator .fatal-mark .skull-teeth{stroke:#fff1bd}
 /* Approved Figma matrix. The board's existing hex fill, edges and spacing stay intact. */
 #board .cell .tile,.lesson-tile>polygon{fill:var(--tile-default);stroke:#d9d9cb}
-#board .cell.reachable .tile{fill:#e1e5cc;stroke:#b8bea3;stroke-width:1.3}
-#board .cell.selected .tile{fill:#d2ddba;stroke:#b8bea3;stroke-width:1.3}
-#board .cell.reachable:hover .tile,#board .cell.selected:hover .tile{stroke:#b8bea3;stroke-width:1.3}
+#board .cell.reachable .tile,#board .cell.movement-range .tile{fill:#e1e5cc;stroke:#b8bea3;stroke-width:1.3}
+#board .cell.selected .tile{fill:#e1e5cc;stroke:#b8bea3;stroke-width:1.3}
+#board .cell.move-destination .tile{fill:#c3c9ac;stroke:#a6b58b;stroke-width:1.3}
+#board .cell.reachable:hover .tile,#board .cell.movement-range:hover .tile,#board .cell.selected:hover .tile{stroke:#b8bea3;stroke-width:1.3}
 .token-body-paint{isolation:isolate;pointer-events:none}
 .token-team-tint{mix-blend-mode:normal}
 .token-team-tint.north{opacity:1}
@@ -684,6 +691,12 @@ to{opacity:1}}
 .preview-ghost .token-body-paint,.preview-ghost .piece-icon,.preview-ghost .token-veteran-wreath{opacity:.62}
 .preview-ghost .token-team-tint{opacity:1;fill:#517867}
 .preview-ghost>.piece-circle{fill:none;stroke:#416d5d;stroke-width:1.07;stroke-dasharray:2.67 1.87}
+.piece:is(.preview-origin,.drag-origin,.own-moving-origin){opacity:1}
+.piece:is(.preview-origin,.drag-origin,.own-moving-origin) :is(.token-body-paint,.piece-icon,.token-veteran-wreath){opacity:.48}
+.piece:is(.preview-origin,.drag-origin,.own-moving-origin) .token-team-tint{opacity:1;fill:#89988d}
+#board .piece:is(.preview-origin,.drag-origin,.own-moving-origin)>.piece-circle{fill:none;stroke:#7c8c82;stroke-width:1.07;stroke-dasharray:2.67 1.87;filter:none}
+#board.is-dragging .cell.selected .tile{fill:#e1e5cc;stroke:#b8bea3;stroke-width:1.3}
+#board.is-dragging .cell.drag-target .tile{fill:#c3c9ac;stroke:#a6b58b;stroke-width:1.3;stroke-dasharray:none}
 .piece.combat-muted .unit-badges{display:none}
 .piece.preview-origin .unit-badges{display:none}
 .token-number .token-digit-text{font-family:"Token Belwe";font-weight:700;fill:#fff;stroke:#000;dominant-baseline:alphabetic;paint-order:stroke fill}
@@ -931,9 +944,10 @@ main{padding:14px}
 .team-card:has(.team-card-action){gap:6px}
 .team-card-details{display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap}
 .team-card.north .team-card-details{justify-content:flex-end}
-.team-card-details .team-count{order:1;font-size:12px;line-height:20px;font-weight:400;font-variant-numeric:tabular-nums;color:inherit}
+.team-card-details .team-count{order:1;color:inherit}
 .team-card-details .team-roster{justify-content:flex-start;align-items:center;flex-wrap:wrap;flex-basis:auto;gap:6px;color:inherit}
-.team-card .team-unit{flex:0 0 auto;min-width:0;font-size:13px;line-height:20px;font-weight:500;gap:3px}
+.team-card .team-unit{flex:0 0 auto;min-width:0;gap:3px}
+.team-card-details :is(.team-count,.team-unit){font-family:inherit;font-size:13px;line-height:20px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:0}
 .team-card .team-unit svg{width:18px;height:18px}
 @media(max-width:380px){
 .team-card{padding:10px 10px 10px 74px}
@@ -981,3 +995,11 @@ main{padding:14px}
 @media(max-width:700px){.team-card.match-result{height:auto;min-height:72px;padding-right:80px}.team-card.match-result.draw{padding-right:12px}}
 
 #sound-toggle[aria-expanded="false"] [data-sound-icon="close"],#sound-toggle[aria-expanded="true"] [data-sound-icon="on"],#sound-toggle[aria-expanded="true"] [data-sound-icon="off"]{display:none}
+
+/* Temporary presentation layer for the double table knock. */
+.board-wrap.table-rattle-active{transform-origin:50% 55%;will-change:transform;isolation:isolate}
+.table-rattle-active #board-pieces{opacity:0}
+.table-rattle-active :is(#aura-circles,#selected-attack-reach,#attack-lines,#death-effects){opacity:0}
+.table-rattle-active #board{pointer-events:none}
+#table-rattle-effect{pointer-events:none}
+#table-rattle-pieces .piece{pointer-events:none}

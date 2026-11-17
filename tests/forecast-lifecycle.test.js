@@ -21,7 +21,7 @@ function setup() {
       focus() { context.document.activeElement = cell; context.hoverCell({ target: cell }); } });
     return nodes.get(selector);
   };
-  const context = vm.createContext({ config, state, report: analyze(state, config), selected: null, hover: null, inspection: null,
+  const context = vm.createContext({ tableRattle: null, boardDrag: null, config, state, report: analyze(state, config), selected: null, hover: null, inspection: null,
     boardFocus: '0,1', restoringBoardFocus: false, fieldView: null, movement: null, combat: null, currentDeaths: [],
     available: [], editor: false, playMode: 'local', humanTeam: 0, gamePhase: 'playing', reviewingTurn: false,
     TEAM_NAMES, LABELS, cells, key, shieldCanRetreat, archerHasEdgeBonus, inspectCell, renderDamageArrows, inspectionDamageArrows, damageArrowMarkers, ICON_PATHS: {},
@@ -72,4 +72,55 @@ test('the focus restoration guard is released if the browser rejects focus', () 
   node('#board [tabindex="0"]').focus = () => { throw new Error('focus interrupted'); };
   assert.throws(() => context.boardMarkup(), /focus interrupted/);
   assert.equal(context.restoringBoardFocus, false);
+});
+
+test('forecast highlights the destination and clearing it restores the selected origin', () => {
+  const { context } = setup();
+  context.state.turn = 0;
+  context.selected = 'mover';
+  const origin = { dataset: { cell: '0,1' }, classes: new Set(['selected']) };
+  const destination = { dataset: { cell: '0,0' }, classes: new Set() };
+  for (const cell of [origin, destination]) cell.classList = {
+    toggle(name, active) { active ? cell.classes.add(name) : cell.classes.delete(name); }
+  };
+  context.document.querySelectorAll = selector => selector.endsWith('[data-cell]') ? [origin, destination] : [];
+  context.inspection = inspectCell(context.state, context.config, { q: 0, r: 0 }, 'mover', context.report);
+  assert.equal(context.inspection.isPreview, true);
+  context.highlightSources();
+  assert.equal(origin.classes.has('selected'), false);
+  assert.equal(destination.classes.has('selected'), true);
+  assert.equal(origin.classes.has('move-destination'), false);
+  assert.equal(destination.classes.has('move-destination'), true);
+  context.clearHover();
+  assert.equal(origin.classes.has('selected'), true);
+  assert.equal(destination.classes.has('selected'), false);
+  assert.equal(destination.classes.has('move-destination'), false);
+  assert.deepEqual([context.state.pieces[0].q, context.state.pieces[0].r], [0, 1]);
+});
+
+test('opponent turns and opponent animations do not highlight selected or moving cells', () => {
+  for (const mode of ['bot', 'online']) {
+    const { context, node } = setup();
+    context.playMode = mode; context.humanTeam = 0; context.roomView = { selfSeat: 0 };
+    context.selected = 'mover'; context.state.turn = 1;
+    context.boardMarkup();
+    assert.doesNotMatch(node('#board').innerHTML, /class="cell[^\"]*\b(selected|move-destination|movement-range)\b/);
+    assert.doesNotMatch(node('#board').innerHTML, /own-moving-origin/);
+    const cell = { dataset: { cell: '0,1' }, classes: new Set(['selected']) };
+    cell.classList = { toggle(name, active) { active ? cell.classes.add(name) : cell.classes.delete(name); } };
+    context.document.querySelectorAll = selector => selector.endsWith('[data-cell]') ? [cell] : [];
+    context.highlightSources();
+    assert.equal(cell.classes.has('selected'), false);
+    context.movement = { piece: context.state.pieces[1], action: { to: { q: 2, r: 0 } } };
+    context.boardMarkup();
+    assert.doesNotMatch(node('#board').innerHTML, /class="cell[^\"]*\b(selected|move-destination|movement-range)\b/);
+    assert.doesNotMatch(node('#board').innerHTML, /own-moving-origin/);
+    assert.match(node('#board').innerHTML, /class="piece[^\"]*\bmoving-origin\b/);
+    // After committing our own move the state turn has already changed, but
+    // its animation still belongs to our piece.
+    context.movement.piece = context.state.pieces[0];
+    context.boardMarkup();
+    assert.match(node('#board').innerHTML, /class="cell[^\"]*\bmove-destination\b/);
+    assert.match(node('#board').innerHTML, /moving-origin own-moving-origin/);
+  }
 });

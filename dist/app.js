@@ -4,7 +4,7 @@ import { boardNavigationTarget } from './board-navigation.js';
 import { renderTokenBody, HORN_ICON_PATH, COMMANDER_ICON_PATH } from './token-presentation.js';
 import { DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance, upgradeSelectedBalancePreset } from './rules.js';
 import { consumeNewGameRefresh, refreshNewGamePage, hasNewerGameVersion, needsNewGame, latestGameVersion } from './new-game-refresh.js';
-import { clone, key, cells, validateConfig, validateState, createGame, analyze, inspectCell, effective, reachable, movementPath, shieldCanRetreat, archerHasEdgeBonus, move, pass, resolve } from './engine.js';
+import { clone, key, cells, validateConfig, validateState, createGame, analyze, inspectCell, effective, reachable, movementArea, movementPath, shieldCanRetreat, archerHasEdgeBonus, move, pass, resolve } from './engine.js';
 import { BotRunner, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty } from './bot-client.js';
 import { classifyPosition, prepareStartPosition } from './start-position.js';
 import { DEFAULT_START_CHOICES, resolveStartChoices } from './start-preferences.js';
@@ -14,6 +14,9 @@ import { hexGridPoint, hexGridPolygon, inspectionDamageArrows, renderHintArrow, 
 import { createGuideController } from './guide-controller.js';
 import { MultiplayerSession } from './multiplayer-session.js';
 import { GameAudio } from './audio.js';
+import { TableKnocks } from './table-knocks.js';
+import { TableRattle } from './table-rattle.js';
+import { BoardDrag } from './board-drag.js';
 const $ = selector => document.querySelector(selector);
 const gameAudio = new GameAudio();
 const soundButton = $('#sound-toggle');
@@ -132,6 +135,7 @@ let reviewTurn = null, reviewLoading = false, reviewRequest = 0;
 const ROOM_STORAGE = 'trows-online-room-v1';
 let roomSession = null, roomView = null, roomLocalGame = null, roomTarget = null, roomSnapshot = null, roomConnecting = false, roomLeaving = false, roomError = '';
 let roomMovePreview = null;
+let boardDrag = null;
 let roomWantsFirst = true;
 const roomFirstMoveNotices = new Set();
 const botRunner = new BotRunner();
@@ -164,7 +168,7 @@ function requestHint() {
 function renderHint() {
   const button = $('#show-hint'), panel = $('#move-hint');
   button.disabled = !canRequestHint() || Boolean(hint && !hint.failed);
-  button.textContent = hint?.failed ? 'Разбудить' : 'Попросить совет';
+  button.textContent = 'Подсказать ход';
   button.setAttribute('aria-expanded', String(Boolean(hint)));
   panel.hidden = !hint;
   panel.setAttribute('aria-busy', String(Boolean(hint?.pending)));
@@ -203,6 +207,8 @@ const freshNewGameStartRequested = new URL(location.href).searchParams.get('_new
 const freshNewGameRequested = consumeNewGameRefresh(location, window.history);
 let currentDeaths = [], deathEffectTimer;
 let movement = null, combat = null;
+let tableKnocks = null;
+let tableRattle = null;
 const moveAnimator = new MovementAnimator(frame => {
   const token = $('#moving-token');
   if (token) { token.setAttribute('transform', `translate(${frame.x},${frame.y})`); token.dataset.progress = String(frame.progress); }
@@ -357,9 +363,9 @@ function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
 function visibleState() { return movement ? movement.before.state : combat ? combat.visiblePosition : roomMovePreview ? roomMovePreview.position : reviewingTurn && (reviewTurn || lastTurn) ? (reviewTurn?.position || (reviewTurn || lastTurn).before.state) : state; }
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
-function humanCanMove() { return gamePhase === 'playing' && !roomMovePreview && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
+function humanCanMove() { return gamePhase === 'playing' && !tableRattle?.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
-function cancelMovement() { roomMovePreview = null; movement?.sound?.cancel(); combat?.stopRemoval?.(); moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
+function cancelMovement() { tableRattle?.cancel(); roomMovePreview = null; movement?.sound?.cancel(); combat?.stopRemoval?.(); moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
 function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function completeMovementPresentation(completed) {
   if (!completed) return;
@@ -468,6 +474,8 @@ function boardMarkup() {
   $('#board').setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
   const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p])), destinations = new Set(available.map(c => key(c.q, c.r)));
   const selectedPiece = state.pieces.find(p => p.id === selected);
+  const showMoveHighlights = playMode === 'bot' ? (movement?.piece.team ?? state.turn) === humanTeam : playMode !== 'online' || roomView?.selfSeat != null && (movement?.piece.team ?? state.turn) === roomView.selfSeat;
+  const movementCells = new Set(selectedPiece && !editor && available.length ? movementArea(selectedPiece, state, config).map(c => key(c.q, c.r)) : []);
   if (!board.some(cell => key(cell.q, cell.r) === boardFocus)) {
     const first = selectedPiece || state.pieces.find(piece => piece.team === state.turn) || board[0];
     boardFocus = first ? key(first.q, first.r) : null;
@@ -477,13 +485,15 @@ function boardMarkup() {
     const k = key(c.q, c.r), p = occupied.get(k), { x, y } = point(c);
     const classes = ['cell'];
     if (destinations.has(k) && !editor && selectedPiece?.team === state.turn) classes.push('reachable');
-    if (p?.id === selected) classes.push('selected');
+    if (showMoveHighlights && p && (movementCells.has(k) || movement?.piece.id === p.id)) classes.push('movement-range');
+    if (showMoveHighlights && (movement ? c.q === movement.action.to.q && c.r === movement.action.to.r : p?.id === selected)) classes.push('selected');
+    if (showMoveHighlights && movement && c.q === movement.action.to.q && c.r === movement.action.to.r) classes.push('move-destination');
     const details = p ? `${TEAM_NAMES[p.team]}, ${LABELS[p.type]}${shieldCanRetreat(p, config) || archerHasEdgeBonus(p, config) ? '-ветеран' : ''}` : 'пусто';
     let token = '';
     if (p) {
       const info = report.get(p.id);
       const appearance = unitAppearance(p, config, ICON_PATHS, p.team, playMode === 'online' && roomView?.selfSeat === 0);
-      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''} ${movement?.piece.id === p.id ? 'moving-origin' : ''}" data-piece-id="${p.id}" data-piece-type="${p.type}" data-veteran="${appearance.veteran}" transform="translate(${x},${y})">${renderTokenBody(appearance, p.team)}${unitBadges(info, { pieceType: p.type, veteran: appearance.veteran })}</g>`;
+      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''} ${movement?.piece.id === p.id ? `moving-origin${showMoveHighlights ? ' own-moving-origin' : ''}` : ''}" data-piece-id="${p.id}" data-piece-type="${p.type}" data-veteran="${appearance.veteran}" transform="translate(${x},${y})">${renderTokenBody(appearance, p.team)}${unitBadges(info, { pieceType: p.type, veteran: appearance.veteran })}</g>`;
     }
     tokens.push(token);
     const info = p && report.get(p.id);
@@ -551,15 +561,21 @@ function highlightSources() {
       element.querySelector('.unit-badges').outerHTML = unitBadges(info, { showIncoming: !previewOrigin && (potentialDamage.has(id) || id === selected || id === target?.id), potentialDamage: potentialDamage.has(id), pieceType: element.dataset.pieceType, veteran: element.dataset.veteran === 'true' });
     }
   });
-  document.querySelectorAll('#board [data-cell]').forEach(element => element.classList.toggle('inspection-target', !!target && element.dataset.cell === key(target.q, target.r)));
+  const showMoveHighlights = playMode === 'bot' ? context.position.turn === humanTeam : playMode !== 'online' || roomView?.selfSeat != null && context.position.turn === roomView.selfSeat;
+  const selectedPosition = showMoveHighlights ? context.position.pieces.find(piece => piece.id === selected) : null;
+  document.querySelectorAll('#board [data-cell]').forEach(element => {
+    element.classList.toggle('inspection-target', !!target && element.dataset.cell === key(target.q, target.r));
+    element.classList.toggle('selected', !!selectedPosition && element.dataset.cell === key(selectedPosition.q, selectedPosition.r));
+    element.classList.toggle('move-destination', context.isPreview && !!selectedPosition && element.dataset.cell === key(selectedPosition.q, selectedPosition.r));
+  });
   paintAttackReach(context); renderInspector(context);
   const layer = $('#attack-lines');
   if (!layer) return;
   const end = target ? point(target) : null;
   const targetInfo = target ? context.report.get(target.id) : null;
-  const ghostAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS, target.team, playMode === 'online' && roomView?.selfSeat === 0) : null;
-  const ghost = context.isPreview ? `<g class="preview-ghost ${target.team ? 'south' : 'north'}${ghostAppearance.veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})">${renderTokenBody(ghostAppearance, target.team)}${unitBadges(targetInfo, { showIncoming: true, pieceType: target.type, veteran: ghostAppearance.veteran })}</g>` : '';
-  layer.innerHTML = renderDamageArrows(inspectionArrows, point, { config, pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: ghost, maxBend: 18 });
+  const previewAppearance = context.isPreview ? unitAppearance(target, config, ICON_PATHS, target.team, playMode === 'online' && roomView?.selfSeat === 0) : null;
+  const preview = context.isPreview && !context.isDragPreview ? `<g class="piece preview-token ${target.team ? 'south' : 'north'}${previewAppearance.veteran ? ' veteran' : ''} ${targetInfo.dead ? 'fatal' : ''}" transform="translate(${end.x},${end.y})">${renderTokenBody(previewAppearance, target.team)}${unitBadges(targetInfo, { showIncoming: true, pieceType: target.type, veteran: previewAppearance.veteran })}</g>` : '';
+  layer.innerHTML = renderDamageArrows(inspectionArrows, point, { config, pieces: context.position.pieces, board: cells(config), report: context.report, previewMarkup: preview, maxBend: 18 });
 }
 function paintAttackReach(context) {
   const layer = $('#selected-attack-reach');
@@ -727,6 +743,9 @@ function renderStartSettings() {
   $('#configure-position').hidden = positionKind !== 'custom';
 }
 function render(deaths = []) {
+  boardDrag?.cancel();
+  tableRattle?.cancel();
+  tableKnocks?.reset();
   if (typeof browserAnalytics !== 'undefined') queueMicrotask(trackGameTime);
   // Keep the current board behind the start dialog while its draft is edited.
   if (previousGame && gamePhase === 'setup' && !editor && $('#start-dialog').open) { renderStartSettings(); save(); return; }
@@ -749,6 +768,7 @@ function render(deaths = []) {
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
   boardMarkup(); paintAuras(); highlightSources();
+  boardDrag?.refresh();
   $('#board').setAttribute('aria-busy', String(Boolean(movement || combat)));
   $('#board').setAttribute('data-combat-phase', combat?.phase || 'idle');
   renderGameResult(state);
@@ -812,6 +832,7 @@ function deleteEditorSelection(event) {
   render();
 }
 function onCell(q, r) {
+  if (tableRattle?.active) return;
   const occupant = visibleState().pieces.find(p => p.q === q && p.r === r);
   if (!editor && occupant && !movement && !combat && !currentDeaths.length) { selected = selected === occupant.id ? null : occupant.id; render(); return; }
   if (!editor && !humanCanMove()) { clearSelection(); return; }
@@ -829,6 +850,7 @@ function onCell(q, r) {
   try { const result = move(state, config, selected, { q, r }), before = currentSnapshot(), action = { id: selected, from: result.action.from, to: result.action.to }; checkpoint(playMode === 'bot' ? 'human' : 'other', action); lastTurn = { before, action }; state = result.state; log.push({ text: `${TEAM_NAMES[result.action.team]} · ${LABELS[result.action.type]}: ${positionText(result.action.from)} → ${q}, ${r}`, detail: deathDetail(result.deaths) }); recordGameAction('move', { action, deaths: result.deaths, actor: 'human' }); selected = null; presentMove(before, action, result.deaths); } catch (error) { toast(error.message); }
 }
 function activateBoardCell(q, r) {
+  if (tableRattle?.active) return;
   const empty = !visibleState().pieces.some(piece => piece.q === q && piece.r === r);
   const placing = editor && tool !== 'erase' && empty;
   const moving = !editor && humanCanMove() && selected && empty && available.some(cell => cell.q === q && cell.r === r);
@@ -859,6 +881,8 @@ $('#board').addEventListener('keydown', event => {
   }
 });
 function hoverCell(event) {
+  if (boardDrag?.active) return;
+  if (tableRattle?.active) return;
   if (restoringBoardFocus || combat || movement) return;
   const c = event.target.closest('[data-cell]'), k = c?.dataset.cell;
   if (event.type === 'pointermove' && event.pointerType !== 'touch') gameAudio.hover(k ? `board:${k}` : null);
@@ -1318,6 +1342,50 @@ $('#settings-form').addEventListener('submit', event => {
   } catch (error) { $('#settings-error').textContent = error.message; }
 });
 $('#reset-defaults').addEventListener('click', () => fillSettings(DEFAULT_CONFIG));
+function draggablePiece(cellKey) {
+  if (docGuideOpen() || $('dialog[open]') || movement || combat || currentDeaths.length || reviewingTurn || reviewLoading || tableRattle?.active) return null;
+  if (editor ? tool === 'erase' : !humanCanMove()) return null;
+  const piece = state.pieces.find(p => key(p.q, p.r) === cellKey);
+  return piece && (editor || piece.team === state.turn) ? piece : null;
+}
+function previewDraggedPiece(piece, cellKey, token) {
+  hover = cellKey;
+  if (!editor && cellKey) {
+    const [q, r] = cellKey.split(',').map(Number);
+    inspection = { ...inspectCell(state, config, { q, r }, piece.id, report), isDragPreview: true };
+  } else inspection = null;
+  paintAuras(); highlightSources();
+  const context = inspectionContext();
+  const shownPiece = context.position.pieces.find(p => p.id === piece.id) || piece;
+  const info = context.report.get(piece.id);
+  const appearance = unitAppearance(shownPiece, config, ICON_PATHS, piece.team, playMode === 'online' && roomView?.selfSeat === 0);
+  token.classList.toggle('veteran', appearance.veteran);
+  token.classList.toggle('fatal', info.dead);
+  token.dataset.veteran = String(appearance.veteran);
+  token.innerHTML = renderTokenBody(appearance, piece.team) + unitBadges(info, { showIncoming: true, pieceType: piece.type, veteran: appearance.veteran });
+}
+boardDrag = new BoardDrag({ board: $('#board'), canStart: draggablePiece,
+  start: piece => {
+    if (draggablePiece(key(piece.q, piece.r)) !== piece) return null;
+    clearHint(); selected = piece.id; render();
+    return [...$('#board').querySelectorAll('[data-piece-id]')].find(node => node.dataset.pieceId === piece.id);
+  },
+  canDrop: (piece, cellKey) => {
+    if (selected !== piece.id || draggablePiece(key(piece.q, piece.r)) !== piece) return false;
+    const [q, r] = cellKey.split(',').map(Number);
+    return !state.pieces.some(p => p.q === q && p.r === r) && (editor || available.some(c => c.q === q && c.r === r));
+  },
+  drop: (piece, cellKey) => { focusBoardCell(cellKey); activateBoardCell(...cellKey.split(',').map(Number)); },
+  preview: previewDraggedPiece,
+  finish: clearHover
+});
+tableRattle = new TableRattle({ surface: $('.board-wrap'), board: $('#board'), onFinish: queueBot,
+  onDisappear: () => gameAudio.play('remove') });
+tableKnocks = new TableKnocks({ surface: $('.board-wrap'), board: $('#board'), audio: gameAudio,
+  onShake: () => tableRattle.start(),
+  canKnock: () => ready && gamePhase === 'playing' && !editor && !reviewingTurn && !reviewLoading
+    && !tableRattle.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !isBotTurn() && !botRunner.active
+    && !hint?.pending && !document.hidden && !$('dialog[open]') && $('#rules-dialog')?.hidden !== false });
 createGuideController({ onAnalytics:(type,extra) => { browserAnalytics.event(type,extra); queueMicrotask(trackGameTime); }, icons: ICON_PATHS, renderBadges: unitBadges, audio: gameAudio,
   beforeOpen: () => { cancelBot(); cancelMovement(); gameAudio.stopAll(); }, onClose: render });
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { render(); }));

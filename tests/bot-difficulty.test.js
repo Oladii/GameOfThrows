@@ -23,7 +23,7 @@ function setup() {
   const nodes = { '#start-dialog': { close() {} } };
   for (const id of ['bot-difficulty', 'first-move', 'play-mode', 'human-side']) nodes['#' + id] = { addEventListener(type, callback) { handlers.set(id, callback); if (id === 'bot-difficulty') handler = callback; } };
   const context = vm.createContext({ DEFAULT_START_CHOICES, resolveStartChoices, hasNewerGameVersion, CURRENT_RULES_VERSION: '0.1.20', latestRulesVersion: null, DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty, clone, createGame, classifyPosition,
-    config: clone(DEFAULT_CONFIG), state: clone(createGame(DEFAULT_CONFIG)), gamePhase: 'playing', editor: false,
+    tableRattle: null, tableKnocks: null, boardDrag: null, config: clone(DEFAULT_CONFIG), state: clone(createGame(DEFAULT_CONFIG)), gamePhase: 'playing', editor: false,
     playMode: 'bot', humanTeam: 1, firstMove: 'south', history: [], log: [], lastTurn: null, previousGame: null, positionKind: 'default',
     STORAGE: 'test', BALANCE_REVISION: 5, PRESET_REVISION: 1, START_PREFS_REVISION: 1, CURRENT_GAME_VERSION: '0.1.20', gameVersion: '0.1.19',
     DEFAULT_CONFIG, upgradeSelectedBalancePreset, validateConfig, validateState, prepareStartPosition, startPreferences: null, refreshingNewGame: false, startRefreshController: null, AbortController, movement: null, combat: null,

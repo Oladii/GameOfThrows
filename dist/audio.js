@@ -11,8 +11,42 @@ export const GAME_SOUND_PROFILES = {
   place: { gain: .04, lowpass: 400, highpass: 240, duration: .055, attack: .012 },
   remove: { gain: .06, lowpass: 10000 },
   click: { gain: .02, lowpass: 2500, highpass: 550, duration: .006, attack: .0005 },
-  hover: { gain: .0875, lowpass: 10000 }
+  hover: { gain: .0875, lowpass: 10000 },
+  // Preserve the approved timbres. The first strike is now 75% quieter and
+  // the second 50% quieter; the volume slider/mute still applies to every cue.
+  knock1: { gain: .25 / GAME_MASTER_GAIN, dry: true, immediate: true },
+  knock2: { gain: .5 / GAME_MASTER_GAIN, dry: true, immediate: true },
+  knock3: { gain: 1 / GAME_MASTER_GAIN, dry: true, immediate: true },
+  scatter: { gain: 1 / GAME_MASTER_GAIN, dry: true, immediate: true }
 };
+
+// Decode the tiny embedded PCM16 cues synchronously on the first user gesture.
+// This avoids losing the first knock while unrelated sounds decodeAudioData.
+function tableKnockWavBuffer(context, bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const tag = offset => String.fromCharCode(...bytes.subarray(offset, offset + 4));
+  if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
+  let format, data;
+  for (let offset = 12; offset + 8 <= bytes.length;) {
+    const size = view.getUint32(offset + 4, true), start = offset + 8;
+    if (start + size > bytes.length) return null;
+    if (tag(offset) === 'fmt ' && size >= 16) format = {
+      code: view.getUint16(start, true), channels: view.getUint16(start + 2, true),
+      rate: view.getUint32(start + 4, true), bits: view.getUint16(start + 14, true)
+    };
+    if (tag(offset) === 'data') data = { start, size };
+    offset = start + size + (size % 2);
+  }
+  if (!format || !data || format.code !== 1 || format.bits !== 16
+    || ![1, 2].includes(format.channels) || data.size % (2 * format.channels)) return null;
+  const length = data.size / (2 * format.channels);
+  const buffer = context.createBuffer(format.channels, length, format.rate);
+  for (let channel = 0; channel < format.channels; channel++) {
+    const output = buffer.getChannelData(channel);
+    for (let i = 0; i < length; i++) output[i] = view.getInt16(data.start + (i * format.channels + channel) * 2, true) / 32768;
+  }
+  return buffer;
+}
 
 // Only a straight, unobstructed route slides. A bend or an intermediate
 // occupied cell means the piece is lifted and placed at the destination.
@@ -52,7 +86,19 @@ export class GameAudio {
     try {
       this.context ||= this.createContext();
       const resumed = this.context.state !== 'running' ? this.context.resume().catch(() => {}) : Promise.resolve();
+      this.resuming = resumed;
+      if (typeof this.context.createBuffer === 'function') {
+        for (const name of ['knock1', 'knock2', 'knock3', 'scatter']) {
+          if (this.buffers[name] || !this.assets[name]) continue;
+          try {
+            const bytes = Uint8Array.from(atob(this.assets[name].split(',')[1]), char => char.charCodeAt(0));
+            const buffer = tableKnockWavBuffer(this.context, bytes);
+            if (buffer) this.buffers[name] = buffer;
+          } catch { /* Fall back to the normal decoder if PCM decoding fails. */ }
+        }
+      }
       this.loading ||= Promise.all(Object.entries(this.assets).map(async ([name, data]) => {
+        if (this.buffers[name]) return;
         try {
           const bytes = Uint8Array.from(atob(data.split(',')[1]), char => char.charCodeAt(0));
           this.buffers[name] = await this.context.decodeAudioData(bytes.buffer);
@@ -86,6 +132,7 @@ export class GameAudio {
     if (!this.enabled || this.hidden()) return silentSound;
     const profile = GAME_SOUND_PROFILES[name];
     if (!profile) return silentSound;
+    if (profile.immediate) void this.unlock();
     const sample = profile.sample || name;
     const epoch = this.epoch, requested = this.now();
     let cancelled = false, source = null, gain = null, filter = null, highpass = null;
@@ -119,9 +166,13 @@ export class GameAudio {
           highpass.frequency.value = profile.highpass; highpass.Q.value = .5;
           source.connect(highpass);
         }
-        filter = this.context.createBiquadFilter(); filter.type = 'lowpass';
-        filter.frequency.value = profile.lowpass; filter.Q.value = .5;
-        (highpass || source).connect(filter); filter.connect(gain); gain.connect(this.context.destination);
+        if (profile.dry) source.connect(gain);
+        else {
+          filter = this.context.createBiquadFilter(); filter.type = 'lowpass';
+          filter.frequency.value = profile.lowpass; filter.Q.value = .5;
+          (highpass || source).connect(filter); filter.connect(gain);
+        }
+        gain.connect(this.context.destination);
         const time = this.context.currentTime;
         const level = profile.gain * GAME_MASTER_GAIN * (this.volume / .5);
         const length = Math.min(source.buffer.duration, duration ?? Infinity, profile.duration ?? Infinity);
@@ -138,6 +189,7 @@ export class GameAudio {
       } catch { cleanup(); }
     };
     if (this.buffers[sample] && this.context?.state === 'running') start();
+    else if (profile.immediate && this.buffers[sample]) void this.resuming.then(start).catch(cleanup);
     else void this.unlock().then(start).catch(cleanup);
     return stop;
   }
