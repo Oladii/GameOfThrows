@@ -47,10 +47,11 @@ for (const [team, forgiveSeed, ordinarySeed] of [[0, 2, 11], [1, 1, 3]]) {
   });
 }
 
-test('training refuses an excessive concession in the full-army tactical regression', () => {
+test('after two losses training refuses an excessive concession in the full-army tactical regression', () => {
   const { state, seed } = JSON.parse(fs.readFileSync(new URL('./fixtures/bot-forgiving-defense.json', import.meta.url)));
   const normal = chooseBotAction(state, DEFAULT_CONFIG, { depth: 2, seed });
-  const result = chooseBotAction(state, DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.training, seed });
+  const result = chooseBotAction(state, DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.training, seed,
+    initialOwnCount: state.pieces.filter(p => p.team === state.turn).length + 2 });
   assert.equal(result.stats.forgiveness.considered, true);
   assert.equal(result.stats.forgiveness.applied, false);
   assert.deepEqual(result.action, normal.action);
@@ -249,3 +250,67 @@ for (const team of [0, 1]) {
     assert.equal(analysis.replies, legal(outcome.state).length);
   });
 }
+
+for (const team of [0, 1]) {
+  test(`training accepts contested early exchanges but restores strict protection after two losses on side ${team}`, () => {
+    const fixture = JSON.parse(fs.readFileSync(new URL('./fixtures/bot-forgiving-defense.json', import.meta.url)));
+    const state = team === fixture.state.turn ? fixture.state : { ...fixture.state, turn: team,
+      pieces: fixture.state.pieces.map(p => ({ ...p, team: 1 - p.team, q: -p.q, r: -p.r })) };
+    const ownCount = state.pieces.filter(p => p.team === team).length;
+    const legal = position => position.pieces.filter(p => p.team === position.turn)
+      .flatMap(p => reachable(p, position, DEFAULT_CONFIG).map(to => ({ id: p.id, to })));
+    const strict = chooseBotAction(state, DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.training, seed: fixture.seed, initialOwnCount: ownCount + 2 });
+    for (const losses of [0, 1]) {
+      const before = JSON.stringify(state);
+      const options = { ...BOT_DIFFICULTIES.training, seed: fixture.seed, initialOwnCount: ownCount + losses,
+        previousStates: [{ ...clone(state), ply: state.ply - 1 }, state] };
+      const result = chooseBotAction(state, DEFAULT_CONFIG, options), info = result.stats.forgiveness;
+      assert.equal(info.opening.lost, losses);
+      assert.equal(info.opening.remaining, 2 - losses);
+      assert.equal(info.opening.accepted, true);
+      assert.notDeepEqual(result.action, strict.action);
+      const next = apply(state, DEFAULT_CONFIG, result.action);
+      assert.equal(next.deaths.length, 0, 'no figure is immediately handed over');
+      assert.equal(info.lossAfter.immediate, 0, 'the player is spared the punishing capture');
+      assert.ok(info.lossAfter.immediate < strict.stats.forgiveness.lossBefore.immediate);
+      let contested = 0;
+      for (const action of legal(next.state)) {
+        const reply = move(next.state, DEFAULT_CONFIG, action.id, action.to);
+        assert.notEqual(reply.state.winner, 1 - team); assert.notEqual(reply.state.winner, 'draw');
+        const lost = reply.deaths.filter(p => p.team === team);
+        if (!lost.length) continue;
+        contested++;
+        assert.equal(lost.length, 1); assert.notEqual(lost[0].type, 'defenseLamp');
+        assert.ok(reply.deaths.some(p => p.id === action.id) || legal(reply.state).some(counter => {
+          const answer = move(reply.state, DEFAULT_CONFIG, counter.id, counter.to);
+          return answer.deaths.some(p => p.id === action.id) && !answer.deaths.some(p => p.team === team)
+            && (answer.state.winner === null || answer.state.winner === team);
+        }), 'every allowed capture retains real counterplay');
+      }
+      assert.ok(contested > 0);
+      assert.equal(JSON.stringify(state), before);
+    }
+    assert.equal(strict.stats.forgiveness.opening.remaining, 0);
+    assert.equal(strict.stats.forgiveness.opening.accepted, false);
+    const inferred = chooseBotAction(state, DEFAULT_CONFIG, { ...BOT_DIFFICULTIES.training, seed: fixture.seed,
+      previousStates: [{ ...clone(state), ply: 0, pieces: [...state.pieces, piece('lost1', 'archer', team, 4, -4), piece('lost2', 'archer', team, -4, 4)] }] });
+    assert.equal(inferred.stats.forgiveness.opening.remaining, 0);
+    assert.deepEqual(inferred.action, strict.action);
+  });
+}
+
+test('early leniency rejects a free capture without a recapture and never relaxes flag protection', () => {
+  for (const type of ['archer', 'defenseLamp']) {
+    const state = { turn: 0, ply: 8, winner: null, pieces: [piece('target', type, 0, 0, 0),
+      ...(type === 'archer' ? [piece('f', 'defenseLamp', 0, 0, -5)] : [piece('a', 'archer', 0, 0, -4)]),
+      piece('s', 'shield', 0, -3, 3), piece('es', 'shield', 1, 2, 0), piece('ef', 'defenseLamp', 1, 0, 5)] };
+    const next = move(state, DEFAULT_CONFIG, 's', { q: -3, r: 4 });
+    assert.equal(next.deaths.length, 0);
+    const legal = position => position.pieces.filter(p => p.team === position.turn)
+      .flatMap(p => reachable(p, position, DEFAULT_CONFIG).map(to => ({ id: p.id, to })));
+    const result = oneReplyRestraint(next, 0, legal,
+      (position, action) => move(position, DEFAULT_CONFIG, action.id, action.to), pieces => pieces.length * 300, { remaining: 2 });
+    assert.equal(result.safe, false);
+    assert.equal(result.contestedSafe, false);
+  }
+});

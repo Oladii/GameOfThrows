@@ -300,3 +300,17 @@ test('closing setup without a previous match also cancels a pending release star
   finish(true); await pending;
   assert.equal(ui.context.gamePhase, 'setup'); assert.equal(ui.context.previousGame, null);
 });
+
+test('training request counts early losses from the full saved history beyond the recent search window', () => {
+  const ui = setup();
+  const initial = clone(ui.context.state);
+  ui.context.state.pieces.splice(0, 2); ui.context.state.ply = 62;
+  const older = { config: clone(ui.context.config), state: { ...initial, ply: 0 } };
+  ui.context.history = [older, ...Array.from({ length: 61 }, (_, ply) => ({ config: clone(ui.context.config), state: { ...clone(ui.context.state), ply: ply + 1 } }))];
+  ui.context.history = JSON.parse(JSON.stringify(ui.context.history));
+  ui.run('startBot()');
+  assert.equal(ui.request().options.initialOwnCount, 13);
+  ui.context.state = initial; ui.context.history = [];
+  ui.run('startBot()');
+  assert.equal(ui.request().options.initialOwnCount, 13);
+});

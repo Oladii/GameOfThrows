@@ -441,8 +441,12 @@ function queueBot() {
 }
 function startBot() {
   const requestedState = state, requestedConfig = config, recent = recentBotHistory(), lastActions = new Map();
+  const rulesKey = JSON.stringify(config);
+  const initialOwnCount = history.reduce((count, entry) => JSON.stringify(entry.config) === rulesKey
+    ? Math.max(count, entry.state.pieces.filter(piece => piece.team === state.turn).length) : count,
+  state.pieces.filter(piece => piece.team === state.turn).length);
   for (const entry of recent) if (entry.action?.id) lastActions.set(entry.action.id, entry.action);
-  botRunner.run({ state, config, options: { ...BOT_DIFFICULTIES[botDifficulty], seed: 17001, previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
+  botRunner.run({ state, config, options: { ...BOT_DIFFICULTIES[botDifficulty], seed: 17001, initialOwnCount, previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
     if (state !== requestedState || config !== requestedConfig || !isBotTurn() || editor || reviewingTurn) return;
     if (!result?.action) { botIssue = 'У бота нет доступных ходов. Начни новую игру'; render(); return; }
     try {

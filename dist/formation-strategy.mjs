@@ -15,22 +15,45 @@ export function advisorReplySafety(position, team, legalActions, simulate) {
 }
 
 /** Native teaching analysis of both armies through every legal next reply.
- * Own safety is universal; opponent losses are the least they can escape with.
+ * `safe` is universal own safety; optional `contestedSafe` also admits an early
+ * exchange with a native recapture. Opponent losses are the least escapable.
  * Thus deliberate opponent sacrifices do not masquerade as forced casualties.
  */
-export function oneReplyRestraint(outcome, team, legalActions, simulate, value) {
+export function oneReplyRestraint(outcome, team, legalActions, simulate, value, opening) {
   const immediateLoss = value(outcome.deaths.filter(piece => piece.team !== team));
   const result = { safe: outcome.state.winner === null && !outcome.deaths.some(piece => piece.team === team),
     immediateLoss, unavoidableLoss: immediateLoss, savingReplies: 0, replies: 0 };
   if (!result.safe) return result;
+  if (opening) { result.contestedSafe = true; result.atRisk = []; }
   let leastReplyLoss = Infinity;
   for (const action of legalActions(outcome.state)) {
     const reply = simulate(outcome.state, action); result.replies++;
     const loss = value(reply.deaths.filter(piece => piece.team !== team));
     leastReplyLoss = Math.min(leastReplyLoss, loss);
     if (!loss && reply.state.winner === null) result.savingReplies++;
-    if (reply.state.winner === 1 - team || reply.state.winner === 'draw'
-      || reply.deaths.some(piece => piece.team === team)) result.safe = false;
+    const losses = reply.deaths.filter(piece => piece.team === team);
+    if (reply.state.winner === 1 - team || reply.state.winner === 'draw') {
+      result.safe = false;
+      if (opening) result.contestedSafe = false;
+    }
+    if (losses.length) {
+      result.safe = false;
+      if (opening && result.contestedSafe) {
+        // A contested exchange is acceptable; an immediate handout is not.
+        // Keep the flag and every other ally alive, and retain a real recapture.
+        const contested = losses.length === 1 && opening.remaining > 0
+          && losses[0].type !== 'defenseLamp' && !action.pass
+          && (reply.deaths.some(piece => piece.id === action.id)
+            || (reply.state.winner === null && legalActions(reply.state).some(counter => {
+              const answer = simulate(reply.state, counter);
+              return answer.deaths.some(piece => piece.id === action.id)
+                && !answer.deaths.some(piece => piece.team === team)
+                && (answer.state.winner === null || answer.state.winner === team);
+            })));
+        if (!contested) result.contestedSafe = false;
+        else if (!result.atRisk.includes(losses[0].id)) result.atRisk.push(losses[0].id);
+      }
+    }
   }
   result.unavoidableLoss += Number.isFinite(leastReplyLoss) ? leastReplyLoss : 0;
   return result;
@@ -265,7 +288,7 @@ function coordinationRoutes(state, config) {
 
 /**
  * Pure browser/worker entry point. Options are structured-cloneable:
- * {depth: 2..4, seed, forgiving: boolean, previousStates: [State, ...],
+ * {depth: 2..4, seed, forgiving: boolean, initialOwnCount, previousStates: [State, ...],
  *  seenPositions: [[positionKey,count]],
  *  lastActions: [[pieceId,{from:{q,r},to:{q,r}}]]}.
  * Small endings extend the easy planning horizon to three half-moves.
@@ -509,10 +532,19 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
       stats.defense.checked = checked.size;
     }
     if (forgiving && Math.abs(bestScore) < 1e6 && stats.defense.status !== 'no-safe-root') {
-      // Keep tactical knowledge: recover a deficit, ease off when level/ahead,
-      // and never offer an ally on any legal reply just to spare an opponent.
+      // Keep tactical knowledge, but allow the first two contested exchanges
+      // without insisting on perfect preservation of every unit.
       const captured = best.outcome.deaths.filter(piece => piece.team !== team);
       const info = stats.forgiveness;
+      const ownCount = state.pieces.filter(piece => piece.team === team).length;
+      const knownCounts = (Array.isArray(options.previousStates) ? options.previousStates : [])
+        .filter(previous => previous.ply <= state.ply)
+        .map(previous => previous.pieces.filter(piece => piece.team === team).length);
+      const initialCount = Math.max(ownCount, ...knownCounts,
+        Number.isInteger(options.initialOwnCount) && options.initialOwnCount >= ownCount ? options.initialOwnCount : ownCount);
+      const lost = initialCount - ownCount;
+      const opening = { lost, remaining: Math.max(0, 2 - lost) };
+      info.opening = { ...opening, accepted: false };
       const value = pieces => pieces.reduce((sum, piece) => sum + 100 * PIECE_VALUES[piece.type], 0);
       const material = side => state.pieces.filter(piece => piece.team === side)
         .reduce((sum, piece) => sum + 100 * PIECE_VALUES[piece.type]
@@ -531,7 +563,8 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
       const teachingChecks = new Map();
       const assess = candidate => {
         if (teachingChecks.has(candidate)) return teachingChecks.get(candidate);
-        const result = oneReplyRestraint(candidate.outcome, team, legalActions, simulate, value);
+        const result = oneReplyRestraint(candidate.outcome, team, legalActions, simulate, value,
+          opening.remaining ? opening : undefined);
         info.replies += result.replies;
         teachingChecks.set(candidate, result);
         return result;
@@ -539,7 +572,8 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
       const before = assess(best);
       info.lossBefore = { immediate: before.immediateLoss, unavoidable: before.unavoidableLoss, savingReplies: before.savingReplies };
       const excess = assessment => Math.max(0, assessment.unavoidableLoss - info.recoveryAllowance);
-      const recovering = captured.length && value(captured) <= info.recoveryAllowance && before.safe;
+      const acceptable = assessment => assessment.safe || assessment.contestedSafe === true;
+      const recovering = !opening.remaining && captured.length && value(captured) <= info.recoveryAllowance && before.safe;
       if (!recovering && (captured.length || info.pressureBefore > 8 || before.unavoidableLoss || !before.safe)) {
         info.maxGap = Math.min(600, before.unavoidableLoss)
           + Math.min(180, 80 + Math.max(0, info.materialLead) / 10 + (info.recentOpponentLoss ? 40 : 0));
@@ -551,7 +585,7 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
         for (const candidate of pool) {
           info.candidates++;
           const assessment = assess(candidate);
-          if (!assessment.safe || !assessment.replies || excess(assessment) > excess(before)) continue;
+          if (!acceptable(assessment) || !assessment.replies || excess(assessment) > excess(before)) continue;
           const candidatePressure = pressure(candidate);
           if (before.safe && excess(assessment) === excess(before) && candidatePressure >= info.pressureBefore - 4) continue;
           const node = { ...candidate, pathKeys: [botPositionKey(candidate.outcome.state, config)] };
@@ -559,7 +593,8 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
           // an alternative is than the ordinary move.
           const bonus = candidate.immediate * .00001 + tieNoise(seed, state.ply, candidate.action);
           const score = alphaBeta(node, searchDepth - 1, -Infinity, Infinity, context) - candidate.penalty + bonus;
-          if (Math.abs(score) >= 1e6 || bestScore - score > info.maxGap) continue;
+          const maxGap = info.maxGap + (!assessment.safe && assessment.contestedSafe ? 300 : 0);
+          if (Math.abs(score) >= 1e6 || bestScore - score > maxGap) continue;
           if (excess(assessment) < alternativeLoss || (excess(assessment) === alternativeLoss
             && (candidatePressure < alternativePressure || (candidatePressure === alternativePressure && score > alternativeScore)))) {
             alternative = candidate; alternativeScore = score; alternativePressure = candidatePressure; alternativeLoss = excess(assessment);
@@ -569,6 +604,8 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
           info.applied = true; info.skippedCaptures = captured.map(piece => piece.id);
           info.pressureAfter = alternativePressure;
           const after = assess(alternative);
+          info.opening.accepted = !after.safe && after.contestedSafe === true;
+          if (info.opening.accepted) { info.opening.atRisk = after.atRisk; info.maxGap += 300; }
           info.lossAfter = { immediate: after.immediateLoss, unavoidable: after.unavoidableLoss, savingReplies: after.savingReplies };
           checked.set(alternative, { safe: true, status: 'safe-one-reply', replies: after.replies });
           info.selectedScore = alternativeScore; info.gap = bestScore - alternativeScore;
