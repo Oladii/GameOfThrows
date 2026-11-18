@@ -1,6 +1,7 @@
 
 :root{--bg:#fbfaf8;--panel-border:#aa8c57;--tile-default:#f7f2e6;--surface:#fffefb;--ink:#4f422e;--muted:#83745f;--line:#e1d8c7;--blue:#3e607c;--rust:#af6a4b;--accent:#e8d5b2;--mint:#eae0cd;--red:#ba5349;--button-soft:rgba(215,194,146,.2);--button-soft-hover:rgba(215,194,146,.32);--radius-control:8px;--radius-card:12px;--arena-inset:14px;--radius-arena:calc(var(--radius-control) + var(--arena-inset) + 1px);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);font-synthesis:none}
 *{box-sizing:border-box}
+html{scrollbar-gutter:stable}
 body{margin:0;background:var(--bg);font-size:14px}
 button,input,select{font:inherit}
 button,a,input,select,summary{-webkit-tap-highlight-color:transparent}
@@ -933,7 +934,8 @@ main{padding:14px}
 .online-room.room-waiting .board-footer,.online-room.room-waiting .reference-panel{display:none}
 .room-first-choice:not([hidden]) + .scoreboard{margin-top:8px}
 
-.scoreboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:8px}
+.arena{container:arena / inline-size}
+.scoreboard{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 .team-card{box-sizing:border-box;display:flex;flex-direction:column;flex-wrap:nowrap;align-items:stretch;justify-content:center;gap:8px;height:auto;min-height:86px;padding:12px 12px 12px 76px;border-radius:9px;overflow:hidden;background:#f3ecde;color:#66502c}
 .team-card.active,.team-card.south.active{background:#f3ecde;color:#66502c;border-color:var(--line)}
 .team-card.south{order:-1;padding:12px 76px 12px 12px}
@@ -962,9 +964,6 @@ main{padding:14px}
 .team-card-action .button:hover,.lesson-details .button:not(.primary):hover:not(:disabled){background:#eae0cd;border-color:#aa8c57;color:var(--ink)}
 .team-card-action .button:active,.lesson-details .button:not(.primary):active:not(:disabled){background:#e2d4bc;box-shadow:none}
 .lesson-details .button:not(.primary):focus-visible{outline:2px solid var(--ink)!important;outline-offset:3px}
-@media(max-width:700px){
-.scoreboard{display:grid;grid-template-columns:minmax(0,1fr)}
-}
 
 #sound-control{display:flex;align-items:center;gap:8px;flex:0 0 auto;min-width:0}
 #sound-control.is-open{flex:1}
@@ -987,8 +986,15 @@ main{padding:14px}
 .arena-column>.arena{height:auto;min-height:0;flex:1}
 }
 
-/* A completed match replaces both team cards with one shared result surface. */
-.team-card.match-result{flex:1 1 100%;grid-column:1/-1;padding:4px 108px 4px 12px;height:72px;min-height:72px}
+/* A stacked roster collapses to a single compact result card. */
+.scoreboard:has(>.match-result)>.team-card:not(.match-result){display:none}
+.team-card.match-result{padding:4px 108px 4px 12px;min-height:72px}
+/* Two 340px cards and their 8px gap fit in one row. Preserve that row's height. */
+@container arena (min-width:688px){
+  .scoreboard{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .scoreboard:has(>.match-result)>.team-card:not(.match-result){display:flex;visibility:hidden}
+  .team-card.match-result{position:absolute;inset:0;min-height:0}
+}
 .team-card.match-result::before{left:auto;right:-28px;width:124px;height:128px;background-position:center;background-size:contain}
 .team-card.match-result.north::before{transform:scaleX(-1)}
 .team-card.match-result .team-card-heading{justify-content:flex-start;white-space:normal}
@@ -996,7 +1002,7 @@ main{padding:14px}
 .match-result-reason{font-size:13px;line-height:18px;color:#66502c}
 .team-card.match-result.draw{padding-right:12px}
 .team-card.match-result.draw::before{display:none}
-@media(max-width:700px){.team-card.match-result{height:auto;min-height:72px;padding-right:80px}.team-card.match-result.draw{padding-right:12px}}
+@media(max-width:700px){.team-card.match-result{padding-right:80px}.team-card.match-result.draw{padding-right:12px}}
 
 #sound-toggle[aria-expanded="false"] [data-sound-icon="close"],#sound-toggle[aria-expanded="true"] [data-sound-icon="on"],#sound-toggle[aria-expanded="true"] [data-sound-icon="off"]{display:none}
 

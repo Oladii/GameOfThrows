@@ -563,7 +563,7 @@ test('a different authoritative move cancels the preview, and a late request err
   assert.equal(ui.ctx.movement, authoritativeMovement);
 });
 
-test('finished matches replace both team cards with one full-width result', () => {
+test('finished matches keep the team rows in layout under one shared result', () => {
   for (const mode of ['bot', 'local', 'online']) for (const winner of [0, 1, 'draw']) {
     const ui = setup(), position = createGame(DEFAULT_CONFIG); position.winner = winner;
     ui.context.playMode = mode;
@@ -572,9 +572,10 @@ test('finished matches replace both team cards with one full-width result', () =
     const labels = [...ui.$('#scoreboard').innerHTML.matchAll(/<div class="turn-tag">([^<]*)<\/div>/g)].map(match => match[1]);
     assert.deepEqual(labels, []);
     const markup = ui.$('#scoreboard').innerHTML;
-    assert.equal((markup.match(/class="team-card /g) || []).length, 1);
+    assert.equal((markup.match(/class="team-card (north|south) /g) || []).length, 2);
+    assert.equal((markup.match(/class="team-card match-result /g) || []).length, 1);
     assert.match(markup, /match-result/);
-    assert.doesNotMatch(markup, /team-roster|data-claim-seat|data-stand-seat/);
+    assert.doesNotMatch(markup, /data-claim-seat|data-stand-seat/);
     assert.ok(markup.includes(winner === 'draw' ? 'Поражение обеих сторон' : `Победили ${winner === 0 ? 'Синие' : 'Красные'}`));
   }
 });

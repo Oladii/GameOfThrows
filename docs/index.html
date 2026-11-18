@@ -15,6 +15,7 @@
 
 :root{--bg:#fbfaf8;--panel-border:#aa8c57;--tile-default:#f7f2e6;--surface:#fffefb;--ink:#4f422e;--muted:#83745f;--line:#e1d8c7;--blue:#3e607c;--rust:#af6a4b;--accent:#e8d5b2;--mint:#eae0cd;--red:#ba5349;--button-soft:rgba(215,194,146,.2);--button-soft-hover:rgba(215,194,146,.32);--radius-control:8px;--radius-card:12px;--arena-inset:14px;--radius-arena:calc(var(--radius-control) + var(--arena-inset) + 1px);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);font-synthesis:none}
 *{box-sizing:border-box}
+html{scrollbar-gutter:stable}
 body{margin:0;background:var(--bg);font-size:14px}
 button,input,select{font:inherit}
 button,a,input,select,summary{-webkit-tap-highlight-color:transparent}
@@ -947,7 +948,8 @@ main{padding:14px}
 .online-room.room-waiting .board-footer,.online-room.room-waiting .reference-panel{display:none}
 .room-first-choice:not([hidden]) + .scoreboard{margin-top:8px}
 
-.scoreboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:8px}
+.arena{container:arena / inline-size}
+.scoreboard{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 .team-card{box-sizing:border-box;display:flex;flex-direction:column;flex-wrap:nowrap;align-items:stretch;justify-content:center;gap:8px;height:auto;min-height:86px;padding:12px 12px 12px 76px;border-radius:9px;overflow:hidden;background:#f3ecde;color:#66502c}
 .team-card.active,.team-card.south.active{background:#f3ecde;color:#66502c;border-color:var(--line)}
 .team-card.south{order:-1;padding:12px 76px 12px 12px}
@@ -976,9 +978,6 @@ main{padding:14px}
 .team-card-action .button:hover,.lesson-details .button:not(.primary):hover:not(:disabled){background:#eae0cd;border-color:#aa8c57;color:var(--ink)}
 .team-card-action .button:active,.lesson-details .button:not(.primary):active:not(:disabled){background:#e2d4bc;box-shadow:none}
 .lesson-details .button:not(.primary):focus-visible{outline:2px solid var(--ink)!important;outline-offset:3px}
-@media(max-width:700px){
-.scoreboard{display:grid;grid-template-columns:minmax(0,1fr)}
-}
 
 #sound-control{display:flex;align-items:center;gap:8px;flex:0 0 auto;min-width:0}
 #sound-control.is-open{flex:1}
@@ -1001,8 +1000,15 @@ main{padding:14px}
 .arena-column>.arena{height:auto;min-height:0;flex:1}
 }
 
-/* A completed match replaces both team cards with one shared result surface. */
-.team-card.match-result{flex:1 1 100%;grid-column:1/-1;padding:4px 108px 4px 12px;height:72px;min-height:72px}
+/* A stacked roster collapses to a single compact result card. */
+.scoreboard:has(>.match-result)>.team-card:not(.match-result){display:none}
+.team-card.match-result{padding:4px 108px 4px 12px;min-height:72px}
+/* Two 340px cards and their 8px gap fit in one row. Preserve that row's height. */
+@container arena (min-width:688px){
+  .scoreboard{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .scoreboard:has(>.match-result)>.team-card:not(.match-result){display:flex;visibility:hidden}
+  .team-card.match-result{position:absolute;inset:0;min-height:0}
+}
 .team-card.match-result::before{left:auto;right:-28px;width:124px;height:128px;background-position:center;background-size:contain}
 .team-card.match-result.north::before{transform:scaleX(-1)}
 .team-card.match-result .team-card-heading{justify-content:flex-start;white-space:normal}
@@ -1010,7 +1016,7 @@ main{padding:14px}
 .match-result-reason{font-size:13px;line-height:18px;color:#66502c}
 .team-card.match-result.draw{padding-right:12px}
 .team-card.match-result.draw::before{display:none}
-@media(max-width:700px){.team-card.match-result{height:auto;min-height:72px;padding-right:80px}.team-card.match-result.draw{padding-right:12px}}
+@media(max-width:700px){.team-card.match-result{padding-right:80px}.team-card.match-result.draw{padding-right:12px}}
 
 #sound-toggle[aria-expanded="false"] [data-sound-icon="close"],#sound-toggle[aria-expanded="true"] [data-sound-icon="on"],#sound-toggle[aria-expanded="true"] [data-sound-icon="off"]{display:none}
 
@@ -1070,7 +1076,7 @@ main{padding:14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.113</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-18T22:22:12.187Z">Сборка 19.11.2026, 01:22:12 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.114</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-18T22:59:12.895Z">Сборка 19.11.2026, 01:59:12 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -6532,12 +6538,7 @@ function renderScoreboard(position) {
   const seated = roomView?.selfSeat === 0 || roomView?.selfSeat === 1;
   const canClaim = snapshot && waiting && !seated && roomView.status === 'connected' && !roomView.pending && !roomConnecting;
   const result = matchResult(position);
-  if (result) {
-    const markup = `<div class="team-card match-result ${result.winner === 'draw' ? 'draw' : result.winner === 1 ? 'south' : 'north'}" role="status" aria-live="polite"><div class="team-card-heading"><span class="team-title">${result.title}</span></div>${result.reason ? `<div class="match-result-reason">${result.reason}</div>` : ''}</div>`;
-    if ($('#scoreboard').innerHTML !== markup) $('#scoreboard').innerHTML = markup;
-    return;
-  }
-  const markup = [0, 1].map(team => {
+  const teamCards = [0, 1].map(team => {
     const seat = snapshot?.seats[team], free = online && !seat;
     const side = team === 0 ? 'Синих' : 'Красных';
     const role = online ? free ? `${TEAM_NAMES[team]} — ожидаем игрока` : roomView.selfSeat === team ? `Вы играете за ${side}` : seated ? `Соперник играет за ${side}` : `Игрок за ${side}`
@@ -6559,6 +6560,7 @@ function renderScoreboard(position) {
     }
     return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" role="group" aria-label="${TEAM_NAMES[team]}"><div class="team-card-heading">${title}</div><div class="team-card-body"><div class="team-card-details"><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div></div></div>`;
   }).join('');
+  const markup = result ? teamCards + `<div class="team-card match-result ${result.winner === 'draw' ? 'draw' : result.winner === 1 ? 'south' : 'north'}" role="status" aria-live="polite"><div class="team-card-heading"><span class="team-title">${result.title}</span></div>${result.reason ? `<div class="match-result-reason">${result.reason}</div>` : ''}</div>` : teamCards;
   if ($('#scoreboard').innerHTML !== markup) $('#scoreboard').innerHTML = markup;
 }
 function renderFirstMoveNotice() {

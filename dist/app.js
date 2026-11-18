@@ -1251,12 +1251,7 @@ function renderScoreboard(position) {
   const seated = roomView?.selfSeat === 0 || roomView?.selfSeat === 1;
   const canClaim = snapshot && waiting && !seated && roomView.status === 'connected' && !roomView.pending && !roomConnecting;
   const result = matchResult(position);
-  if (result) {
-    const markup = `<div class="team-card match-result ${result.winner === 'draw' ? 'draw' : result.winner === 1 ? 'south' : 'north'}" role="status" aria-live="polite"><div class="team-card-heading"><span class="team-title">${result.title}</span></div>${result.reason ? `<div class="match-result-reason">${result.reason}</div>` : ''}</div>`;
-    if ($('#scoreboard').innerHTML !== markup) $('#scoreboard').innerHTML = markup;
-    return;
-  }
-  const markup = [0, 1].map(team => {
+  const teamCards = [0, 1].map(team => {
     const seat = snapshot?.seats[team], free = online && !seat;
     const side = team === 0 ? 'Синих' : 'Красных';
     const role = online ? free ? `${TEAM_NAMES[team]} — ожидаем игрока` : roomView.selfSeat === team ? `Вы играете за ${side}` : seated ? `Соперник играет за ${side}` : `Игрок за ${side}`
@@ -1278,6 +1273,7 @@ function renderScoreboard(position) {
     }
     return `<div class="team-card ${team ? 'south' : 'north'} ${active ? 'active' : ''}" role="group" aria-label="${TEAM_NAMES[team]}"><div class="team-card-heading">${title}</div><div class="team-card-body"><div class="team-card-details"><span class="team-count">${count} ${plural(count, ['фигура', 'фигуры', 'фигур'])}</span><ul class="team-roster" role="list" aria-label="Оставшиеся фигуры команды ${TEAM_NAMES[team]}">${roster}</ul></div></div></div>`;
   }).join('');
+  const markup = result ? teamCards + `<div class="team-card match-result ${result.winner === 'draw' ? 'draw' : result.winner === 1 ? 'south' : 'north'}" role="status" aria-live="polite"><div class="team-card-heading"><span class="team-title">${result.title}</span></div>${result.reason ? `<div class="match-result-reason">${result.reason}</div>` : ''}</div>` : teamCards;
   if ($('#scoreboard').innerHTML !== markup) $('#scoreboard').innerHTML = markup;
 }
 function renderFirstMoveNotice() {
