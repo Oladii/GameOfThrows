@@ -71,10 +71,10 @@ test('an old or legacy match warns until a new match is prepared, even after sav
 test('checking the latest release bypasses caches without navigation or new-game intent', async () => {
   const location=page('https://oladii.github.io/GameOfThrows/?_newGame=1&_fresh=old#board');
   const found=await latestGameVersion({location,fetchPage:async (href,options)=>{
-    const url=new URL(href);assert.equal(url.pathname,'/GameOfThrows/');
+    const url=new URL(href);assert.equal(url.pathname,'/GameOfThrows/version.json');
     assert.equal(url.searchParams.has('_newGame'),false);assert.equal(url.searchParams.has('_fresh'),false);
-    assert.ok(url.searchParams.get('_versionCheck'));assert.equal(options.cache,'no-store');
-    return response('<span id="version-number">v0.1.20</span>');
+    assert.equal(url.search,'');assert.equal(url.hash,'');assert.equal(options.cache,'no-store');
+    return { ok: true, json: async () => ({ version: '0.1.20' }) };
   }});
   assert.equal(found,'0.1.20');assert.equal(location.replaced,undefined);
 });
@@ -91,9 +91,9 @@ test('UI releases do not require replacing a match; real rules changes do', asyn
   assert.equal(needsNewGame({ phase: 'playing', savedVersion: '0.1.42', currentVersion: '0.1.56', latestVersion: '0.1.57', currentRulesVersion: '0.1.42', latestRulesVersion: '0.1.42' }), false);
   assert.equal(needsNewGame({ phase: 'playing', savedVersion: '0.1.55', currentRulesVersion: '0.1.42', latestRulesVersion: '0.1.60' }), true);
   assert.equal(needsNewGame({ phase: 'playing', savedVersion: '0.1.41', currentRulesVersion: '0.1.42' }), true);
-  const release = await latestGameVersion({ location: page(), includeRules: true, fetchPage: async () => response('<span id="version-number" data-rules-version="0.1.42">v0.1.56</span>') });
+  const release = await latestGameVersion({ location: page(), includeRules: true, fetchPage: async () => ({ ok: true, json: async () => ({ version: '0.1.56', rulesVersion: '0.1.42' }) }) });
   assert.deepEqual(release, { version: '0.1.56', rulesVersion: '0.1.42' });
-  const unmarked = await latestGameVersion({ location: page(), includeRules: true, fetchPage: async () => response('<span id="version-number">v0.1.99</span>') });
+  const unmarked = await latestGameVersion({ location: page(), includeRules: true, fetchPage: async () => ({ ok: true, json: async () => ({ version: '0.1.99' }) }) });
   assert.equal(unmarked.rulesVersion, null);
   assert.equal(needsNewGame({ phase: 'playing', savedVersion: '0.1.42', currentRulesVersion: '0.1.42', latestRulesVersion: unmarked.rulesVersion }), false);
 });

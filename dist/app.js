@@ -108,6 +108,7 @@ async function retryArchive() {
 $('#archive-retry').addEventListener('click', retryArchive);
 function archiveGameMetadata() { return { config, state, mode: playMode, humanTeam, firstMove, botDepth: playMode === 'bot' ? BOT_DIFFICULTIES[botDifficulty].depth : undefined }; }
 function recordGameAction(type, details = {}) {
+  if ((type === 'move' || type === 'pass') && state.winner != null) pendingMatchResults.add(state);
   archiveRecorder.record(type, { config, state, ...details, ...(details.action ? { action: readAction(details.action) } : {}) });
   if (state.winner !== null) archiveRecorder.record('finish', { config, state, outcome: { winner: state.winner } });
 }
@@ -682,6 +683,52 @@ function matchResult(position) {
   // The stored result "draw" means both sides lost; retain the wire format for saved games and rooms.
   return { winner, title: winner === 'draw' ? 'Поражение обеих сторон' : `Победили ${winner === 0 ? 'Синие' : 'Красные'}${owner ? ` (${owner})` : ''}`, reason };
 }
+// Only a live finish arms the effect. Loading a saved result or replaying combat stays silent.
+const pendingMatchResults = new WeakSet();
+let stopVictoryConfetti = null;
+
+function showerVictoryConfetti() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const canvas = document.createElement('canvas');
+  canvas.className = 'victory-confetti';
+  canvas.setAttribute('aria-hidden', 'true');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  $('.arena').append(canvas);
+  const width = canvas.clientWidth, height = canvas.clientHeight;
+  const scale = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = '#e87824';
+  const count = Math.min(560, Math.max(220, Math.round(width * .52)));
+  const pieces = Array.from({ length: count }, () => ({
+    x: Math.random() * width, delay: Math.random() * .68,
+    duration: 1.15 + Math.random() * .78, phase: Math.random() * 2 * Math.PI,
+    w: 1.5 + Math.random() * 1.8, h: 3 + Math.random() * 2.5
+  }));
+  let frame;
+  const start = performance.now();
+  stopVictoryConfetti = () => { cancelAnimationFrame(frame); canvas.remove(); stopVictoryConfetti = null; };
+  function draw(now) {
+    const elapsed = (now - start) / 1000;
+    ctx.clearRect(0, 0, width, height);
+    for (const piece of pieces) {
+      const t = (elapsed - piece.delay) / piece.duration;
+      if (t < 0 || t > 1) continue;
+      const angle = piece.phase + t * 5;
+      ctx.save();
+      ctx.translate(piece.x + Math.sin(angle) * 14, -7 + (height + 14) * (.72 * t + .28 * t * t));
+      ctx.rotate(angle);
+      ctx.fillRect(-piece.w / 2, -piece.h / 2, piece.w * (.35 + .65 * Math.abs(Math.cos(angle))), piece.h);
+      ctx.restore();
+    }
+    if (elapsed < 2.62) frame = requestAnimationFrame(draw);
+    else stopVictoryConfetti();
+  }
+  frame = requestAnimationFrame(draw);
+}
+
 function connectionStatus() {
   if (playMode !== 'online') return '';
   if (roomView?.status !== 'connected') return 'Нет связи с вами';
@@ -702,6 +749,13 @@ function renderGameResult(position) {
   const resolvingCombat = Boolean(combat || currentDeaths.length);
   $('#mode-caption').hidden = playMode === 'bot' || resolvingCombat || Boolean(movement);
   const viewerTeam = playMode === 'bot' ? humanTeam : playMode === 'online' ? roomView?.selfSeat : null;
+  if (!finished) stopVictoryConfetti?.();
+  if (finished && pendingMatchResults.delete(position) && !document.hidden
+      && (playMode === 'local' || viewerTeam != null)) {
+    const won = result.winner !== 'draw' && (playMode === 'local' || result.winner === viewerTeam);
+    gameAudio.play(won ? 'victory' : 'defeat');
+    if (won) showerVictoryConfetti();
+  }
   const turnStatus = finished || reviewingTurn || editor ? '' : connectionStatus() || (viewerTeam === 0 || viewerTeam === 1
     ? position.turn === viewerTeam ? 'Ваш ход' : 'Ждем хода противника'
     : `Ход ${position.turn === 0 ? 'синих' : 'красных'}`);
@@ -1110,8 +1164,11 @@ function applyRoomView(view) {
   clearTimeout(deathEffectTimer); currentDeaths = []; clearHint();
   reviewRequest++; reviewLoading = false; reviewTurn = null;
   reviewingTurn = false; selected = null; hover = null; inspection = null; lastTurn = null;
+  const previousPosition = state;
   roomSnapshot = next; roomTarget = next.roomId;
   config = clone(next.config); state = next.state ? clone(next.state) : createGame(config);
+  if (previous?.matchId === next.matchId && previous?.state && state.winner != null
+    && (previous.state.winner === null || pendingMatchResults.has(previousPosition))) pendingMatchResults.add(state);
   gamePhase = next.phase === 'waiting' ? 'setup' : 'playing'; editor = false;
   history = []; log = []; gameVersion = CURRENT_GAME_VERSION;
   if (location.protocol !== 'file:') window.history.replaceState(null, '', roomInvitation(next.roomId));

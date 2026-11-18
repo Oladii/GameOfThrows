@@ -8,7 +8,9 @@
     "knock1": "knock1.wav",
     "knock2": "knock2.wav",
     "knock3": "knock3.wav",
-    "scatter": "scatter.wav"
+    "scatter": "scatter.wav",
+    "victory": "victory.wav",
+    "defeat": "defeat.wav"
   },
   "runtime_sources": {
     "slide": {
@@ -102,6 +104,22 @@
       "processing": "Approved samples; knock1 -3 dB, knock2 unchanged, knock3 uses second timbre +6 dB; scatter -8.5 dB from the recording. No additional runtime EQ.",
       "wav_sha256": "db5abe4432e54c188b6e9fe990be3c7dbbae88cc2c2bc9a5772c089205dcec60",
       "source_sha256": "d571671c250494344d512ad4da675332ef35397eb822246a9bc9ac9ca7bd22da"
+    },
+    "victory": {
+      "source": "Cossacks: The Art of War demo, Sound/Trevoga1.wav",
+      "url": "https://cossackshq.hu/download/cossacks-the-art-of-war-demo/",
+      "processing": "User-selected final two calls, cropped at 0.215 s with a 4 ms fade-in. Original pitch and timing. Playback gain 0.0875 at default volume.",
+      "license_status": "Redistribution permission not established.",
+      "wav_sha256": "2fa45d16ae825a79eb28ab875c9ce7467c5edeb2921ea36ad506ad543a0c90e3"
+    },
+    "defeat": {
+      "source": "Snare Drum, Single Hit, A (H1).wav",
+      "author": "InspectorJ (www.jshaw.co.uk)",
+      "url": "https://freesound.org/people/InspectorJ/sounds/410514/",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "processing": "Filtered and attenuated, sequenced as three decaying strokes with 82 ms and 104 ms between onsets.",
+      "wav_sha256": "b80ce242bad483e8a8751554b37946750c897ce026ceba0bf99d09bdccda90f3"
     }
   },
   "legacy_foley_recording": {

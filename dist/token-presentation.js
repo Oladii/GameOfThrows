@@ -24,13 +24,37 @@ if (typeof document !== 'undefined' && document.head && !document.getElementById
 }
 
 function tokenImageUrl(source) {
-  if (typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') return source;
+  if (Array.isArray(source)) {
+    const density = Math.ceil(globalThis.devicePixelRatio || 1);
+    return source[Math.min(density, source.length) - 1];
+  }
+  if (!source.startsWith('data:') || typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') return source;
   if (!tokenImageUrls.has(source)) {
     const bytes = Uint8Array.from(atob(source.slice(source.indexOf(',')+1)), char=>char.charCodeAt(0));
     const type = source.slice(5,source.indexOf(';'));
     tokenImageUrls.set(source,URL.createObjectURL(new Blob([bytes],{type})));
   }
   return tokenImageUrls.get(source);
+}
+
+// SVG <image> has no srcset. Refresh mounted tokens when the user zooms
+// or moves the window to a display with a different pixel density.
+if (Array.isArray(TOKEN_ART.body) && typeof window !== 'undefined' && window.matchMedia) {
+  let density = window.devicePixelRatio;
+  let densityQuery = window.matchMedia(`(resolution: ${density}dppx)`);
+  function refreshTokenDensity() {
+    if (density === window.devicePixelRatio) return;
+    densityQuery.removeEventListener('change', refreshTokenDensity);
+    density = window.devicePixelRatio;
+    densityQuery = window.matchMedia(`(resolution: ${density}dppx)`);
+    densityQuery.addEventListener('change', refreshTokenDensity);
+    for (const image of document.querySelectorAll('image.token-art[data-artwork]')) {
+      const variants = TOKEN_ART[image.dataset.artwork];
+      if (Array.isArray(variants)) image.setAttribute('href', tokenImageUrl(variants));
+    }
+  }
+  densityQuery.addEventListener('change', refreshTokenDensity);
+  window.addEventListener('resize', refreshTokenDensity);
 }
 
 export function tokenArtwork(kind, x, y, width, height, className = '') {

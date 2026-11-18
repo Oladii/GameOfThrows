@@ -7,6 +7,8 @@ const silentSound = () => {};
 export const GAME_MASTER_GAIN = 4.5;
 // Quiet, damped table sounds with subdued movement and short interface ticks.
 export const GAME_SOUND_PROFILES = {
+  defeat: { gain: 1 / GAME_MASTER_GAIN, dry: true },
+  victory: { gain: .0875 / GAME_MASTER_GAIN, dry: true },
   slide: { gain: .045, lowpass: 450, highpass: 220, duration: .10, attack: .015 },
   place: { gain: .04, lowpass: 400, highpass: 240, duration: .055, attack: .012 },
   remove: { gain: .06, lowpass: 10000 },

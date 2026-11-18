@@ -52,18 +52,15 @@ export function needsNewGame({ phase, savedVersion, currentRulesVersion, latestR
 export async function latestGameVersion({ location, fetchPage = fetch, online = true, timeoutMs = 4000, includeRules = false }) {
   const url = new URL(location.href);
   if (!online || !['http:', 'https:'].includes(url.protocol)) return null;
-  url.searchParams.delete('_newGame'); url.searchParams.delete('_fresh');
-  url.searchParams.set('_versionCheck', String(Date.now()));
+  const manifest = new URL('./version.json', url);
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetchPage(url.href, { cache: 'no-store', signal: controller.signal });
+    const response = await fetchPage(manifest.href, { cache: 'no-store', signal: controller.signal });
     if (!response.ok) return null;
-    const html = await response.text();
-    const match = html.match(/id=["']version-number["'][^>]*>\s*v?(\d+\.\d+\.\d+)\s*</);
-    if (!match) return null;
-    if (!includeRules) return match[1];
-    const rules = html.match(/id=["']version-number["'][^>]*data-rules-version=["'](\d+\.\d+\.\d+)["']/);
-    return { version: match[1], rulesVersion: rules?.[1] || null };
+    const { version, rulesVersion } = await response.json();
+    if (!versionParts(version)) return null;
+    if (!includeRules) return version;
+    return { version, rulesVersion: versionParts(rulesVersion) ? rulesVersion : null };
   } catch { return null; }
   finally { clearTimeout(timer); }
 }

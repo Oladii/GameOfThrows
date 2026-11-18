@@ -100,3 +100,29 @@ test('connection status replaces turn status for both seats and clears on reconn
     assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с Синими');
   }
 });
+
+test('the final board plays the live result once from the player’s perspective', () => {
+  for (const [playMode, seat, winner, expected] of [
+    ['bot', 0, 0, 'victory'], ['bot', 1, 0, 'defeat'], ['bot', 0, 'draw', 'defeat'],
+    ['local', null, 1, 'victory'], ['local', null, 'draw', 'defeat'],
+    ['online', 0, 0, 'victory'], ['online', 0, 1, 'defeat'], ['online', 1, 'draw', 'defeat'],
+    ['online', null, 0, null]
+  ]) {
+    const { context } = setup(), sounds = [];
+    const position = { winner, pieces: [], ply: 3, turn: 0 };
+    Object.assign(context, { playMode, humanTeam: seat, roomView: { selfSeat: seat }, state: position,
+      gameAudio: { play: name => sounds.push(name) }, document: { hidden: false },
+      archiveRecorder: { record() {} }, matchMedia: () => ({ matches: true }) });
+    vm.runInContext(app.slice(app.indexOf('function recordGameAction('), app.indexOf("addEventListener('online'", app.indexOf('function recordGameAction('))), context);
+    context.renderGameResult(position);
+    assert.deepEqual(sounds, [], 'restored result');
+    context.recordGameAction('move');
+    context.combat = {};
+    context.renderGameResult(position);
+    assert.deepEqual(sounds, [], 'combat is still visible');
+    context.combat = null;
+    context.renderGameResult(position);
+    context.renderGameResult(position);
+    assert.deepEqual(sounds, expected ? [expected] : []);
+  }
+});

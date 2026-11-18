@@ -7,7 +7,7 @@ import { renderShowcaseBattle, ShowcaseBattle } from './onboarding-showcase.js';
 export function createGuideController({ document: doc = globalThis.document, window: win = globalThis.window,
   icons = {}, renderBadges = () => '', beforeOpen = () => {}, onClose = () => {}, clock = {}, audio = null, onAnalytics = () => {} } = {}) {
   const $ = selector => doc.querySelector(selector);
-  const onboardingSteps = ['Цель игры', 'Фигуры'];
+  const onboardingSteps = ['Цель игры', 'Фигуры', 'Теория'];
   let onboardingStep = 0, onboardingShowcase = null, onboardingUnitBattles = {};
   let guideReturnScroll = 0, onboardingPreviewByKeyboard = false;
   const reducedMotion = () => win.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -26,6 +26,19 @@ export function createGuideController({ document: doc = globalThis.document, win
       '<ul class="onboarding-principles" id="onboarding-title"><li>Уничтожь вражеское знамя и не потеряй своё</li><li>Показывать своим фишкам кого бить — не надо</li><li>Обе армии автоматически атакуют доступные цели в конце хода</li><li>Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход</li></ul>' +
       renderShowcaseBattle(ensureShowcaseBattle('main'), icons, renderBadges);
     if (onboardingStep === 1) content = renderUnitExamples(onboardingUnitBattles, icons, renderBadges);
+    if (onboardingStep === 2) content = `
+      <div class="guide-theory">
+        <section><h3>Дебют</h3>
+          <p>Держи врага под угрозой перекрёстного огня. Ставь лукарей так, чтобы они могли с разных сторон ударить по одной вражеской фигуре.</p></section>
+        <section><h3>Атака</h3>
+          <p>Если знамя прикрыто щитоносцем, убери его или зайди сбоку. Одним лукарем целься в знамя, другим — туда, куда оно может уйти.</p></section>
+        <section><h3>Открытый фланг</h3>
+          <p>Если соперник оставил фланг без защиты, рискни провести по нему лукаря или щитоносца до чужого края поля. Там он станет ветераном. Это усиление может переломить ход битвы.</p></section>
+        <section><h3>Защита</h3>
+          <p>Закрывай знамя щитоносцем. Без прикрытия врагу может хватить одного удара для победы.</p></section>
+        <section><h3>Следи за флангами</h3>
+          <p>Если вражеский лукарь или щитоносец обойдёт строй и дойдёт до твоего края поля, он станет ветераном. Перехвати его ещё на чужой половине. Твои обычные щитоносцы не ходят назад, поэтому не могут догнать врага, который уже прошёл за спину.</p></section>
+      </div>`;
     $('#onboarding-body').innerHTML = content;
     $('#onboarding-body').setAttribute('aria-label', onboardingSteps[onboardingStep]);
     suppressGuideTabStops();

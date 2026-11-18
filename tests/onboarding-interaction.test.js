@@ -62,9 +62,14 @@ test('guide opens as a separate screen and Back restores the game scroll positio
   assert.equal(ui.nodes['#rules-dialog'].hidden, false);
   assert.ok(ui.classes.has('guide-open'));
   assert.equal(ui.win.scrollY, 0);
-  assert.deepEqual(ui.tabs().labels, ['Цель игры', 'Фигуры']);
+  assert.deepEqual(ui.tabs().labels, ['Цель игры', 'Фигуры', 'Теория']);
   assert.match(ui.html('main'), /Учебный бой/);
   assert.doesNotMatch(ui.html('main'), /data-showcase-action="(?:undo|previous|next)"/);
+  ui.tabs().change(2);
+  const panel = ui.nodes['#onboarding-body'];
+  assert.equal(panel.attrs['aria-label'], 'Теория');
+  assert.deepEqual([...panel.innerHTML.matchAll(/<h3>([^<]*)<\/h3>/g)].map(match => match[1]),
+    ['Дебют', 'Атака', 'Открытый фланг', 'Защита', 'Следи за флангами']);
   ui.nodes['#guide-back'].listeners.click();
   assert.equal(ui.nodes['#rules-dialog'].hidden, true);
   assert.equal(ui.classes.has('guide-open'), false);
