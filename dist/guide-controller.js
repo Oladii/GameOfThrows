@@ -168,13 +168,26 @@ export function createGuideController({ document: doc = globalThis.document, win
     if(scene&&scene!==event.relatedTarget?.closest?.('[data-showcase-battle]')) ensureShowcaseBattle(scene.dataset.showcaseBattle||'main').preview(null);
   });
   $('#onboarding-body').addEventListener('pointerleave', () => audio?.hover(null));
+  $('#onboarding-body').addEventListener('contextmenu', event => {
+    if (event.button !== 2 || !event.target.closest('.showcase-field')) return;
+    const battle = ensureShowcaseBattle(showcaseSceneKey(event.target));
+    if (battle.selectedId === null) return;
+    event.preventDefault();
+    battle.clearSelection();
+    if (battle.selectedId === null) audio?.click(undefined, { soft: true });
+  });
   $('#onboarding-body').addEventListener('click', event => {
     if (event.target.closest('.showcase-field')) {
       const sceneKey = showcaseSceneKey(event.target), cell = event.target.closest('[data-showcase-cell]');
       const unit = event.target.closest('[data-showcase-piece]');
-      const piece = unit && ensureShowcaseBattle(sceneKey).position.pieces.find(piece => piece.id === unit.dataset.showcasePiece);
-      const cellKey = cell?.dataset.showcaseCell ?? (piece ? `${piece.q},${piece.r}` : null);
-      audio?.click(cellKey ? `guide:${sceneKey}:${cellKey}` : null);
+      const battle = ensureShowcaseBattle(sceneKey);
+      const cellId = cell?.dataset.showcaseCell;
+      const piece = battle.position.pieces.find(piece => unit?.dataset.showcasePiece === piece.id || cellId === `${piece.q},${piece.r}`);
+      const cellKey = cellId ?? (piece ? `${piece.q},${piece.r}` : null);
+      const deselecting = !battle.busy && battle.selectedId !== null && (piece
+        ? piece.id === battle.selectedId
+        : cellId !== undefined && !battle.previewMoves.some(move => cellId === `${move.q},${move.r}`));
+      audio?.click(cellKey ? `guide:${sceneKey}:${cellKey}` : null, { soft: deselecting });
     }
     const control = event.target.closest('[data-showcase-action],[data-showcase-piece],[data-showcase-cell]');
     if (control) updateShowcaseBattle(control);

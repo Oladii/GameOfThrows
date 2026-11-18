@@ -1062,7 +1062,7 @@ main{padding:14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.109</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-17T23:29:18.987Z">Сборка 18.11.2026, 02:29:18 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.110</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-18T19:03:03.088Z">Сборка 18.11.2026, 22:03:03 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -3566,7 +3566,7 @@ class GameAudio {
     for (const stop of [...this.voices]) stop();
     this.hoverVoice = silentSound; this.clickVoice = silentSound;
   }
-  play(name, { duration = null } = {}) {
+  play(name, { duration = null, gainScale = 1 } = {}) {
     if (!this.enabled || this.hidden()) return silentSound;
     const profile = GAME_SOUND_PROFILES[name];
     if (!profile) return silentSound;
@@ -3612,7 +3612,7 @@ class GameAudio {
         }
         gain.connect(this.context.destination);
         const time = this.context.currentTime;
-        const level = profile.gain * GAME_MASTER_GAIN * (this.volume / .5);
+        const level = profile.gain * GAME_MASTER_GAIN * (this.volume / .5) * gainScale;
         const length = Math.min(source.buffer.duration, duration ?? Infinity, profile.duration ?? Infinity);
         const attack = Math.min(profile.attack || 0, length * .2);
         // Keep the recorded pitch; shorten friction with a soft end, never speed it up.
@@ -3631,7 +3631,7 @@ class GameAudio {
     else void this.unlock().then(start).catch(cleanup);
     return stop;
   }
-  click(cellKey, { silent = false } = {}) {
+  click(cellKey, { silent = false, soft = false } = {}) {
     // Remember the clicked cell even when replacing its DOM triggers focusout.
     if (cellKey !== undefined) this.hoverKey = cellKey;
     if (silent) {
@@ -3641,7 +3641,7 @@ class GameAudio {
     if (this.now() - this.lastClick < 35) return;
     this.lastClick = this.now(); this.lastHover = this.now();
     this.hoverVoice(); this.clickVoice();
-    this.clickVoice = this.play('click');
+    this.clickVoice = this.play('click', { gainScale: soft ? .7 : 1 });
   }
   hover(cellKey) {
     if (cellKey === this.hoverKey) return;
@@ -4847,13 +4847,26 @@ function createGuideController({ document: doc = globalThis.document, window: wi
     if(scene&&scene!==event.relatedTarget?.closest?.('[data-showcase-battle]')) ensureShowcaseBattle(scene.dataset.showcaseBattle||'main').preview(null);
   });
   $('#onboarding-body').addEventListener('pointerleave', () => audio?.hover(null));
+  $('#onboarding-body').addEventListener('contextmenu', event => {
+    if (event.button !== 2 || !event.target.closest('.showcase-field')) return;
+    const battle = ensureShowcaseBattle(showcaseSceneKey(event.target));
+    if (battle.selectedId === null) return;
+    event.preventDefault();
+    battle.clearSelection();
+    if (battle.selectedId === null) audio?.click(undefined, { soft: true });
+  });
   $('#onboarding-body').addEventListener('click', event => {
     if (event.target.closest('.showcase-field')) {
       const sceneKey = showcaseSceneKey(event.target), cell = event.target.closest('[data-showcase-cell]');
       const unit = event.target.closest('[data-showcase-piece]');
-      const piece = unit && ensureShowcaseBattle(sceneKey).position.pieces.find(piece => piece.id === unit.dataset.showcasePiece);
-      const cellKey = cell?.dataset.showcaseCell ?? (piece ? `${piece.q},${piece.r}` : null);
-      audio?.click(cellKey ? `guide:${sceneKey}:${cellKey}` : null);
+      const battle = ensureShowcaseBattle(sceneKey);
+      const cellId = cell?.dataset.showcaseCell;
+      const piece = battle.position.pieces.find(piece => unit?.dataset.showcasePiece === piece.id || cellId === `${piece.q},${piece.r}`);
+      const cellKey = cellId ?? (piece ? `${piece.q},${piece.r}` : null);
+      const deselecting = !battle.busy && battle.selectedId !== null && (piece
+        ? piece.id === battle.selectedId
+        : cellId !== undefined && !battle.previewMoves.some(move => cellId === `${move.q},${move.r}`));
+      audio?.click(cellKey ? `guide:${sceneKey}:${cellKey}` : null, { soft: deselecting });
     }
     const control = event.target.closest('[data-showcase-action],[data-showcase-piece],[data-showcase-cell]');
     if (control) updateShowcaseBattle(control);
@@ -6073,10 +6086,14 @@ function onCell(q, r) {
 }
 function activateBoardCell(q, r) {
   if (tableRattle?.active) return;
-  const empty = !visibleState().pieces.some(piece => piece.q === q && piece.r === r);
+  const occupant = visibleState().pieces.find(piece => piece.q === q && piece.r === r);
+  const empty = !occupant;
   const placing = editor && tool !== 'erase' && empty;
   const moving = !editor && humanCanMove() && selected && empty && available.some(cell => cell.q === q && cell.r === r);
-  gameAudio.click(`board:${q},${r}`, { silent: Boolean(placing || moving) });
+  const deselecting = selected !== null && (editor
+    ? tool !== 'erase' && occupant?.id === selected
+    : !movement && !combat && !currentDeaths.length && (occupant ? occupant.id === selected : !moving));
+  gameAudio.click(`board:${q},${r}`, { silent: Boolean(placing || moving), soft: deselecting });
   onCell(q, r);
 }
 function focusBoardCell(cellKey, moveFocus = false) {
@@ -6088,6 +6105,12 @@ $('.board-wrap').addEventListener('click', event => {
   const cell = event.target.closest('[data-cell]');
   if (cell) { focusBoardCell(cell.dataset.cell); activateBoardCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event); }
   else clearSelection();
+});
+$('.board-wrap').addEventListener('contextmenu', event => {
+  if (event.button !== 2 || !selected) return;
+  event.preventDefault();
+  clearSelection();
+  if (!selected) gameAudio.click(undefined, { soft: true });
 });
 $('#board').addEventListener('mousedown', event => { if (event.target === $('#board')) event.preventDefault(); });
 $('#board').addEventListener('keydown', event => {
@@ -6613,7 +6636,7 @@ createGuideController({ onAnalytics:(type,extra) => { browserAnalytics.event(typ
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
-document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog') && !soundControl.contains(event.target)) { event.preventDefault(); soundButton.focus(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { if (selected) gameAudio.click(); reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
+document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog') && !soundControl.contains(event.target)) { event.preventDefault(); soundButton.focus(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { if (selected) gameAudio.click(undefined, { soft: true }); reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; completeMovementPresentation(completed); } });
 let attackReachInView = true;

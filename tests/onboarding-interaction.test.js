@@ -5,7 +5,7 @@ import { createGuideController } from '../dist/guide-controller.js';
 import { UNIT_BATTLE_SCENES } from '../dist/onboarding-showcase.js';
 
 // Small DOM adapter: controllers and renderers are real; only browser plumbing is stubbed.
-function setup() {
+function setup(audio) {
   const analytics = [];
   const scenes = new Map(), timers = new Map(), classes = new Set();
   let nextTimer = 0, opened = 0, closed = 0, tabs;
@@ -33,7 +33,7 @@ function setup() {
     body: { classList: { add: value => classes.add(value), remove: value => classes.delete(value) } } };
   const win = { scrollY: 235, scrollTo(x, y) { this.scrollY = y; }, matchMedia: () => ({ matches: true }),
     gameTabs: { render(labels, selected, change) { tabs = { labels, selected, change }; } } };
-  const controller = createGuideController({ onAnalytics:(type,extra)=>analytics.push({type,...extra}), document: doc, window: win, beforeOpen: () => opened++, onClose: () => closed++,
+  const controller = createGuideController({ audio, onAnalytics:(type,extra)=>analytics.push({type,...extra}), document: doc, window: win, beforeOpen: () => opened++, onClose: () => closed++,
     clock: { setTimer(fn) { timers.set(++nextTimer, fn); return nextTimer; }, clearTimer: id => timers.delete(id) } });
   const control = (key, data) => ({ dataset: data, closest(selector) {
     if (selector === '[data-showcase-battle]') return scenes.get(key);
@@ -70,6 +70,21 @@ test('guide opens as a separate screen and Back restores the game scroll positio
   assert.equal(ui.classes.has('guide-open'), false);
   assert.equal(ui.win.scrollY, 235);
   assert.deepEqual(ui.calls(), { opened: 1, closed: 1 });
+});
+
+test('clicking the selected tutorial piece or its cell plays the soft click', () => {
+  const softClicks = [];
+  const ui = setup({ stopAll() {}, click(key, { soft }) { softClicks.push(soft); } });
+  ui.controller.open();
+  ui.click('main', { showcasePiece: 's-shield-right' });
+  ui.click('main', { showcasePiece: 's-shield-right' });
+  ui.click('main', { showcaseCell: '-1,1' });
+  ui.click('main', { showcaseCell: '-1,1' });
+  ui.click('main', { showcasePiece: 's-shield-right' });
+  ui.click('main', { showcaseCell: '1,1' }); // Reachable preview keeps the selection.
+  ui.click('main', { showcaseCell: '-3,0' }); // Unreachable empty cell clears it.
+  ui.click('main', { showcaseCell: '-3,0' });
+  assert.deepEqual(softClicks, [false, true, false, true, false, false, true, false]);
 });
 
 test('tutorial accepts its guided move, pauses after the enemy and resumes only with Дальше', () => {

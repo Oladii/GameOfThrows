@@ -128,7 +128,7 @@ export class GameAudio {
     for (const stop of [...this.voices]) stop();
     this.hoverVoice = silentSound; this.clickVoice = silentSound;
   }
-  play(name, { duration = null } = {}) {
+  play(name, { duration = null, gainScale = 1 } = {}) {
     if (!this.enabled || this.hidden()) return silentSound;
     const profile = GAME_SOUND_PROFILES[name];
     if (!profile) return silentSound;
@@ -174,7 +174,7 @@ export class GameAudio {
         }
         gain.connect(this.context.destination);
         const time = this.context.currentTime;
-        const level = profile.gain * GAME_MASTER_GAIN * (this.volume / .5);
+        const level = profile.gain * GAME_MASTER_GAIN * (this.volume / .5) * gainScale;
         const length = Math.min(source.buffer.duration, duration ?? Infinity, profile.duration ?? Infinity);
         const attack = Math.min(profile.attack || 0, length * .2);
         // Keep the recorded pitch; shorten friction with a soft end, never speed it up.
@@ -193,7 +193,7 @@ export class GameAudio {
     else void this.unlock().then(start).catch(cleanup);
     return stop;
   }
-  click(cellKey, { silent = false } = {}) {
+  click(cellKey, { silent = false, soft = false } = {}) {
     // Remember the clicked cell even when replacing its DOM triggers focusout.
     if (cellKey !== undefined) this.hoverKey = cellKey;
     if (silent) {
@@ -203,7 +203,7 @@ export class GameAudio {
     if (this.now() - this.lastClick < 35) return;
     this.lastClick = this.now(); this.lastHover = this.now();
     this.hoverVoice(); this.clickVoice();
-    this.clickVoice = this.play('click');
+    this.clickVoice = this.play('click', { gainScale: soft ? .7 : 1 });
   }
   hover(cellKey) {
     if (cellKey === this.hoverKey) return;

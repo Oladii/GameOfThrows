@@ -103,6 +103,17 @@ test('selection remembers its pointer cell beyond the hover cooldown', async () 
   h.audio.hover('board:1,1');assert.equal(h.starts.length,3,'moving to another cell ticks');
   h.tick(100);h.audio.hover(null);h.audio.hover('board:1,1');assert.equal(h.starts.length,4,'actual leave and return ticks');
 });
+test('the soft click uses the selection sample at a lower level', async () => {
+  const h = harness();
+  await h.audio.unlock();
+  h.audio.click();
+  const selectionLevel = h.gains.at(-1);
+  h.tick(100);
+  h.audio.click(undefined, { soft: true });
+  assert.equal(h.starts.length, 2);
+  assert.equal(h.starts[1].buffer, h.starts[0].buffer);
+  assert.equal(h.gains.at(-1), selectionLevel * .7);
+});
 test('tutorial removal sounds on the death phase, including reduced motion', () => {
   const timers=new Map(),sounds=[];let id=0;
   const battle=new ShowcaseBattle({reducedMotion:()=>true,
@@ -205,14 +216,19 @@ test('board activation keeps selection audible and destination movement silent i
   const fn = app.slice(app.indexOf('function activateBoardCell('), app.indexOf('function focusBoardCell('));
   const cues = [], actions = [], ctx = vm.createContext({ tableRattle: null, editor: false, tool: 'shield', selected: 'piece',
     visibleState: () => ({ pieces: [{ id: 'piece', q: 0, r: 0 }] }), humanCanMove: () => true,
+    movement: null, combat: null, currentDeaths: [],
     available: [{ q: 0, r: 1 }], gameAudio: { click(key, options) { cues.push({ key, ...options }); } },
     onCell(q, r) { actions.push([q, r]); } });
   vm.runInContext(fn, ctx);
   for (const mode of ['bot', 'local', 'online']) {
     ctx.playMode = mode; ctx.activateBoardCell(0, 1); assert.equal(cues.at(-1).silent, true);
     ctx.activateBoardCell(0, 0); assert.equal(cues.at(-1).silent, false);
+    assert.equal(cues.at(-1).soft, true);
     ctx.activateBoardCell(2, 2); assert.equal(cues.at(-1).silent, false);
+    assert.equal(cues.at(-1).soft, true);
   }
+  ctx.selected = null; ctx.activateBoardCell(2, 2); assert.equal(cues.at(-1).soft, false);
   ctx.editor = true; ctx.activateBoardCell(0, 1); assert.equal(cues.at(-1).silent, true);
-  assert.equal(actions.length, 10);
+  ctx.selected = null; ctx.activateBoardCell(0, 0); assert.equal(cues.at(-1).soft, false);
+  assert.equal(actions.length, 12);
 });

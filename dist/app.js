@@ -851,10 +851,14 @@ function onCell(q, r) {
 }
 function activateBoardCell(q, r) {
   if (tableRattle?.active) return;
-  const empty = !visibleState().pieces.some(piece => piece.q === q && piece.r === r);
+  const occupant = visibleState().pieces.find(piece => piece.q === q && piece.r === r);
+  const empty = !occupant;
   const placing = editor && tool !== 'erase' && empty;
   const moving = !editor && humanCanMove() && selected && empty && available.some(cell => cell.q === q && cell.r === r);
-  gameAudio.click(`board:${q},${r}`, { silent: Boolean(placing || moving) });
+  const deselecting = selected !== null && (editor
+    ? tool !== 'erase' && occupant?.id === selected
+    : !movement && !combat && !currentDeaths.length && (occupant ? occupant.id === selected : !moving));
+  gameAudio.click(`board:${q},${r}`, { silent: Boolean(placing || moving), soft: deselecting });
   onCell(q, r);
 }
 function focusBoardCell(cellKey, moveFocus = false) {
@@ -866,6 +870,12 @@ $('.board-wrap').addEventListener('click', event => {
   const cell = event.target.closest('[data-cell]');
   if (cell) { focusBoardCell(cell.dataset.cell); activateBoardCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event); }
   else clearSelection();
+});
+$('.board-wrap').addEventListener('contextmenu', event => {
+  if (event.button !== 2 || !selected) return;
+  event.preventDefault();
+  clearSelection();
+  if (!selected) gameAudio.click(undefined, { soft: true });
 });
 $('#board').addEventListener('mousedown', event => { if (event.target === $('#board')) event.preventDefault(); });
 $('#board').addEventListener('keydown', event => {
@@ -1391,7 +1401,7 @@ createGuideController({ onAnalytics:(type,extra) => { browserAnalytics.event(typ
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { render(); }));
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => dismissDialog(b.closest('dialog'))));
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', event => { if (event.target === d) { const r = d.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dismissDialog(d); } }));
-document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog') && !soundControl.contains(event.target)) { event.preventDefault(); soundButton.focus(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { if (selected) gameAudio.click(); reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
+document.addEventListener('keydown', event => { if ($('#rules-dialog')?.hidden === false) return; if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog') && !soundControl.contains(event.target)) { event.preventDefault(); soundButton.focus(); return; } deleteEditorSelection(event); if (event.key === 'Escape' && !$('dialog[open]')) { if (selected) gameAudio.click(undefined, { soft: true }); reviewRequest++; reviewLoading = false; reviewTurn = null; reviewingTurn = false; selected = null; render(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#undo').click(); } });
 document.querySelectorAll('[data-icon]').forEach(element => element.innerHTML = icon(element.dataset.icon));
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (event.matches && movement) { const completed = movement; moveAnimator.cancel(); movement = null; completeMovementPresentation(completed); } });
 let attackReachInView = true;
