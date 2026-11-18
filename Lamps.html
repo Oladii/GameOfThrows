@@ -89,6 +89,7 @@ select{font-size:11px}
 .team-count{font-size:11px}
 .turn-tag{font-size:8px;letter-spacing:.6px;margin-top:3px;opacity:.8}
 .board-wrap{position:relative;display:grid;place-items:center;min-height:380px;padding:15px 0 8px}
+.board-wrap,.showcase-field{-webkit-user-select:none;user-select:none}
 #board{width:100%;max-height:650px;overflow:visible;display:block;touch-action:manipulation}
 .cell{cursor:pointer;outline:none}
 .cell.draggable{cursor:grab;touch-action:none}
@@ -1014,7 +1015,8 @@ main{padding:14px}
 .board-wrap.table-rattle-active{transform-origin:50% 55%;will-change:transform;isolation:isolate}
 .table-rattle-active #board-pieces{opacity:0}
 .table-rattle-active :is(#aura-circles,#selected-attack-reach,#attack-lines,#death-effects){opacity:0}
-.table-rattle-active #board{pointer-events:none}
+.table-rattle-active #board .cell{cursor:default}
+.table-rattle-active #board .cell:hover .tile{stroke:#9da586;stroke-width:2}
 #table-rattle-effect{pointer-events:none}
 #table-rattle-pieces .piece{pointer-events:none}
 
@@ -1062,7 +1064,7 @@ main{padding:14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.110</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-18T19:03:03.088Z">Сборка 18.11.2026, 22:03:03 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.111</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-18T21:41:10.081Z">Сборка 19.11.2026, 00:41:10 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -3711,8 +3713,8 @@ function tableKnockInsideField(point, hull) {
 }
 
 class TableKnocks {
-  constructor({ surface, board, audio, canKnock, onShake = () => {}, now = () => performance.now() }) {
-    Object.assign(this, { surface, board, audio, canKnock, onShake, now });
+  constructor({ surface, board, audio, canKnock, canShake = () => true, onShake = () => {}, now = () => performance.now() }) {
+    Object.assign(this, { surface, board, audio, canKnock, canShake, onShake, now });
     this.sequence = new TableKnockSequence();
     this.doc = surface.ownerDocument;
     this.pointerDown = event => this.handlePointerDown(event);
@@ -3752,7 +3754,7 @@ class TableKnocks {
     event.preventDefault();
     this.suppressClick = true;
     // The original quiet hit gives feedback before the second hit and scatter.
-    if (this.sequence.hit(this.now()) === 1) this.audio.play('knock1');
+    if (!this.canShake() || this.sequence.hit(this.now()) === 1) this.audio.play('knock1');
     else {
       this.audio.play('knock3'); this.audio.play('scatter'); this.onShake();
     }
@@ -3982,8 +3984,8 @@ class TableRattle {
 
 // Pointer gestures only. The application owns selection, legal moves and history.
 class BoardDrag {
-  constructor({ board, canStart, start, canDrop, drop, preview = () => {}, finish = () => {} }) {
-    Object.assign(this, { board, canStart, start, canDrop, drop, preview, finish });
+  constructor({ board, canStart, start, canDrop, drop, onReturn = () => {}, preview = () => {}, finish = () => {} }) {
+    Object.assign(this, { board, canStart, start, canDrop, drop, onReturn, preview, finish });
     this.doc = board.ownerDocument;
     this.win = this.doc.defaultView;
     this.listeners = [];
@@ -4026,7 +4028,7 @@ class BoardDrag {
     if (!cell || !this.board.contains(cell)) return;
     const piece = this.canStart(cell.dataset.cell);
     if (!piece) return;
-    this.gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, piece };
+    this.gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, piece, originCell: cell.dataset.cell };
   }
   pointerMove(event) {
     let gesture = this.gesture;
@@ -4076,7 +4078,8 @@ class BoardDrag {
     const cell = gesture.token && this.cellAt(event);
     const destination = cell && this.canDrop(gesture.piece, cell.dataset.cell) ? cell.dataset.cell : null;
     this.cancel();
-    if (destination) this.drop(gesture.piece, destination);
+    if (cell?.dataset.cell === gesture.originCell) this.onReturn(gesture.piece);
+    else if (destination) this.drop(gesture.piece, destination);
   }
   cancel() {
     const gesture = this.gesture;
@@ -5290,6 +5293,7 @@ document.addEventListener('pointerdown', event => {
 });
 document.addEventListener('pointerdown', () => { void gameAudio.unlock(); }, { capture: true });
 document.addEventListener('click', () => { void gameAudio.unlock(); }, { capture: true });
+document.addEventListener('contextmenu', event => { if (event.button === 2) event.preventDefault(); }, { capture: true });
 document.addEventListener('keydown', () => { void gameAudio.unlock(); }, { capture: true });
 document.addEventListener('visibilitychange', () => { if (document.hidden) gameAudio.stopAll(); });
 addEventListener('pagehide', () => gameAudio.stopAll());
@@ -6127,10 +6131,10 @@ $('#board').addEventListener('keydown', event => {
 });
 function hoverCell(event) {
   if (boardDrag?.active) return;
-  if (tableRattle?.active) return;
   if (restoringBoardFocus || combat || movement) return;
   const c = event.target.closest('[data-cell]'), k = c?.dataset.cell;
   if (event.type === 'pointermove' && event.pointerType !== 'touch') gameAudio.hover(k ? `board:${k}` : null);
+  if (tableRattle?.active) return;
   if (!k || k === hover) return; hover = k;
   const [q, r] = k.split(',').map(Number);
   inspection = inspectCell(visibleState(), config, { q, r }, editor || gamePhase !== 'playing' || reviewingTurn || isBotTurn() ? null : selected, report);
@@ -6621,6 +6625,11 @@ boardDrag = new BoardDrag({ board: $('#board'), canStart: draggablePiece,
     return !state.pieces.some(p => p.q === q && p.r === r) && (editor || available.some(c => c.q === q && c.r === r));
   },
   drop: (piece, cellKey) => { focusBoardCell(cellKey); activateBoardCell(...cellKey.split(',').map(Number)); },
+  onReturn: piece => {
+    if (selected !== piece.id) return;
+    clearSelection();
+    if (!selected) gameAudio.click(undefined, { soft: true });
+  },
   preview: previewDraggedPiece,
   finish: clearHover
 });
@@ -6628,8 +6637,9 @@ tableRattle = new TableRattle({ surface: $('.board-wrap'), board: $('#board'), o
   onDisappear: () => gameAudio.play('remove') });
 tableKnocks = new TableKnocks({ surface: $('.board-wrap'), board: $('#board'), audio: gameAudio,
   onShake: () => tableRattle.start(),
+  canShake: () => !tableRattle.active,
   canKnock: () => ready && gamePhase === 'playing' && !editor && !reviewingTurn && !reviewLoading
-    && !tableRattle.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !isBotTurn() && !botRunner.active
+    && !roomMovePreview && !movement && !combat && !currentDeaths.length && !isBotTurn() && !botRunner.active
     && !hint?.pending && !document.hidden && !$('dialog[open]') && $('#rules-dialog')?.hidden !== false });
 createGuideController({ onAnalytics:(type,extra) => { browserAnalytics.event(type,extra); queueMicrotask(trackGameTime); }, icons: ICON_PATHS, renderBadges: unitBadges, audio: gameAudio,
   beforeOpen: () => { cancelBot(); cancelMovement(); gameAudio.stopAll(); }, onClose: render });

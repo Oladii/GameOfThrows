@@ -17,7 +17,7 @@ function setup() {
   const cell = value => { const result = node(); result.dataset = { cell: value }; result.closest = () => result; return result; };
   const origin = cell('0,0'), valid = cell('1,0'), invalid = cell('4,0'), outsider = cell('2,2');
   const board = node(), win = target(), doc = target(), source = node();
-  const piece = { id: 'p' }, drops = [], previews = [];
+  const piece = { id: 'p' }, drops = [], previews = [], returns = [];
   let enabled = true, starts = 0, finishes = 0, captures = 0;
   doc.defaultView = win; doc.elementFromPoint = x => x === 20 ? valid : x === 40 ? invalid : x === 60 ? outsider : origin;
   board.ownerDocument = doc; board.contains = cell => [origin, valid, invalid].includes(cell);
@@ -29,11 +29,12 @@ function setup() {
   const drag = new BoardDrag({ board, canStart: key => enabled && key === '0,0' ? piece : null,
     start: () => { starts++; drag.cancel(); return enabled ? source : null; },
     canDrop: (p, key) => enabled && key === '1,0', drop: (p, key) => drops.push([p.id, key]),
+    onReturn: p => returns.push(p.id),
     preview: (p, key, token) => previews.push({ id: p.id, key, token }), finish: () => finishes++ });
   const down = values => doc.emit('pointerdown', { target: origin, ...values });
   const move = values => win.emit('pointermove', { clientX: 20, ...values });
   const up = values => win.emit('pointerup', { clientX: 20, ...values });
-  return { drag, board, win, doc, source, origin, valid, drops, previews, down, move, up,
+  return { drag, board, win, doc, source, origin, valid, drops, previews, returns, down, move, up,
     disable: () => { enabled = false; }, counts: () => ({ starts, finishes, captures }) };
 }
 
@@ -69,6 +70,8 @@ for (const pointerType of ['mouse', 'touch', 'pen']) test(`${pointerType}: legal
 });
 for (const x of [0, 40, 60, 100]) test(`drop on origin, invalid cell or outside the board (${x}) leaves position intact`, () => {
   const ui = setup(); ui.down(); ui.move(); ui.up({ clientX: x }); assert.deepEqual(ui.drops, []);
+  assert.deepEqual(ui.returns, [0, 100].includes(x) ? ['p'] : []);
+  assert.equal(ui.doc.emit('click').prevented, true);
 });
 for (const interruption of ['pointercancel', 'lostpointercapture', 'blur', 'pagehide', 'resize', 'visibilitychange', 'Escape', 'render']) {
   test(`${interruption} cleans the gesture and allows the next drag`, () => {

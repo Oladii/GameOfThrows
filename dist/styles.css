@@ -75,6 +75,7 @@ select{font-size:11px}
 .team-count{font-size:11px}
 .turn-tag{font-size:8px;letter-spacing:.6px;margin-top:3px;opacity:.8}
 .board-wrap{position:relative;display:grid;place-items:center;min-height:380px;padding:15px 0 8px}
+.board-wrap,.showcase-field{-webkit-user-select:none;user-select:none}
 #board{width:100%;max-height:650px;overflow:visible;display:block;touch-action:manipulation}
 .cell{cursor:pointer;outline:none}
 .cell.draggable{cursor:grab;touch-action:none}
@@ -1000,6 +1001,7 @@ main{padding:14px}
 .board-wrap.table-rattle-active{transform-origin:50% 55%;will-change:transform;isolation:isolate}
 .table-rattle-active #board-pieces{opacity:0}
 .table-rattle-active :is(#aura-circles,#selected-attack-reach,#attack-lines,#death-effects){opacity:0}
-.table-rattle-active #board{pointer-events:none}
+.table-rattle-active #board .cell{cursor:default}
+.table-rattle-active #board .cell:hover .tile{stroke:#9da586;stroke-width:2}
 #table-rattle-effect{pointer-events:none}
 #table-rattle-pieces .piece{pointer-events:none}

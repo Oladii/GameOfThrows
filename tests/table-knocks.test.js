@@ -26,7 +26,7 @@ test('field geometry includes edges and gaps, while empty SVG corners count as t
   assert.equal(tableKnockInsideField({ x: 100, y: 100 }, []), true, 'no knocks before field markup exists');
 });
 
-function tableHarness() {
+function tableHarness(canShake = () => true) {
   const listeners = new Map();
   const events = {
     addEventListener(type, handler) { listeners.set(type, handler); },
@@ -43,7 +43,7 @@ function tableHarness() {
   const calls = [], shakes = [];
   const surface = { ownerDocument: doc, contains: target => !target.outside };
   const controller = new TableKnocks({ surface, board, audio: { play: name => calls.push({ name, time }) }, canKnock: () => allowed,
-    onShake: () => shakes.push(time), now: () => time });
+    canShake, onShake: () => shakes.push(time), now: () => time });
   const emit = (type, options = {}) => {
     const event = {
       type, button: 0, detail: type === 'click' ? 1 : 0, isPrimary: true, clientX: 20, clientY: 0,
@@ -76,6 +76,20 @@ test('press plays each hit immediately, and release never replays it or resets t
   h.tick(1000); h.press(); h.release(); h.tick(1401); h.press(); h.release();
   assert.deepEqual(h.calls.slice(-2), [{ name: 'knock1', time: 1000 }, { name: 'knock1', time: 1401 }]);
   assert.equal(h.shakes.length, 1, 'clicks more than 400ms apart only play quiet hits');
+});
+
+test('clicks during scatter play the first knock and the next pair starts after the animation', () => {
+  let active = false;
+  const h = tableHarness(() => !active);
+  const hit = time => { h.tick(time); h.press(); h.release(); };
+  hit(0); hit(100);
+  active = true;
+  hit(200); hit(260); hit(300);
+  assert.deepEqual(h.calls.map(call => call.name), ['knock1', 'knock3', 'scatter', 'knock1', 'knock1', 'knock1']);
+  active = false;
+  hit(320); hit(400);
+  assert.deepEqual(h.calls.slice(-3).map(call => call.name), ['knock1', 'knock3', 'scatter']);
+  assert.deepEqual(h.shakes, [100, 400]);
 });
 
 test('field, controls, secondary pointers, right presses and inactive game states never knock and reset the series', () => {

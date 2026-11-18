@@ -55,6 +55,7 @@ document.addEventListener('pointerdown', event => {
 });
 document.addEventListener('pointerdown', () => { void gameAudio.unlock(); }, { capture: true });
 document.addEventListener('click', () => { void gameAudio.unlock(); }, { capture: true });
+document.addEventListener('contextmenu', event => { if (event.button === 2) event.preventDefault(); }, { capture: true });
 document.addEventListener('keydown', () => { void gameAudio.unlock(); }, { capture: true });
 document.addEventListener('visibilitychange', () => { if (document.hidden) gameAudio.stopAll(); });
 addEventListener('pagehide', () => gameAudio.stopAll());
@@ -892,10 +893,10 @@ $('#board').addEventListener('keydown', event => {
 });
 function hoverCell(event) {
   if (boardDrag?.active) return;
-  if (tableRattle?.active) return;
   if (restoringBoardFocus || combat || movement) return;
   const c = event.target.closest('[data-cell]'), k = c?.dataset.cell;
   if (event.type === 'pointermove' && event.pointerType !== 'touch') gameAudio.hover(k ? `board:${k}` : null);
+  if (tableRattle?.active) return;
   if (!k || k === hover) return; hover = k;
   const [q, r] = k.split(',').map(Number);
   inspection = inspectCell(visibleState(), config, { q, r }, editor || gamePhase !== 'playing' || reviewingTurn || isBotTurn() ? null : selected, report);
@@ -1386,6 +1387,11 @@ boardDrag = new BoardDrag({ board: $('#board'), canStart: draggablePiece,
     return !state.pieces.some(p => p.q === q && p.r === r) && (editor || available.some(c => c.q === q && c.r === r));
   },
   drop: (piece, cellKey) => { focusBoardCell(cellKey); activateBoardCell(...cellKey.split(',').map(Number)); },
+  onReturn: piece => {
+    if (selected !== piece.id) return;
+    clearSelection();
+    if (!selected) gameAudio.click(undefined, { soft: true });
+  },
   preview: previewDraggedPiece,
   finish: clearHover
 });
@@ -1393,8 +1399,9 @@ tableRattle = new TableRattle({ surface: $('.board-wrap'), board: $('#board'), o
   onDisappear: () => gameAudio.play('remove') });
 tableKnocks = new TableKnocks({ surface: $('.board-wrap'), board: $('#board'), audio: gameAudio,
   onShake: () => tableRattle.start(),
+  canShake: () => !tableRattle.active,
   canKnock: () => ready && gamePhase === 'playing' && !editor && !reviewingTurn && !reviewLoading
-    && !tableRattle.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !isBotTurn() && !botRunner.active
+    && !roomMovePreview && !movement && !combat && !currentDeaths.length && !isBotTurn() && !botRunner.active
     && !hint?.pending && !document.hidden && !$('dialog[open]') && $('#rules-dialog')?.hidden !== false });
 createGuideController({ onAnalytics:(type,extra) => { browserAnalytics.event(type,extra); queueMicrotask(trackGameTime); }, icons: ICON_PATHS, renderBadges: unitBadges, audio: gameAudio,
   beforeOpen: () => { cancelBot(); cancelMovement(); gameAudio.stopAll(); }, onClose: render });

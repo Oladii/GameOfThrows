@@ -112,6 +112,18 @@ test('removal sound runs once after the rest, with no extra death markup and a p
   }
 });
 
+test('hovering a hex during scatter plays its hover cue without starting a move forecast', () => {
+  const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
+  const cues = [];
+  const ctx = vm.createContext({ tableRattle: { active: true }, boardDrag: null, restoringBoardFocus: false,
+    combat: null, movement: null, gameAudio: { hover: key => cues.push(key) } });
+  vm.runInContext(app.slice(app.indexOf('function hoverCell('), app.indexOf('function clearHover(')), ctx);
+  const target = { closest: () => ({ dataset: { cell: '1,0' } }) };
+  ctx.hoverCell({ type: 'pointermove', pointerType: 'mouse', target });
+  ctx.hoverCell({ type: 'pointermove', pointerType: 'touch', target });
+  assert.deepEqual(cues, ['board:1,0']);
+});
+
 test('presentation blocks player moves and cell clicks without changing a position', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   const declaration = name => {

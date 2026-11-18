@@ -1,7 +1,7 @@
 // Pointer gestures only. The application owns selection, legal moves and history.
 export class BoardDrag {
-  constructor({ board, canStart, start, canDrop, drop, preview = () => {}, finish = () => {} }) {
-    Object.assign(this, { board, canStart, start, canDrop, drop, preview, finish });
+  constructor({ board, canStart, start, canDrop, drop, onReturn = () => {}, preview = () => {}, finish = () => {} }) {
+    Object.assign(this, { board, canStart, start, canDrop, drop, onReturn, preview, finish });
     this.doc = board.ownerDocument;
     this.win = this.doc.defaultView;
     this.listeners = [];
@@ -44,7 +44,7 @@ export class BoardDrag {
     if (!cell || !this.board.contains(cell)) return;
     const piece = this.canStart(cell.dataset.cell);
     if (!piece) return;
-    this.gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, piece };
+    this.gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, piece, originCell: cell.dataset.cell };
   }
   pointerMove(event) {
     let gesture = this.gesture;
@@ -94,7 +94,8 @@ export class BoardDrag {
     const cell = gesture.token && this.cellAt(event);
     const destination = cell && this.canDrop(gesture.piece, cell.dataset.cell) ? cell.dataset.cell : null;
     this.cancel();
-    if (destination) this.drop(gesture.piece, destination);
+    if (cell?.dataset.cell === gesture.originCell) this.onReturn(gesture.piece);
+    else if (destination) this.drop(gesture.piece, destination);
   }
   cancel() {
     const gesture = this.gesture;

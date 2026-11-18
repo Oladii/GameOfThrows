@@ -38,8 +38,8 @@ export function tableKnockInsideField(point, hull) {
 }
 
 export class TableKnocks {
-  constructor({ surface, board, audio, canKnock, onShake = () => {}, now = () => performance.now() }) {
-    Object.assign(this, { surface, board, audio, canKnock, onShake, now });
+  constructor({ surface, board, audio, canKnock, canShake = () => true, onShake = () => {}, now = () => performance.now() }) {
+    Object.assign(this, { surface, board, audio, canKnock, canShake, onShake, now });
     this.sequence = new TableKnockSequence();
     this.doc = surface.ownerDocument;
     this.pointerDown = event => this.handlePointerDown(event);
@@ -79,7 +79,7 @@ export class TableKnocks {
     event.preventDefault();
     this.suppressClick = true;
     // The original quiet hit gives feedback before the second hit and scatter.
-    if (this.sequence.hit(this.now()) === 1) this.audio.play('knock1');
+    if (!this.canShake() || this.sequence.hit(this.now()) === 1) this.audio.play('knock1');
     else {
       this.audio.play('knock3'); this.audio.play('scatter'); this.onShake();
     }
