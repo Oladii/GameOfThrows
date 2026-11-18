@@ -103,7 +103,7 @@ test('selection remembers its pointer cell beyond the hover cooldown', async () 
   h.audio.hover('board:1,1');assert.equal(h.starts.length,3,'moving to another cell ticks');
   h.tick(100);h.audio.hover(null);h.audio.hover('board:1,1');assert.equal(h.starts.length,4,'actual leave and return ticks');
 });
-test('the soft click uses the selection sample at a lower level', async () => {
+test('the soft click uses the selection sample at half gain', async () => {
   const h = harness();
   await h.audio.unlock();
   h.audio.click();
@@ -112,7 +112,7 @@ test('the soft click uses the selection sample at a lower level', async () => {
   h.audio.click(undefined, { soft: true });
   assert.equal(h.starts.length, 2);
   assert.equal(h.starts[1].buffer, h.starts[0].buffer);
-  assert.equal(h.gains.at(-1), selectionLevel * .7);
+  assert.equal(h.gains.at(-1), selectionLevel * .5);
 });
 test('tutorial removal sounds on the death phase, including reduced motion', () => {
   const timers=new Map(),sounds=[];let id=0;

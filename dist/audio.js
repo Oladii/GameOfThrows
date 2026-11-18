@@ -205,7 +205,7 @@ export class GameAudio {
     if (this.now() - this.lastClick < 35) return;
     this.lastClick = this.now(); this.lastHover = this.now();
     this.hoverVoice(); this.clickVoice();
-    this.clickVoice = this.play('click', { gainScale: soft ? .7 : 1 });
+    this.clickVoice = this.play('click', { gainScale: soft ? .5 : 1 });
   }
   hover(cellKey) {
     if (cellKey === this.hoverKey) return;

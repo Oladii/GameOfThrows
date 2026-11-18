@@ -10,7 +10,7 @@ import { renderTokenBody } from '../dist/token-presentation.js';
 test('the left panel alternates between the reference and selected figure, preserving scroll for previews', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   const nodes = { '#inspector': { innerHTML: '', dataset: {} }, '#sidebar-overview': { hidden: false }, '#selection-panel': { hidden: true }, '.left-panel': { scrollTop: 180 } };
-  const state = { pieces: [{ id: 'own', type: 'shield', team: 1, q: 0, r: 1 }, { id: 'ally', type: 'defenseLamp', team: 1, q: 1, r: 1 }], turn: 1, ply: 0, winner: null };
+  const state = { pieces: [{ id: 'own', type: 'shield', team: 1, q: 0, r: 1 }, { id: 'ally', type: 'defenseLamp', team: 1, q: 1, r: 3 }], turn: 1, ply: 0, winner: null };
   const context = vm.createContext({ inspectionDamageArrows, hover: null, playMode: 'local', humanTeam: 0, hint: null, $: selector => nodes[selector], selected: null, movement: null, combat: null, config: structuredClone(DEFAULT_CONFIG), visibleState: () => state,
     effective, shieldCanRetreat, archerHasEdgeBonus, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg></svg>', plural: () => 'клетка' });
   vm.runInContext(app.slice(app.indexOf('function renderInspector('), app.indexOf('function shieldPromotionDescription(')), context);
@@ -20,14 +20,15 @@ test('the left panel alternates between the reference and selected figure, prese
   assert.equal(nodes['#sidebar-overview'].hidden, true); assert.equal(nodes['#selection-panel'].hidden, false);
   assert.ok(nodes['#inspector'].innerHTML.includes('Щитоносец'));
   assert.equal(nodes['.left-panel'].scrollTop, 0);
+  const fortitude = /data-unit-stat="fortitude"><span>Стойкость<\/span><strong title="Итого: (\d+)"/;
+  assert.equal(nodes['#inspector'].innerHTML.match(fortitude)[1], '6');
   nodes['.left-panel'].scrollTop = 140;
   const preview = structuredClone(state); preview.pieces[0].r = 0;
   context.renderInspector({ isPreview: true, piece: preview.pieces[0], position: preview });
   const previewMarkup = nodes['#inspector'].innerHTML;
-  assert.ok(previewMarkup.indexOf('preview-label') > previewMarkup.indexOf('unit-description'));
-  assert.ok(previewMarkup.indexOf('preview-label') < previewMarkup.indexOf('stat-grid'));
+  assert.doesNotMatch(previewMarkup, /preview-label|Параметры после предполагаемого перемещения/);
+  assert.equal(previewMarkup.match(fortitude)[1], '5');
   assert.equal(nodes['.left-panel'].scrollTop, 140);
-  assert.ok(nodes['#inspector'].innerHTML.includes('Параметры после предполагаемого перемещения'));
   // The inspector also tracks a piece ID. Board repainting must not treat it as
   // an SVG token, or clearing selection throws before restoring the reference.
   const badge = { outerHTML: '' };
