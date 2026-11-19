@@ -39,7 +39,7 @@ test('cancelled frames cannot finish or overwrite a replacement move', () => {
   assert.equal(frames.at(-1).x, 30); assert.equal(frames.at(-1).y, 40);
 });
 
-for (const scenario of ['restored mover', 'surviving mover', 'no casualties', 'reduced motion', 'interrupted']) test(`undo presentation: ${scenario}`, () => {
+for (const scenario of ['restored mover', 'surviving mover', 'no casualties', 'reduced motion', 'interrupted before hold', 'interrupted during hold', 'animation replaced']) test(`undo presentation: ${scenario}`, async () => {
   const config = structuredClone(DEFAULT_CONFIG);
   config.geometry = 'square'; config.size = 6; config.victoryCondition = 'all-units';
   config.experiments.squareDiagonals = false;
@@ -56,19 +56,21 @@ for (const scenario of ['restored mover', 'surviving mover', 'no casualties', 'r
   const state = { pieces, turn: 0, ply: 0, winner: null };
   const action = { id: 'mover', from: { q: 0, r: 0 }, to: { q: 3, r: 0 } };
   const result = move(state, config, action.id, action.to);
-  const moverWasRemoved = ['restored mover', 'reduced motion', 'interrupted'].includes(scenario);
+  const moverWasRemoved = scenario !== 'surviving mover' && scenario !== 'no casualties';
   assert.equal(result.deaths.some(dead => dead.id === action.id), moverWasRemoved);
   assert.equal(Boolean(result.deaths.length), scenario !== 'no casualties');
 
-  const frames = [], source = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
+  const frames = [], restorations = [], source = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   let startTimer;
+  const { promise: finished, resolve: finishAppearance, reject: replaceAppearance } = Promise.withResolvers();
   const events = [];
   const context = vm.createContext({ config, movement: null, inspectCell, movementPath, createMovementPlan,
     matchMedia: () => ({ matches: scenario === 'reduced motion' }), point: ({ q, r }) => ({ x: q, y: r }),
+    $(selector) { assert.equal(selector, '#moving-token .restoring-token'); return { getAnimations: () => [{ animationName: 'token-to-skull', finished }] }; },
     setTimeout(fn, delay) { assert.equal(delay, 200); startTimer = fn; return 1; },
     clearTimeout(id) { assert.equal(id, 1); startTimer = null; },
     gameAudio: { play(name) { events.push(name); return () => events.push('stop'); }, movement: () => ({ finish() {} }) },
-    render() { frames.push(context.movement); events.push('render'); },
+    render(deaths, restoredIds) { frames.push(context.movement); restorations.push(restoredIds); events.push('render'); },
     tableRattle: null, roomMovePreview: null, combat: null, combatAnimator: { cancel() {} },
     moveAnimator: { start() { events.push('move'); }, cancel() {} },
     presentKills: () => assert.fail('undo started a combat sequence') });
@@ -80,6 +82,7 @@ for (const scenario of ['restored mover', 'surviving mover', 'no casualties', 'r
   if (scenario === 'reduced motion') {
     assert.deepEqual(events, ['render', 'remove']);
     assert.equal(frames[0], null);
+    assert.equal(restorations[0], undefined);
     assert.equal(startTimer, undefined);
     return;
   }
@@ -87,12 +90,26 @@ for (const scenario of ['restored mover', 'surviving mover', 'no casualties', 'r
   assert.equal(frame.piece.id, action.id);
   assert.deepEqual(frame.before.state.pieces.map(p => p.id), pieces.map(p => p.id));
   assert.ok([...frame.forecast.report.values()].every(info => !info.dead));
+  assert.deepEqual([...restorations[0]].sort(), result.deaths.map(p => p.id).sort());
   for (const dead of result.deaths) assert.equal(frame.forecast.report.get(dead.id).incoming, 0);
   const points = [{ x: 3, y: 0 }, { x: 3, y: 1 }, { x: 2, y: 1 }, { x: 1, y: 1 }, { x: 0, y: 1 }, { x: 0, y: 0 }];
   assert.deepEqual(frame.plan.points, points);
   if (moverWasRemoved) {
     assert.deepEqual(events, ['render', 'remove']);
-    if (scenario === 'interrupted') {
+    assert.equal(startTimer, undefined, 'the hold starts only after the appearance animation settles');
+    if (scenario === 'interrupted before hold') {
+      context.cancelMovement();
+      finishAppearance();
+      await finished;
+      assert.equal(startTimer, undefined);
+      assert.deepEqual(events, ['render', 'remove', 'stop']);
+      return;
+    }
+    if (scenario === 'animation replaced') replaceAppearance(new Error('CSS animation was replaced'));
+    else finishAppearance();
+    await finished.catch(() => {});
+    assert.equal(typeof startTimer, 'function');
+    if (scenario === 'interrupted during hold') {
       const stale = startTimer;
       context.cancelMovement();
       assert.equal(startTimer, null);

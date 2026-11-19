@@ -403,12 +403,14 @@ function presentMove(before, action, deaths, preview = null) {
 }
 function presentUndo(undoSteps) {
   const animate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let restoredPieces = false;
+  const restoredIds = new Set();
   while (undoSteps.length) {
     const { before, after } = undoSteps.shift(), action = before.action;
     if (!action) continue;
     const survivingIds = new Set(after.pieces.map(piece => piece.id));
-    restoredPieces ||= before.state.pieces.some(piece => !survivingIds.has(piece.id));
+    for (const piece of before.state.pieces) {
+      if (!survivingIds.has(piece.id)) restoredIds.add(piece.id);
+    }
     if (!animate || action.pass || before.config.geometry !== config.geometry || before.config.size !== config.size) continue;
     const piece = before.state.pieces.find(p => p.id === action.id);
     if (!piece || piece.q !== action.from.q || piece.r !== action.from.r) continue;
@@ -426,8 +428,8 @@ function presentUndo(undoSteps) {
       before: { state: forecast.position }, piece: forecast.piece,
       action: { from: action.to, to: action.from }, plan, forecast, undoSteps
     };
-    render();
-    if (restoredPieces) reverse.stopRestore = gameAudio.play('remove');
+    render([], restoredIds);
+    if (restoredIds.size) reverse.stopRestore = gameAudio.play('remove');
     const start = () => {
       if (movement !== reverse) return;
       reverse.startTimer = null;
@@ -435,11 +437,19 @@ function presentUndo(undoSteps) {
       moveAnimator.start(plan);
     };
     if (survivingIds.has(piece.id)) start();
-    else reverse.startTimer = setTimeout(start, 200);
+    else {
+      const hold = () => {
+        if (movement === reverse) reverse.startTimer = setTimeout(start, 200);
+      };
+      const restoration = $('#moving-token .restoring-token')?.getAnimations?.().find(animation => animation.animationName === 'token-to-skull');
+      // Rendering and painting the first frame can take time on a busy device.
+      if (restoration) restoration.finished.then(hold, hold);
+      else hold();
+    }
     return;
   }
-  render();
-  if (restoredPieces) gameAudio.play('remove');
+  render([], animate ? restoredIds : undefined);
+  if (restoredIds.size) gameAudio.play('remove');
 }
 function presentKills(before, forecast, deaths) {
   if (!deaths.length) { render(); return; }
@@ -517,7 +527,7 @@ function startBot() {
 }
 function point(c) { const p = config.geometry === 'hex' ? hexGridPoint(c) : { x: c.q * 59, y: c.r * 59 }; return playMode === 'online' && roomView?.selfSeat === 0 ? { x: -p.x, y: -p.y } : p; }
 function polygon(c) { const { x, y } = point(c); return config.geometry === 'hex' ? hexGridPolygon({ x, y }) : `${x-28},${y-28} ${x+28},${y-28} ${x+28},${y+28} ${x-28},${y+28}`; }
-function boardMarkup() {
+function boardMarkup(restoredIds) {
   const restoreFocus = $('#board').contains(document.activeElement) && document.activeElement?.hasAttribute('data-cell');
   const state = visibleState();
   const board = cells(config), points = board.map(point), minX = Math.min(...points.map(p => p.x)) - 37, maxX = Math.max(...points.map(p => p.x)) + 37, minY = Math.min(...points.map(p => p.y)) - 40, maxY = Math.max(...points.map(p => p.y)) + 40;
@@ -544,13 +554,15 @@ function boardMarkup() {
     if (p && movement?.piece.id !== p.id) {
       const info = report.get(p.id);
       const appearance = unitAppearance(p, config, ICON_PATHS, p.team, playMode === 'online' && roomView?.selfSeat === 0);
-      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''}" data-piece-id="${p.id}" data-piece-type="${p.type}" data-veteran="${appearance.veteran}" transform="translate(${x},${y})">${renderTokenBody(appearance, p.team)}${unitBadges(info, { pieceType: p.type, veteran: appearance.veteran })}</g>`;
+      const body = renderTokenBody(appearance, p.team) + unitBadges(info, { pieceType: p.type, veteran: appearance.veteran });
+      const contents = restoredIds?.has(p.id) ? `<g class="restoring-token">${body}</g>` : body;
+      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''}" data-piece-id="${p.id}" data-piece-type="${p.type}" data-veteran="${appearance.veteran}" transform="translate(${x},${y})">${contents}</g>`;
     }
     tokens.push(token);
     const info = p && report.get(p.id);
     const description = info ? `<desc id="cell-stats-${k}">Урон: ${info.damage}. Стойкость: ${info.fortitude}. Входящий урон: ${info.incoming}.${info.dead ? ' Погибнет при расчёте' : ''}</desc>` : '';
     return `<g class="${classes.join(' ')}" data-cell="${k}" tabindex="${k === boardFocus ? 0 : -1}" role="button" ${p ? `aria-pressed="${p.id === selected}" aria-describedby="cell-stats-${k}"` : ''} aria-label="Клетка ${k}: ${details}"><polygon class="tile" points="${polygon(c)}"/>${description}</g>`;
-  }).join('') + '<g id="aura-circles" clip-path="url(#aura-field-clip)" aria-hidden="true"></g><g id="selected-attack-reach" aria-hidden="true"></g>' + `<g id="board-pieces" pointer-events="none" aria-hidden="true">${tokens.join('')}</g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>` + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config, undefined, playMode === 'online' && roomView?.selfSeat === 0)}</g>` + lastMoveTrace() + hintTrace() + movingTokenMarkup();
+  }).join('') + '<g id="aura-circles" clip-path="url(#aura-field-clip)" aria-hidden="true"></g><g id="selected-attack-reach" aria-hidden="true"></g>' + `<g id="board-pieces" pointer-events="none" aria-hidden="true">${tokens.join('')}</g><g id="attack-lines" class="attack-lines" aria-hidden="true"></g>` + `<g id="death-effects" class="death-effects" aria-hidden="true">${renderDeathEffects(currentDeaths, point, polygon({ q: 0, r: 0 }), ICON_PATHS, config, undefined, playMode === 'online' && roomView?.selfSeat === 0)}</g>` + lastMoveTrace() + hintTrace() + movingTokenMarkup(restoredIds);
   if (restoreFocus) {
     // Replacing cells preserves keyboard focus without starting a new forecast.
     restoringBoardFocus = true;
@@ -582,10 +594,10 @@ function lastMoveTrace() {
   const origin = appearance ? `<g class="move-origin-token" transform="translate(${from.x},${from.y})">${renderTokenBody({ ...appearance, veteran: false }, source.team)}</g>` : '';
   return `<g class="last-move-trace" style="--move-color:${color};--hint-color:${color}" aria-hidden="true"><title>Перемещение в просматриваемом ходе</title><defs><marker id="last-move-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10Z" fill="${color}"/></marker></defs>${origin}<path class="damage-arrow-path" d="${path}" marker-end="url(#last-move-arrow)"/><circle class="move-arrival" cx="${to.x}" cy="${to.y}" r="26"/></g>`;
 }
-function movingTokenMarkup() {
+function movingTokenMarkup(restoredIds) {
   if (!movement) return '';
   const p = movement.piece, frame = moveAnimator.active ? moveAnimator.frame : sampleMovement(movement.plan, 0);
-  return renderMovingToken(p, frame, ICON_PATHS, 'moving-token', config, p.team, movement.forecast.report.get(p.id), playMode === 'online' && roomView?.selfSeat === 0);
+  return renderMovingToken(p, frame, ICON_PATHS, 'moving-token', config, p.team, movement.forecast.report.get(p.id), playMode === 'online' && roomView?.selfSeat === 0, restoredIds?.has(p.id));
 }
 function inspectionContext() {
   const position = visibleState();
@@ -846,7 +858,7 @@ function renderStartSettings() {
   $('#configure-position').disabled = positionKind !== 'custom' || refreshingNewGame;
   $('#configure-position').hidden = positionKind !== 'custom';
 }
-function render(deaths = []) {
+function render(deaths = [], restoredIds) {
   boardDrag?.cancel();
   tableRattle?.cancel();
   tableKnocks?.reset();
@@ -872,7 +884,7 @@ function render(deaths = []) {
   report = combat?.report ?? (movement?.undoSteps ? movement.forecast.report : analyze(state, config));
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
-  boardMarkup(); paintAuras(); highlightSources();
+  boardMarkup(restoredIds); paintAuras(); highlightSources();
   boardDrag?.refresh();
   $('#board').setAttribute('aria-busy', String(Boolean(movement || combat)));
   $('#board').setAttribute('data-combat-phase', combat?.phase || 'idle');

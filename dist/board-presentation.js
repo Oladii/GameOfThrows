@@ -50,9 +50,11 @@ export function renderDeathEffects(deaths, point, polygonPoints, icons, config =
   }).join('');
 }
 
-export function renderMovingToken(piece, frame, icons, id = 'moving-token', config = null, displayTeam = piece.team, info = null, flipped = false) {
+export function renderMovingToken(piece, frame, icons, id = 'moving-token', config = null, displayTeam = piece.team, info = null, flipped = false, restoring = false) {
   const appearance = unitAppearance(piece, config, icons, displayTeam, flipped);
-  return `<g id="${id}" class="moving-token${appearance.veteran ? ' veteran' : ''} ${displayTeam ? 'south' : 'north'}${info?.dead ? ' fatal' : ''}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true">${renderTokenBody(appearance, displayTeam)}${info ? renderUnitBadges(info, { showIncoming: true, pieceType: piece.type, veteran: appearance.veteran }) : ''}</g>`;
+  const body = renderTokenBody(appearance, displayTeam) + (info ? renderUnitBadges(info, { showIncoming: true, pieceType: piece.type, veteran: appearance.veteran }) : '');
+  const contents = restoring ? `<g class="restoring-token">${body}</g>` : body;
+  return `<g id="${id}" class="moving-token${appearance.veteran ? ' veteran' : ''} ${displayTeam ? 'south' : 'north'}${info?.dead ? ' fatal' : ''}" data-progress="${frame.progress}" transform="translate(${frame.x},${frame.y})" aria-hidden="true">${contents}</g>`;
 }
 
 // Both the board and onboarding use the same selected-aura palette and hatch.

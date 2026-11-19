@@ -162,7 +162,7 @@ test('presentation blocks player moves and cell clicks without changing a positi
 
 test('a re-render cancels the presentation before any replacement board markup', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
-  const start = app.indexOf('function render(deaths = []) {'), end = app.indexOf('\n}', start) + 2;
+  const start = app.indexOf('function render(deaths = [], restoredIds) {'), end = app.indexOf('\n}', start) + 2;
   const reached = new Error('normal rendering reached'); let cancellations = 0;
   const ctx = vm.createContext({ boardDrag: null, tableRattle: { cancel() { cancellations++; } }, tableKnocks: { reset() {} },
     previousGame: null, hint: null, renderHint() {}, renderUpdateNotice() { throw reached; } });
