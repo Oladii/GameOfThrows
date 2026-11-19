@@ -1,4 +1,7 @@
-export const TABLE_RATTLE_SETTLED_AT = 520;
+const TABLE_RATTLE_FLIGHT = 300;
+const TABLE_RATTLE_SLIDE = 230;
+const TABLE_RATTLE_MAX_DELAY = 65;
+export const TABLE_RATTLE_SETTLED_AT = TABLE_RATTLE_MAX_DELAY + TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE;
 export const TABLE_RATTLE_DISAPPEAR_AT = 1600;
 export const TABLE_RATTLE_FADE_DURATION = 180;
 export const TABLE_RATTLE_RETURN_AT = TABLE_RATTLE_DISAPPEAR_AT + 500;
@@ -16,11 +19,17 @@ export function sampleTableRattle(elapsed, piece, reduced = false) {
     return { x: 0, y: 0, groundY: 0, rotation: 0, scale: 1, opacity, shadowScale: 1 };
   }
   if (t < TABLE_RATTLE_RETURN_AT) {
-    const travel = tableRattleClamp((t - piece.delay) / 450);
-    const ease = tableRattleEase(travel), hop = travel === 0 || travel === 1 ? 0 : Math.sin(Math.PI * travel);
+    const age = Math.max(0, t - piece.delay);
+    const flight = tableRattleClamp(age / TABLE_RATTLE_FLIGHT);
+    const slide = tableRattleClamp((age - TABLE_RATTLE_FLIGHT) / TABLE_RATTLE_SLIDE);
+    // Constant speed in the air, then friction slows the piece to rest.
+    // Integrate both phases against the same bounded destination.
+    const distance = (flight * TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE * slide * (1 - slide / 2))
+      / (TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE / 2);
+    const hop = 4 * flight * (1 - flight);
     const fade = tableRattleEase((t - TABLE_RATTLE_DISAPPEAR_AT) / TABLE_RATTLE_FADE_DURATION);
-    return { x: piece.dx * ease, y: piece.dy * ease - piece.lift * hop,
-      groundY: piece.dy * ease, rotation: piece.rotation * ease,
+    return { x: piece.dx * distance, y: piece.dy * distance - piece.lift * hop,
+      groundY: piece.dy * distance, rotation: piece.rotation * distance,
       scale: (1 + .055 * hop) * (1 - .15 * fade), opacity: 1 - fade,
       shadowScale: 1 - .22 * hop };
   }
@@ -149,7 +158,7 @@ export class TableRattle {
         const wrapper = create('g'); wrapper.setAttribute('class', 'table-rattle-token');
         clone.replaceChild(wrapper, token); wrapper.appendChild(token);
         const shadow = create('ellipse'); shadow.setAttribute('fill', '#302518'); shadows.appendChild(shadow);
-        tokens.push({ wrapper, shadow, body: token.querySelector('.token-body-paint'), x, y, dx, dy, delay: this.random() * 65,
+        tokens.push({ wrapper, shadow, body: token.querySelector('.token-body-paint'), x, y, dx, dy, delay: this.random() * TABLE_RATTLE_MAX_DELAY,
           rotation: (this.random() - .5) * 28, lift: 12 + this.random() * 14 });
       }
       this.scene = { overlay, tokens, busy: this.board.getAttribute('aria-busy'),

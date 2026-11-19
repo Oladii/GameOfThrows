@@ -1,4 +1,5 @@
 import './ui/build.mjs';
+import { mobilePage, routePage } from './mobile/build.mjs';
 import { buildWebArt } from './scripts/build-web-art.mjs';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -70,7 +71,8 @@ await Promise.all([
   fs.writeFile(root + 'Lamps.html', standalone),
   fs.writeFile(root + 'dist/index.html', development),
   fs.writeFile(root + 'dist/version.json', manifest),
-  fs.writeFile(root + 'docs/index.html', web),
+  fs.writeFile(root + 'docs/index.html', routePage(web, false)),
+  fs.writeFile(root + 'docs/mobile.html', await mobilePage(web)),
   fs.writeFile(root + 'docs/version.json', manifest),
   fs.writeFile(root + 'docs/.nojekyll', '')
 ]);

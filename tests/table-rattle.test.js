@@ -16,7 +16,7 @@ test('pieces rest for at least a second after landing, disappear, and reveal at 
   const flight = sampleTableRattle(250, piece);
   assert.ok(flight.x > 0 && flight.x < piece.dx);
   assert.ok(flight.y < flight.groundY && flight.shadowScale < 1 && flight.scale > 1);
-  const landed = sampleTableRattle(550, piece);
+  const landed = sampleTableRattle(TABLE_RATTLE_SETTLED_AT, piece);
   assert.equal(landed.x, piece.dx); assert.equal(landed.groundY, piece.dy);
   assert.equal(landed.opacity, 1); assert.equal(landed.rotation, piece.rotation);
   assert.ok(TABLE_RATTLE_DISAPPEAR_AT - TABLE_RATTLE_SETTLED_AT >= 1000);
@@ -38,6 +38,26 @@ test('pieces rest for at least a second after landing, disappear, and reveal at 
   assert.equal(reveal.x, 0); assert.ok(reveal.opacity > 0 && reveal.opacity < 1);
   assert.deepEqual(sampleTableRattle(TABLE_RATTLE_DURATION, piece), { x: 0, y: 0, groundY: 0, rotation: 0, scale: 1, opacity: 1, shadowScale: 1 });
   assert.equal(JSON.stringify(piece), before);
+});
+
+test('touchdown carries momentum into a decelerating slide with the shadow on the board', () => {
+  const contact = piece.delay + 300;
+  const at = offset => sampleTableRattle(contact + offset, piece);
+  assert.ok(at(-1).y < at(-1).groundY);
+  const landingSpeed = at(0).x - at(-1).x;
+  assert.ok(Math.abs((at(1).x - at(0).x) / landingSpeed - 1) < .01);
+  const frames = [0, 50, 100, 150, 200].map(at);
+  let previousStep = Infinity;
+  for (const [i, frame] of frames.entries()) {
+    assert.equal(frame.y, frame.groundY);
+    assert.equal(frame.shadowScale, 1);
+    if (i === 0) continue;
+    const step = frame.x - frames[i - 1].x;
+    assert.ok(step > 0 && step < previousStep);
+    assert.ok(frame.rotation > frames[i - 1].rotation);
+    previousStep = step;
+  }
+  assert.deepEqual(at(230), at(400));
 });
 
 test('table shake settles in 250ms and reduced motion has no spatial movement', () => {

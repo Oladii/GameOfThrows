@@ -1,6 +1,15 @@
 <!doctype html>
 <html lang="ru">
 <head>
+<script>(function routeDevice(mobilePage) {
+  const phone = navigator.userAgentData?.mobile === true
+    || /iPhone|iPod|Android.*Mobile|Windows Phone|KaiOS|Opera Mini/i.test(navigator.userAgent);
+  if (phone === mobilePage) return;
+  const target = new URL(phone ? './mobile.html' : './', location.href);
+  target.search = location.search;
+  target.hash = location.hash;
+  location.replace(target.href);
+})(false)</script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#fbfaf8">
@@ -1074,7 +1083,7 @@ main{padding:14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.116</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-19T16:25:56.762Z">Сборка 19.11.2026, 19:25:56 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.117</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-19T16:43:51.766Z">Сборка 19.11.2026, 19:43:51 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -3807,7 +3816,10 @@ class TableKnocks {
   }
 }
 
-const TABLE_RATTLE_SETTLED_AT = 520;
+const TABLE_RATTLE_FLIGHT = 300;
+const TABLE_RATTLE_SLIDE = 230;
+const TABLE_RATTLE_MAX_DELAY = 65;
+const TABLE_RATTLE_SETTLED_AT = TABLE_RATTLE_MAX_DELAY + TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE;
 const TABLE_RATTLE_DISAPPEAR_AT = 1600;
 const TABLE_RATTLE_FADE_DURATION = 180;
 const TABLE_RATTLE_RETURN_AT = TABLE_RATTLE_DISAPPEAR_AT + 500;
@@ -3825,11 +3837,17 @@ function sampleTableRattle(elapsed, piece, reduced = false) {
     return { x: 0, y: 0, groundY: 0, rotation: 0, scale: 1, opacity, shadowScale: 1 };
   }
   if (t < TABLE_RATTLE_RETURN_AT) {
-    const travel = tableRattleClamp((t - piece.delay) / 450);
-    const ease = tableRattleEase(travel), hop = travel === 0 || travel === 1 ? 0 : Math.sin(Math.PI * travel);
+    const age = Math.max(0, t - piece.delay);
+    const flight = tableRattleClamp(age / TABLE_RATTLE_FLIGHT);
+    const slide = tableRattleClamp((age - TABLE_RATTLE_FLIGHT) / TABLE_RATTLE_SLIDE);
+    // Constant speed in the air, then friction slows the piece to rest.
+    // Integrate both phases against the same bounded destination.
+    const distance = (flight * TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE * slide * (1 - slide / 2))
+      / (TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE / 2);
+    const hop = 4 * flight * (1 - flight);
     const fade = tableRattleEase((t - TABLE_RATTLE_DISAPPEAR_AT) / TABLE_RATTLE_FADE_DURATION);
-    return { x: piece.dx * ease, y: piece.dy * ease - piece.lift * hop,
-      groundY: piece.dy * ease, rotation: piece.rotation * ease,
+    return { x: piece.dx * distance, y: piece.dy * distance - piece.lift * hop,
+      groundY: piece.dy * distance, rotation: piece.rotation * distance,
       scale: (1 + .055 * hop) * (1 - .15 * fade), opacity: 1 - fade,
       shadowScale: 1 - .22 * hop };
   }
@@ -3958,7 +3976,7 @@ class TableRattle {
         const wrapper = create('g'); wrapper.setAttribute('class', 'table-rattle-token');
         clone.replaceChild(wrapper, token); wrapper.appendChild(token);
         const shadow = create('ellipse'); shadow.setAttribute('fill', '#302518'); shadows.appendChild(shadow);
-        tokens.push({ wrapper, shadow, body: token.querySelector('.token-body-paint'), x, y, dx, dy, delay: this.random() * 65,
+        tokens.push({ wrapper, shadow, body: token.querySelector('.token-body-paint'), x, y, dx, dy, delay: this.random() * TABLE_RATTLE_MAX_DELAY,
           rotation: (this.random() - .5) * 28, lift: 12 + this.random() * 14 });
       }
       this.scene = { overlay, tokens, busy: this.board.getAttribute('aria-busy'),
