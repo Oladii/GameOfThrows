@@ -6,7 +6,14 @@ const root = fileURLToPath(new URL('./', import.meta.url));
 const read = name => fs.readFile(root + 'dist/' + name, 'utf8');
 const soundData = Object.fromEntries(await Promise.all(['slide', 'place', 'click', 'hover', 'remove', 'knock1', 'knock2', 'knock3', 'scatter', 'victory', 'defeat'].map(async name =>
   [name, 'data:audio/wav;base64,' + (await fs.readFile(root + `dist/audio/${name}.wav`)).toString('base64')])));
-const audioAssets = '// Generated from audio/*.wav. Per-file provenance, processing and license status: audio/source-manifest.json\nexport const GAME_AUDIO_ASSETS = ' + JSON.stringify(soundData) + ';\n';
+const { defeat } = JSON.parse(await read('audio/source-manifest.json')).runtime_sources;
+const audioAssets = [
+  '// Generated from audio/*.wav. Source metadata: https://github.com/Oladii/GameOfThrows/blob/main/dist/audio/source-manifest.json',
+  `// Defeat sound: ${defeat.source} by ${defeat.author}. ${defeat.url}`,
+  `// ${defeat.license} (${defeat.license_url}). ${defeat.processing}`,
+  'export const GAME_AUDIO_ASSETS = ' + JSON.stringify(soundData) + ';',
+  ''
+].join('\n');
 await fs.writeFile(root + 'dist/audio-assets.js', audioAssets);
 const audio = await read('audio.js');
 const tableKnocksSource = await read('table-knocks.js');
