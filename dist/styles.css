@@ -81,7 +81,7 @@ select{font-size:11px}
 .cell{cursor:pointer;outline:none}
 .cell.draggable{cursor:grab;touch-action:none}
 #board.is-dragging,#board.is-dragging .cell{cursor:grabbing;user-select:none}
-.piece.drag-origin .unit-badges{display:none}
+.piece.drag-origin{visibility:hidden}
 .drag-token{pointer-events:none}
 .tile{fill:var(--tile-default);stroke:#d9d9cb;stroke-width:1.3;stroke-linejoin:round}
 .cell.alt .tile{fill:var(--tile-default)}
@@ -340,7 +340,6 @@ dialog{padding:22px 16px;width:calc(100% - 22px);max-height:94vh}
 .start-settings .button.full{margin-top:8px}}
 .piece.moving-origin .unit-badges{display:none}
 .piece.moving-origin,.lesson-piece.moving-origin{visibility:hidden}
-.piece.moving-origin.own-moving-origin{visibility:visible}
 .move-origin-token{opacity:.28}
 .moving-token{pointer-events:none}
 .moving-token.north .piece-circle{fill:var(--blue)}
@@ -692,10 +691,10 @@ to{opacity:1}}
 .preview-ghost .token-body-paint,.preview-ghost .piece-icon,.preview-ghost .token-veteran-wreath{opacity:.62}
 .preview-ghost .token-team-tint{opacity:1;fill:#517867}
 .preview-ghost>.piece-circle{fill:none;stroke:#416d5d;stroke-width:1.07;stroke-dasharray:2.67 1.87}
-.piece:is(.preview-origin,.drag-origin,.own-moving-origin){opacity:1}
-.piece:is(.preview-origin,.drag-origin,.own-moving-origin) :is(.token-body-paint,.piece-icon,.token-veteran-wreath){opacity:.48}
-.piece:is(.preview-origin,.drag-origin,.own-moving-origin) .token-team-tint{opacity:1;fill:#89988d}
-#board .piece:is(.preview-origin,.drag-origin,.own-moving-origin)>.piece-circle{fill:none;stroke:#7c8c82;stroke-width:1.07;stroke-dasharray:2.67 1.87;filter:none}
+.piece.preview-origin{opacity:1}
+.piece.preview-origin :is(.token-body-paint,.piece-icon,.token-veteran-wreath){opacity:.48}
+.piece.preview-origin .token-team-tint{opacity:1;fill:#89988d}
+#board .piece.preview-origin>.piece-circle{fill:none;stroke:#7c8c82;stroke-width:1.07;stroke-dasharray:2.67 1.87;filter:none}
 #board.is-dragging .cell.selected .tile{fill:#e1e5cc;stroke:#b8bea3;stroke-width:1.3}
 #board.is-dragging .cell.drag-target .tile{fill:#c3c9ac;stroke:#a6b58b;stroke-width:1.3;stroke-dasharray:none}
 .piece.combat-muted .unit-badges{display:none}

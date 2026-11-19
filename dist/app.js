@@ -492,10 +492,10 @@ function boardMarkup() {
     if (showMoveHighlights && movement && c.q === movement.action.to.q && c.r === movement.action.to.r) classes.push('move-destination');
     const details = p ? `${TEAM_NAMES[p.team]}, ${LABELS[p.type]}${shieldCanRetreat(p, config) || archerHasEdgeBonus(p, config) ? '-ветеран' : ''}` : 'пусто';
     let token = '';
-    if (p) {
+    if (p && movement?.piece.id !== p.id) {
       const info = report.get(p.id);
       const appearance = unitAppearance(p, config, ICON_PATHS, p.team, playMode === 'online' && roomView?.selfSeat === 0);
-      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''} ${movement?.piece.id === p.id ? `moving-origin${showMoveHighlights ? ' own-moving-origin' : ''}` : ''}" data-piece-id="${p.id}" data-piece-type="${p.type}" data-veteran="${appearance.veteran}" transform="translate(${x},${y})">${renderTokenBody(appearance, p.team)}${unitBadges(info, { pieceType: p.type, veteran: appearance.veteran })}</g>`;
+      token = `<g class="piece${appearance.veteran ? ' veteran' : ''} ${p.team === 0 ? 'north' : 'south'} ${info.dead ? 'fatal' : ''} ${combat && !combat.participants.has(p.id) ? 'combat-muted' : ''}" data-piece-id="${p.id}" data-piece-type="${p.type}" data-veteran="${appearance.veteran}" transform="translate(${x},${y})">${renderTokenBody(appearance, p.team)}${unitBadges(info, { pieceType: p.type, veteran: appearance.veteran })}</g>`;
     }
     tokens.push(token);
     const info = p && report.get(p.id);
