@@ -35,7 +35,7 @@ const bootSource = app.slice(bootStart, app.indexOf('\nglobalThis.window?.gameSe
 const functions = [
   'startingTeam', 'visibleState', 'isBotTurn', 'humanCanMove', 'clearHint',
   'cancelBot', 'cancelMovement', 'resetBotContext', 'lastTurnFromHistory',
-  'combatReplayContext', 'canReplayCombat', 'canReviewPrevious', 'positionText', 'archiveGameMetadata', 'queueBot', 'renderStartSettings', 'render', 'startGame'
+  'canReviewPrevious', 'positionText', 'archiveGameMetadata', 'queueBot', 'renderStartSettings', 'render', 'startGame'
 ].map(declaration).join('\n');
 
 // Keep real startup, persistence, rendering and bot scheduling together. Only

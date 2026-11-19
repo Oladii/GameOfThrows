@@ -124,7 +124,7 @@ select{font-size:11px}
 .piece.fatal .piece-circle{stroke:var(--red);stroke-width:4}
 .piece.fatal .fatal-mark{display:block}
 .fatal-mark{display:none;fill:var(--red);stroke:#fff;stroke-width:.8}
-.board-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0 14px;border-top:1px solid var(--line);flex-wrap:wrap}
+.board-footer{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0 14px;border-top:1px solid var(--line);flex-wrap:wrap}
 .turn-actions{display:flex;gap:8px}
 .turn-actions .button{font-size:10px;padding:7px 10px;min-height:31px}
 .board-hint{font-size:10px;color:var(--muted);padding:11px 0 12px;text-align:center;border-top:1px solid #eeeee6;line-height:1.5}
@@ -345,8 +345,7 @@ dialog{padding:22px 16px;width:calc(100% - 22px);max-height:94vh}
 .bot-review-actions{display:grid;grid-template-columns:1fr}
 .bot-review-actions .button{justify-content:center}
 .team-role{display:block;margin:4px 0 0 14px}}
-.turn-actions .history-arrow{width:32px;min-width:32px;padding:8px 0;font-size:18px}
-.history-arrow[aria-pressed="true"]{background:#e8d5b2}
+.turn-actions :is(.history-arrow,.combat-replay){width:32px;min-width:32px;padding:8px 0;font-size:18px}
 .right-panel .log-heading{margin-top:0}
 .turn-actions .combat-replay svg{width:18px;height:18px;display:block}
 @media(max-width:1000px){
@@ -867,8 +866,9 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 .guide-back{border-radius:999px;padding:10px 18px;min-height:42px}
 .guide-screen #onboarding{display:block;max-width:1040px;margin:0 auto}
 .guide-screen #onboarding-progress{padding:0 0 20px}
-#replay-combat.combat-replay{width:auto;padding:9px 12px;gap:7px}
 #replay-combat svg{width:20px;height:20px;flex-shrink:0}
+.combat-replay-notice{position:absolute;z-index:3;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:calc(100% - 16px)}
+#combat-replay-toast{max-width:100%;background:#111;color:#fff;border:0;border-radius:var(--radius-control);padding:9px 14px;font-size:13px;line-height:18px;text-align:center}
 @media(max-width:600px){
 .topbar{height:auto;min-height:76px;padding:16px;gap:14px;flex-wrap:wrap}
 .topbar .brand{font-size:18px;letter-spacing:1px}
@@ -1045,9 +1045,17 @@ html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
 body>main{width:100%;max-width:none;height:100%;height:100dvh;margin:auto;padding:max(6px,env(safe-area-inset-top)) env(safe-area-inset-right,0px) max(6px,env(safe-area-inset-bottom)) env(safe-area-inset-left,0px)}
 main .workspace,main .arena-column{display:flex;flex-direction:column;align-items:stretch;width:100%;height:100%;min-height:0;gap:0;padding:0}
 .workspace>.left-panel,#mode-caption{display:none!important}
-main .arena-top{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-height:50px;padding:0 6px}
-.arena-top #menu{margin-inline-start:auto;width:44px;height:44px}
-#menu svg{width:20px;height:20px}
+main .arena-top{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:4px;min-height:50px;padding:0 6px}
+#home-back{justify-self:start;width:44px;height:44px;padding:0}
+.arena-top #team-name{text-align:center;min-width:0}
+.arena-top #team-flag{justify-self:end;transform:scaleX(-1)}
+#home-back svg{width:20px;height:20px}
+#mobile-home[open]{position:fixed;inset:0;box-sizing:border-box;width:100%;height:100dvh;max-width:none;max-height:none;margin:0;border:0;border-radius:0;display:grid;place-items:center;padding:16px;background:var(--surface);color:var(--ink)}
+.home-actions{display:grid;gap:10px;width:min(100%,300px)}
+.home-actions .brand-logo{justify-self:center;width:min(200px,46vw);height:auto;max-height:23dvh;object-fit:contain;margin:0 0 12px}
+.home-actions .button{width:100%;min-height:46px;font-size:16px}
+body.mobile-game #rules-dialog.guide-screen{position:fixed;inset:0;height:100dvh;min-height:0;overflow:auto;overscroll-behavior:contain}
+
 main .arena-column>.arena{position:relative;display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:2px;flex:1;min-width:0;min-height:0;width:100%;height:auto;padding:0;border:0;border-radius:0;box-shadow:none;overflow:hidden}
 #scoreboard:not(:has(.match-result)){display:none}
 #scoreboard:has(.match-result){position:absolute;inset:0 0 auto;z-index:2}
@@ -1057,22 +1065,23 @@ main #board{display:block;width:100%;height:100%;min-height:0;max-height:none;pa
 body[data-keys] #board [data-cell]:focus .tile{stroke:#66502c;stroke-width:3}
 body.mobile-game,.mobile-game main,.mobile-game .arena-top,.mobile-game .arena,.mobile-game .board-wrap,.mobile-game .mobile-context,.mobile-game .board-footer{background:var(--surface)}
 #team-flag{flex:none;width:44px;height:44px;background:center/contain no-repeat}
-.turn-label{display:grid;gap:1px}
-#team-name{font-size:16px;line-height:1.15;color:var(--ink)}
-.mobile-context{display:grid;min-height:76px;align-content:end;gap:6px;padding:0 6px 4px}
+#team-name,.arena-column>#move-counter{font-size:16px;font-weight:700;line-height:20px;color:var(--ink)}
+.arena-column>#move-counter{flex:none;align-self:stretch;margin:12px 0 4px;text-align:center}
+.mobile-context{display:grid;min-height:20px;align-content:end;padding:0 6px 4px}
 #aura-caption{font-size:13px;line-height:1.3;color:var(--ink)}
 #aura-caption:empty{display:none}
-#move-actions:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-#move-actions .button{width:100%;min-height:44px;border:0;box-shadow:none;text-shadow:none}
+.board-footer:has(>#move-actions:not([hidden]))>:not(#move-actions){display:none}
+#move-actions:not([hidden]){display:grid;grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#move-actions .button{font-size:15px;font-weight:600;line-height:20px;width:100%;min-height:44px;border:0;box-shadow:none;text-shadow:none}
 #commit{background:#42623d;color:#fff}
 #cancel-move{background:#e6e6e4;color:#343632}
 #move-actions .button:active{filter:brightness(.91)}
 main .board-footer{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;gap:4px;margin:0;padding:5px 2px}
+main .board-footer:has(#pass-turn:not([hidden])){grid-template-columns:repeat(6,minmax(0,1fr))}
 main .board-footer>.turn-actions{display:contents}
 main .board-footer .button{box-sizing:border-box;min-width:0;width:100%;height:46px;min-height:44px;padding:3px 1px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;font-size:12px;line-height:15px;margin:0}
 main .board-footer .button[hidden]{display:none}
-#review-previous{order:0}#review-current{order:1}#show-hint{order:2}#undo{order:3}#replay-combat{order:4}
-main .board-footer .button svg{width:18px;height:18px;flex:none}
+main .board-footer .button svg{width:20px;height:20px;flex:none}
 main .board-footer .history-arrow{font-size:12px}
 #sheet{box-sizing:border-box;position:fixed;inset:0;width:100vw;height:100%;height:100dvh;max-width:none;max-height:none;border:0;border-radius:0;box-shadow:none;margin:0;padding:max(16px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));overflow:hidden;color:var(--ink);background:var(--surface)}
 #sheet .dialog-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
@@ -1082,6 +1091,7 @@ main .board-footer .history-arrow{font-size:12px}
 body>main{max-width:none}.arena-column .arena-top{min-height:44px}
 main .arena-column>.arena{grid-template-columns:minmax(0,1fr) minmax(190px,28%);grid-template-rows:1fr auto}
 main .board-wrap{grid-column:1;grid-row:1/3}.mobile-context,main .board-footer{grid-column:2}.mobile-context{align-self:end;flex-wrap:wrap}main .board-footer{grid-template-columns:repeat(3,1fr)}
+main .combat-replay-notice{left:calc((100% - 100cqw - 2px)/2);max-width:calc(100cqw - 100% - 18px)}
 }
 #mobile-advice-slot .move-hint{margin:0;max-width:440px}
 @media(max-height:480px){#mobile-advice-slot .move-hint::before{height:75px;top:calc(100% + 4px)}}
@@ -1091,7 +1101,7 @@ main .board-wrap{grid-column:1;grid-row:1/3}.mobile-context,main .board-footer{g
 #team-flag[data-side="red"]{background-image:var(--team-red)}
 body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;position:fixed;inset:0;margin:0;width:100%;height:100dvh;max-width:none;max-height:none;border:0;border-radius:0;overflow:auto}
 .mobile-game .position-field,.mobile-game .custom-game-actions{display:none}
-.mobile-game.room-waiting .arena-top{display:flex}
+.mobile-game.room-waiting .arena-top{display:grid}
 .mobile-game.room-waiting .arena{display:flex;flex-direction:column;padding:8px}
 .mobile-game.room-waiting #scoreboard{display:flex}
 .mobile-game.room-waiting .board-wrap,.mobile-game.room-waiting .mobile-context{display:none}
@@ -1145,11 +1155,11 @@ body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;po
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.117</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-19T16:43:51.766Z">Сборка 19.11.2026, 19:43:51 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.118</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-19T22:12:41.216Z">Сборка 20.11.2026, 01:12:41 МСК</span></span></div>
       </aside>
       <div class="arena-column">
-        <div class="arena-top"><span id="team-flag" aria-hidden="true"></span><div class="turn-label"><strong id="team-name"></strong><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span></div><button id="menu" class="button subtle" aria-label="Меню партии"></button><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
-      <section class="arena" aria-label="Игровая доска">
+        <div class="arena-top"><button id="home-back" class="button subtle" aria-label="На главный экран"></button><strong id="team-name"></strong><span id="team-flag" aria-hidden="true"></span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
+      <span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><section class="arena" aria-label="Игровая доска">
         <section id="room-first-choice" class="room-first-choice" aria-labelledby="room-first-choice-title" hidden>
           <h3 id="room-first-choice-title">Право первого хода</h3>
           <p>Сначала решите, хотите ли вы ходить первым, затем выберите цвет, за который хотите играть.</p>
@@ -1157,7 +1167,7 @@ body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;po
         </section>
         <div class="scoreboard" id="scoreboard"></div>
         <div class="board-wrap"><svg id="board" focusable="false" tabindex="-1" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Поле игры" aria-describedby="board-keyboard-help" xmlns="http://www.w3.org/2000/svg"></svg><p id="board-keyboard-help">Стрелки перемещают фокус по клеткам. Enter или пробел выбирает фигуру или делает ход</p></div>
-        <div class="mobile-context"><span id="aura-caption" aria-live="polite"></span><div id="move-actions" hidden><button id="cancel-move" class="button">Отмена</button><button id="commit" class="button">Сделать ход</button></div></div><div class="board-footer"><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Подсказать ход</button><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие"><svg class="undo-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 3-5 5 5 5"/><path d="M4 8h10a6 6 0 0 1 0 12"/></svg><span>Отменить ход</span></button><button id="replay-combat" class="button subtle combat-replay" type="button" title="Повторить расчёт боя" aria-label="Повторить расчёт боя" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg><span>Повторить расчёт</span></button><button id="review-previous" class="button subtle history-arrow" title="Предыдущий ход" aria-label="Предыдущий ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Следующий ход" aria-label="Следующий ход" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
+        <div class="mobile-context"><span id="aura-caption" aria-live="polite"></span></div><div class="board-footer"><div id="move-actions" hidden><button id="cancel-move" class="button">Отмена</button><button id="commit" class="button">Сделать ход</button></div><div class="combat-replay-notice" role="status"><button id="combat-replay-toast" type="button" hidden>Этот ход был без потерь</button></div><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Подсказать ход</button><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие"><svg class="undo-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 3-5 5 5 5"/><path d="M4 8h10a6 6 0 0 1 0 12"/></svg><span>Отменить ход</span></button><button id="replay-combat" class="button subtle combat-replay" type="button" title="Повторить бой" aria-label="Повторить бой" aria-controls="combat-replay-toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg></button><button id="review-previous" class="button subtle history-arrow" title="Предыдущий ход" aria-label="Предыдущий ход" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Следующий ход" aria-label="Следующий ход" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
       </section>
       </div>
 
@@ -1200,7 +1210,7 @@ body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;po
       <div id="onboarding-body" class="onboarding-body" tabindex="-1" role="region" aria-label="Цель игры"></div>
     </section>
   </section>
-  <dialog id="sheet" aria-labelledby="mobile-title"><div class="dialog-header"><h2 id="mobile-title"></h2><button class="button subtle" id="mobile-close">Закрыть</button></div><div id="mobile-body"></div></dialog><div id="toast" role="status" class="toast" hidden></div>
+  <dialog id="mobile-home" aria-label="Главный экран"><div class="home-actions"><button id="home-continue" class="button primary">Продолжить игру</button><button id="home-new" class="button outline">Новая игра</button><button id="home-learn" class="button subtle">Обучение</button></div></dialog><dialog id="sheet" aria-labelledby="mobile-title"><div class="dialog-header"><h2 id="mobile-title"></h2><button class="button subtle" id="mobile-close">Закрыть</button></div><div id="mobile-body"></div></dialog><div id="toast" role="status" class="toast" hidden></div>
   <script>(()=>{var Sy=Object.create;var hi=Object.defineProperty;var xy=Object.getOwnPropertyDescriptor;var vy=Object.getOwnPropertyNames;var Cy=Object.getPrototypeOf,yy=Object.prototype.hasOwnProperty;var la=(e,t)=>()=>(t||e((t={exports:{}}).exports,t),t.exports),Up=(e,t)=>{for(var a in t)hi(e,a,{get:t[a],enumerable:!0})},Iy=(e,t,a,l)=>{if(t&&typeof t=="object"||typeof t=="function")for(let o of vy(t))!yy.call(e,o)&&o!==a&&hi(e,o,{get:()=>t[o],enumerable:!(l=xy(t,o))||l.enumerable});return e};var T=(e,t,a)=>(a=e!=null?Sy(Cy(e)):{},Iy(t||!e||!e.__esModule?hi(a,"default",{value:e,enumerable:!0}):a,e));var Zp=la(_=>{"use strict";var Si=Symbol.for("react.transitional.element"),by=Symbol.for("react.portal"),Ry=Symbol.for("react.fragment"),wy=Symbol.for("react.strict_mode"),Ay=Symbol.for("react.profiler"),Ty=Symbol.for("react.consumer"),My=Symbol.for("react.context"),Dy=Symbol.for("react.forward_ref"),Ey=Symbol.for("react.suspense"),Oy=Symbol.for("react.memo"),Np=Symbol.for("react.lazy"),By=Symbol.for("react.activity"),Hp=Symbol.iterator;function Py(e){return e===null||typeof e!="object"?null:(e=Hp&&e[Hp]||e["@@iterator"],typeof e=="function"?e:null)}var Gp={isMounted:function(){return!1},enqueueForceUpdate:function(){},enqueueReplaceState:function(){},enqueueSetState:function(){}},Vp=Object.assign,Xp={};function ho(e,t,a){this.props=e,this.context=t,this.refs=Xp,this.updater=a||Gp}ho.prototype.isReactComponent={};ho.prototype.setState=function(e,t){if(typeof e!="object"&&typeof e!="function"&&e!=null)throw Error("takes an object of state variables to update or a function which returns an object of state variables.");this.updater.enqueueSetState(this,e,t,"setState")};ho.prototype.forceUpdate=function(e){this.updater.enqueueForceUpdate(this,e,"forceUpdate")};function jp(){}jp.prototype=ho.prototype;function xi(e,t,a){this.props=e,this.context=t,this.refs=Xp,this.updater=a||Gp}var vi=xi.prototype=new jp;vi.constructor=xi;Vp(vi,ho.prototype);vi.isPureReactComponent=!0;var zp=Array.isArray;function Li(){}var ie={H:null,A:null,T:null,S:null},Yp=Object.prototype.hasOwnProperty;function Ci(e,t,a){var l=a.ref;return{$$typeof:Si,type:e,key:t,ref:l!==void 0?l:null,props:a}}function _y(e,t){return Ci(e.type,t,e.props)}function yi(e){return typeof e=="object"&&e!==null&&e.$$typeof===Si}function ky(e){var t={"=":"=0",":":"=2"};return"$"+e.replace(/[=:]/g,function(a){return t[a]})}var qp=/\/+/g;function gi(e,t){return typeof e=="object"&&e!==null&&e.key!=null?ky(""+e.key):t.toString(36)}function Uy(e){switch(e.status){case"fulfilled":return e.value;case"rejected":throw e.reason;default:switch(typeof e.status=="string"?e.then(Li,Li):(e.status="pending",e.then(function(t){e.status==="pending"&&(e.status="fulfilled",e.value=t)},function(t){e.status==="pending"&&(e.status="rejected",e.reason=t)})),e.status){case"fulfilled":return e.value;case"rejected":throw e.reason}}throw e}function mo(e,t,a,l,o){var u=typeof e;(u==="undefined"||u==="boolean")&&(e=null);var n=!1;if(e===null)n=!0;else switch(u){case"bigint":case"string":case"number":n=!0;break;case"object":switch(e.$$typeof){case Si:case by:n=!0;break;case Np:return n=e._init,mo(n(e._payload),t,a,l,o)}}if(n)return o=o(e),n=l===""?"."+gi(e,0):l,zp(o)?(a="",n!=null&&(a=n.replace(qp,"$&/")+"/"),mo(o,t,a,"",function(i){return i})):o!=null&&(yi(o)&&(o=_y(o,a+(o.key==null||e&&e.key===o.key?"":(""+o.key).replace(qp,"$&/")+"/")+n)),t.push(o)),1;n=0;var r=l===""?".":l+":";if(zp(e))for(var f=0;f<e.length;f++)l=e[f],u=r+gi(l,f),n+=mo(l,t,a,u,o);else if(f=Py(e),typeof f=="function")for(e=f.call(e),f=0;!(l=e.next()).done;)l=l.value,u=r+gi(l,f++),n+=mo(l,t,a,u,o);else if(u==="object"){if(typeof e.then=="function")return mo(Uy(e),t,a,l,o);throw t=String(e),Error("Objects are not valid as a React child (found: "+(t==="[object Object]"?"object with keys {"+Object.keys(e).join(", ")+"}":t)+"). If you meant to render a collection of children, use an array instead.")}return n}function Nn(e,t,a){if(e==null)return e;var l=[],o=0;return mo(e,l,"","",function(u){return t.call(a,u,o++)}),l}function Hy(e){if(e._status===-1){var t=e._result;t=t(),t.then(function(a){(e._status===0||e._status===-1)&&(e._status=1,e._result=a)},function(a){(e._status===0||e._status===-1)&&(e._status=2,e._result=a)}),e._status===-1&&(e._status=0,e._result=t)}if(e._status===1)return e._result.default;throw e._result}var Fp=typeof reportError=="function"?reportError:function(e){if(typeof window=="object"&&typeof window.ErrorEvent=="function"){var t=new window.ErrorEvent("error",{bubbles:!0,cancelable:!0,message:typeof e=="object"&&e!==null&&typeof e.message=="string"?String(e.message):String(e),error:e});if(!window.dispatchEvent(t))return}else if(typeof process=="object"&&typeof process.emit=="function"){process.emit("uncaughtException",e);return}console.error(e)},zy={map:Nn,forEach:function(e,t,a){Nn(e,function(){t.apply(this,arguments)},a)},count:function(e){var t=0;return Nn(e,function(){t++}),t},toArray:function(e){return Nn(e,function(t){return t})||[]},only:function(e){if(!yi(e))throw Error("React.Children.only expected to receive a single React element child.");return e}};_.Activity=By;_.Children=zy;_.Component=ho;_.Fragment=Ry;_.Profiler=Ay;_.PureComponent=xi;_.StrictMode=wy;_.Suspense=Ey;_.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE=ie;_.__COMPILER_RUNTIME={__proto__:null,c:function(e){return ie.H.useMemoCache(e)}};_.cache=function(e){return function(){return e.apply(null,arguments)}};_.cacheSignal=function(){return null};_.cloneElement=function(e,t,a){if(e==null)throw Error("The argument must be a React element, but you passed "+e+".");var l=Vp({},e.props),o=e.key;if(t!=null)for(u in t.key!==void 0&&(o=""+t.key),t)!Yp.call(t,u)||u==="key"||u==="__self"||u==="__source"||u==="ref"&&t.ref===void 0||(l[u]=t[u]);var u=arguments.length-2;if(u===1)l.children=a;else if(1<u){for(var n=Array(u),r=0;r<u;r++)n[r]=arguments[r+2];l.children=n}return Ci(e.type,o,l)};_.createContext=function(e){return e={$$typeof:My,_currentValue:e,_currentValue2:e,_threadCount:0,Provider:null,Consumer:null},e.Provider=e,e.Consumer={$$typeof:Ty,_context:e},e};_.createElement=function(e,t,a){var l,o={},u=null;if(t!=null)for(l in t.key!==void 0&&(u=""+t.key),t)Yp.call(t,l)&&l!=="key"&&l!=="__self"&&l!=="__source"&&(o[l]=t[l]);var n=arguments.length-2;if(n===1)o.children=a;else if(1<n){for(var r=Array(n),f=0;f<n;f++)r[f]=arguments[f+2];o.children=r}if(e&&e.defaultProps)for(l in n=e.defaultProps,n)o[l]===void 0&&(o[l]=n[l]);return Ci(e,u,o)};_.createRef=function(){return{current:null}};_.forwardRef=function(e){return{$$typeof:Dy,render:e}};_.isValidElement=yi;_.lazy=function(e){return{$$typeof:Np,_payload:{_status:-1,_result:e},_init:Hy}};_.memo=function(e,t){return{$$typeof:Oy,type:e,compare:t===void 0?null:t}};_.startTransition=function(e){var t=ie.T,a={};ie.T=a;try{var l=e(),o=ie.S;o!==null&&o(a,l),typeof l=="object"&&l!==null&&typeof l.then=="function"&&l.then(Li,Fp)}catch(u){Fp(u)}finally{t!==null&&a.types!==null&&(t.types=a.types),ie.T=t}};_.unstable_useCacheRefresh=function(){return ie.H.useCacheRefresh()};_.use=function(e){return ie.H.use(e)};_.useActionState=function(e,t,a){return ie.H.useActionState(e,t,a)};_.useCallback=function(e,t){return ie.H.useCallback(e,t)};_.useContext=function(e){return ie.H.useContext(e)};_.useDebugValue=function(){};_.useDeferredValue=function(e,t){return ie.H.useDeferredValue(e,t)};_.useEffect=function(e,t){return ie.H.useEffect(e,t)};_.useEffectEvent=function(e){return ie.H.useEffectEvent(e)};_.useId=function(){return ie.H.useId()};_.useImperativeHandle=function(e,t,a){return ie.H.useImperativeHandle(e,t,a)};_.useInsertionEffect=function(e,t){return ie.H.useInsertionEffect(e,t)};_.useLayoutEffect=function(e,t){return ie.H.useLayoutEffect(e,t)};_.useMemo=function(e,t){return ie.H.useMemo(e,t)};_.useOptimistic=function(e,t){return ie.H.useOptimistic(e,t)};_.useReducer=function(e,t,a){return ie.H.useReducer(e,t,a)};_.useRef=function(e){return ie.H.useRef(e)};_.useState=function(e){return ie.H.useState(e)};_.useSyncExternalStore=function(e,t,a){return ie.H.useSyncExternalStore(e,t,a)};_.useTransition=function(){return ie.H.useTransition()};_.version="19.2.6"});var D=la((hT,Kp)=>{"use strict";Kp.exports=Zp()});var um=la(he=>{"use strict";function wi(e,t){var a=e.length;e.push(t);e:for(;0<a;){var l=a-1>>>1,o=e[l];if(0<Gn(o,t))e[l]=t,e[a]=o,a=l;else break e}}function oa(e){return e.length===0?null:e[0]}function Xn(e){if(e.length===0)return null;var t=e[0],a=e.pop();if(a!==t){e[0]=a;e:for(var l=0,o=e.length,u=o>>>1;l<u;){var n=2*(l+1)-1,r=e[n],f=n+1,i=e[f];if(0>Gn(r,a))f<o&&0>Gn(i,r)?(e[l]=i,e[f]=a,l=f):(e[l]=r,e[n]=a,l=n);else if(f<o&&0>Gn(i,a))e[l]=i,e[f]=a,l=f;else break e}}return t}function Gn(e,t){var a=e.sortIndex-t.sortIndex;return a!==0?a:e.id-t.id}he.unstable_now=void 0;typeof performance=="object"&&typeof performance.now=="function"?(Qp=performance,he.unstable_now=function(){return Qp.now()}):(Ii=Date,Wp=Ii.now(),he.unstable_now=function(){return Ii.now()-Wp});var Qp,Ii,Wp,Sa=[],Za=[],qy=1,Mt=null,Qe=3,Ai=!1,Ru=!1,wu=!1,Ti=!1,em=typeof setTimeout=="function"?setTimeout:null,tm=typeof clearTimeout=="function"?clearTimeout:null,Jp=typeof setImmediate<"u"?setImmediate:null;function Vn(e){for(var t=oa(Za);t!==null;){if(t.callback===null)Xn(Za);else if(t.startTime<=e)Xn(Za),t.sortIndex=t.expirationTime,wi(Sa,t);else break;t=oa(Za)}}function Mi(e){if(wu=!1,Vn(e),!Ru)if(oa(Sa)!==null)Ru=!0,Lo||(Lo=!0,go());else{var t=oa(Za);t!==null&&Di(Mi,t.startTime-e)}}var Lo=!1,Au=-1,am=5,lm=-1;function om(){return Ti?!0:!(he.unstable_now()-lm<am)}function bi(){if(Ti=!1,Lo){var e=he.unstable_now();lm=e;var t=!0;try{e:{Ru=!1,wu&&(wu=!1,tm(Au),Au=-1),Ai=!0;var a=Qe;try{t:{for(Vn(e),Mt=oa(Sa);Mt!==null&&!(Mt.expirationTime>e&&om());){var l=Mt.callback;if(typeof l=="function"){Mt.callback=null,Qe=Mt.priorityLevel;var o=l(Mt.expirationTime<=e);if(e=he.unstable_now(),typeof o=="function"){Mt.callback=o,Vn(e),t=!0;break t}Mt===oa(Sa)&&Xn(Sa),Vn(e)}else Xn(Sa);Mt=oa(Sa)}if(Mt!==null)t=!0;else{var u=oa(Za);u!==null&&Di(Mi,u.startTime-e),t=!1}}break e}finally{Mt=null,Qe=a,Ai=!1}t=void 0}}finally{t?go():Lo=!1}}}var go;typeof Jp=="function"?go=function(){Jp(bi)}:typeof MessageChannel<"u"?(Ri=new MessageChannel,$p=Ri.port2,Ri.port1.onmessage=bi,go=function(){$p.postMessage(null)}):go=function(){em(bi,0)};var Ri,$p;function Di(e,t){Au=em(function(){e(he.unstable_now())},t)}he.unstable_IdlePriority=5;he.unstable_ImmediatePriority=1;he.unstable_LowPriority=4;he.unstable_NormalPriority=3;he.unstable_Profiling=null;he.unstable_UserBlockingPriority=2;he.unstable_cancelCallback=function(e){e.callback=null};he.unstable_forceFrameRate=function(e){0>e||125<e?console.error("forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported"):am=0<e?Math.floor(1e3/e):5};he.unstable_getCurrentPriorityLevel=function(){return Qe};he.unstable_next=function(e){switch(Qe){case 1:case 2:case 3:var t=3;break;default:t=Qe}var a=Qe;Qe=t;try{return e()}finally{Qe=a}};he.unstable_requestPaint=function(){Ti=!0};he.unstable_runWithPriority=function(e,t){switch(e){case 1:case 2:case 3:case 4:case 5:break;default:e=3}var a=Qe;Qe=e;try{return t()}finally{Qe=a}};he.unstable_scheduleCallback=function(e,t,a){var l=he.unstable_now();switch(typeof a=="object"&&a!==null?(a=a.delay,a=typeof a=="number"&&0<a?l+a:l):a=l,e){case 1:var o=-1;break;case 2:o=250;break;case 5:o=1073741823;break;case 4:o=1e4;break;default:o=5e3}return o=a+o,e={id:qy++,callback:t,priorityLevel:e,startTime:a,expirationTime:o,sortIndex:-1},a>l?(e.sortIndex=a,wi(Za,e),oa(Sa)===null&&e===oa(Za)&&(wu?(tm(Au),Au=-1):wu=!0,Di(Mi,a-l))):(e.sortIndex=o,wi(Sa,e),Ru||Ai||(Ru=!0,Lo||(Lo=!0,go()))),e};he.unstable_shouldYield=om;he.unstable_wrapCallback=function(e){var t=Qe;return function(){var a=Qe;Qe=t;try{return e.apply(this,arguments)}finally{Qe=a}}}});var rm=la((LT,nm)=>{"use strict";nm.exports=um()});var im=la(et=>{"use strict";var Fy=D();function fm(e){var t="https://react.dev/errors/"+e;if(1<arguments.length){t+="?args[]="+encodeURIComponent(arguments[1]);for(var a=2;a<arguments.length;a++)t+="&args[]="+encodeURIComponent(arguments[a])}return"Minified React error #"+e+"; visit "+t+" for the full message or use the non-minified dev environment for full errors and additional helpful warnings."}function Ka(){}var $e={d:{f:Ka,r:function(){throw Error(fm(522))},D:Ka,C:Ka,L:Ka,m:Ka,X:Ka,S:Ka,M:Ka},p:0,findDOMNode:null},Ny=Symbol.for("react.portal");function Gy(e,t,a){var l=3<arguments.length&&arguments[3]!==void 0?arguments[3]:null;return{$$typeof:Ny,key:l==null?null:""+l,children:e,containerInfo:t,implementation:a}}var Tu=Fy.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;function jn(e,t){if(e==="font")return"";if(typeof t=="string")return t==="use-credentials"?t:""}et.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE=$e;et.createPortal=function(e,t){var a=2<arguments.length&&arguments[2]!==void 0?arguments[2]:null;if(!t||t.nodeType!==1&&t.nodeType!==9&&t.nodeType!==11)throw Error(fm(299));return Gy(e,t,null,a)};et.flushSync=function(e){var t=Tu.T,a=$e.p;try{if(Tu.T=null,$e.p=2,e)return e()}finally{Tu.T=t,$e.p=a,$e.d.f()}};et.preconnect=function(e,t){typeof e=="string"&&(t?(t=t.crossOrigin,t=typeof t=="string"?t==="use-credentials"?t:"":void 0):t=null,$e.d.C(e,t))};et.prefetchDNS=function(e){typeof e=="string"&&$e.d.D(e)};et.preinit=function(e,t){if(typeof e=="string"&&t&&typeof t.as=="string"){var a=t.as,l=jn(a,t.crossOrigin),o=typeof t.integrity=="string"?t.integrity:void 0,u=typeof t.fetchPriority=="string"?t.fetchPriority:void 0;a==="style"?$e.d.S(e,typeof t.precedence=="string"?t.precedence:void 0,{crossOrigin:l,integrity:o,fetchPriority:u}):a==="script"&&$e.d.X(e,{crossOrigin:l,integrity:o,fetchPriority:u,nonce:typeof t.nonce=="string"?t.nonce:void 0})}};et.preinitModule=function(e,t){if(typeof e=="string")if(typeof t=="object"&&t!==null){if(t.as==null||t.as==="script"){var a=jn(t.as,t.crossOrigin);$e.d.M(e,{crossOrigin:a,integrity:typeof t.integrity=="string"?t.integrity:void 0,nonce:typeof t.nonce=="string"?t.nonce:void 0})}}else t==null&&$e.d.M(e)};et.preload=function(e,t){if(typeof e=="string"&&typeof t=="object"&&t!==null&&typeof t.as=="string"){var a=t.as,l=jn(a,t.crossOrigin);$e.d.L(e,a,{crossOrigin:l,integrity:typeof t.integrity=="string"?t.integrity:void 0,nonce:typeof t.nonce=="string"?t.nonce:void 0,type:typeof t.type=="string"?t.type:void 0,fetchPriority:typeof t.fetchPriority=="string"?t.fetchPriority:void 0,referrerPolicy:typeof t.referrerPolicy=="string"?t.referrerPolicy:void 0,imageSrcSet:typeof t.imageSrcSet=="string"?t.imageSrcSet:void 0,imageSizes:typeof t.imageSizes=="string"?t.imageSizes:void 0,media:typeof t.media=="string"?t.media:void 0})}};et.preloadModule=function(e,t){if(typeof e=="string")if(t){var a=jn(t.as,t.crossOrigin);$e.d.m(e,{as:typeof t.as=="string"&&t.as!=="script"?t.as:void 0,crossOrigin:a,integrity:typeof t.integrity=="string"?t.integrity:void 0})}else $e.d.m(e)};et.requestFormReset=function(e){$e.d.r(e)};et.unstable_batchedUpdates=function(e,t){return e(t)};et.useFormState=function(e,t,a){return Tu.H.useFormState(e,t,a)};et.useFormStatus=function(){return Tu.H.useHostTransitionStatus()};et.version="19.2.6"});var Qa=la((xT,cm)=>{"use strict";function sm(){if(!(typeof __REACT_DEVTOOLS_GLOBAL_HOOK__>"u"||typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE!="function"))try{__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE(sm)}catch(e){console.error(e)}}sm(),cm.exports=im()});var IS=la(Sf=>{"use strict";var Ee=rm(),Uh=D(),Vy=Qa();function b(e){var t="https://react.dev/errors/"+e;if(1<arguments.length){t+="?args[]="+encodeURIComponent(arguments[1]);for(var a=2;a<arguments.length;a++)t+="&args[]="+encodeURIComponent(arguments[a])}return"Minified React error #"+e+"; visit "+t+" for the full message or use the non-minified dev environment for full errors and additional helpful warnings."}function Hh(e){return!(!e||e.nodeType!==1&&e.nodeType!==9&&e.nodeType!==11)}function hn(e){var t=e,a=e;if(e.alternate)for(;t.return;)t=t.return;else{e=t;do t=e,(t.flags&4098)!==0&&(a=t.return),e=t.return;while(e)}return t.tag===3?a:null}function zh(e){if(e.tag===13){var t=e.memoizedState;if(t===null&&(e=e.alternate,e!==null&&(t=e.memoizedState)),t!==null)return t.dehydrated}return null}function qh(e){if(e.tag===31){var t=e.memoizedState;if(t===null&&(e=e.alternate,e!==null&&(t=e.memoizedState)),t!==null)return t.dehydrated}return null}function dm(e){if(hn(e)!==e)throw Error(b(188))}function Xy(e){var t=e.alternate;if(!t){if(t=hn(e),t===null)throw Error(b(188));return t!==e?null:e}for(var a=e,l=t;;){var o=a.return;if(o===null)break;var u=o.alternate;if(u===null){if(l=o.return,l!==null){a=l;continue}break}if(o.child===u.child){for(u=o.child;u;){if(u===a)return dm(o),e;if(u===l)return dm(o),t;u=u.sibling}throw Error(b(188))}if(a.return!==l.return)a=o,l=u;else{for(var n=!1,r=o.child;r;){if(r===a){n=!0,a=o,l=u;break}if(r===l){n=!0,l=o,a=u;break}r=r.sibling}if(!n){for(r=u.child;r;){if(r===a){n=!0,a=u,l=o;break}if(r===l){n=!0,l=u,a=o;break}r=r.sibling}if(!n)throw Error(b(189))}}if(a.alternate!==l)throw Error(b(190))}if(a.tag!==3)throw Error(b(188));return a.stateNode.current===a?e:t}function Fh(e){var t=e.tag;if(t===5||t===26||t===27||t===6)return e;for(e=e.child;e!==null;){if(t=Fh(e),t!==null)return t;e=e.sibling}return null}var de=Object.assign,jy=Symbol.for("react.element"),Yn=Symbol.for("react.transitional.element"),ku=Symbol.for("react.portal"),Io=Symbol.for("react.fragment"),Nh=Symbol.for("react.strict_mode"),ss=Symbol.for("react.profiler"),Gh=Symbol.for("react.consumer"),wa=Symbol.for("react.context"),uc=Symbol.for("react.forward_ref"),cs=Symbol.for("react.suspense"),ds=Symbol.for("react.suspense_list"),nc=Symbol.for("react.memo"),Wa=Symbol.for("react.lazy"),ps=Symbol.for("react.activity"),Yy=Symbol.for("react.memo_cache_sentinel"),pm=Symbol.iterator;function Mu(e){return e===null||typeof e!="object"?null:(e=pm&&e[pm]||e["@@iterator"],typeof e=="function"?e:null)}var Zy=Symbol.for("react.client.reference");function ms(e){if(e==null)return null;if(typeof e=="function")return e.$$typeof===Zy?null:e.displayName||e.name||null;if(typeof e=="string")return e;switch(e){case Io:return"Fragment";case ss:return"Profiler";case Nh:return"StrictMode";case cs:return"Suspense";case ds:return"SuspenseList";case ps:return"Activity"}if(typeof e=="object")switch(e.$$typeof){case ku:return"Portal";case wa:return e.displayName||"Context";case Gh:return(e._context.displayName||"Context")+".Consumer";case uc:var t=e.render;return e=e.displayName,e||(e=t.displayName||t.name||"",e=e!==""?"ForwardRef("+e+")":"ForwardRef"),e;case nc:return t=e.displayName||null,t!==null?t:ms(e.type)||"Memo";case Wa:t=e._payload,e=e._init;try{return ms(e(t))}catch{}}return null}var Uu=Array.isArray,B=Uh.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,W=Vy.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,kl={pending:!1,data:null,method:null,action:null},hs=[],bo=-1;function ia(e){return{current:e}}function Pe(e){0>bo||(e.current=hs[bo],hs[bo]=null,bo--)}function re(e,t){bo++,hs[bo]=e.current,e.current=t}var fa=ia(null),en=ia(null),fl=ia(null),wr=ia(null);function Ar(e,t){switch(re(fl,t),re(en,e),re(fa,null),t.nodeType){case 9:case 11:e=(e=t.documentElement)&&(e=e.namespaceURI)?vh(e):0;break;default:if(e=t.tagName,t=t.namespaceURI)t=vh(t),e=iS(t,e);else switch(e){case"svg":e=1;break;case"math":e=2;break;default:e=0}}Pe(fa),re(fa,e)}function No(){Pe(fa),Pe(en),Pe(fl)}function gs(e){e.memoizedState!==null&&re(wr,e);var t=fa.current,a=iS(t,e.type);t!==a&&(re(en,e),re(fa,a))}function Tr(e){en.current===e&&(Pe(fa),Pe(en)),wr.current===e&&(Pe(wr),dn._currentValue=kl)}var Ei,mm;function Ol(e){if(Ei===void 0)try{throw Error()}catch(a){var t=a.stack.trim().match(/\n( *(at )?)/);Ei=t&&t[1]||"",mm=-1<a.stack.indexOf(`
     at`)?" (<anonymous>)":-1<a.stack.indexOf("@")?"@unknown:0:0":""}return`
 `+Ei+e+mm}var Oi=!1;function Bi(e,t){if(!e||Oi)return"";Oi=!0;var a=Error.prepareStackTrace;Error.prepareStackTrace=void 0;try{var l={DetermineComponentFrameRoot:function(){try{if(t){var c=function(){throw Error()};if(Object.defineProperty(c.prototype,"props",{set:function(){throw Error()}}),typeof Reflect=="object"&&Reflect.construct){try{Reflect.construct(c,[])}catch(m){var s=m}Reflect.construct(e,[],c)}else{try{c.call()}catch(m){s=m}e.call(c.prototype)}}else{try{throw Error()}catch(m){s=m}(c=e())&&typeof c.catch=="function"&&c.catch(function(){})}}catch(m){if(m&&s&&typeof m.stack=="string")return[m.stack,s.stack]}return[null,null]}};l.DetermineComponentFrameRoot.displayName="DetermineComponentFrameRoot";var o=Object.getOwnPropertyDescriptor(l.DetermineComponentFrameRoot,"name");o&&o.configurable&&Object.defineProperty(l.DetermineComponentFrameRoot,"name",{value:"DetermineComponentFrameRoot"});var u=l.DetermineComponentFrameRoot(),n=u[0],r=u[1];if(n&&r){var f=n.split(`
@@ -5736,11 +5746,18 @@ function visibleState() { return movement ? movement.before.state : combat ? com
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
 function humanCanMove() { return gamePhase === 'playing' && !tableRattle?.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
-function cancelMovement() { tableRattle?.cancel(); roomMovePreview = null; movement?.sound?.cancel(); combat?.stopRemoval?.(); moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
+function cancelMovement() {
+  tableRattle?.cancel(); roomMovePreview = null;
+  if (movement?.startTimer != null) clearTimeout(movement.startTimer);
+  movement?.stopRestore?.(); movement?.sound?.cancel(); combat?.stopRemoval?.();
+  moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null;
+}
 function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function completeMovementPresentation(completed) {
   if (!completed) return;
+  if (completed.startTimer != null) clearTimeout(completed.startTimer);
   completed.sound?.finish();
+  if (completed.undoSteps) { presentUndo(completed.undoSteps); return; }
   if (completed.preview) {
     if (roomMovePreview !== completed.preview) return;
     completed.preview.completed = true;
@@ -5763,6 +5780,46 @@ function presentMove(before, action, deaths, preview = null) {
   movement = { before, piece, action: { ...action, from: action.from || { q: piece.q, r: piece.r } }, plan, route, deaths, forecast, sound, preview };
   render(); moveAnimator.start(plan);
 }
+function presentUndo(undoSteps) {
+  const animate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let restoredPieces = false;
+  while (undoSteps.length) {
+    const { before, after } = undoSteps.shift(), action = before.action;
+    if (!action) continue;
+    const survivingIds = new Set(after.pieces.map(piece => piece.id));
+    restoredPieces ||= before.state.pieces.some(piece => !survivingIds.has(piece.id));
+    if (!animate || action.pass || before.config.geometry !== config.geometry || before.config.size !== config.size) continue;
+    const piece = before.state.pieces.find(p => p.id === action.id);
+    if (!piece || piece.q !== action.from.q || piece.r !== action.from.r) continue;
+    const route = movementPath(piece, before.state, before.config, action.to).reverse();
+    if (route.length < 2) continue;
+
+    // Restore the pieces removed by combat as they stood at the end of the move.
+    const forecast = inspectCell(before.state, before.config, action.to, piece.id);
+    if (!forecast.isPreview) continue;
+    for (const [id, info] of forecast.report) {
+      if (info.dead || !survivingIds.has(id)) forecast.report.set(id, { ...info, dead: false, incoming: 0 });
+    }
+    const plan = createMovementPlan(route.map(point));
+    const reverse = movement = {
+      before: { state: forecast.position }, piece: forecast.piece,
+      action: { from: action.to, to: action.from }, plan, forecast, undoSteps
+    };
+    render();
+    if (restoredPieces) reverse.stopRestore = gameAudio.play('remove');
+    const start = () => {
+      if (movement !== reverse) return;
+      reverse.startTimer = null;
+      reverse.sound = gameAudio.movement(route, forecast.position.pieces, plan.duration);
+      moveAnimator.start(plan);
+    };
+    if (survivingIds.has(piece.id)) start();
+    else reverse.startTimer = setTimeout(start, 200);
+    return;
+  }
+  render();
+  if (restoredPieces) gameAudio.play('remove');
+}
 function presentKills(before, forecast, deaths) {
   if (!deaths.length) { render(); return; }
   const presentation = lethalAttackPresentation(forecast.position, forecast.report, deaths);
@@ -5774,31 +5831,32 @@ function presentKills(before, forecast, deaths) {
 }
 function combatReplayContext() {
   if (gamePhase !== 'playing' || editor || roomMovePreview || reviewLoading || movement || combat || currentDeaths.length) return null;
-  const replayFor = turn => {
-    if (!turn?.action) return null;
-    const { before, action } = turn;
-    const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
-      : inspectCell(before.state, before.config, action.to, action.id);
-    const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
-    return deaths.length ? { before, forecast, deaths } : null;
-  };
-  if (reviewingTurn) return replayFor(reviewTurn);
-  if (playMode !== 'bot' || !lastTurn) return replayFor(lastTurn);
-  // A quiet reply from the bot must not hide the most recent battle. Cache the
-  // search so pointer movement does not recalculate the entire match history.
-  if (combatReplayCache?.turn === lastTurn && combatReplayCache.history === history && combatReplayCache.length === history.length) return combatReplayCache.result;
-  let result = replayFor(lastTurn);
-  for (let index = history.length - 1; !result && index >= 0; index--) {
-    const entry = history[index];
-    result = replayFor({ before: entry, action: entry.action });
-  }
-  combatReplayCache = { turn: lastTurn, history, length: history.length, result };
+  const turn = reviewingTurn ? reviewTurn : lastTurn;
+  if (!turn?.action) return null;
+  if (combatReplayCache?.turn === turn) return combatReplayCache.result;
+  const { before, action } = turn;
+  const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
+    : inspectCell(before.state, before.config, action.to, action.id);
+  const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
+  const result = { before, forecast, deaths };
+  combatReplayCache = { turn, result };
   return result;
 }
-function canReplayCombat() { return Boolean(combatReplayContext()); }
+let combatReplayToastTimer;
+function hideCombatReplayToast() {
+  clearTimeout(combatReplayToastTimer);
+  $('#combat-replay-toast').hidden = true;
+}
+function showCombatReplayToast() {
+  clearTimeout(combatReplayToastTimer);
+  $('#combat-replay-toast').hidden = false;
+  combatReplayToastTimer = setTimeout(hideCombatReplayToast, 1000);
+}
 function replayCombat() {
   const replay = combatReplayContext();
   if (!replay) return;
+  if (!replay.deaths.length) { showCombatReplayToast(); return; }
+  hideCombatReplayToast();
   cancelBot(); selected = null;
   presentKills(replay.before, replay.forecast, replay.deaths);
 }
@@ -5845,7 +5903,8 @@ function boardMarkup() {
   $('#board').setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
   const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p])), destinations = new Set(available.map(c => key(c.q, c.r)));
   const selectedPiece = state.pieces.find(p => p.id === selected);
-  const showMoveHighlights = playMode === 'bot' ? (movement?.piece.team ?? state.turn) === humanTeam : playMode !== 'online' || roomView?.selfSeat != null && (movement?.piece.team ?? state.turn) === roomView.selfSeat;
+  const turn = movement?.piece.team ?? state.turn;
+  const showMoveHighlights = !movement?.undoSteps && (playMode === 'bot' ? turn === humanTeam : playMode !== 'online' || roomView?.selfSeat != null && turn === roomView.selfSeat);
   const movementCells = new Set(selectedPiece && !editor && available.length ? movementArea(selectedPiece, state, config).map(c => key(c.q, c.r)) : []);
   if (!board.some(cell => key(cell.q, cell.r) === boardFocus)) {
     const first = selectedPiece || state.pieces.find(piece => piece.team === state.turn) || board[0];
@@ -6130,7 +6189,7 @@ function renderGameResult(position) {
     : `Ход ${position.turn === 0 ? 'синих' : 'красных'}`);
   $('#move-counter').textContent = resolvingCombat ? 'Расчёт боя…' : movement ? 'Движение…' : gamePhase === 'setup' ? editor ? 'Редактор' : 'Подготовка' : `${reviewingTurn ? 'Просмотр · ' : ''}Ход ${position.ply + 1}${turnStatus ? ' • ' + turnStatus : ''}`;
   $('.arena-top').dataset.result = '';
-  if (playMode === 'online' && gamePhase === 'setup') $('#move-counter').textContent = 'Ожидание игроков';
+  renderMobileTurn(position);
 }
 function renderUpdateNotice() {
   const rulesUpdate = needsNewGame({ phase: gamePhase, savedVersion: gameVersion, currentRulesVersion: CURRENT_RULES_VERSION, latestRulesVersion });
@@ -6188,7 +6247,8 @@ function render(deaths = []) {
   $('#new-game').disabled = false;
   $('#new-game').hidden = playMode === 'online' || gamePhase !== 'playing';
   $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : 'По ссылке' : playMode === 'bot' ? `${BOT_DIFFICULTIES[botDifficulty].label.toLocaleLowerCase('ru-RU')}${botDifficulty === 'hard' ? '' : ' бот'}` : '2 игрока на одном экране';
-  hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
+  hover = null; inspection = null;
+  report = combat?.report ?? (movement?.undoSteps ? movement.forecast.report : analyze(state, config));
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
   boardMarkup(); paintAuras(); highlightSources();
@@ -6204,9 +6264,7 @@ function render(deaths = []) {
   $('#pass-turn').disabled = !humanCanMove();
   $('#undo').disabled = Boolean(movement || combat) || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor);
   $('#undo').title = playMode === 'bot' && !editor ? 'Отменить свой ход и ответ бота' : 'Отменить последнее действие';
-  $('#replay-combat').disabled = !canReplayCombat();
   $('#review-previous').disabled = !canReviewPrevious();
-  $('#review-previous').setAttribute('aria-pressed', String(reviewingTurn));
   $('#review-current').disabled = !reviewingTurn || reviewLoading || Boolean(movement || combat || currentDeaths.length);
   $('#resume-bot').hidden = !isBotTurn() || reviewingTurn || editor || (!botIssue && !botSuspended);
   $('#resume-bot').disabled = Boolean(movement || combat);
@@ -6325,11 +6383,14 @@ function clearHover() { hover = null; inspection = null; paintAuras(); highlight
 $('#show-hint').addEventListener('click', mobileAdvice);
 $('#undo').addEventListener('click', () => {
   if (playMode === 'online' || movement || combat || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor)) return;
-  let previous = history.pop();
-  if (playMode === 'bot' && !editor && previous.actor === 'bot' && history.at(-1)?.actor === 'human' && history.at(-1).state.ply === previous.state.ply - 1) previous = history.pop();
+  const latest = history.pop(), undoSteps = [latest];
+  if (playMode === 'bot' && !editor && latest.actor === 'bot' && history.at(-1)?.actor === 'human' && history.at(-1).state.ply === latest.state.ply - 1) undoSteps.push(history.pop());
+  const previous = undoSteps.at(-1), current = state;
   resetBotContext(); config = previous.config; state = previous.state; log = previous.log; positionKind = previous.positionKind; gameVersion = previous.gameVersion ?? null; selected = null;
-  if (gamePhase === 'playing' && !editor) archiveRecorder.record('undo', { config, state });
-  lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn(); render();
+  lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn();
+  if (editor || gamePhase !== 'playing') { render(); return; }
+  archiveRecorder.record('undo', { config, state });
+  presentUndo(undoSteps.map((before, index) => ({ before, after: undoSteps[index - 1]?.state ?? current })));
 });
 function openStartSettings() {
   if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
@@ -6371,7 +6432,7 @@ function startGame() {
     startPreferences = currentStartPreferences();
     resetBotContext(); state = next; gamePhase = 'playing'; positionKind = classifyPosition(state, config); gameVersion = CURRENT_GAME_VERSION;
     archiveRecorder.start(archiveGameMetadata());
-    history = []; log = []; previousGame = null; selected = null; $('#start-dialog').close(); render();
+    history = []; log = []; previousGame = null; selected = null; $('#mobile-home').close(); $('#start-dialog').close(); render();
   } catch (error) { toast(error.message); }
 }
 $('#start-setup').addEventListener('click', openStartSettings);
@@ -6409,6 +6470,11 @@ $('#editor-done').addEventListener('click', () => {
   catch (error) { toast(error.message); }
 });
 $('#replay-combat').addEventListener('click', replayCombat);
+$('#combat-replay-toast').addEventListener('click', event => {
+  const focused = document.activeElement === event.currentTarget;
+  hideCombatReplayToast();
+  if (focused) $('#replay-combat').focus({ preventScroll: true });
+});
 function canReviewPrevious() {
   if (gamePhase !== 'playing' || editor || roomMovePreview || movement || combat || currentDeaths.length || reviewLoading) return false;
   const ply = visibleState().ply;
@@ -6661,7 +6727,7 @@ function renderOnlineRoom() {
   for (const id of ['show-hint', 'undo']) $('#' + id).hidden = online;
   $('.board-wrap').hidden = online && (!roomView?.snapshot || roomView.snapshot.phase === 'waiting' || roomView.status === 'closed');
   document.body.classList.toggle('room-waiting', online && $('.board-wrap').hidden);
-  $('.arena-top').hidden = online && $('.board-wrap').hidden;
+
   for (const id of ['replay-combat', 'review-previous', 'review-current']) $('#' + id).hidden = online && $('.board-wrap').hidden;
   if (!online) return;
   $('#archive-status').hidden = true; $('#archive-retry').hidden = true; $('#archive-details').hidden = true;
@@ -6815,7 +6881,7 @@ attackReachObserver.observe($('#board'));
 document.addEventListener('visibilitychange', updateAttackReachPlayback);
 updateAttackReachPlayback();
 // This adapter runs in the native game module and uses its live selection and move pipeline.
-let mobileTarget = null, mobileInspected = null, mobileCoordinates = false;
+let mobileTarget = null, mobileInspected = null;
 function mobileAdvice() {
   if (hint && !hint.failed && !hint.pending) {
     menuPage('Совет', '<div id="mobile-advice-slot"></div>');
@@ -6824,15 +6890,12 @@ function mobileAdvice() {
   }
   requestHint();
 }
-// The waiting screen and the in-game sheet share the native room controls.
+// Keep the room controls on the waiting screen.
 $('#room-first-choice').before($('#room-panel'));
 $('#sheet').addEventListener('close', () => {
-  const roomPanel = $('#mobile-room-slot #room-panel');
-  if (roomPanel) $('#room-first-choice').before(roomPanel);
   const advice = $('#mobile-advice-slot #move-hint');
   if (advice) $('.left-panel').prepend(advice);
 });
-const cellLabel = p => 'АБВГДЕЖЗИКЛ'[p.q + config.size] + (p.r + config.size + 1);
 function syncMobileBoard() {
   syncBoardZoom();
   if (!selected || !humanCanMove() || !available.some(c => c.q === mobileTarget?.q && c.r === mobileTarget?.r)) mobileTarget = null;
@@ -6846,7 +6909,6 @@ function syncMobileBoard() {
   }
   $('#move-actions').hidden = !mobileTarget;
   const turn = visibleState().turn;
-  $('#team-name').textContent = TEAM_NAMES[turn];
   $('#team-flag').dataset.side = turn === 1 ? 'red' : 'blue';
   const context = inspectionContext();
   const piece = context.position.pieces.find(p => p.id === (mobileInspected || selected));
@@ -6859,16 +6921,11 @@ function syncMobileBoard() {
     if (aura.rangeBonus) bonuses.push('+' + aura.rangeBonus + ' к дальности лукарей');
   }
   $('#aura-caption').textContent = bonuses.length ? 'Аура · ' + bonuses.join(', ') : '';
-  if (mobileCoordinates && !movement && !combat) {
-    for (const el of $('#board').querySelectorAll('[data-cell]')) {
-      const [q,r] = el.dataset.cell.split(',').map(Number);
-      if (context.position.pieces.some(p => p.q === q && p.r === r) || el.querySelector('text')) continue;
-      const pos = point({q,r});
-      el.insertAdjacentHTML('beforeend','<text pointer-events="none" text-anchor="middle" font-size="9" fill="#756b5b" x="'+pos.x+'" y="'+(pos.y+20)+'">'+cellLabel({q,r})+'</text>');
-    }
-  }
   if (hint?.action && canRequestHint()) $('#show-hint').disabled = false;
-  $('#show-hint').innerHTML = mobileIcon('hint') + (hint?.pending ? 'Расчёт…' : hint?.failed ? 'Повторить' : 'Совет');
+  const advice = $('#show-hint');
+  advice.innerHTML = mobileIcon('hint');
+  advice.setAttribute('aria-label', hint?.pending ? 'Совет рассчитывается' : hint?.failed ? 'Повторить запрос совета' : 'Совет');
+  advice.setAttribute('aria-busy', String(Boolean(hint?.pending)));
 }
 function mobileTap(q,r) {
   if (movement || combat || currentDeaths.length || tableRattle?.active) return;
@@ -6892,14 +6949,25 @@ function mobileTap(q,r) {
   }
 }
 function mobileIcon(name) {
-  const lines = {hint:'M9 17h6m-5 3h4M8 12a6 6 0 1 1 8 0c-1.5 1.4-2 2-2 3h-4c0-1-.5-1.6-2-3Z',back:'m10 5-7 7 7 7M3 12h18',next:'m14 5 7 7-7 7M21 12H3', menu:'M3 6h18M3 12h18M3 18h18'};
+  const lines = {pass:'m5 5 10 7-10 7ZM19 5v14',hint:'M9 17h6m-5 3h4M8 12a6 6 0 1 1 8 0c-1.5 1.4-2 2-2 3h-4c0-1-.5-1.6-2-3Z',back:'m10 5-7 7 7 7M3 12h18',next:'m14 5 7 7-7 7M21 12H3'};
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+lines[name]+'"/></svg>';
 }
-$('#menu').innerHTML = mobileIcon('menu');
-$('#review-previous').innerHTML = mobileIcon('back')+'Назад';
-$('#review-current').innerHTML = mobileIcon('next')+'Вперёд';
-$('#undo span').textContent = 'Отменить';
-$('#replay-combat span').textContent = 'Повтор';
+function renderMobileTurn(position) {
+  const player = playMode === 'online' ? roomView?.selfSeat : humanTeam;
+  const waiting = playMode === 'online' && gamePhase === 'setup';
+  const team = TEAM_NAMES[position.turn];
+  const actor = position.turn === player ? 'ВЫ' : playMode === 'bot' ? BOT_DIFFICULTIES[botDifficulty].label
+    : player == null ? '' : 'Соперник';
+  $('#team-name').textContent = waiting ? $('#room-title').textContent : [team, actor].filter(Boolean).join(' · ');
+  $('#team-flag').hidden = waiting;
+  $('#move-counter').textContent = waiting ? 'Ожидание игроков' : 'Ход ' + (position.ply + 1);
+}
+$('#review-previous').innerHTML = mobileIcon('back');
+$('#review-current').innerHTML = mobileIcon('next');
+$('#undo').setAttribute('aria-label', $('#undo').title);
+$('#undo span').remove();
+$('#pass-turn').setAttribute('aria-label', 'Пропустить ход');
+$('#pass-turn').innerHTML = mobileIcon('pass');
 $('#cancel-move').onclick = () => {
   mobileTarget = mobileInspected = null;
   render();
@@ -7030,40 +7098,49 @@ function menuPage(title,html) {
   if (!$('#sheet').open) $('#sheet').showModal();
   $('#mobile-close').focus();
 }
-function mobileMenu() {
-  const entries=[[playMode === 'online' ? 'room' : 'start', playMode === 'online' ? 'Игровая комната' : 'Новая игра'],['rules','Правила'],['legend','Обозначения'],['log','Журнал ходов'],['settings','Настройки поля']];
-  menuPage('Меню партии','<div class="rows">'+entries.map(([id,name])=>'<button class="button subtle" data-page="'+id+'">'+name+'</button>').join('')+'</div>');
+const mobileHome = $('#mobile-home');
+mobileHome.querySelector('.home-actions').prepend($('.brand-logo').cloneNode(true));
+function openMobileHome() {
+  cancelBot();
+  $('#home-continue').disabled = gamePhase !== 'playing' && playMode !== 'online' && !previousGame;
+  if (!mobileHome.open) mobileHome.showModal();
+  ($('#home-continue').disabled ? $('#home-new') : $('#home-continue')).focus();
 }
-$('#menu').onclick=mobileMenu;
-$('#mobile-close').onclick=()=>$('#sheet').close();
-function mobilePage(name,index=0) {
-  if (name === 'start') {
+$('#home-back').innerHTML = mobileIcon('back');
+$('#home-back').onclick = openMobileHome;
+mobileHome.addEventListener('cancel', event => event.preventDefault());
+$('#home-continue').onclick = () => {
+  mobileHome.close();
+  if (previousGame && gamePhase === 'setup' && playMode !== 'online') returnToGame();
+  $('#home-back').focus();
+};
+function mobileNewGame() {
+  if (gamePhase === 'playing') openNewGame(); else openStartSettings();
+}
+$('#home-new').onclick = () => {
+  if (playMode !== 'online') { mobileNewGame(); return; }
+  menuPage('Выйти из комнаты для новой игры?', '<button id="leave-and-start" class="button primary">Выйти и начать новую игру</button>');
+  $('#leave-and-start').onclick = async () => {
+    $('#leave-and-start').disabled = true;
+    await leaveOnlineRoom();
     $('#sheet').close();
-    if (gamePhase === 'playing') openNewGame(); else openStartSettings();
-    return;
-  }
-  if (name === 'room') {
-    menuPage('Игровая комната', '<div id="mobile-room-slot"></div>');
-    $('#mobile-room-slot').append($('#room-panel'));
-    return;
-  }
-  const pages={rules:['Выберите свою фигуру и подсвеченную клетку. Чтобы подтвердить ход, нажмите «Сделать ход».','Обе стороны атакуют одновременно. Фигура погибает, если входящий урон достигает её стойкости.','Уничтожьте вражеское знамя или всех щитоносцев и лукарей соперника.'],legend:['Зелёная подсветка показывает, куда можно пойти. Значки на фишке показывают урон и стойкость.','Стрелки показывают атакующих и цели. Череп отмечает фигуру, которая погибнет при расчёте.'],log:log.map(item=>[item.text,item.detail].filter(Boolean).join('. '))};
-  if(name==='settings'){
-    menuPage('Настройки поля','<label><input id="mobile-coords" type="checkbox" '+(mobileCoordinates?'checked':'')+'> Координаты пустых клеток</label>');$('#mobile-coords').onchange=e=>{mobileCoordinates=e.target.checked;};return;
-  }
-  const items=pages[name],heading={rules:'Правила',legend:'Обозначения',log:'Журнал ходов'}[name];
-  menuPage(heading,'<p id="mobile-copy"></p>'+(items.length>1?'<div class="pages"><button class="button subtle" id="mp-prev">Назад</button><span>'+(index+1)+' / '+items.length+'</span><button class="button subtle" id="mp-next">Дальше</button></div>':''));
-  $('#mobile-copy').textContent=items[index]??'Ходов пока нет.';
-  if(items.length>1){for(const [id,delta] of [['mp-prev',-1],['mp-next',1]]){const i=index+delta;$('#'+id).disabled=i<0||i>=items.length;$('#'+id).onclick=()=>mobilePage(name,i);}}
-}
-$('#mobile-body').addEventListener('click',e=>{const page=e.target.closest('[data-page]')?.dataset.page;if(page)mobilePage(page,page==='log'?Math.max(0,log.length-1):0);});
+    $('#home-continue').disabled = gamePhase !== 'playing' && !previousGame;
+    mobileNewGame();
+  };
+};
+$('#home-learn').onclick = () => {
+  mobileHome.close();
+  $('#rules-open').click();
+};
+$('#guide-back').addEventListener('click', openMobileHome);
+$('#mobile-close').onclick=()=>$('#sheet').close();
 
 if (autoStartFreshGame) {
   humanTeam = 0; firstMove = 'north'; playMode = 'bot';
 }
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
 const initialRoomId = new URL(location.href).searchParams.get('room');
-if ((autoStartFreshGame || autoStartSavedBot && !freshNewGameRequested) && !initialRoomId) startGame();
+if (!initialRoomId && !freshNewGameRequested) openMobileHome();
 ready = true; render();
 globalThis.window?.gameSelects?.mount();
 void checkGameVersion();

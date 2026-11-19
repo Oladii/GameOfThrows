@@ -482,7 +482,7 @@ function instantRoomSetup(instant = false) {
     presentKills(before, forecast, deaths) { ui.calls.push(['confirmed-combat', plain(deaths)]); ctx.render(); } });
   vm.runInContext(source('function completeMovementPresentation(', 'function presentKills('), ctx);
   vm.runInContext(declaration('visibleState'), ctx);
-  vm.runInContext(source('function combatReplayContext()', 'function canReplayCombat()'), ctx);
+  vm.runInContext(source('function combatReplayContext()', 'let combatReplayToastTimer;'), ctx);
   vm.runInContext(source('function canReviewPrevious()', 'async function stepReview('), ctx);
   const before = createGame(DEFAULT_CONFIG);
   const piece = before.pieces.find(p => p.team === before.turn && reachable(p, before, DEFAULT_CONFIG).length);

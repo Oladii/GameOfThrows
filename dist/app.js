@@ -367,11 +367,18 @@ function visibleState() { return movement ? movement.before.state : combat ? com
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
 function humanCanMove() { return gamePhase === 'playing' && !tableRattle?.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
-function cancelMovement() { tableRattle?.cancel(); roomMovePreview = null; movement?.sound?.cancel(); combat?.stopRemoval?.(); moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
+function cancelMovement() {
+  tableRattle?.cancel(); roomMovePreview = null;
+  if (movement?.startTimer != null) clearTimeout(movement.startTimer);
+  movement?.stopRestore?.(); movement?.sound?.cancel(); combat?.stopRemoval?.();
+  moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null;
+}
 function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function completeMovementPresentation(completed) {
   if (!completed) return;
+  if (completed.startTimer != null) clearTimeout(completed.startTimer);
   completed.sound?.finish();
+  if (completed.undoSteps) { presentUndo(completed.undoSteps); return; }
   if (completed.preview) {
     if (roomMovePreview !== completed.preview) return;
     completed.preview.completed = true;
@@ -394,6 +401,46 @@ function presentMove(before, action, deaths, preview = null) {
   movement = { before, piece, action: { ...action, from: action.from || { q: piece.q, r: piece.r } }, plan, route, deaths, forecast, sound, preview };
   render(); moveAnimator.start(plan);
 }
+function presentUndo(undoSteps) {
+  const animate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let restoredPieces = false;
+  while (undoSteps.length) {
+    const { before, after } = undoSteps.shift(), action = before.action;
+    if (!action) continue;
+    const survivingIds = new Set(after.pieces.map(piece => piece.id));
+    restoredPieces ||= before.state.pieces.some(piece => !survivingIds.has(piece.id));
+    if (!animate || action.pass || before.config.geometry !== config.geometry || before.config.size !== config.size) continue;
+    const piece = before.state.pieces.find(p => p.id === action.id);
+    if (!piece || piece.q !== action.from.q || piece.r !== action.from.r) continue;
+    const route = movementPath(piece, before.state, before.config, action.to).reverse();
+    if (route.length < 2) continue;
+
+    // Restore the pieces removed by combat as they stood at the end of the move.
+    const forecast = inspectCell(before.state, before.config, action.to, piece.id);
+    if (!forecast.isPreview) continue;
+    for (const [id, info] of forecast.report) {
+      if (info.dead || !survivingIds.has(id)) forecast.report.set(id, { ...info, dead: false, incoming: 0 });
+    }
+    const plan = createMovementPlan(route.map(point));
+    const reverse = movement = {
+      before: { state: forecast.position }, piece: forecast.piece,
+      action: { from: action.to, to: action.from }, plan, forecast, undoSteps
+    };
+    render();
+    if (restoredPieces) reverse.stopRestore = gameAudio.play('remove');
+    const start = () => {
+      if (movement !== reverse) return;
+      reverse.startTimer = null;
+      reverse.sound = gameAudio.movement(route, forecast.position.pieces, plan.duration);
+      moveAnimator.start(plan);
+    };
+    if (survivingIds.has(piece.id)) start();
+    else reverse.startTimer = setTimeout(start, 200);
+    return;
+  }
+  render();
+  if (restoredPieces) gameAudio.play('remove');
+}
 function presentKills(before, forecast, deaths) {
   if (!deaths.length) { render(); return; }
   const presentation = lethalAttackPresentation(forecast.position, forecast.report, deaths);
@@ -405,31 +452,32 @@ function presentKills(before, forecast, deaths) {
 }
 function combatReplayContext() {
   if (gamePhase !== 'playing' || editor || roomMovePreview || reviewLoading || movement || combat || currentDeaths.length) return null;
-  const replayFor = turn => {
-    if (!turn?.action) return null;
-    const { before, action } = turn;
-    const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
-      : inspectCell(before.state, before.config, action.to, action.id);
-    const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
-    return deaths.length ? { before, forecast, deaths } : null;
-  };
-  if (reviewingTurn) return replayFor(reviewTurn);
-  if (playMode !== 'bot' || !lastTurn) return replayFor(lastTurn);
-  // A quiet reply from the bot must not hide the most recent battle. Cache the
-  // search so pointer movement does not recalculate the entire match history.
-  if (combatReplayCache?.turn === lastTurn && combatReplayCache.history === history && combatReplayCache.length === history.length) return combatReplayCache.result;
-  let result = replayFor(lastTurn);
-  for (let index = history.length - 1; !result && index >= 0; index--) {
-    const entry = history[index];
-    result = replayFor({ before: entry, action: entry.action });
-  }
-  combatReplayCache = { turn: lastTurn, history, length: history.length, result };
+  const turn = reviewingTurn ? reviewTurn : lastTurn;
+  if (!turn?.action) return null;
+  if (combatReplayCache?.turn === turn) return combatReplayCache.result;
+  const { before, action } = turn;
+  const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
+    : inspectCell(before.state, before.config, action.to, action.id);
+  const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
+  const result = { before, forecast, deaths };
+  combatReplayCache = { turn, result };
   return result;
 }
-function canReplayCombat() { return Boolean(combatReplayContext()); }
+let combatReplayToastTimer;
+function hideCombatReplayToast() {
+  clearTimeout(combatReplayToastTimer);
+  $('#combat-replay-toast').hidden = true;
+}
+function showCombatReplayToast() {
+  clearTimeout(combatReplayToastTimer);
+  $('#combat-replay-toast').hidden = false;
+  combatReplayToastTimer = setTimeout(hideCombatReplayToast, 1000);
+}
 function replayCombat() {
   const replay = combatReplayContext();
   if (!replay) return;
+  if (!replay.deaths.length) { showCombatReplayToast(); return; }
+  hideCombatReplayToast();
   cancelBot(); selected = null;
   presentKills(replay.before, replay.forecast, replay.deaths);
 }
@@ -476,7 +524,8 @@ function boardMarkup() {
   $('#board').setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
   const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p])), destinations = new Set(available.map(c => key(c.q, c.r)));
   const selectedPiece = state.pieces.find(p => p.id === selected);
-  const showMoveHighlights = playMode === 'bot' ? (movement?.piece.team ?? state.turn) === humanTeam : playMode !== 'online' || roomView?.selfSeat != null && (movement?.piece.team ?? state.turn) === roomView.selfSeat;
+  const turn = movement?.piece.team ?? state.turn;
+  const showMoveHighlights = !movement?.undoSteps && (playMode === 'bot' ? turn === humanTeam : playMode !== 'online' || roomView?.selfSeat != null && turn === roomView.selfSeat);
   const movementCells = new Set(selectedPiece && !editor && available.length ? movementArea(selectedPiece, state, config).map(c => key(c.q, c.r)) : []);
   if (!board.some(cell => key(cell.q, cell.r) === boardFocus)) {
     const first = selectedPiece || state.pieces.find(piece => piece.team === state.turn) || board[0];
@@ -819,7 +868,8 @@ function render(deaths = []) {
   $('#new-game').disabled = false;
   $('#new-game').hidden = playMode === 'online' || gamePhase !== 'playing';
   $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : 'По ссылке' : playMode === 'bot' ? `${BOT_DIFFICULTIES[botDifficulty].label.toLocaleLowerCase('ru-RU')}${botDifficulty === 'hard' ? '' : ' бот'}` : '2 игрока на одном экране';
-  hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
+  hover = null; inspection = null;
+  report = combat?.report ?? (movement?.undoSteps ? movement.forecast.report : analyze(state, config));
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
   boardMarkup(); paintAuras(); highlightSources();
@@ -835,9 +885,7 @@ function render(deaths = []) {
   $('#pass-turn').disabled = !humanCanMove();
   $('#undo').disabled = Boolean(movement || combat) || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor);
   $('#undo').title = playMode === 'bot' && !editor ? 'Отменить свой ход и ответ бота' : 'Отменить последнее действие';
-  $('#replay-combat').disabled = !canReplayCombat();
   $('#review-previous').disabled = !canReviewPrevious();
-  $('#review-previous').setAttribute('aria-pressed', String(reviewingTurn));
   $('#review-current').disabled = !reviewingTurn || reviewLoading || Boolean(movement || combat || currentDeaths.length);
   $('#resume-bot').hidden = !isBotTurn() || reviewingTurn || editor || (!botIssue && !botSuspended);
   $('#resume-bot').disabled = Boolean(movement || combat);
@@ -965,11 +1013,14 @@ document.addEventListener('click', dismissHintOnClick, true);
 $('#show-hint').addEventListener('click', requestHint);
 $('#undo').addEventListener('click', () => {
   if (playMode === 'online' || movement || combat || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor)) return;
-  let previous = history.pop();
-  if (playMode === 'bot' && !editor && previous.actor === 'bot' && history.at(-1)?.actor === 'human' && history.at(-1).state.ply === previous.state.ply - 1) previous = history.pop();
+  const latest = history.pop(), undoSteps = [latest];
+  if (playMode === 'bot' && !editor && latest.actor === 'bot' && history.at(-1)?.actor === 'human' && history.at(-1).state.ply === latest.state.ply - 1) undoSteps.push(history.pop());
+  const previous = undoSteps.at(-1), current = state;
   resetBotContext(); config = previous.config; state = previous.state; log = previous.log; positionKind = previous.positionKind; gameVersion = previous.gameVersion ?? null; selected = null;
-  if (gamePhase === 'playing' && !editor) archiveRecorder.record('undo', { config, state });
-  lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn(); render();
+  lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn();
+  if (editor || gamePhase !== 'playing') { render(); return; }
+  archiveRecorder.record('undo', { config, state });
+  presentUndo(undoSteps.map((before, index) => ({ before, after: undoSteps[index - 1]?.state ?? current })));
 });
 function openStartSettings() {
   if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
@@ -1049,6 +1100,11 @@ $('#editor-done').addEventListener('click', () => {
   catch (error) { toast(error.message); }
 });
 $('#replay-combat').addEventListener('click', replayCombat);
+$('#combat-replay-toast').addEventListener('click', event => {
+  const focused = document.activeElement === event.currentTarget;
+  hideCombatReplayToast();
+  if (focused) $('#replay-combat').focus({ preventScroll: true });
+});
 function canReviewPrevious() {
   if (gamePhase !== 'playing' || editor || roomMovePreview || movement || combat || currentDeaths.length || reviewLoading) return false;
   const ply = visibleState().ply;

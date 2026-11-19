@@ -115,7 +115,7 @@ select{font-size:11px}
 .piece.fatal .piece-circle{stroke:var(--red);stroke-width:4}
 .piece.fatal .fatal-mark{display:block}
 .fatal-mark{display:none;fill:var(--red);stroke:#fff;stroke-width:.8}
-.board-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0 14px;border-top:1px solid var(--line);flex-wrap:wrap}
+.board-footer{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0 14px;border-top:1px solid var(--line);flex-wrap:wrap}
 .turn-actions{display:flex;gap:8px}
 .turn-actions .button{font-size:10px;padding:7px 10px;min-height:31px}
 .board-hint{font-size:10px;color:var(--muted);padding:11px 0 12px;text-align:center;border-top:1px solid #eeeee6;line-height:1.5}
@@ -336,8 +336,7 @@ dialog{padding:22px 16px;width:calc(100% - 22px);max-height:94vh}
 .bot-review-actions{display:grid;grid-template-columns:1fr}
 .bot-review-actions .button{justify-content:center}
 .team-role{display:block;margin:4px 0 0 14px}}
-.turn-actions .history-arrow{width:32px;min-width:32px;padding:8px 0;font-size:18px}
-.history-arrow[aria-pressed="true"]{background:#e8d5b2}
+.turn-actions :is(.history-arrow,.combat-replay){width:32px;min-width:32px;padding:8px 0;font-size:18px}
 .right-panel .log-heading{margin-top:0}
 .turn-actions .combat-replay svg{width:18px;height:18px;display:block}
 @media(max-width:1000px){
@@ -858,8 +857,9 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 .guide-back{border-radius:999px;padding:10px 18px;min-height:42px}
 .guide-screen #onboarding{display:block;max-width:1040px;margin:0 auto}
 .guide-screen #onboarding-progress{padding:0 0 20px}
-#replay-combat.combat-replay{width:auto;padding:9px 12px;gap:7px}
 #replay-combat svg{width:20px;height:20px;flex-shrink:0}
+.combat-replay-notice{position:absolute;z-index:3;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:calc(100% - 16px)}
+#combat-replay-toast{max-width:100%;background:#111;color:#fff;border:0;border-radius:var(--radius-control);padding:9px 14px;font-size:13px;line-height:18px;text-align:center}
 @media(max-width:600px){
 .topbar{height:auto;min-height:76px;padding:16px;gap:14px;flex-wrap:wrap}
 .topbar .brand{font-size:18px;letter-spacing:1px}
@@ -1073,7 +1073,7 @@ main{padding:14px}
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.117</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-19T16:43:51.766Z">Сборка 19.11.2026, 19:43:51 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><svg data-sound-icon="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg data-sound-icon="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 9a5 5 0 0 1 .95 2.293"/><path d="M19.364 5.636a9 9 0 0 1 1.889 9.96"/><path d="m2 2 20 20"/><path d="m7 7-.587.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298V11"/><path d="M9.828 4.172A.686.686 0 0 1 11 4.657v.686"/></svg><svg data-sound-icon="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.118</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-19T22:12:41.216Z">Сборка 20.11.2026, 01:12:41 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -1085,7 +1085,7 @@ main{padding:14px}
         </section>
         <div class="scoreboard" id="scoreboard"></div>
         <div class="board-wrap"><svg id="board" focusable="false" tabindex="-1" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Поле игры" aria-describedby="board-keyboard-help" xmlns="http://www.w3.org/2000/svg"></svg><p id="board-keyboard-help">Стрелки перемещают фокус по клеткам. Enter или пробел выбирает фигуру или делает ход</p></div>
-        <div class="board-footer"><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Подсказать ход</button><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие"><svg class="undo-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 3-5 5 5 5"/><path d="M4 8h10a6 6 0 0 1 0 12"/></svg><span>Отменить ход</span></button><button id="replay-combat" class="button subtle combat-replay" type="button" title="Повторить расчёт боя" aria-label="Повторить расчёт боя" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg><span>Повторить расчёт</span></button><button id="review-previous" class="button subtle history-arrow" title="Предыдущий ход" aria-label="Предыдущий ход" aria-pressed="false" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Следующий ход" aria-label="Следующий ход" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
+        <div class="board-footer"><div class="combat-replay-notice" role="status"><button id="combat-replay-toast" type="button" hidden>Этот ход был без потерь</button></div><button id="show-hint" class="button subtle" type="button" aria-expanded="false" aria-controls="move-hint" disabled>Подсказать ход</button><div class="turn-actions"><button id="undo" class="button subtle" title="Отменить последнее действие"><svg class="undo-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 3-5 5 5 5"/><path d="M4 8h10a6 6 0 0 1 0 12"/></svg><span>Отменить ход</span></button><button id="replay-combat" class="button subtle combat-replay" type="button" title="Повторить бой" aria-label="Повторить бой" aria-controls="combat-replay-toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg></button><button id="review-previous" class="button subtle history-arrow" title="Предыдущий ход" aria-label="Предыдущий ход" disabled>←</button><button id="review-current" class="button subtle history-arrow" title="Следующий ход" aria-label="Следующий ход" disabled>→</button><button id="pass-turn" class="button outline" hidden>Пропустить</button></div></div>
       </section>
       </div>
 
@@ -5660,11 +5660,18 @@ function visibleState() { return movement ? movement.before.state : combat ? com
 function isBotTurn() { return gamePhase === 'playing' && playMode === 'bot' && state.turn !== humanTeam && state.winner === null && !editor; }
 function humanCanMove() { return gamePhase === 'playing' && !tableRattle?.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !reviewingTurn && !reviewLoading && !isBotTurn() && state.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
-function cancelMovement() { tableRattle?.cancel(); roomMovePreview = null; movement?.sound?.cancel(); combat?.stopRemoval?.(); moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null; }
+function cancelMovement() {
+  tableRattle?.cancel(); roomMovePreview = null;
+  if (movement?.startTimer != null) clearTimeout(movement.startTimer);
+  movement?.stopRestore?.(); movement?.sound?.cancel(); combat?.stopRemoval?.();
+  moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null;
+}
 function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function completeMovementPresentation(completed) {
   if (!completed) return;
+  if (completed.startTimer != null) clearTimeout(completed.startTimer);
   completed.sound?.finish();
+  if (completed.undoSteps) { presentUndo(completed.undoSteps); return; }
   if (completed.preview) {
     if (roomMovePreview !== completed.preview) return;
     completed.preview.completed = true;
@@ -5687,6 +5694,46 @@ function presentMove(before, action, deaths, preview = null) {
   movement = { before, piece, action: { ...action, from: action.from || { q: piece.q, r: piece.r } }, plan, route, deaths, forecast, sound, preview };
   render(); moveAnimator.start(plan);
 }
+function presentUndo(undoSteps) {
+  const animate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let restoredPieces = false;
+  while (undoSteps.length) {
+    const { before, after } = undoSteps.shift(), action = before.action;
+    if (!action) continue;
+    const survivingIds = new Set(after.pieces.map(piece => piece.id));
+    restoredPieces ||= before.state.pieces.some(piece => !survivingIds.has(piece.id));
+    if (!animate || action.pass || before.config.geometry !== config.geometry || before.config.size !== config.size) continue;
+    const piece = before.state.pieces.find(p => p.id === action.id);
+    if (!piece || piece.q !== action.from.q || piece.r !== action.from.r) continue;
+    const route = movementPath(piece, before.state, before.config, action.to).reverse();
+    if (route.length < 2) continue;
+
+    // Restore the pieces removed by combat as they stood at the end of the move.
+    const forecast = inspectCell(before.state, before.config, action.to, piece.id);
+    if (!forecast.isPreview) continue;
+    for (const [id, info] of forecast.report) {
+      if (info.dead || !survivingIds.has(id)) forecast.report.set(id, { ...info, dead: false, incoming: 0 });
+    }
+    const plan = createMovementPlan(route.map(point));
+    const reverse = movement = {
+      before: { state: forecast.position }, piece: forecast.piece,
+      action: { from: action.to, to: action.from }, plan, forecast, undoSteps
+    };
+    render();
+    if (restoredPieces) reverse.stopRestore = gameAudio.play('remove');
+    const start = () => {
+      if (movement !== reverse) return;
+      reverse.startTimer = null;
+      reverse.sound = gameAudio.movement(route, forecast.position.pieces, plan.duration);
+      moveAnimator.start(plan);
+    };
+    if (survivingIds.has(piece.id)) start();
+    else reverse.startTimer = setTimeout(start, 200);
+    return;
+  }
+  render();
+  if (restoredPieces) gameAudio.play('remove');
+}
 function presentKills(before, forecast, deaths) {
   if (!deaths.length) { render(); return; }
   const presentation = lethalAttackPresentation(forecast.position, forecast.report, deaths);
@@ -5698,31 +5745,32 @@ function presentKills(before, forecast, deaths) {
 }
 function combatReplayContext() {
   if (gamePhase !== 'playing' || editor || roomMovePreview || reviewLoading || movement || combat || currentDeaths.length) return null;
-  const replayFor = turn => {
-    if (!turn?.action) return null;
-    const { before, action } = turn;
-    const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
-      : inspectCell(before.state, before.config, action.to, action.id);
-    const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
-    return deaths.length ? { before, forecast, deaths } : null;
-  };
-  if (reviewingTurn) return replayFor(reviewTurn);
-  if (playMode !== 'bot' || !lastTurn) return replayFor(lastTurn);
-  // A quiet reply from the bot must not hide the most recent battle. Cache the
-  // search so pointer movement does not recalculate the entire match history.
-  if (combatReplayCache?.turn === lastTurn && combatReplayCache.history === history && combatReplayCache.length === history.length) return combatReplayCache.result;
-  let result = replayFor(lastTurn);
-  for (let index = history.length - 1; !result && index >= 0; index--) {
-    const entry = history[index];
-    result = replayFor({ before: entry, action: entry.action });
-  }
-  combatReplayCache = { turn: lastTurn, history, length: history.length, result };
+  const turn = reviewingTurn ? reviewTurn : lastTurn;
+  if (!turn?.action) return null;
+  if (combatReplayCache?.turn === turn) return combatReplayCache.result;
+  const { before, action } = turn;
+  const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
+    : inspectCell(before.state, before.config, action.to, action.id);
+  const deaths = forecast.position.pieces.filter(p => forecast.report.get(p.id)?.dead);
+  const result = { before, forecast, deaths };
+  combatReplayCache = { turn, result };
   return result;
 }
-function canReplayCombat() { return Boolean(combatReplayContext()); }
+let combatReplayToastTimer;
+function hideCombatReplayToast() {
+  clearTimeout(combatReplayToastTimer);
+  $('#combat-replay-toast').hidden = true;
+}
+function showCombatReplayToast() {
+  clearTimeout(combatReplayToastTimer);
+  $('#combat-replay-toast').hidden = false;
+  combatReplayToastTimer = setTimeout(hideCombatReplayToast, 1000);
+}
 function replayCombat() {
   const replay = combatReplayContext();
   if (!replay) return;
+  if (!replay.deaths.length) { showCombatReplayToast(); return; }
+  hideCombatReplayToast();
   cancelBot(); selected = null;
   presentKills(replay.before, replay.forecast, replay.deaths);
 }
@@ -5769,7 +5817,8 @@ function boardMarkup() {
   $('#board').setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
   const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p])), destinations = new Set(available.map(c => key(c.q, c.r)));
   const selectedPiece = state.pieces.find(p => p.id === selected);
-  const showMoveHighlights = playMode === 'bot' ? (movement?.piece.team ?? state.turn) === humanTeam : playMode !== 'online' || roomView?.selfSeat != null && (movement?.piece.team ?? state.turn) === roomView.selfSeat;
+  const turn = movement?.piece.team ?? state.turn;
+  const showMoveHighlights = !movement?.undoSteps && (playMode === 'bot' ? turn === humanTeam : playMode !== 'online' || roomView?.selfSeat != null && turn === roomView.selfSeat);
   const movementCells = new Set(selectedPiece && !editor && available.length ? movementArea(selectedPiece, state, config).map(c => key(c.q, c.r)) : []);
   if (!board.some(cell => key(cell.q, cell.r) === boardFocus)) {
     const first = selectedPiece || state.pieces.find(piece => piece.team === state.turn) || board[0];
@@ -6112,7 +6161,8 @@ function render(deaths = []) {
   $('#new-game').disabled = false;
   $('#new-game').hidden = playMode === 'online' || gamePhase !== 'playing';
   $('#mode-caption').textContent = playMode === 'online' ? roomView?.selfSeat == null ? 'По ссылке · зритель' : 'По ссылке' : playMode === 'bot' ? `${BOT_DIFFICULTIES[botDifficulty].label.toLocaleLowerCase('ru-RU')}${botDifficulty === 'hard' ? '' : ' бот'}` : '2 игрока на одном экране';
-  hover = null; inspection = null; report = combat ? combat.report : analyze(state, config);
+  hover = null; inspection = null;
+  report = combat?.report ?? (movement?.undoSteps ? movement.forecast.report : analyze(state, config));
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
   boardMarkup(); paintAuras(); highlightSources();
@@ -6128,9 +6178,7 @@ function render(deaths = []) {
   $('#pass-turn').disabled = !humanCanMove();
   $('#undo').disabled = Boolean(movement || combat) || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor);
   $('#undo').title = playMode === 'bot' && !editor ? 'Отменить свой ход и ответ бота' : 'Отменить последнее действие';
-  $('#replay-combat').disabled = !canReplayCombat();
   $('#review-previous').disabled = !canReviewPrevious();
-  $('#review-previous').setAttribute('aria-pressed', String(reviewingTurn));
   $('#review-current').disabled = !reviewingTurn || reviewLoading || Boolean(movement || combat || currentDeaths.length);
   $('#resume-bot').hidden = !isBotTurn() || reviewingTurn || editor || (!botIssue && !botSuspended);
   $('#resume-bot').disabled = Boolean(movement || combat);
@@ -6258,11 +6306,14 @@ document.addEventListener('click', dismissHintOnClick, true);
 $('#show-hint').addEventListener('click', requestHint);
 $('#undo').addEventListener('click', () => {
   if (playMode === 'online' || movement || combat || !history.length || reviewingTurn || (gamePhase === 'setup' && !editor)) return;
-  let previous = history.pop();
-  if (playMode === 'bot' && !editor && previous.actor === 'bot' && history.at(-1)?.actor === 'human' && history.at(-1).state.ply === previous.state.ply - 1) previous = history.pop();
+  const latest = history.pop(), undoSteps = [latest];
+  if (playMode === 'bot' && !editor && latest.actor === 'bot' && history.at(-1)?.actor === 'human' && history.at(-1).state.ply === latest.state.ply - 1) undoSteps.push(history.pop());
+  const previous = undoSteps.at(-1), current = state;
   resetBotContext(); config = previous.config; state = previous.state; log = previous.log; positionKind = previous.positionKind; gameVersion = previous.gameVersion ?? null; selected = null;
-  if (gamePhase === 'playing' && !editor) archiveRecorder.record('undo', { config, state });
-  lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn(); render();
+  lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn();
+  if (editor || gamePhase !== 'playing') { render(); return; }
+  archiveRecorder.record('undo', { config, state });
+  presentUndo(undoSteps.map((before, index) => ({ before, after: undoSteps[index - 1]?.state ?? current })));
 });
 function openStartSettings() {
   if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
@@ -6342,6 +6393,11 @@ $('#editor-done').addEventListener('click', () => {
   catch (error) { toast(error.message); }
 });
 $('#replay-combat').addEventListener('click', replayCombat);
+$('#combat-replay-toast').addEventListener('click', event => {
+  const focused = document.activeElement === event.currentTarget;
+  hideCombatReplayToast();
+  if (focused) $('#replay-combat').focus({ preventScroll: true });
+});
 function canReviewPrevious() {
   if (gamePhase !== 'playing' || editor || roomMovePreview || movement || combat || currentDeaths.length || reviewLoading) return false;
   const ply = visibleState().ply;

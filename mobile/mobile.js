@@ -1,5 +1,5 @@
 // This adapter runs in the native game module and uses its live selection and move pipeline.
-let mobileTarget = null, mobileInspected = null, mobileCoordinates = false;
+let mobileTarget = null, mobileInspected = null;
 function mobileAdvice() {
   if (hint && !hint.failed && !hint.pending) {
     menuPage('Совет', '<div id="mobile-advice-slot"></div>');
@@ -8,15 +8,12 @@ function mobileAdvice() {
   }
   requestHint();
 }
-// The waiting screen and the in-game sheet share the native room controls.
+// Keep the room controls on the waiting screen.
 $('#room-first-choice').before($('#room-panel'));
 $('#sheet').addEventListener('close', () => {
-  const roomPanel = $('#mobile-room-slot #room-panel');
-  if (roomPanel) $('#room-first-choice').before(roomPanel);
   const advice = $('#mobile-advice-slot #move-hint');
   if (advice) $('.left-panel').prepend(advice);
 });
-const cellLabel = p => 'АБВГДЕЖЗИКЛ'[p.q + config.size] + (p.r + config.size + 1);
 function syncMobileBoard() {
   syncBoardZoom();
   if (!selected || !humanCanMove() || !available.some(c => c.q === mobileTarget?.q && c.r === mobileTarget?.r)) mobileTarget = null;
@@ -30,7 +27,6 @@ function syncMobileBoard() {
   }
   $('#move-actions').hidden = !mobileTarget;
   const turn = visibleState().turn;
-  $('#team-name').textContent = TEAM_NAMES[turn];
   $('#team-flag').dataset.side = turn === 1 ? 'red' : 'blue';
   const context = inspectionContext();
   const piece = context.position.pieces.find(p => p.id === (mobileInspected || selected));
@@ -43,16 +39,11 @@ function syncMobileBoard() {
     if (aura.rangeBonus) bonuses.push('+' + aura.rangeBonus + ' к дальности лукарей');
   }
   $('#aura-caption').textContent = bonuses.length ? 'Аура · ' + bonuses.join(', ') : '';
-  if (mobileCoordinates && !movement && !combat) {
-    for (const el of $('#board').querySelectorAll('[data-cell]')) {
-      const [q,r] = el.dataset.cell.split(',').map(Number);
-      if (context.position.pieces.some(p => p.q === q && p.r === r) || el.querySelector('text')) continue;
-      const pos = point({q,r});
-      el.insertAdjacentHTML('beforeend','<text pointer-events="none" text-anchor="middle" font-size="9" fill="#756b5b" x="'+pos.x+'" y="'+(pos.y+20)+'">'+cellLabel({q,r})+'</text>');
-    }
-  }
   if (hint?.action && canRequestHint()) $('#show-hint').disabled = false;
-  $('#show-hint').innerHTML = mobileIcon('hint') + (hint?.pending ? 'Расчёт…' : hint?.failed ? 'Повторить' : 'Совет');
+  const advice = $('#show-hint');
+  advice.innerHTML = mobileIcon('hint');
+  advice.setAttribute('aria-label', hint?.pending ? 'Совет рассчитывается' : hint?.failed ? 'Повторить запрос совета' : 'Совет');
+  advice.setAttribute('aria-busy', String(Boolean(hint?.pending)));
 }
 function mobileTap(q,r) {
   if (movement || combat || currentDeaths.length || tableRattle?.active) return;
@@ -76,14 +67,25 @@ function mobileTap(q,r) {
   }
 }
 function mobileIcon(name) {
-  const lines = {hint:'M9 17h6m-5 3h4M8 12a6 6 0 1 1 8 0c-1.5 1.4-2 2-2 3h-4c0-1-.5-1.6-2-3Z',back:'m10 5-7 7 7 7M3 12h18',next:'m14 5 7 7-7 7M21 12H3', menu:'M3 6h18M3 12h18M3 18h18'};
+  const lines = {pass:'m5 5 10 7-10 7ZM19 5v14',hint:'M9 17h6m-5 3h4M8 12a6 6 0 1 1 8 0c-1.5 1.4-2 2-2 3h-4c0-1-.5-1.6-2-3Z',back:'m10 5-7 7 7 7M3 12h18',next:'m14 5 7 7-7 7M21 12H3'};
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+lines[name]+'"/></svg>';
 }
-$('#menu').innerHTML = mobileIcon('menu');
-$('#review-previous').innerHTML = mobileIcon('back')+'Назад';
-$('#review-current').innerHTML = mobileIcon('next')+'Вперёд';
-$('#undo span').textContent = 'Отменить';
-$('#replay-combat span').textContent = 'Повтор';
+function renderMobileTurn(position) {
+  const player = playMode === 'online' ? roomView?.selfSeat : humanTeam;
+  const waiting = playMode === 'online' && gamePhase === 'setup';
+  const team = TEAM_NAMES[position.turn];
+  const actor = position.turn === player ? 'ВЫ' : playMode === 'bot' ? BOT_DIFFICULTIES[botDifficulty].label
+    : player == null ? '' : 'Соперник';
+  $('#team-name').textContent = waiting ? $('#room-title').textContent : [team, actor].filter(Boolean).join(' · ');
+  $('#team-flag').hidden = waiting;
+  $('#move-counter').textContent = waiting ? 'Ожидание игроков' : 'Ход ' + (position.ply + 1);
+}
+$('#review-previous').innerHTML = mobileIcon('back');
+$('#review-current').innerHTML = mobileIcon('next');
+$('#undo').setAttribute('aria-label', $('#undo').title);
+$('#undo span').remove();
+$('#pass-turn').setAttribute('aria-label', 'Пропустить ход');
+$('#pass-turn').innerHTML = mobileIcon('pass');
 $('#cancel-move').onclick = () => {
   mobileTarget = mobileInspected = null;
   render();
@@ -214,30 +216,39 @@ function menuPage(title,html) {
   if (!$('#sheet').open) $('#sheet').showModal();
   $('#mobile-close').focus();
 }
-function mobileMenu() {
-  const entries=[[playMode === 'online' ? 'room' : 'start', playMode === 'online' ? 'Игровая комната' : 'Новая игра'],['rules','Правила'],['legend','Обозначения'],['log','Журнал ходов'],['settings','Настройки поля']];
-  menuPage('Меню партии','<div class="rows">'+entries.map(([id,name])=>'<button class="button subtle" data-page="'+id+'">'+name+'</button>').join('')+'</div>');
+const mobileHome = $('#mobile-home');
+mobileHome.querySelector('.home-actions').prepend($('.brand-logo').cloneNode(true));
+function openMobileHome() {
+  cancelBot();
+  $('#home-continue').disabled = gamePhase !== 'playing' && playMode !== 'online' && !previousGame;
+  if (!mobileHome.open) mobileHome.showModal();
+  ($('#home-continue').disabled ? $('#home-new') : $('#home-continue')).focus();
 }
-$('#menu').onclick=mobileMenu;
-$('#mobile-close').onclick=()=>$('#sheet').close();
-function mobilePage(name,index=0) {
-  if (name === 'start') {
+$('#home-back').innerHTML = mobileIcon('back');
+$('#home-back').onclick = openMobileHome;
+mobileHome.addEventListener('cancel', event => event.preventDefault());
+$('#home-continue').onclick = () => {
+  mobileHome.close();
+  if (previousGame && gamePhase === 'setup' && playMode !== 'online') returnToGame();
+  $('#home-back').focus();
+};
+function mobileNewGame() {
+  if (gamePhase === 'playing') openNewGame(); else openStartSettings();
+}
+$('#home-new').onclick = () => {
+  if (playMode !== 'online') { mobileNewGame(); return; }
+  menuPage('Выйти из комнаты для новой игры?', '<button id="leave-and-start" class="button primary">Выйти и начать новую игру</button>');
+  $('#leave-and-start').onclick = async () => {
+    $('#leave-and-start').disabled = true;
+    await leaveOnlineRoom();
     $('#sheet').close();
-    if (gamePhase === 'playing') openNewGame(); else openStartSettings();
-    return;
-  }
-  if (name === 'room') {
-    menuPage('Игровая комната', '<div id="mobile-room-slot"></div>');
-    $('#mobile-room-slot').append($('#room-panel'));
-    return;
-  }
-  const pages={rules:['Выберите свою фигуру и подсвеченную клетку. Чтобы подтвердить ход, нажмите «Сделать ход».','Обе стороны атакуют одновременно. Фигура погибает, если входящий урон достигает её стойкости.','Уничтожьте вражеское знамя или всех щитоносцев и лукарей соперника.'],legend:['Зелёная подсветка показывает, куда можно пойти. Значки на фишке показывают урон и стойкость.','Стрелки показывают атакующих и цели. Череп отмечает фигуру, которая погибнет при расчёте.'],log:log.map(item=>[item.text,item.detail].filter(Boolean).join('. '))};
-  if(name==='settings'){
-    menuPage('Настройки поля','<label><input id="mobile-coords" type="checkbox" '+(mobileCoordinates?'checked':'')+'> Координаты пустых клеток</label>');$('#mobile-coords').onchange=e=>{mobileCoordinates=e.target.checked;};return;
-  }
-  const items=pages[name],heading={rules:'Правила',legend:'Обозначения',log:'Журнал ходов'}[name];
-  menuPage(heading,'<p id="mobile-copy"></p>'+(items.length>1?'<div class="pages"><button class="button subtle" id="mp-prev">Назад</button><span>'+(index+1)+' / '+items.length+'</span><button class="button subtle" id="mp-next">Дальше</button></div>':''));
-  $('#mobile-copy').textContent=items[index]??'Ходов пока нет.';
-  if(items.length>1){for(const [id,delta] of [['mp-prev',-1],['mp-next',1]]){const i=index+delta;$('#'+id).disabled=i<0||i>=items.length;$('#'+id).onclick=()=>mobilePage(name,i);}}
-}
-$('#mobile-body').addEventListener('click',e=>{const page=e.target.closest('[data-page]')?.dataset.page;if(page)mobilePage(page,page==='log'?Math.max(0,log.length-1):0);});
+    $('#home-continue').disabled = gamePhase !== 'playing' && !previousGame;
+    mobileNewGame();
+  };
+};
+$('#home-learn').onclick = () => {
+  mobileHome.close();
+  $('#rules-open').click();
+};
+$('#guide-back').addEventListener('click', openMobileHome);
+$('#mobile-close').onclick=()=>$('#sheet').close();
