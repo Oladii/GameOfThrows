@@ -124,10 +124,11 @@ test('first render reads recommendation state without shadowing the board messag
 
 test('pending advice replaces left reference, animates dots and keeps the button disabled', () => {
   const nodes = new Map(); let tick, cleared = false;
-  const node = selector => { if (!nodes.has(selector)) nodes.set(selector, { setAttribute() {}, innerHTML: '', hidden: false }); return nodes.get(selector); };
-  const context = vm.createContext({ hint: { pending: true }, hintThinkingTimer: null, canRequestHint: () => true,
+  const node = selector => { if (!nodes.has(selector)) nodes.set(selector, { setAttribute() {}, dataset: {}, innerHTML: '', hidden: false }); return nodes.get(selector); };
+  const context = vm.createContext({ hint: { pending: true }, hintThinkingTimer: null, canRequestHint: () => true, visibleState: () => ({ turn: 0 }),
     $: node, escape: x => x, setInterval(callback) { tick = callback; return 5; }, clearInterval() { cleared = true; } });
-  vm.runInContext(declaration('renderHint'), context); context.renderHint();
+  for (const name of ['setFooterDisabled', 'renderHint']) vm.runInContext(declaration(name), context);
+  context.renderHint();
   assert.equal(node('#show-hint').disabled, true);
   assert.equal(node('#show-hint').textContent, 'Подсказать ход');
   assert.match(node('#move-hint').innerHTML, /Думовую/);
@@ -149,6 +150,10 @@ test('pending advice replaces left reference, animates dots and keeps the button
   context.hint = null; context.renderHint();
   assert.equal(node('#show-hint').disabled, false); assert.equal(node('#move-hint').hidden, true);
   assert.equal(node('#show-hint').textContent, 'Подсказать ход');
+  context.canRequestHint = shownPosition => !shownPosition;
+  context.renderHint();
+  assert.equal(node('#show-hint').disabled, false, 'hint can start before the animation ends');
+  assert.equal(node('#show-hint').dataset.visiblyDisabled, 'true', 'button keeps the look of the turn shown on the board');
 });
 
 test('sidebar clicks preserve advice; outside clicks dismiss it without consuming the click', () => {

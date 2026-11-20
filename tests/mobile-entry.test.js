@@ -37,6 +37,9 @@ test('both published entries contain the same release, room bootstrap and bot wo
   const worker = page => page.match(/<script id="bot-worker-source"[^>]*>([^]*?)<\/script>/)[1];
   assert.equal(worker(desktop), worker(mobile));
   assert.ok(mobile.includes('<body class="mobile-game">'));
+  assert.ok(mobile.includes('<div class="play-mode-field" hidden>'));
+  assert.ok(desktop.includes('<div class="play-mode-field">'));
   assert.ok(!mobile.includes('<option value="local">'));
   assert.ok(desktop.includes('<option value="local">'));
+  assert.doesNotMatch(mobile, /humanTeam = 0; firstMove = 'north'/);
 });

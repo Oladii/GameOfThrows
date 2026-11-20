@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
-import { GameAudio, GAME_MASTER_GAIN, GAME_SOUND_PROFILES, movementSoundKind } from '../dist/audio.js';
+import { bindButtonSounds, GameAudio, GAME_MASTER_GAIN, GAME_SOUND_PROFILES, movementSoundKind } from '../dist/audio.js';
 import { GAME_AUDIO_ASSETS } from '../dist/audio-assets.js';
 import { movementPath, createGame, clone } from '../dist/engine.js';
 import { DEFAULT_CONFIG } from '../dist/rules.js';
@@ -60,6 +60,70 @@ test('all sounds use their own attenuation and damping profiles', async () => {
   assert.equal(h.starts.at(-1).buffer,h.audio.buffers.hover);
   assert.notEqual(h.audio.buffers.click,h.audio.buffers.hover);
 });
+function buttonAudioHarness() {
+  const listeners = new Map(), pending = [], calls = [];
+  const root = { addEventListener(type, listener, capture) { assert.equal(capture, true); listeners.set(type, listener); } };
+  bindButtonSounds(root, { hover: button => calls.push(['hover', button]), click: button => calls.push(['click', button]) }, callback => pending.push(callback));
+  return {
+    calls,
+    fire(type, target, event) { listeners.get(type)({ isTrusted: true, target, button: 0, pointerType: 'mouse', ...event }); },
+    flush() { for (const callback of pending.splice(0)) callback(); },
+  };
+}
+
+function soundButton({ board = false, disabled = false, select = false } = {}) {
+  return {
+    expanded: false, disabled,
+    matches(selector) { return selector.includes(':disabled') ? this.disabled : select; },
+    closest(selector) {
+      if (selector.startsWith('button,')) return this;
+      return board && selector.includes('#board') ? this : null;
+    },
+    getAttribute(name) { assert.equal(name, 'aria-expanded'); return String(this.expanded); },
+  };
+}
+
+test('button audio delegates activation, ignores touch hover and leaves board sounds to the board', () => {
+  const h = buttonAudioHarness(), button = soundButton(), child = { closest: selector => button.closest(selector) };
+  const board = soundButton({ board: true }), disabled = soundButton({ disabled: true });
+  h.fire('pointerover', child);
+  h.fire('pointerover', button, { relatedTarget: child });
+  h.fire('pointerout', child, { relatedTarget: button });
+  h.fire('pointerout', button);
+  h.fire('pointerover', board);
+  h.fire('pointerout', board);
+  h.fire('click', board);
+  h.fire('pointerover', disabled);
+  h.fire('click', disabled);
+  h.fire('click', button, { isTrusted: false });
+  h.fire('pointerover', button, { pointerType: 'touch' });
+  h.fire('click', child, { pointerType: 'touch' });
+  button.disabled = true;
+  assert.deepEqual(h.calls, [['hover', button], ['hover', null]]);
+  h.flush();
+  assert.deepEqual(h.calls, [['hover', button], ['hover', null], ['click', button]]);
+});
+
+test('select triggers play once when opened with a mouse, keyboard or touch', () => {
+  const h = buttonAudioHarness(), button = soundButton({ select: true });
+  h.fire('pointerdown', button);
+  button.expanded = true;
+  h.fire('click', button);
+  h.flush();
+  button.expanded = false;
+  h.fire('keydown', button, { key: 'Enter' });
+  h.flush(); // The select did not open.
+  h.fire('keydown', button, { key: 'ArrowDown' });
+  button.expanded = true;
+  h.flush();
+  button.expanded = false;
+  h.fire('pointerdown', button, { pointerType: 'touch' });
+  h.fire('click', button, { pointerType: 'touch' });
+  button.expanded = true;
+  h.flush();
+  assert.deepEqual(h.calls, Array.from({ length: 3 }, () => ['click', button]));
+});
+
 test('hover ticks only on cell changes, with no autoplay, repeat or catch-up', async () => {
   const h=harness();h.audio.hover('a');assert.equal(h.created(),0);
   await h.audio.unlock();h.audio.hover('b');assert.equal(h.starts.length,1);

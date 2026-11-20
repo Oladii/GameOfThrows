@@ -30,7 +30,7 @@ function setup() {
     currentDeaths: [], deathEffectTimer: null, movement: null, combat: null, reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false, selected: null, hover: null, inspection: null,
     lastTurn: null, history: [], log: [], gameVersion: 'test', CURRENT_GAME_VERSION: 'test', firstMove: 'north', humanTeam: 0,
     BOT_DIFFICULTIES: { training: { label: 'Неопытный' }, normal: { label: 'Опытный' }, hard: { label: 'Воевода' } }, botDifficulty: 'training', previousGame: null, startPreferences: null, ready: true, available: [],
-    inspectCell, clone: structuredClone, DEFAULT_CONFIG, TYPES, LABELS, icon: () => '<svg></svg>', createGame, hexGridPoint, TEAM_NAMES: ['Синие', 'Красные'], clearTimeout() {}, clearHint() {},
+    inspectCell, analyze, clone: structuredClone, DEFAULT_CONFIG, TYPES, LABELS, icon: () => '<svg></svg>', createGame, hexGridPoint, TEAM_NAMES: ['Синие', 'Красные'], clearTimeout() {}, clearHint() {},
     plural(n, forms) { return n % 100 >= 11 && n % 100 <= 14 ? forms[2] : n % 10 === 1 ? forms[0] : n % 10 >= 2 && n % 10 <= 4 ? forms[1] : forms[2]; }, toast() {},
     cancelMovement() { calls.push(['cancel']); context.roomMovePreview = null; context.movement = null; context.combat = null; },
     resetBotContext() { context.lastTurn = null; context.reviewingTurn = false; context.movement = null; },
@@ -298,14 +298,16 @@ test('rejoining restores read-only last-turn controls and new server state ends 
     assert.deepEqual(plain(ui.context.lastTurn.before.state), before);
     assert.equal(ui.calls.some(call => call[0] === 'animation'), false, 'rejoin must not auto-animate history');
     ui.context.cancelBot = () => {};
-    vm.runInContext(declaration('visibleState') + '\n' + source('function canReviewPrevious()', "$('#review-previous').addEventListener") + '\n' + app.split("\n").filter(line => line.startsWith("$('#review-")).join("\n"), ui.context);
+    Object.assign(ui.context, { movementPath, analyze, createMovementPlan, matchMedia: () => ({ matches: true }),
+      gameAudio: { movement: () => ({ finish() {} }) } });
+    vm.runInContext(source('function completeMovementPresentation(', 'function presentMove('), ui.context);
+    vm.runInContext(declaration('visibleState') + '\n' + source('function reviewBattle(', 'function lastTurnFromHistory(') + source('function canReviewPrevious()', "$('#review-previous').addEventListener") + '\n' + app.split("\n").filter(line => line.startsWith("$('#review-")).join("\n"), ui.context);
     const confirmed = plain(ui.context.state);
     ui.$('#review-previous').events.click();
     assert.equal(ui.context.reviewingTurn, true); assert.equal(ui.context.humanCanMove(), false);
     const shown = plain(ui.context.visibleState());
-    assert.deepEqual(shown, inspectCell(before, DEFAULT_CONFIG, to, piece.id).position);
-    assert.equal(shown.pieces.some(p => p.q === piece.q && p.r === piece.r), false, 'origin is empty');
-    assert.deepEqual(shown.pieces.find(p => p.id === piece.id), { ...piece, q: to.q, r: to.r });
+    assert.deepEqual(shown, before);
+    assert.deepEqual(shown.pieces.find(p => p.id === piece.id), piece);
     assert.deepEqual(plain(ui.context.lastTurn.before.state), before, 'replay keeps the original move input');
     assert.deepEqual(plain(ui.context.state), confirmed, 'review never replaces the authoritative state');
     ui.$('#review-current').events.click();
@@ -314,10 +316,10 @@ test('rejoining restores read-only last-turn controls and new server state ends 
     ui.context.applyRoomView(view({ ...snap, revision: 10 }, seat));
     assert.equal(ui.context.reviewingTurn, false);
     assert.deepEqual(plain(ui.context.state), confirmed);
-    for (const id of ['replay-combat', 'review-previous', 'review-current']) assert.equal(ui.$('#' + id).hidden, false);
+    for (const id of ['review-previous', 'review-current']) assert.equal(ui.$('#' + id).hidden, false);
     ui.context.applyRoomView(view(snapshot({ revision: 11 }), seat)); ui.context.renderOnlineRoom();
     assert.equal(ui.context.lastTurn, null);
-    for (const id of ['replay-combat', 'review-previous', 'review-current']) assert.equal(ui.$('#' + id).hidden, true);
+    for (const id of ['review-previous', 'review-current']) assert.equal(ui.$('#' + id).hidden, true);
   }
 });
 
@@ -336,7 +338,7 @@ test('copy button copies only the invitation and reports clipboard failure', asy
 
 function setupReview() {
   const ui = setup(); ui.context.cancelBot = () => {};
-  vm.runInContext(declaration('visibleState') + '\n' + source('function canReviewPrevious()', "$('#review-previous').addEventListener"), ui.context);
+  vm.runInContext(declaration('visibleState') + '\n' + source('function reviewBattle(', 'function lastTurnFromHistory(') + source('function canReviewPrevious()', "$('#review-previous').addEventListener"), ui.context);
   return ui;
 }
 test('arrows traverse every online position both ways without changing the live match', async () => {
@@ -386,17 +388,15 @@ test('local history retains and traverses more than forty moves', async () => {
   assert.equal(ui.context.reviewingTurn, false);
 });
 
-test('history arrows cannot change the selected turn while its combat replay runs', async () => {
+test('history arrows cannot interrupt the current live combat', async () => {
   const ui=setupReview();
   ui.context.state.ply=5;
-  ui.context.reviewingTurn=true;
-  ui.context.reviewTurn={before:{state:{...ui.context.state,ply:2}},action:{pass:true}};
-  ui.context.combat={visiblePosition:ui.context.reviewTurn.before.state};
-  const selection=ui.context.reviewTurn;
+  ui.context.combat={visiblePosition:ui.context.state};
   await ui.context.stepReview(-1); await ui.context.stepReview(1);
-  assert.equal(ui.context.reviewTurn,selection);
+  assert.equal(ui.context.reviewTurn,null);
   assert.equal(ui.context.canReviewPrevious(),false);
-  vm.runInContext(app.split('\n').find(line=>line.includes("$('#review-current').disabled =")),ui.context);
+  vm.runInContext(source('function setFooterDisabled(', '\nfunction requestHint(') + '\n'
+    + source('  const reviewBlocked =', "  $('#resume-bot').hidden"), ui.context);
   assert.equal(ui.$('#review-current').disabled,true);
 });
 
@@ -404,6 +404,7 @@ test('the room card is absent outside online mode; room creation stays in start 
   const ui=setup(); ui.context.playMode='local'; ui.context.renderOnlineRoom();
   assert.equal(ui.$('.multiplayer-panel').hidden,true);
   assert.doesNotMatch(html,/id="room-open"/);
+  assert.doesNotMatch(html,/id="replay-combat"/);
   assert.match(html,/<option value="online">Вдвоём по ссылке<\/option>/);
   ui.context.playMode='online'; ui.context.renderOnlineRoom();
   assert.equal(ui.$('.multiplayer-panel').hidden,false);
@@ -482,7 +483,6 @@ function instantRoomSetup(instant = false) {
     presentKills(before, forecast, deaths) { ui.calls.push(['confirmed-combat', plain(deaths)]); ctx.render(); } });
   vm.runInContext(source('function completeMovementPresentation(', 'function presentKills('), ctx);
   vm.runInContext(declaration('visibleState'), ctx);
-  vm.runInContext(source('function combatReplayContext()', 'let combatReplayToastTimer;'), ctx);
   vm.runInContext(source('function canReviewPrevious()', 'async function stepReview('), ctx);
   const before = createGame(DEFAULT_CONFIG);
   const piece = before.pieces.find(p => p.team === before.turn && reachable(p, before, DEFAULT_CONFIG).length);
@@ -508,7 +508,7 @@ test('own move starts before the server replies, holds at destination, and never
   assert.deepEqual([shown.q, shown.r], [ui.to.q, ui.to.r]);
   assert.equal(ui.calls.some(call => call[0] === 'confirmed-combat'), false);
   assert.equal(ui.ctx.canReviewPrevious(), false);
-  assert.equal(ui.ctx.combatReplayContext(), null);
+  assert.equal(ui.ctx.canStepReview(), false);
   assert.deepEqual(plain(ui.ctx.state), ui.before);
   ui.ctx.applyRoomView(view(ui.next, ui.before.turn));
   assert.equal(ui.calls.filter(call => call[0] === 'start-animation').length, 1);

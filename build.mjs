@@ -1,5 +1,5 @@
 import './ui/build.mjs';
-import { mobilePage, routePage } from './mobile/build.mjs';
+import { interFontCss, mobilePage, routePage } from './mobile/build.mjs';
 import { buildWebArt } from './scripts/build-web-art.mjs';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -37,6 +37,7 @@ if (!publicRoomEndpoint) throw new Error('Missing production room API endpoint')
 // Normalise the generated development entry before deriving either distribution.
 const brandTag = /(<img class="brand-logo") src="[^"]+"(?: srcset="[^"]+")?/;
 const template = html.replace(/<style id="web-art">[^<]*<\/style>\n?/g, '')
+  .replace(/<style id="board-control-font">[^<]*<\/style>\n?/g, '')
   .replace(/<script type="importmap" id="web-token-art">[^<]*<\/script>\n?/g, '');
 const publicHtml = template.replace('<meta name="game-room-endpoint" content="">', `<meta name="game-room-endpoint" content="${publicRoomEndpoint}">`);
 const selectBundle = (await read('game-selects.js')).replaceAll('</script', '<\\/script');
@@ -44,7 +45,7 @@ function assemble(page, styles, artwork) {
   return page.replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${styles}\n</style>`)
     .replace('<script src="/game-selects.js"></script>', () => `<script>${selectBundle}</script>`)
     .replace('<script type="module" src="/app.js"></script>', () => `<script id="bot-worker-source" type="application/json">${workerSource}</script>\n<script type="module">\n${script(artwork)}\n</script>`)
-    .replace('href="/" aria-label="Game Of Trows — главная"', 'href="#" aria-label="Game Of Trows — главная"');
+    .replace('<a class="brand" href="/"', '<a class="brand" href="#"');
 }
 const graphics = await buildWebArt(root);
 function webPage(page) {
@@ -53,13 +54,18 @@ function webPage(page) {
 }
 const development = webPage(template).replace('</head>', `<script type="importmap" id="web-token-art">{"imports":{"./token-assets.js":"${graphics.tokenModuleUrl}"}}</script>\n</head>`);
 const faviconSource = './token-art/bullseye.svg';
-const web = assemble(webPage(publicHtml).replace(faviconSource, graphics.favicon), css, graphics.tokenModule);
 async function dataUrl(file, type) {
   return 'data:' + type + ';base64,' + (await fs.readFile(root + 'dist/' + file)).toString('base64');
 }
-const offlineHtml = publicHtml.replace(brandTag, '$1 src="' + await dataUrl('brand/game-of-trows-v1.png', 'image/png') + '"')
+const controlIconPath = /\.\/control-icons\/[\w-]+\.svg/g;
+const iconUrls = new Map(await Promise.all([...new Set(css.match(controlIconPath))].map(async file => [file, await dataUrl(file.slice(2), 'image/svg+xml')])));
+const webCss = css.replace(controlIconPath, file => iconUrls.get(file));
+const web = assemble(webPage(publicHtml).replace(faviconSource, graphics.favicon), webCss, graphics.tokenModule);
+const controlFont = await interFontCss('Board Controls Inter');
+const withControlFont = page => page.replace('</head>', () => `<style id="board-control-font">${controlFont}</style>\n</head>`);
+const offlineHtml = publicHtml.replace(brandTag, '$1 src="' + await dataUrl('brand/bitva-znamen.png', 'image/png') + '"')
   .replace(faviconSource, await dataUrl('token-art/bullseye.svg', 'image/svg+xml'));
-let offlineCss = css;
+let offlineCss = webCss;
 for (const file of ['team-red.png', 'team-blue.png', 'advisor.webp', 'advisor.png']) {
   offlineCss = offlineCss.replace('./brand/' + file, await dataUrl('brand/' + file, 'image/' + file.split('.')[1]));
 }
@@ -68,10 +74,10 @@ const rulesVersion = html.match(/id="version-number"[^>]*data-rules-version="(\d
 if (!rulesVersion) throw new Error('Missing rules version');
 const manifest = JSON.stringify({ version, rulesVersion }) + '\n';
 await Promise.all([
-  fs.writeFile(root + 'Lamps.html', standalone),
-  fs.writeFile(root + 'dist/index.html', development),
+  fs.writeFile(root + 'Lamps.html', withControlFont(standalone)),
+  fs.writeFile(root + 'dist/index.html', withControlFont(development)),
   fs.writeFile(root + 'dist/version.json', manifest),
-  fs.writeFile(root + 'docs/index.html', routePage(web, false)),
+  fs.writeFile(root + 'docs/index.html', withControlFont(routePage(web, false))),
   fs.writeFile(root + 'docs/mobile.html', await mobilePage(web)),
   fs.writeFile(root + 'docs/version.json', manifest),
   fs.writeFile(root + 'docs/.nojekyll', '')

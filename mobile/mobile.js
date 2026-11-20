@@ -1,19 +1,8 @@
 // This adapter runs in the native game module and uses its live selection and move pipeline.
 let mobileTarget = null, mobileInspected = null;
-function mobileAdvice() {
-  if (hint && !hint.failed && !hint.pending) {
-    menuPage('Совет', '<div id="mobile-advice-slot"></div>');
-    $('#mobile-advice-slot').append($('#move-hint'));
-    return;
-  }
-  requestHint();
-}
+const auraOwners = {shield:'Щитоносца', archer:'Лукаря', attackLamp:'Барабана', defenseLamp:'Знамени', scoutLamp:'Командира', horn:'Горна'};
 // Keep the room controls on the waiting screen.
 $('#room-first-choice').before($('#room-panel'));
-$('#sheet').addEventListener('close', () => {
-  const advice = $('#mobile-advice-slot #move-hint');
-  if (advice) $('.left-panel').prepend(advice);
-});
 function setMobileInspection(position) {
   if (!selected) mobileInspected = null;
   if (mobileTarget && (!selected || !humanCanMove() || !available.some(c => c.q === mobileTarget.q && c.r === mobileTarget.r))) mobileTarget = null;
@@ -47,11 +36,9 @@ function syncMobileBoard() {
     if (aura.defenseBonus) bonuses.push('+' + aura.defenseBonus + ' к стойкости ' + (piece.type === 'shield' && config.shieldDefenseOnly ? 'щитоносцев' : 'союзников'));
     if (aura.rangeBonus) bonuses.push('+' + aura.rangeBonus + ' к дальности лукарей');
   }
-  $('#aura-caption').textContent = bonuses.length ? 'Аура даёт ' + bonuses.join(', ') : '';
-  if (hint?.action && canRequestHint()) $('#show-hint').disabled = false;
-  const advice = $('#show-hint');
-  advice.setAttribute('aria-label', hint?.pending ? 'Совет рассчитывается' : hint?.failed ? 'Повторить запрос совета' : 'Совет');
-  advice.setAttribute('aria-busy', String(Boolean(hint?.pending)));
+  const caption = $('#aura-caption');
+  const description = bonuses.length ? `Аура ${auraOwners[piece.type]} даёт ${bonuses.join(', ')}` : '';
+  if (caption.textContent !== description) caption.textContent = description;
 }
 function mobileTap(q,r) {
   if (movement || combat || currentDeaths.length || tableRattle?.active) return;
@@ -75,16 +62,10 @@ function mobileTap(q,r) {
   }
 }
 const mobileFlag = $('#team-flag');
-let mobileHeaderPly;
 function renderMobileTurn(position, result) {
   const newGame = $('#result-new-game');
   const player = playMode === 'online' ? roomView?.selfSeat : humanTeam;
   const waiting = document.body.classList.contains('room-waiting');
-  // Replaying the just-finished battle should leave the live turn indicator in place.
-  if (combat && !reviewingTurn && mobileHeaderPly === state.ply) {
-    if (!newGame.hidden) return;
-    position = state;
-  }
   newGame.hidden = !result;
   let title, detail, flagTeam = position.turn;
   if (waiting) {
@@ -97,7 +78,7 @@ function renderMobileTurn(position, result) {
     detail = {flag: 'Уничтожено знамя', combat: 'Уничтожены войска', all: 'Уничтожены войска'}[result.lossKind] ?? result.reason;
   } else {
     const ownTurn = position.turn === player;
-    title = reviewingTurn ? 'История' : ownTurn ? 'Ваш ход' : position.turn === 0 ? 'Ход синих' : 'Ход красных';
+    title = reviewingTurn ? combat ? 'Бой' : 'История' : ownTurn ? 'Ваш ход' : position.turn === 0 ? 'Ход синих' : 'Ход красных';
     const actor = !reviewingTurn && !ownTurn && playMode === 'bot'
       ? BOT_DIFFICULTIES[botDifficulty].label + (botDifficulty === 'hard' ? '' : ' бот')
       : TEAM_NAMES[position.turn];
@@ -107,7 +88,6 @@ function renderMobileTurn(position, result) {
     const label = $(id);
     if (label.textContent !== text) label.textContent = text;
   }
-  mobileHeaderPly = position.ply;
   mobileFlag.hidden = flagTeam === null;
   mobileFlag.dataset.side = flagTeam === null ? '' : flagTeam === 1 ? 'red' : 'blue';
 }
@@ -235,7 +215,7 @@ $('.board-wrap').addEventListener('click', e => {
   }
   press=null;
 });
-for (const id of ['undo','review-previous','review-current','show-hint','replay-combat']) {
+for (const id of ['undo','review-previous','review-current','show-hint']) {
   $('#'+id).addEventListener('click',()=>{mobileInspected=mobileTarget=null;},true);
 }
 function menuPage(title,html) {
@@ -283,5 +263,14 @@ $('#home-learn').onclick = () => {
   mobileHome.close();
   $('#rules-open').click();
 };
-$('#guide-back').addEventListener('click', openMobileHome);
+const guideClose = $('#guide-back');
+guideClose.addEventListener('click', () => {
+  openMobileHome();
+  $('#home-learn').focus();
+});
+$('#rules-dialog').addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || event.defaultPrevented) return;
+  event.preventDefault();
+  guideClose.click();
+});
 $('#mobile-close').onclick=()=>$('#sheet').close();

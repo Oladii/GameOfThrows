@@ -3,20 +3,21 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { PREVIOUS_FORMATION_CONFIG as DEFAULT_CONFIG } from '../dist/rules.js';
-import { analyze, inspectCell, move, pass, reachable } from '../dist/engine.js';
-import { CombatAnimator, COMBAT_DIM_DURATION, ARROW_REVEAL_INTERVAL, ATTACK_HOLD_DURATION, DEATH_EFFECT_DURATION } from '../dist/move-animation.js';
+import { analyze, inspectCell, move, movementPath, pass, reachable } from '../dist/engine.js';
+import { CombatAnimator, MovementAnimator, createMovementPlan, COMBAT_DIM_DURATION, ARROW_REVEAL_INTERVAL, ATTACK_HOLD_DURATION, DEATH_EFFECT_DURATION } from '../dist/move-animation.js';
 import { lethalAttackPresentation, renderDamageArrows, renderUnitBadges } from '../dist/board-presentation.js';
 
 const piece = (id,type,team,q,r) => ({id,type,team,q,r});
 const position = pieces => ({pieces,turn:0,ply:0,winner:null});
 const source = fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
 function declaration(name) {
-  const start=source.indexOf(`function ${name}(`), lineEnd=source.indexOf('\n',start);
+  const match = source.match(new RegExp(`^(?:async )?function ${name}\\(`, 'm'));
+  const start=match.index, lineEnd=source.indexOf('\n',start);
   return source.slice(start,source.slice(start,lineEnd).endsWith('}')?lineEnd:source.indexOf('\n}',lineEnd)+2);
 }
 function clock() {
   let now=0,id=0; const timers=new Map();
-  return { timers, setTimer(fn,delay) {timers.set(++id,{at:now+delay,fn});return id;}, clearTimer(id) {timers.delete(id);},
+  return { timers, now: () => now, setTimer(fn,delay) {timers.set(++id,{at:now+delay,fn});return id;}, clearTimer(id) {timers.delete(id);},
     advance(ms) {const until=now+ms;while(true){const next=[...timers].filter(([,t])=>t.at<=until).sort((a,b)=>a[1].at-b[1].at)[0];if(!next)break;timers.delete(next[0]);now=next[1].at;next[1].fn();}now=until;} };
 }
 
@@ -93,21 +94,32 @@ test('one- and two-digit token values keep their size and retain the target behi
 
 function presentationHarness(mode='local') {
   const config=structuredClone(DEFAULT_CONFIG), before={config,log:[],state:position([piece('mover','archer',0,0,0),piece('enemy','archer',1,1,1),piece('spectator','shield',1,-4,2),piece('ally-spectator','shield',0,4,-2)])};
-  const action={id:'mover',to:{q:0,r:1}}, result=move(before.state,config,action.id,action.to);
+  const action={id:'mover',from:{q:0,r:0},to:{q:0,r:1}}, result=move(before.state,config,action.id,action.to);
   const forecast=inspectCell(before.state,config,action.to,action.id), time=clock(), snapshots=[];
-  let botStarts=0,botCancels=0;const notices=[],sounds=[],replayToast={hidden:true};
+  let botStarts=0;const sounds=[], movementSounds=[];
   const context=vm.createContext({tableRattle:null,config,state:result.state,combat:null,roomMovePreview: null, movement:null,currentDeaths:[],reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false,lastTurn:null,gamePhase:'playing',editor:false,playMode:mode,humanTeam:0,
-    ready:true,botIssue:'',botSuspended:false,botTimer:null,botRunner:{active:false},$:selector=>selector==='#combat-replay-toast'?replayToast:null,lethalAttackPresentation,analyze,inspectCell,selected:null,fieldView:null,history:[],combatReplayCache:null,
-    gameAudio:{play(name){sounds.push(name);return ()=>{};}},
-    toast(message){notices.push(message);},cancelBot(){botCancels++;time.clearTimer(context.botTimer);context.botTimer=null;},
-    setTimeout:(fn,ms)=>time.setTimer(fn,ms),clearTimeout:id=>time.clearTimer(id),highlightSources(){},moveAnimator:{cancel(){}},startBot(){botStarts++;},
+    ready:true,botIssue:'',botSuspended:false,botTimer:null,botRunner:{active:false},$:()=>null,lethalAttackPresentation,analyze,inspectCell,selected:null,fieldView:null,history:[],
+    movementPath,createMovementPlan,matchMedia:()=>({matches:false}),point:({q,r})=>({x:q*50,y:r*50}),
+    gameAudio:{
+      play(name){sounds.push(name);return ()=>{};},
+      movement(route, pieces, duration, options) {
+        const playback = { route: structuredClone(route), duration, instant: options.instant, status: 'playing' };
+        movementSounds.push(playback);
+        return { finish(){playback.status='finished';}, cancel(){playback.status='cancelled';} };
+      }
+    },
+    toast(message){throw new Error(message);},cancelBot(){time.clearTimer(context.botTimer);context.botTimer=null;},
+    setTimeout:(fn,ms)=>time.setTimer(fn,ms),clearTimeout:id=>time.clearTimer(id),highlightSources(){},startBot(){botStarts++;},
+    MovementAnimator:class extends MovementAnimator {
+      constructor(onFrame,onFinish){super(onFrame,onFinish,{now:time.now,requestFrame:fn=>time.setTimer(fn,10),cancelFrame:time.clearTimer});}
+    },
     CombatAnimator:class extends CombatAnimator{constructor(onPhase,onFrame){super(onPhase,onFrame,time);}},
     render(){snapshots.push({phase:context.combat?.phase||'idle',state:structuredClone(context.visibleState())});context.queueBot();}});
-  for(const name of ['visibleState','isBotTurn','humanCanMove','queueBot','presentKills','combatReplayContext','hideCombatReplayToast','showCombatReplayToast','replayCombat','cancelMovement'])vm.runInContext(declaration(name),context);
-  vm.runInContext('let combatReplayToastTimer;',context);
-  const start=source.indexOf('const combatAnimator = new CombatAnimator('),end=source.indexOf('function toast(',start);
+  for(const name of ['currentSnapshot','visibleState','isBotTurn','humanCanMove','queueBot','presentKills','reviewBattle','canReviewPrevious','hasPreviousReview','canStepReview','localReviewTurn','showReview','stepReview','cancelMovement','completeMovementPresentation'])vm.runInContext(declaration(name),context);
+  const start=source.indexOf('const moveAnimator = new MovementAnimator('),end=source.indexOf('function toast(',start);
   vm.runInContext(source.slice(start,end),context);
-  return {context,time,before,result,forecast,snapshots,sounds,start(){context.presentKills(before,forecast,result.deaths);},botStarts:()=>botStarts,botCancels:()=>botCancels,notices,action,replayToast};
+  return {context,time,before,result,forecast,snapshots,sounds,movementSounds,
+    frame:()=>vm.runInContext('moveAnimator.frame',context),start(){context.presentKills(before,forecast,result.deaths);},botStarts:()=>botStarts,action};
 }
 
 test('combat dims for 300ms, reveals mutual arrows 300ms apart, holds the last for 1s and then kills together', () => {
@@ -197,134 +209,134 @@ test('progressive rendering preserves reveal order and arrow geometry, including
 });
 
 
-test('replaying the last calculation restores its victims temporarily and leaves the committed game and history intact', () => {
-  const ui=presentationHarness();
-  ui.context.lastTurn={before:ui.before,action:ui.action};
-  ui.context.history=[structuredClone(ui.before)];ui.context.log=[{text:'Committed move',detail:'Two deaths'}];
-  const actualState=ui.context.state, persisted=JSON.stringify({state:actualState,before:ui.before,log:ui.context.log,history:ui.context.history,lastTurn:ui.context.lastTurn});
-  for(let repeat=0;repeat<2;repeat++) {
-    ui.context.replayCombat();assert.equal(ui.context.combat.phase,'dimming');
-    assert.equal(ui.context.visibleState().pieces.length,4);assert.equal(ui.context.humanCanMove(),false);
-    assert.equal(ui.context.combat.position.pieces.find(p=>p.id==='mover').r,1,'replay starts after movement');
-    ui.time.advance(COMBAT_DIM_DURATION+ARROW_REVEAL_INTERVAL+ATTACK_HOLD_DURATION+DEATH_EFFECT_DURATION);
-    assert.equal(ui.context.combat,null);assert.equal(ui.context.visibleState(),actualState);
-    assert.equal(JSON.stringify({state:ui.context.state,before:ui.before,log:ui.context.log,history:ui.context.history,lastTurn:ui.context.lastTurn}),persisted);
-  }
-  assert.equal(ui.botCancels(),2);
-});
+test('battle is a stable step between the exact positions and can be revisited in both directions', async () => {
+  const ui = presentationHarness();
+  const ctx = ui.context;
+  ctx.lastTurn = { before: ui.before, action: ui.action };
+  ctx.history = [{ ...ui.before, action: ui.action }];
+  const committed = JSON.stringify({ state: ctx.state, history: ctx.history, lastTurn: ctx.lastTurn });
 
-test('replay blocks duplicate clicks and postpones the pending bot until the presentation is finished', () => {
-  const ui=presentationHarness('bot');ui.context.lastTurn={before:ui.before,action:ui.action};
-  ui.context.queueBot();assert.notEqual(ui.context.botTimer,null);
-  ui.context.replayCombat();const presentation=ui.context.combat;
-  ui.context.replayCombat();assert.equal(ui.context.combat,presentation);assert.equal(ui.botCancels(),1);
-  ui.time.advance(420);assert.equal(ui.botStarts(),0);
-  ui.time.advance(10000);assert.equal(ui.botStarts(),1);
-});
-
-test('a quiet bot reply has no losses while the preceding battle is still replayable from history', () => {
-  const ui=presentationHarness('bot');
-  const quietBefore={config:ui.before.config,state:structuredClone(ui.result.state),log:[]};
-  const actor=quietBefore.state.pieces.find(p=>p.team===quietBefore.state.turn);
-  const to=reachable(actor,quietBefore.state,quietBefore.config)[0];
-  const quietAction={id:actor.id,to:{q:to.q,r:to.r}};
-  const outcome=move(quietBefore.state,quietBefore.config,actor.id,quietAction.to);
-  assert.equal(outcome.deaths.length,0);
-  ui.context.history=[{...ui.before,action:ui.action},{...quietBefore,action:quietAction}];
-  ui.context.lastTurn={before:quietBefore,action:quietAction};ui.context.state=outcome.state;
-  const committed=JSON.stringify({state:ui.context.state,history:ui.context.history,lastTurn:ui.context.lastTurn});
-  const replay=ui.context.combatReplayContext();
-  assert.equal(replay.before,quietBefore);
-  assert.equal(replay.deaths.length,0);
-  assert.equal(ui.context.combatReplayContext(),replay,'reuse the calculation for the same turn');
-  ui.context.replayCombat();assert.equal(ui.context.combat,null);
-  ui.context.reviewingTurn=true;ui.context.reviewTurn={before:ui.context.history[0],action:ui.action};
-  ui.context.replayCombat();assert.equal(ui.context.combat.deaths.length,ui.result.deaths.length);
+  await ctx.stepReview(-1);
+  assert.equal(ctx.combat.phase, 'dimming');
+  assert.equal(ctx.visibleState().pieces.find(p => p.id === 'mover').r, 1);
+  assert.equal(ctx.humanCanMove(), false);
   ui.time.advance(10000);
-  assert.equal(JSON.stringify({state:ui.context.state,history:ui.context.history,lastTurn:ui.context.lastTurn}),committed);
-  ui.context.reviewingTurn=true;ui.context.reviewTurn=ui.context.lastTurn;
-  assert.equal(ui.context.combatReplayContext().deaths.length,0,'history stays tied to its selected peaceful turn');
-});
+  assert.equal(ctx.combat.phase, 'review');
+  assert.equal(ctx.visibleState(), ctx.combat.position);
+  assert.equal(ctx.visibleState().pieces.length, ui.before.state.pieces.length);
+  assert.equal(ctx.combat.arrows.length, 2);
 
-test('replay supports a saved pass calculation and shows a one-second notice when nobody died', () => {
-  const ui=presentationHarness();ui.before.state=ui.forecast.position;ui.before.config.experiments.allowPass=true;
-  ui.context.state=pass(ui.before.state,ui.before.config).state;
-  ui.context.lastTurn=JSON.parse(JSON.stringify({before:ui.before,action:{pass:true}}));
-  ui.context.replayCombat();assert.equal(ui.context.combat.deaths.length,2);
-  ui.time.advance(10000);assert.equal(ui.context.combat,null);
-  const peaceful=presentationHarness();peaceful.before.config.experiments.allowPass=true;
-  peaceful.context.state=pass(peaceful.before.state,peaceful.before.config).state;
-  peaceful.context.lastTurn={before:peaceful.before,action:{pass:true}};
-  // The unchanged pre-move geometry has no lethal attack.
-  peaceful.context.replayCombat();assert.equal(peaceful.context.combat,null);
-  assert.deepEqual(peaceful.notices,[]);assert.equal(peaceful.botCancels(),0);
-  assert.equal(peaceful.replayToast.hidden,false);
-  assert.equal(peaceful.replayToast.textContent,'Этот ход был без потерь');
-  peaceful.time.advance(999);assert.equal(peaceful.replayToast.hidden,false);
-  peaceful.time.advance(1);assert.equal(peaceful.replayToast.hidden,true);
-  peaceful.context.replayCombat();assert.equal(peaceful.replayToast.hidden,false);
-  peaceful.context.hideCombatReplayToast();assert.equal(peaceful.replayToast.hidden,true);
-  assert.equal(peaceful.time.timers.size,0);
-});
-
-test('replay shows a brief notice before the first turn', () => {
-  for (const mode of ['local','bot','online']) {
-    const ui=presentationHarness(mode);ui.context.state=ui.before.state;
-    ui.context.replayCombat();assert.equal(ui.context.combat,null);assert.equal(ui.botCancels(),0);
-    assert.equal(ui.replayToast.hidden,false);
-    assert.equal(ui.replayToast.textContent,'Ходов ещё не было');
-    ui.time.advance(1000);assert.equal(ui.replayToast.hidden,true);
-  }
-});
-
-test('replay is unavailable without a saved action after a move, during setup, editing, missing history selection, loading, movement and death effects', () => {
-  const fresh=presentationHarness();fresh.context.replayCombat();assert.equal(fresh.context.combat,null);
-  assert.equal(fresh.replayToast.hidden,true);
-  for(const [field,value] of [['gamePhase','setup'],['editor',true],['reviewingTurn',true],['reviewLoading',true],['movement',{}],['currentDeaths',[{}]]]) {
-    const ui=presentationHarness();ui.context.lastTurn={before:ui.before,action:ui.action};ui.context[field]=value;
-    ui.context.replayCombat();assert.equal(ui.context.combat,null);assert.equal(ui.botCancels(),0);
-  }
-});
-
-test('history replays the selected combat for players, spectators and local games, then restores that selection', () => {
-  for (const [mode, seat] of [['online',0],['online',1],['online',null],['local',null],['bot',null]]) {
-    const ui=presentationHarness(mode);
-    ui.context.roomView={selfSeat:seat,canMove:true};
-    ui.context.reviewingTurn=true;
-    ui.context.reviewTurn={before:ui.before,action:ui.action,position:ui.forecast.position};
-    // The live position and its most recent action are unrelated to this battle.
-    ui.context.state={...ui.result.state,ply:12};
-    ui.context.lastTurn={before:{...ui.before,state:ui.context.state},action:{pass:true}};
-    ui.context.history=[structuredClone(ui.before)]; ui.context.log=[{text:'Later move'}];
-    const saved=JSON.stringify({state:ui.context.state,history:ui.context.history,log:ui.context.log,lastTurn:ui.context.lastTurn,reviewTurn:ui.context.reviewTurn});
-    for(let repeat=0;repeat<2;repeat++) {
-      assert.ok(ui.context.combatReplayContext()?.deaths.length);
-      ui.context.replayCombat();
-      assert.equal(ui.context.combat.before,ui.before);
-      assert.deepEqual(Array.from(ui.context.combat.deaths,p=>p.id).sort(),ui.result.deaths.map(p=>p.id).sort());
-      assert.equal(ui.context.combat.position.pieces.find(p=>p.id==='mover').r,1);
-      assert.equal(ui.context.combatReplayContext(),null);
-      assert.equal(ui.context.humanCanMove(),false);
-      ui.time.advance(10000);
-      assert.equal(ui.context.combat,null);
-      assert.equal(ui.context.visibleState(),ui.forecast.position);
-      assert.equal(ui.context.reviewingTurn,true);
-      assert.equal(ui.botStarts(),0);
-      assert.equal(JSON.stringify({state:ui.context.state,history:ui.context.history,log:ui.context.log,lastTurn:ui.context.lastTurn,reviewTurn:ui.context.reviewTurn}),saved);
-    }
-  }
-});
-
-test('a peaceful selected turn cannot replay casualties from a later battle; historical passes use their own position', () => {
-  const ui=presentationHarness();
-  ui.context.lastTurn={before:ui.before,action:ui.action};
-  ui.context.reviewingTurn=true;
-  ui.context.reviewTurn={before:ui.before,action:{pass:true}};
-  assert.equal(ui.context.combatReplayContext().deaths.length,0);
-  ui.context.replayCombat(); assert.equal(ui.context.combat,null);
-  ui.context.reviewTurn={before:{...ui.before,state:ui.forecast.position},action:{pass:true}};
-  assert.ok(ui.context.combatReplayContext()?.deaths.length);
-  ui.context.replayCombat(); assert.equal(ui.context.combat.deaths.length,2);
+  await ctx.stepReview(-1);
+  assert.equal(ctx.combat, null);
+  assert.equal(ctx.movement.piece.id, 'mover');
+  assert.deepEqual(ui.movementSounds[0].route, [ui.action.to, ui.action.from]);
+  assert.equal(ui.frame().y, 50);
+  assert.equal(ctx.canStepReview(), false);
+  ui.time.advance(130);
+  assert.equal(ui.frame().y, 25);
+  await ctx.stepReview(1);
+  assert.equal(ui.movementSounds.length, 1, 'a click during movement starts no other step');
+  ui.time.advance(130);
+  assert.equal(ctx.visibleState(), ui.before.state);
+  assert.equal(ui.movementSounds[0].status, 'finished');
+  assert.equal(ctx.canReviewPrevious(), false);
+  await ctx.stepReview(1);
+  assert.deepEqual(ui.movementSounds[1].route, [ui.action.from, ui.action.to]);
+  assert.equal(ui.frame().y, 0);
+  assert.equal(ctx.combat, null);
+  ui.time.advance(260);
+  assert.equal(ui.movementSounds[1].status, 'finished');
+  assert.equal(ctx.combat.phase, 'dimming');
+  await ctx.stepReview(1);
+  assert.equal(ctx.visibleState(), ui.result.state);
+  assert.equal(ctx.reviewingTurn, false);
   ui.time.advance(10000);
-  assert.equal(ui.context.visibleState(),ui.forecast.position);
+  assert.equal(ctx.combat, null, 'leaving the animation cancels its timers');
+  assert.equal(JSON.stringify({ state: ctx.state, history: ctx.history, lastTurn: ctx.lastTurn }), committed);
+});
+
+test('the bot waits while the battle step is open and resumes at the live position', async () => {
+  const ui = presentationHarness('bot');
+  const ctx = ui.context;
+  ctx.lastTurn = { before: ui.before, action: ui.action };
+  ctx.queueBot();
+  assert.notEqual(ctx.botTimer, null);
+
+  await ctx.stepReview(-1);
+  ui.time.advance(10000);
+  assert.equal(ctx.combat.phase, 'review');
+  assert.equal(ui.botStarts(), 0);
+  await ctx.stepReview(1);
+  ui.time.advance(420);
+  assert.equal(ui.botStarts(), 1);
+});
+
+test('a quiet reply animates in both directions while the earlier battle is reachable', async () => {
+  for (const mode of ['bot', 'online']) {
+    const ui = presentationHarness(mode);
+    const ctx = ui.context;
+    const quietBefore = { ...ui.before, state: ui.result.state };
+    const actor = quietBefore.state.pieces.find(p => p.team === quietBefore.state.turn);
+    const to = reachable(actor, quietBefore.state, quietBefore.config)[0];
+    const quietAction = { id: actor.id, from: { q: actor.q, r: actor.r }, to };
+    const outcome = move(quietBefore.state, quietBefore.config, actor.id, to);
+    assert.equal(outcome.deaths.length, 0);
+    ctx.lastTurn = { before: quietBefore, action: quietAction };
+    ctx.state = outcome.state;
+    if (mode === 'online') {
+      Object.assign(ctx, { log: [], positionKind: 'custom', gameVersion: 'test', clone: structuredClone,
+        roomSnapshot: { matchId: 'match', revision: 2 }, roomView: { selfSeat: null },
+        roomSession: { async historyPosition(ply) {
+          assert.equal(ply, 0);
+          return { state: ui.before.state, action: ui.action };
+        } } });
+    } else ctx.history = [{ ...ui.before, action: ui.action }, { ...quietBefore, action: quietAction }];
+
+    await ctx.stepReview(-1);
+    assert.equal(ctx.movement.piece.id, actor.id);
+    assert.deepEqual(ui.movementSounds[0].route.at(-1), quietAction.from);
+    ui.time.advance(420);
+    assert.equal(ctx.visibleState(), quietBefore.state);
+    assert.equal(ctx.combat, null);
+    await ctx.stepReview(-1);
+    assert.equal(ctx.combat.deaths.length, ui.result.deaths.length);
+    await ctx.stepReview(1);
+    assert.equal(ctx.visibleState(), quietBefore.state);
+    await ctx.stepReview(1);
+    assert.equal(ctx.movement.piece.id, actor.id);
+    assert.deepEqual(ui.movementSounds[1].route.at(-1), { q: to.q, r: to.r });
+    ui.time.advance(420);
+    assert.equal(ctx.visibleState(), outcome.state);
+  }
+});
+
+test('reduced motion lands directly on the review position and keeps the instant move sound', async () => {
+  const ui = presentationHarness(), ctx = ui.context;
+  ctx.matchMedia = () => ({ matches: true });
+  ctx.lastTurn = { before: ui.before, action: ui.action };
+  await ctx.stepReview(-1);
+  await ctx.stepReview(-1);
+  assert.equal(ctx.movement, null);
+  assert.equal(ctx.visibleState(), ui.before.state);
+  assert.deepEqual(ui.movementSounds[0], {
+    route: [ui.action.to, ui.action.from], duration: 260, instant: true, status: 'finished'
+  });
+});
+
+test('a saved pass inserts a battle step only when the calculation has deaths', async () => {
+  for (const lethal of [true, false]) {
+    const ui = presentationHarness();
+    const ctx = ui.context;
+    if (lethal) ui.before.state = ui.forecast.position;
+    ui.before.config.experiments.allowPass = true;
+    ctx.state = pass(ui.before.state, ui.before.config).state;
+    ctx.lastTurn = JSON.parse(JSON.stringify({ before: ui.before, action: { pass: true } }));
+
+    await ctx.stepReview(-1);
+    assert.equal(Boolean(ctx.combat), lethal);
+    assert.deepEqual(JSON.parse(JSON.stringify(ctx.visibleState())), ui.before.state);
+    if (lethal) await ctx.stepReview(-1);
+    assert.equal(ctx.combat, null);
+    assert.equal(ctx.canReviewPrevious(), false);
+  }
 });

@@ -39,8 +39,10 @@ export function createGuideController({ document: doc = globalThis.document, win
         <section><h3>Следи за флангами</h3>
           <p>Если вражеский лукарь или щитоносец обойдёт строй и дойдёт до твоего края поля, он станет ветераном. Перехвати его ещё на чужой половине. Твои обычные щитоносцы не ходят назад, поэтому не могут догнать врага, который уже прошёл за спину.</p></section>
       </div>`;
-    $('#onboarding-body').innerHTML = content;
-    $('#onboarding-body').setAttribute('aria-label', onboardingSteps[onboardingStep]);
+    const panel = $('#onboarding-body');
+    panel.innerHTML = content;
+    panel.scrollTop = 0;
+    panel.setAttribute('aria-label', onboardingSteps[onboardingStep]);
     suppressGuideTabStops();
   }
   function stop() {
@@ -150,6 +152,8 @@ export function createGuideController({ document: doc = globalThis.document, win
     });
   }
   function previewShowcaseMove(event) {
+    // Touch preview starts on selection, so the tap target survives until click.
+    if (event.pointerType === 'touch' || event.type === 'focusin' && event.target.matches?.(':focus:not(:focus-visible)')) return;
     const scene=event.target.closest?.('[data-showcase-battle]');
     if(!scene) {
       if (event.type === 'pointermove' && event.pointerType !== 'touch') audio?.hover(null);
@@ -176,7 +180,7 @@ export function createGuideController({ document: doc = globalThis.document, win
   $('#onboarding-body').addEventListener('pointermove', previewShowcaseMove);
   $('#onboarding-body').addEventListener('focusin', previewShowcaseMove);
   $('#onboarding-body').addEventListener('pointerout', event => {
-    if (onboardingPreviewByKeyboard) return;
+    if (event.pointerType === 'touch' || onboardingPreviewByKeyboard) return;
     const scene=event.target.closest?.('[data-showcase-battle]');
     if(scene&&scene!==event.relatedTarget?.closest?.('[data-showcase-battle]')) ensureShowcaseBattle(scene.dataset.showcaseBattle||'main').preview(null);
   });

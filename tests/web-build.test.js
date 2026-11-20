@@ -27,3 +27,17 @@ test('the downloadable game embeds its own graphics and controls', async () => {
   assert.match(html, /class="brand-logo" src="data:image\/png;base64,/);
   assert.doesNotMatch(html, /\.\/art\/|<script src="\/game-selects.js"|type="importmap"/);
 });
+
+test('game focus styles keep the outline disabled in every build', async () => {
+  for (const file of ['dist/styles.css', 'mobile/mobile.css', 'docs/index.html', 'docs/mobile.html', 'Lamps.html']) {
+    const source = await read(file);
+    const css = file.endsWith('.css') ? source : [...source.matchAll(/<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/g)].map(match => match[1]).join('\n');
+    if (file !== 'mobile/mobile.css') assert.match(css, /:focus,:focus-visible\s*\{\s*outline:none!important\s*\}/);
+    const focusRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, selector]) => selector.includes(':focus'));
+    for (const [, selector, declarations] of focusRules) {
+      for (const [, value] of declarations.matchAll(/(?:^|;)\s*outline\s*:\s*([^;]+)/g)) {
+        assert.match(value, /^none(?:\s*!important)?\s*$/, `${file} ${selector.trim()}`);
+      }
+    }
+  }
+});

@@ -63,6 +63,58 @@ export function movementSoundKind(route, pieces) {
   return route.slice(1, -1).some(cell => occupied.has(`${cell.q},${cell.r}`)) ? 'place' : 'slide';
 }
 
+export function bindButtonSounds(root, audio, defer = callback => setTimeout(callback, 0)) {
+  const buttonAt = target => {
+    const button = target?.closest?.('button,[role="button"],summary,input:is([type="button"],[type="submit"],[type="reset"])');
+    return button && !button.closest('#board,.showcase-field') ? button : null;
+  };
+  const enabledButton = target => {
+    const button = buttonAt(target);
+    if (!button || button.matches(':disabled,[data-disabled]') || button.closest('[aria-disabled="true"],[hidden],[inert]')) return null;
+    return button;
+  };
+  const selectTrigger = '[data-slot="select-trigger"]';
+  const openingSelects = new WeakSet();
+  function playActivation(button) {
+    const opensSelect = button.matches(selectTrigger);
+    if (opensSelect) {
+      if (openingSelects.has(button) || button.getAttribute('aria-expanded') !== 'false') return;
+      openingSelects.add(button);
+    }
+    // Play after the action so a transition that stops the game's sounds cannot swallow its own click.
+    defer(() => {
+      if (opensSelect) openingSelects.delete(button);
+      if (!opensSelect || button.getAttribute('aria-expanded') === 'true') audio.click(button);
+    });
+  }
+  root.addEventListener('pointerover', event => {
+    if (!event.isTrusted || event.pointerType === 'touch') return;
+    const button = enabledButton(event.target);
+    if (button && button !== buttonAt(event.relatedTarget)) audio.hover(button);
+  }, true);
+  root.addEventListener('pointerout', event => {
+    if (!event.isTrusted || event.pointerType === 'touch') return;
+    const button = buttonAt(event.target);
+    if (button && button !== buttonAt(event.relatedTarget)) audio.hover(null);
+  }, true);
+  root.addEventListener('click', event => {
+    if (!event.isTrusted) return;
+    const button = enabledButton(event.target);
+    if (button) playActivation(button);
+  }, true);
+  // Radix Select opens on mouse down and keyboard commands without requiring a click event.
+  root.addEventListener('pointerdown', event => {
+    if (!event.isTrusted || event.pointerType !== 'mouse' || event.button !== 0 || event.ctrlKey) return;
+    const button = enabledButton(event.target);
+    if (button?.matches(selectTrigger)) playActivation(button);
+  }, true);
+  root.addEventListener('keydown', event => {
+    if (!event.isTrusted || event.repeat || !['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
+    const button = enabledButton(event.target);
+    if (button?.matches(selectTrigger)) playActivation(button);
+  }, true);
+}
+
 export class GameAudio {
   constructor({ assets = GAME_AUDIO_ASSETS, createContext = () => new globalThis.AudioContext(),
     storage = () => globalThis.localStorage, hidden = () => Boolean(globalThis.document?.hidden),
@@ -195,9 +247,9 @@ export class GameAudio {
     else void this.unlock().then(start).catch(cleanup);
     return stop;
   }
-  click(cellKey, { silent = false, soft = false } = {}) {
-    // Remember the clicked cell even when replacing its DOM triggers focusout.
-    if (cellKey !== undefined) this.hoverKey = cellKey;
+  click(target, { silent = false, soft = false } = {}) {
+    // Remember the clicked cell or button, including across a board redraw.
+    if (target !== undefined) this.hoverKey = target;
     if (silent) {
       this.lastHover = this.now(); this.hoverVoice(); this.clickVoice();
       return;
@@ -207,11 +259,11 @@ export class GameAudio {
     this.hoverVoice(); this.clickVoice();
     this.clickVoice = this.play('click', { gainScale: soft ? .5 : 1 });
   }
-  hover(cellKey) {
-    if (cellKey === this.hoverKey) return;
-    this.hoverKey = cellKey;
-    // Hover never unlocks audio, queues delayed ticks, or replays missed cells.
-    if (!cellKey || !this.enabled || this.hidden() || this.context?.state !== 'running'
+  hover(target) {
+    if (target === this.hoverKey) return;
+    this.hoverKey = target;
+    // Hover never unlocks audio, queues delayed ticks, or replays missed targets.
+    if (!target || !this.enabled || this.hidden() || this.context?.state !== 'running'
       || !this.buffers.hover || this.now() - this.lastHover < 65) return;
     this.lastHover = this.now();
     this.hoverVoice(); this.hoverVoice = this.play('hover');

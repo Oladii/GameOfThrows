@@ -11,7 +11,7 @@ const sharp = require(require.resolve('sharp', {
 }));
 
 const brand = [
-  ['logo', 'game-of-trows-v1.png', 200],
+  ['logo', 'bitva-znamen.png', 200],
   ['team-red', 'team-red.png', 64],
   ['team-blue', 'team-blue.png', 64],
   ['advisor', 'advisor.webp', 131],
