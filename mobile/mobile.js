@@ -14,22 +14,31 @@ $('#sheet').addEventListener('close', () => {
   const advice = $('#mobile-advice-slot #move-hint');
   if (advice) $('.left-panel').prepend(advice);
 });
+function setMobileInspection(position) {
+  if (!selected) mobileInspected = null;
+  if (mobileTarget && (!selected || !humanCanMove() || !available.some(c => c.q === mobileTarget.q && c.r === mobileTarget.r))) mobileTarget = null;
+  const piece = position.pieces.find(p => p.id === mobileInspected) ?? position.pieces.find(p => p.id === selected);
+  const cell = mobileTarget ?? piece;
+  hover = null;
+  inspection = null;
+  $('#board .mobile-origin')?.classList.remove('mobile-origin');
+  if (!cell || movement || combat || currentDeaths.length) return;
+  // A touch selection supplies the same inspection target as hovering on desktop.
+  hover = key(cell.q, cell.r);
+  inspection = inspectCell(position, config, cell, selected, report);
+  const origin = inspection.isPreview && position.pieces.find(p => p.id === selected);
+  if (origin) $('#board [data-cell="' + key(origin.q, origin.r) + '"]')?.classList.add('mobile-origin');
+}
+function refreshMobileInspection() {
+  setMobileInspection(visibleState());
+  paintAuras();
+  highlightSources();
+  syncMobileBoard();
+}
 function syncMobileBoard() {
   syncBoardZoom();
-  if (!selected || !humanCanMove() || !available.some(c => c.q === mobileTarget?.q && c.r === mobileTarget?.r)) mobileTarget = null;
-  if (mobileTarget) {
-    hover = key(mobileTarget.q, mobileTarget.r);
-    inspection = inspectCell(state, config, mobileTarget, selected, report);
-    paintAuras();
-    highlightSources();
-    const origin = state.pieces.find(piece => piece.id === selected);
-    if (origin) $('#board [data-cell="' + key(origin.q, origin.r) + '"]').classList.add('mobile-origin');
-  }
   $('#move-actions').hidden = !mobileTarget;
-  const turn = visibleState().turn;
-  $('#team-flag').dataset.side = turn === 1 ? 'red' : 'blue';
-  const context = inspectionContext();
-  const piece = context.position.pieces.find(p => p.id === (mobileInspected || selected));
+  const piece = inspectionContext().piece;
   const aura = piece ? (shieldCanRetreat(piece, config) ? config.shieldPromotion.allies ?? config.shieldPromotion : config.stats[piece.type]) : null;
   const bonuses = [];
   if (aura?.aura > 0) {
@@ -38,10 +47,9 @@ function syncMobileBoard() {
     if (aura.defenseBonus) bonuses.push('+' + aura.defenseBonus + ' к стойкости ' + (piece.type === 'shield' && config.shieldDefenseOnly ? 'щитоносцев' : 'союзников'));
     if (aura.rangeBonus) bonuses.push('+' + aura.rangeBonus + ' к дальности лукарей');
   }
-  $('#aura-caption').textContent = bonuses.length ? 'Аура · ' + bonuses.join(', ') : '';
+  $('#aura-caption').textContent = bonuses.length ? 'Аура даёт ' + bonuses.join(', ') : '';
   if (hint?.action && canRequestHint()) $('#show-hint').disabled = false;
   const advice = $('#show-hint');
-  advice.innerHTML = mobileIcon('hint');
   advice.setAttribute('aria-label', hint?.pending ? 'Совет рассчитывается' : hint?.failed ? 'Повторить запрос совета' : 'Совет');
   advice.setAttribute('aria-busy', String(Boolean(hint?.pending)));
 }
@@ -50,42 +58,62 @@ function mobileTap(q,r) {
   if (editor) { activateBoardCell(q,r); return; }
   const piece = visibleState().pieces.find(p => p.q === q && p.r === r);
   const playerTeam = playMode === 'online' ? roomView?.selfSeat : humanTeam;
+  if (piece) mobileTarget = null;
   if (piece && (piece.team !== playerTeam || reviewingTurn || isBotTurn())) {
     mobileInspected = piece.id;
     if (!selected || visibleState().pieces.find(p => p.id === selected)?.team !== playerTeam) { selected = piece.id; render(); }
-    else syncMobileBoard();
+    else refreshMobileInspection();
     return;
   }
   mobileInspected = null;
   if (piece) {
-    mobileTarget = null;
     if (hint?.action?.id === piece.id && selected === piece.id) render();
     else activateBoardCell(q,r);
   } else if (humanCanMove() && available.some(c => c.q === q && c.r === r)) {
     mobileTarget = {q,r};
-    syncMobileBoard();
+    refreshMobileInspection();
   }
 }
-function mobileIcon(name) {
-  const lines = {pass:'m5 5 10 7-10 7ZM19 5v14',hint:'M9 17h6m-5 3h4M8 12a6 6 0 1 1 8 0c-1.5 1.4-2 2-2 3h-4c0-1-.5-1.6-2-3Z',back:'m10 5-7 7 7 7M3 12h18',next:'m14 5 7 7-7 7M21 12H3'};
-  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+lines[name]+'"/></svg>';
-}
-function renderMobileTurn(position) {
+const mobileFlag = $('#team-flag');
+let mobileHeaderPly;
+function renderMobileTurn(position, result) {
+  const newGame = $('#result-new-game');
   const player = playMode === 'online' ? roomView?.selfSeat : humanTeam;
-  const waiting = playMode === 'online' && gamePhase === 'setup';
-  const team = TEAM_NAMES[position.turn];
-  const actor = position.turn === player ? 'ВЫ' : playMode === 'bot' ? BOT_DIFFICULTIES[botDifficulty].label
-    : player == null ? '' : 'Соперник';
-  $('#team-name').textContent = waiting ? $('#room-title').textContent : [team, actor].filter(Boolean).join(' · ');
-  $('#team-flag').hidden = waiting;
-  $('#move-counter').textContent = waiting ? 'Ожидание игроков' : 'Ход ' + (position.ply + 1);
+  const waiting = document.body.classList.contains('room-waiting');
+  // Replaying the just-finished battle should leave the live turn indicator in place.
+  if (combat && !reviewingTurn && mobileHeaderPly === state.ply) {
+    if (!newGame.hidden) return;
+    position = state;
+  }
+  newGame.hidden = !result;
+  let title, detail, flagTeam = position.turn;
+  if (waiting) {
+    title = $('#room-title').textContent;
+    detail = 'Ожидание игроков';
+    flagTeam = null;
+  } else if (result) {
+    flagTeam = result.winner === 'draw' ? null : result.winner;
+    title = flagTeam === null ? result.title : flagTeam === 0 ? 'Победа Синих' : 'Победа Красных';
+    detail = {flag: 'Уничтожено знамя', combat: 'Уничтожены войска', all: 'Уничтожены войска'}[result.lossKind] ?? result.reason;
+  } else {
+    const ownTurn = position.turn === player;
+    title = reviewingTurn ? 'История' : ownTurn ? 'Ваш ход' : position.turn === 0 ? 'Ход синих' : 'Ход красных';
+    const actor = !reviewingTurn && !ownTurn && playMode === 'bot'
+      ? BOT_DIFFICULTIES[botDifficulty].label + (botDifficulty === 'hard' ? '' : ' бот')
+      : TEAM_NAMES[position.turn];
+    detail = `Ход ${position.ply + 1} · ${actor}`;
+  }
+  for (const [id, text] of [['#team-name', title], ['#move-counter', detail]]) {
+    const label = $(id);
+    if (label.textContent !== text) label.textContent = text;
+  }
+  mobileHeaderPly = position.ply;
+  mobileFlag.hidden = flagTeam === null;
+  mobileFlag.dataset.side = flagTeam === null ? '' : flagTeam === 1 ? 'red' : 'blue';
 }
-$('#review-previous').innerHTML = mobileIcon('back');
-$('#review-current').innerHTML = mobileIcon('next');
 $('#undo').setAttribute('aria-label', $('#undo').title);
-$('#undo span').remove();
 $('#pass-turn').setAttribute('aria-label', 'Пропустить ход');
-$('#pass-turn').innerHTML = mobileIcon('pass');
+$('#pass-turn').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 5 10 7-10 7ZM19 5v14"/></svg>';
 $('#cancel-move').onclick = () => {
   mobileTarget = mobileInspected = null;
   render();
@@ -218,13 +246,17 @@ function menuPage(title,html) {
 }
 const mobileHome = $('#mobile-home');
 mobileHome.querySelector('.home-actions').prepend($('.brand-logo').cloneNode(true));
+function syncMobileHome() {
+  const canContinue = gamePhase === 'playing' || playMode === 'online' || Boolean(previousGame);
+  $('#home-continue').hidden = !canContinue;
+  $('#home-new').classList.toggle('primary', !canContinue);
+  $('#home-new').classList.toggle('subtle', canContinue);
+}
 function openMobileHome() {
   cancelBot();
-  $('#home-continue').disabled = gamePhase !== 'playing' && playMode !== 'online' && !previousGame;
+  syncMobileHome();
   if (!mobileHome.open) mobileHome.showModal();
-  ($('#home-continue').disabled ? $('#home-new') : $('#home-continue')).focus();
 }
-$('#home-back').innerHTML = mobileIcon('back');
 $('#home-back').onclick = openMobileHome;
 mobileHome.addEventListener('cancel', event => event.preventDefault());
 $('#home-continue').onclick = () => {
@@ -232,20 +264,21 @@ $('#home-continue').onclick = () => {
   if (previousGame && gamePhase === 'setup' && playMode !== 'online') returnToGame();
   $('#home-back').focus();
 };
-function mobileNewGame() {
+function openMobileStartSettings() {
   if (gamePhase === 'playing') openNewGame(); else openStartSettings();
 }
-$('#home-new').onclick = () => {
-  if (playMode !== 'online') { mobileNewGame(); return; }
+function mobileNewGame() {
+  if (playMode !== 'online') { openMobileStartSettings(); return; }
   menuPage('Выйти из комнаты для новой игры?', '<button id="leave-and-start" class="button primary">Выйти и начать новую игру</button>');
   $('#leave-and-start').onclick = async () => {
     $('#leave-and-start').disabled = true;
     await leaveOnlineRoom();
     $('#sheet').close();
-    $('#home-continue').disabled = gamePhase !== 'playing' && !previousGame;
-    mobileNewGame();
+    syncMobileHome();
+    openMobileStartSettings();
   };
-};
+}
+$('#home-new').onclick = $('#result-new-game').onclick = mobileNewGame;
 $('#home-learn').onclick = () => {
   mobileHome.close();
   $('#rules-open').click();

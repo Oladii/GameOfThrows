@@ -463,7 +463,7 @@ function presentKills(before, forecast, deaths) {
 function combatReplayContext() {
   if (gamePhase !== 'playing' || editor || roomMovePreview || reviewLoading || movement || combat || currentDeaths.length) return null;
   const turn = reviewingTurn ? reviewTurn : lastTurn;
-  if (!turn?.action) return null;
+  if (!turn?.action) return !reviewingTurn && state.ply === 0 ? { notice: 'Ходов ещё не было' } : null;
   if (combatReplayCache?.turn === turn) return combatReplayCache.result;
   const { before, action } = turn;
   const forecast = action.pass ? { position: before.state, report: analyze(before.state, before.config) }
@@ -478,15 +478,17 @@ function hideCombatReplayToast() {
   clearTimeout(combatReplayToastTimer);
   $('#combat-replay-toast').hidden = true;
 }
-function showCombatReplayToast() {
+function showCombatReplayToast(message) {
   clearTimeout(combatReplayToastTimer);
-  $('#combat-replay-toast').hidden = false;
+  const notice = $('#combat-replay-toast');
+  notice.textContent = message;
+  notice.hidden = false;
   combatReplayToastTimer = setTimeout(hideCombatReplayToast, 1000);
 }
 function replayCombat() {
   const replay = combatReplayContext();
   if (!replay) return;
-  if (!replay.deaths.length) { showCombatReplayToast(); return; }
+  if (replay.notice || !replay.deaths.length) { showCombatReplayToast(replay.notice ?? 'Этот ход был без потерь'); return; }
   hideCombatReplayToast();
   cancelBot(); selected = null;
   presentKills(replay.before, replay.forecast, replay.deaths);

@@ -259,6 +259,7 @@ test('replay supports a saved pass calculation and shows a one-second notice whe
   peaceful.context.replayCombat();assert.equal(peaceful.context.combat,null);
   assert.deepEqual(peaceful.notices,[]);assert.equal(peaceful.botCancels(),0);
   assert.equal(peaceful.replayToast.hidden,false);
+  assert.equal(peaceful.replayToast.textContent,'Этот ход был без потерь');
   peaceful.time.advance(999);assert.equal(peaceful.replayToast.hidden,false);
   peaceful.time.advance(1);assert.equal(peaceful.replayToast.hidden,true);
   peaceful.context.replayCombat();assert.equal(peaceful.replayToast.hidden,false);
@@ -266,7 +267,17 @@ test('replay supports a saved pass calculation and shows a one-second notice whe
   assert.equal(peaceful.time.timers.size,0);
 });
 
-test('replay is unavailable before a move, during setup, editing, missing history selection, loading, movement and death effects', () => {
+test('replay shows a brief notice before the first turn', () => {
+  for (const mode of ['local','bot','online']) {
+    const ui=presentationHarness(mode);ui.context.state=ui.before.state;
+    ui.context.replayCombat();assert.equal(ui.context.combat,null);assert.equal(ui.botCancels(),0);
+    assert.equal(ui.replayToast.hidden,false);
+    assert.equal(ui.replayToast.textContent,'Ходов ещё не было');
+    ui.time.advance(1000);assert.equal(ui.replayToast.hidden,true);
+  }
+});
+
+test('replay is unavailable without a saved action after a move, during setup, editing, missing history selection, loading, movement and death effects', () => {
   const fresh=presentationHarness();fresh.context.replayCombat();assert.equal(fresh.context.combat,null);
   assert.equal(fresh.replayToast.hidden,true);
   for(const [field,value] of [['gamePhase','setup'],['editor',true],['reviewingTurn',true],['reviewLoading',true],['movement',{}],['currentDeaths',[{}]]]) {

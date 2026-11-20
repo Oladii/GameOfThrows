@@ -46,6 +46,37 @@ test('live board keeps selection arrows after hover leaves and shows combat inde
  const arrows=inspectionDamageArrows(enemy,null,position,report);
  context.combat={phase:'attacks',groups:[{arrows}],groupIndex:0,visiblePosition:position,arrowCount:2,report};context.highlightSources();assert.equal(paths(layer.innerHTML).length,2);
 });
+test('mobile selection shows incoming arrows without a hover and previews the tapped destination', () => {
+ const html = fs.readFileSync(new URL('../docs/mobile.html', import.meta.url), 'utf8');
+ const selectedPosition = { ...position, pieces: [{ ...own, type: 'shield' }, ...position.pieces.slice(1)] };
+ const selectedReport = analyze(selectedPosition, DEFAULT_CONFIG);
+ const layer = { innerHTML: '' };
+ const context = vm.createContext({
+  selected: null, hover: null, inspection: null, mobileTarget: null, mobileInspected: null, movement: null, combat: null, currentDeaths: [],
+  playMode: 'bot', humanTeam: 1, config: DEFAULT_CONFIG, report: selectedReport, position: selectedPosition,
+  available: [{q: 1, r: 0}], humanCanMove: () => true, visibleState: () => selectedPosition,
+  document: { querySelectorAll: () => [] }, $: selector => selector === '#attack-lines' ? layer : null,
+  paintAttackReach() {}, renderInspector() {}, inspectionDamageArrows, inspectCell, renderDamageArrows, point: hexGridPoint, cells, key,
+  unitAppearance: () => ({veteran: false}), renderTokenBody: () => '', unitBadges: () => '', ICON_PATHS: {},
+ });
+ assert.match(html, /boardMarkup\(restoredIds\); setMobileInspection\(state\); paintAuras\(\); highlightSources\(\);/);
+ vm.runInContext(html.slice(html.indexOf('function inspectionContext()'), html.indexOf('function paintAttackReach(')), context);
+ vm.runInContext(html.slice(html.indexOf('function setMobileInspection('), html.indexOf('function refreshMobileInspection(')), context);
+ const render = () => vm.runInContext('setMobileInspection(position); highlightSources();', context);
+ render();
+ assert.deepEqual(paths(layer.innerHTML), []);
+ context.selected = own.id;
+ render();
+ assert.deepEqual(paths(layer.innerHTML), ['enemy:own', 'other:own']);
+ context.mobileTarget = {q: 1, r: 0};
+ render();
+ assert.match(layer.innerHTML, /class="piece preview-token/);
+ assert.deepEqual(paths(layer.innerHTML), ['other:own', 'own:other']);
+ context.selected = null;
+ render();
+ assert.deepEqual(paths(layer.innerHTML), []);
+ assert.doesNotMatch(layer.innerHTML, /preview-token/);
+});
 test('training follows the same selection and hover union',()=>{
  const battle={...createShowcaseBattle(),config:DEFAULT_CONFIG,position,selectedId:own.id};
  assert.deepEqual(paths(renderShowcaseBattle(battle)),['own:enemy','own:other']);
