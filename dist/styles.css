@@ -1015,11 +1015,9 @@ main{padding:14px}
 
 /* Temporary presentation layer for the double table knock. */
 .board-wrap.table-rattle-active{transform-origin:50% 55%;will-change:transform;isolation:isolate}
-.table-rattle-active #board-pieces{opacity:0}
 .table-rattle-active :is(#aura-circles,#selected-attack-reach,#attack-lines,#death-effects){opacity:0}
 .table-rattle-active #board .cell{cursor:default}
 .table-rattle-active #board .cell:hover .tile{stroke:#9da586;stroke-width:2}
 #table-rattle-effect{pointer-events:none}
-#table-rattle-pieces .piece{pointer-events:none}
 
 .victory-confetti { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; z-index: 1000; pointer-events: none; }

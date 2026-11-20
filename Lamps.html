@@ -1029,12 +1029,10 @@ main{padding:14px}
 
 /* Temporary presentation layer for the double table knock. */
 .board-wrap.table-rattle-active{transform-origin:50% 55%;will-change:transform;isolation:isolate}
-.table-rattle-active #board-pieces{opacity:0}
 .table-rattle-active :is(#aura-circles,#selected-attack-reach,#attack-lines,#death-effects){opacity:0}
 .table-rattle-active #board .cell{cursor:default}
 .table-rattle-active #board .cell:hover .tile{stroke:#9da586;stroke-width:2}
 #table-rattle-effect{pointer-events:none}
-#table-rattle-pieces .piece{pointer-events:none}
 
 .victory-confetti { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; z-index: 1000; pointer-events: none; }
 
@@ -1178,7 +1176,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.122</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-20T23:27:59.051Z">Сборка 21.11.2026, 02:27:59 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.123</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-20T23:43:35.290Z">Сборка 21.11.2026, 02:43:35 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -3967,7 +3965,11 @@ class TableKnocks {
 }
 
 const TABLE_RATTLE_FLIGHT = 300;
-const TABLE_RATTLE_SLIDE = 230;
+const TABLE_RATTLE_REBOUND_THRESHOLD = 21;
+const TABLE_RATTLE_REBOUND_GRAVITY = .011; // SVG units per ms²
+const TABLE_RATTLE_SLIDE = 195;
+// Board displacement per millisecond for a unit throw. Friction acts after touchdown.
+const TABLE_RATTLE_LAUNCH_SPEED = .8 / 415;
 const TABLE_RATTLE_MAX_DELAY = 65;
 const TABLE_RATTLE_SETTLED_AT = TABLE_RATTLE_MAX_DELAY + TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE;
 const TABLE_RATTLE_DISAPPEAR_AT = 1600;
@@ -3989,17 +3991,30 @@ function sampleTableRattle(elapsed, piece, reduced = false) {
   if (t < TABLE_RATTLE_RETURN_AT) {
     const age = Math.max(0, t - piece.delay);
     const flight = tableRattleClamp(age / TABLE_RATTLE_FLIGHT);
-    const slide = tableRattleClamp((age - TABLE_RATTLE_FLIGHT) / TABLE_RATTLE_SLIDE);
-    // Constant speed in the air, then friction slows the piece to rest.
-    // Integrate both phases against the same bounded destination.
-    const distance = (flight * TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE * slide * (1 - slide / 2))
-      / (TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE / 2);
     const hop = 4 * flight * (1 - flight);
+    let height = piece.lift * hop;
+    let travel = flight * TABLE_RATTLE_FLIGHT;
+    if (age > TABLE_RATTLE_FLIGHT) {
+      const sinceContact = Math.min(age - TABLE_RATTLE_FLIGHT, TABLE_RATTLE_SLIDE);
+      const peak = .09 * Math.max(0, piece.lift - TABLE_RATTLE_REBOUND_THRESHOLD) ** 2;
+      const reboundTime = Math.sqrt(8 * peak / TABLE_RATTLE_REBOUND_GRAVITY);
+      const airborne = Math.min(sinceContact, reboundTime);
+      height = .5 * TABLE_RATTLE_REBOUND_GRAVITY * airborne * (reboundTime - airborne);
+
+      // Contact takes some horizontal speed. Carry the rest through the hop,
+      // then brake on the table, covering the same short runout as before.
+      const glide = sinceContact - airborne;
+      const surfaceTime = TABLE_RATTLE_SLIDE - reboundTime;
+      const retainedSpeed = TABLE_RATTLE_SLIDE / (TABLE_RATTLE_SLIDE + reboundTime);
+      travel += retainedSpeed * (airborne + glide * (1 - glide / (2 * surfaceTime)));
+    }
+    const distance = age >= TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE ? 1
+      : travel / (TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE / 2);
     const fade = tableRattleEase((t - TABLE_RATTLE_DISAPPEAR_AT) / TABLE_RATTLE_FADE_DURATION);
-    return { x: piece.dx * distance, y: piece.dy * distance - piece.lift * hop,
+    return { x: piece.dx * distance, y: piece.dy * distance - height,
       groundY: piece.dy * distance, rotation: piece.rotation * distance,
       scale: (1 + .055 * hop) * (1 - .15 * fade), opacity: 1 - fade,
-      shadowScale: 1 - .22 * hop };
+      shadowScale: 1 - .22 * (piece.lift > 0 ? height / piece.lift : 0) };
   }
   const progress = tableRattleClamp((t - TABLE_RATTLE_RETURN_AT - piece.delay) / 430);
   const ease = tableRattleEase(progress);
@@ -4037,21 +4052,67 @@ class TableRattleAnimator {
   }
   start(reduced = false) {
     this.cancel(); this.active = true;
-    const serial = this.serial, start = this.clock.now();
+    const serial = this.serial;
     const duration = reduced ? TABLE_RATTLE_REDUCED_DURATION : TABLE_RATTLE_DURATION;
+    let start;
     const tick = () => {
       if (!this.active || serial !== this.serial) return;
-      const elapsed = Math.min(duration, Math.max(0, this.clock.now() - start));
+      const now = this.clock.now();
+      // Loading and rendering before the first frame must not consume the opening motion.
+      start ??= now;
+      const elapsed = Math.min(duration, Math.max(0, now - start));
       this.onFrame(elapsed, reduced);
       if (elapsed === duration) {
         this.active = false; this.handle = null; this.onFinish();
       } else this.handle = this.clock.requestFrame(tick);
     };
-    tick();
+    this.handle = this.clock.requestFrame(tick);
   }
 }
 
-let tableRattleCloneSerial = 0;
+// Plan the hit once. Neighbours may overlap at the rim, while the centres and
+// their unit symbols stay visible, including when two flight paths cross.
+function planTableRattlePaths(tokens, bounds) {
+  const clearance = 37;
+  const sampleTimes = [];
+  for (let time = 0; time < TABLE_RATTLE_SETTLED_AT; time += 20) sampleTimes.push(time);
+  sampleTimes.push(TABLE_RATTLE_SETTLED_AT);
+  const path = token => sampleTimes.map(time => {
+    const frame = sampleTableRattle(time, token);
+    return { x: token.x + frame.x, y: token.y + frame.y };
+  });
+  // A shared vertical hop preserves the original spacing. Reserve that safe
+  // fallback for every piece before trying its individual throw.
+  const fallback = { dx: 0, dy: 0, delay: 0, lift: 18 };
+  const paths = tokens.map(token => path({ ...token, ...fallback }));
+  const reach = TABLE_RATTLE_LAUNCH_SPEED * (TABLE_RATTLE_FLIGHT + TABLE_RATTLE_SLIDE / 2);
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  for (const [i, token] of tokens.entries()) {
+    // Even two maximum throws and a full hop cannot reach more distant pieces.
+    const neighbours = paths.filter((_, j) => i !== j &&
+      Math.hypot(token.x - tokens[j].x, token.y - tokens[j].y) <= 2 * 81 * reach + 26 + clearance);
+    let accepted = false;
+    for (const scale of [1, .6, .3]) {
+      for (const turn of [0, 1, -1, 2, -2, 3]) {
+        const angle = token.angle + turn * Math.PI / 3;
+        const distance = token.distance * scale;
+        const x = clamp(token.x + Math.cos(angle) * distance, bounds.x + 28, bounds.x + bounds.width - 28);
+        const y = clamp(token.y + Math.sin(angle) * distance, bounds.y + 28, bounds.y + bounds.height - 28);
+        const dx = (x - token.x) * reach, dy = (y - token.y) * reach;
+        if (Math.hypot(dx, dy) < 6) continue;
+        const candidate = path({ ...token, dx, dy });
+        if (neighbours.some(other => candidate.some((p, k) =>
+          (p.x - other[k].x) ** 2 + (p.y - other[k].y) ** 2 < clearance ** 2))) continue;
+        Object.assign(token, { dx, dy });
+        paths[i] = candidate;
+        accepted = true;
+        break;
+      }
+      if (accepted) break;
+    }
+    if (!accepted) Object.assign(token, fallback);
+  }
+}
 
 class TableRattle {
   constructor({ surface, board, random = Math.random, onFinish = () => {}, onDisappear = () => {}, clock }) {
@@ -4090,52 +4151,38 @@ class TableRattle {
       const overlay = create('g');
       overlay.id = 'table-rattle-effect'; overlay.setAttribute('aria-hidden', 'true');
       overlay.setAttribute('pointer-events', 'none');
-      const clone = source.cloneNode(true), prefix = `table-rattle-${++tableRattleCloneSerial}-`;
-      const ids = new Map();
-      for (const node of clone.querySelectorAll('[id]')) {
-        const old = node.id; ids.set(old, prefix + old); node.id = prefix + old;
-      }
-      clone.id = 'table-rattle-pieces';
-      for (const node of clone.querySelectorAll('*')) {
-        for (const attribute of [...node.attributes]) {
-          const next = attribute.value.replace(/url\(#([^)]*)\)/g, (all, id) => ids.has(id) ? `url(#${ids.get(id)})` : all);
-          if (next !== attribute.value) node.setAttribute(attribute.name, next);
-        }
-      }
       const defs = create('defs'), filter = create('filter'), blur = create('feGaussianBlur');
-      filter.id = prefix + 'shadow'; filter.setAttribute('x', '-60%'); filter.setAttribute('y', '-120%');
+      filter.id = 'table-rattle-shadow'; filter.setAttribute('x', '-60%'); filter.setAttribute('y', '-120%');
       filter.setAttribute('width', '220%'); filter.setAttribute('height', '340%');
       blur.setAttribute('stdDeviation', '2'); filter.appendChild(blur); defs.appendChild(filter);
       const shadows = create('g'); shadows.setAttribute('filter', `url(#${filter.id})`);
-      overlay.append(defs, shadows, clone);
+      overlay.append(defs, shadows);
       const bounds = this.board.viewBox.baseVal;
-      const originals = [...source.children], tokens = [];
-      for (const [index, token] of [...clone.children].entries()) {
-        const matrix = originals[index].transform.baseVal.consolidate()?.matrix;
-        if (!matrix) continue;
+      const tokens = [];
+      // Use the mounted SVG pieces so their images and masks are ready on the first strike.
+      for (const token of source.children) {
+        const transforms = token.transform.baseVal;
+        if (!transforms.numberOfItems) continue;
+        const matrix = transforms.getItem(0).matrix; // The board gives each piece a single translation.
         const x = matrix.e, y = matrix.f, angle = this.random() * Math.PI * 2;
         const distance = 38 + this.random() * 43;
-        const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-        let dx = clamp(x + Math.cos(angle) * distance, bounds.x + 28, bounds.x + bounds.width - 28) - x;
-        let dy = clamp(y + Math.sin(angle) * distance, bounds.y + 28, bounds.y + bounds.height - 28) - y;
-        if (Math.hypot(dx, dy) < 18) {
-          const inward = Math.atan2(bounds.y + bounds.height / 2 - y, bounds.x + bounds.width / 2 - x);
-          dx = Math.cos(inward) * 35; dy = Math.sin(inward) * 35;
-        }
-        dx *= .8; dy *= .8;
-        const wrapper = create('g'); wrapper.setAttribute('class', 'table-rattle-token');
-        clone.replaceChild(wrapper, token); wrapper.appendChild(token);
         const shadow = create('ellipse'); shadow.setAttribute('fill', '#302518'); shadows.appendChild(shadow);
-        tokens.push({ wrapper, shadow, body: token.querySelector('.token-body-paint'), x, y, dx, dy, delay: this.random() * TABLE_RATTLE_MAX_DELAY,
+        const body = token.querySelector('.token-body-paint');
+        tokens.push({ token, shadow, body, bodyFilter: body?.style.filter, transform: token.getAttribute('transform'), opacity: token.getAttribute('opacity'),
+          x, y, angle, distance, delay: this.random() * TABLE_RATTLE_MAX_DELAY,
           rotation: (this.random() - .5) * 28, lift: 12 + this.random() * 14 });
       }
+      if (!tokens.length) return false;
+      // Reduced motion uses stationary pieces and does not need scatter paths.
+      const reduced = this.media.matches;
+      if (!reduced) planTableRattlePaths(tokens, bounds);
       this.scene = { overlay, tokens, busy: this.board.getAttribute('aria-busy'),
         transform: this.surface.style.getPropertyValue('transform'),
         priority: this.surface.style.getPropertyPriority('transform') };
-      this.board.appendChild(overlay);
+      this.board.insertBefore(overlay, source);
       this.surface.classList.add('table-rattle-active');
       this.board.setAttribute('aria-busy', 'true');
-      this.animator.start(this.media.matches);
+      this.animator.start(reduced);
       return true;
     } catch {
       this.cancel(); return false;
@@ -4153,8 +4200,8 @@ class TableRattle {
     const shadowsVisible = elapsed < TABLE_RATTLE_DISAPPEAR_AT + TABLE_RATTLE_FADE_DURATION;
     for (const token of this.scene.tokens) {
       const frame = sampleTableRattle(elapsed, token, reduced);
-      token.wrapper.setAttribute('transform', `translate(${frame.x},${frame.y}) translate(${token.x},${token.y}) rotate(${frame.rotation}) scale(${frame.scale}) translate(${-token.x},${-token.y})`);
-      token.wrapper.setAttribute('opacity', String(frame.opacity));
+      token.token.setAttribute('transform', `translate(${token.x + frame.x},${token.y + frame.y}) rotate(${frame.rotation}) scale(${frame.scale})`);
+      token.token.setAttribute('opacity', String(frame.opacity));
       const height = Math.max(0, frame.groundY - frame.y);
       if (token.body) token.body.style.filter = shadowsVisible ? `drop-shadow(1px ${2 + height * .18}px ${1.4 + height * .12}px #3025183d)` : 'none';
       token.shadow.setAttribute('cx', String(token.x + frame.x));
@@ -4168,6 +4215,12 @@ class TableRattle {
     if (!this.scene) return;
     const scene = this.scene; this.scene = null;
     if (typeof scene.stopDisappear === 'function') scene.stopDisappear();
+    for (const { token, body, bodyFilter, transform, opacity } of scene.tokens) {
+      token.setAttribute('transform', transform);
+      if (opacity === null) token.removeAttribute('opacity');
+      else token.setAttribute('opacity', opacity);
+      if (body) body.style.filter = bodyFilter;
+    }
     scene.overlay.remove(); this.surface.classList.remove('table-rattle-active');
     if (scene.transform) this.surface.style.setProperty('transform', scene.transform, scene.priority);
     else this.surface.style.removeProperty('transform');
