@@ -18,6 +18,11 @@ main .arena-column>.arena-top{position:relative;display:grid;grid-template-colum
 .home-actions .brand-logo{display:block;justify-self:center;width:min(179.4px,100%);height:auto;max-height:23dvh;object-fit:contain;margin:0 0 14.1px}
 .home-actions .button{width:100%;height:56px;margin:0;border:0;border-radius:12px;font-size:16px;font-weight:500;line-height:20px}
 .home-actions .button.primary,#result-new-game{border:1px solid #f1cd7c;box-shadow:none;text-shadow:none}
+/* A tap can leave :hover matched after the home screen is shown again. */
+@media(hover:none){
+  .home-actions .button.primary:hover:not(:active,:focus-visible){background:linear-gradient(180deg,#47443f 0%,#292827 48%,#1c1b1b 100%);color:#ffda86;border-top-color:#f1cd7c}
+  .home-actions .button.subtle:hover:not(:focus-visible){background:var(--button-soft)}
+}
 body.mobile-game #rules-dialog.guide-screen{position:fixed;inset:0;height:100dvh;min-height:0;display:grid;grid-template-rows:auto auto minmax(0,1fr);padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overflow:hidden;background:var(--surface)}
 .mobile-game .guide-toolbar{display:flex;justify-content:space-between;align-items:flex-start;min-height:51px;margin:0;padding:7px 16px 4px 20px}
 .mobile-game #guide-title{margin:5px 0 0;font-size:20px;font-weight:600;line-height:28px;letter-spacing:0}

@@ -264,10 +264,7 @@ $('#home-learn').onclick = () => {
   $('#rules-open').click();
 };
 const guideClose = $('#guide-back');
-guideClose.addEventListener('click', () => {
-  openMobileHome();
-  $('#home-learn').focus();
-});
+guideClose.addEventListener('click', openMobileHome);
 $('#rules-dialog').addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.defaultPrevented) return;
   event.preventDefault();

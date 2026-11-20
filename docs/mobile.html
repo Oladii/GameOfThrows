@@ -1168,6 +1168,11 @@ main .arena-column>.arena-top{position:relative;display:grid;grid-template-colum
 .home-actions .brand-logo{display:block;justify-self:center;width:min(179.4px,100%);height:auto;max-height:23dvh;object-fit:contain;margin:0 0 14.1px}
 .home-actions .button{width:100%;height:56px;margin:0;border:0;border-radius:12px;font-size:16px;font-weight:500;line-height:20px}
 .home-actions .button.primary,#result-new-game{border:1px solid #f1cd7c;box-shadow:none;text-shadow:none}
+/* A tap can leave :hover matched after the home screen is shown again. */
+@media(hover:none){
+  .home-actions .button.primary:hover:not(:active,:focus-visible){background:linear-gradient(180deg,#47443f 0%,#292827 48%,#1c1b1b 100%);color:#ffda86;border-top-color:#f1cd7c}
+  .home-actions .button.subtle:hover:not(:focus-visible){background:var(--button-soft)}
+}
 body.mobile-game #rules-dialog.guide-screen{position:fixed;inset:0;height:100dvh;min-height:0;display:grid;grid-template-rows:auto auto minmax(0,1fr);padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overflow:hidden;background:var(--surface)}
 .mobile-game .guide-toolbar{display:flex;justify-content:space-between;align-items:flex-start;min-height:51px;margin:0;padding:7px 16px 4px 20px}
 .mobile-game #guide-title{margin:5px 0 0;font-size:20px;font-weight:600;line-height:28px;letter-spacing:0}
@@ -1305,7 +1310,7 @@ body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;po
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.121</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-20T22:58:39.086Z">Сборка 21.11.2026, 01:58:39 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.122</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-20T23:27:59.051Z">Сборка 21.11.2026, 02:27:59 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><button id="home-back" class="button" type="button" aria-label="На главный экран"><img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE1LjIwNyA3LjIwNzAzTDEwLjQxNDEgMTJMMTUuMjA3IDE2Ljc5M0wxMy43OTMgMTguMjA3TDcuNTg1OTQgMTJMMTMuNzkzIDUuNzkyOTdMMTUuMjA3IDcuMjA3MDNaIiBmaWxsPSIjMDMwMzA2IiBmaWxsLW9wYWNpdHk9IjAuODgiLz4KPC9zdmc+Cg==" width="24" height="24" alt=""></button><div class="mobile-turn" role="status" aria-atomic="true"><strong id="team-name"></strong><span id="move-counter" class="move-counter"></span></div><span id="team-flag" aria-hidden="true"></span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -7400,10 +7405,7 @@ $('#home-learn').onclick = () => {
   $('#rules-open').click();
 };
 const guideClose = $('#guide-back');
-guideClose.addEventListener('click', () => {
-  openMobileHome();
-  $('#home-learn').focus();
-});
+guideClose.addEventListener('click', openMobileHome);
 $('#rules-dialog').addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.defaultPrevented) return;
   event.preventDefault();
