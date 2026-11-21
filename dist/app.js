@@ -681,7 +681,7 @@ function shieldPromotionDescription() {
   return `Урон: ${stats.damage + p.damageBonus}, дальность: ${Math.min(stats.range + p.rangeBonus, p.maxRange)}, стойкость: ${stats.fortitude + p.defenseBonus}. Получает ауру в ${allies.aura} ${plural(allies.aura, ['клетку', 'клетки', 'клеток'])}, добавляя союзникам +${allies.damageBonus} к урону, +${allies.rangeBonus} к дальности и +${allies.defenseBonus} к стойкости${config.shieldDefenseOnly ? ' только щитоносцев' : ''}. Дальность щитоносцев и командиров с собственной атакой от союзных аур не растёт. Под этой аурой фигуры без собственной атаки могут атаковать.`;
 }
 function shieldDescriptionMarkup(open = false) {
-  return `<p class="shield-description">Ходит вперёд и вбок. Аура ${config.stats.shield.aura} ${plural(config.stats.shield.aura, ['клетка', 'клетки', 'клеток'])}: стойкость ${config.shieldDefenseOnly ? 'союзных щитоносцев' : 'союзников'} +${config.stats.shield.defenseBonus}. Ауры других фигур не увеличивают дальность атаки щитоносцев.</p><details class="shield-promotion" data-shield-promotion${open ? ' open' : ''}><summary>Ветеран</summary><p>Завершив ход на противоположном краю, усиливается: ${shieldPromotionDescription()}</p></details>`;
+  return `<p class="shield-description">Ходит вперёд и вбок. Аура ${config.stats.shield.aura} ${plural(config.stats.shield.aura, ['клетка', 'клетки', 'клеток'])}: стойкость ${config.shieldDefenseOnly ? 'союзных щитоносцев' : 'союзников'} +${config.stats.shield.defenseBonus}. Ауры других фигур не увеличивают дальность атаки щитоносцев.</p><details class="shield-promotion" data-shield-promotion${open ? ' open' : ''}><summary>Ветеран</summary><p>Завершив ход на противоположном краю, усиливается: ${shieldPromotionDescription()}</p></details>`;
 }
 function archerPromotionMarkup(open = false) {
   const enabled = config.archerEdgeDamageBonus > 0;
@@ -689,27 +689,23 @@ function archerPromotionMarkup(open = false) {
   return `<details class="archer-promotion" data-archer-promotion${open ? ' open' : ''}><summary>Ветеран</summary><p>Достигнув чужого края, навсегда получает +${bonus} к урону. Усиление даётся один раз и сохраняется после отхода. Венок отмечает ветерана. Союзники от него усилений не получают.</p>${enabled ? '' : '<p>Это стандартное правило; в текущей партии усиление за край не включено</p>'}</details>`;
 }
 function unitReferenceMarkup(promotionOpen = false, archerPromotionOpen = false) {
+  const statLabels = { move: 'Шаг', damage: 'Урон', range: 'Дальность атаки', fortitude: 'Стойкость' };
+  const fields = Object.keys(statLabels);
   const rows = TYPES.filter(type => config.stats[type]).map(type => {
-    const stats = config.stats[type], fields = ['move', 'damage', 'range', 'fortitude'];
+    const stats = config.stats[type];
     let aura = '';
     if (type === 'archer' && stats.aura > 0 && stats.damageBonus > 0) aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон союзников +${stats.damageBonus}, кроме самого лукаря. Бонусы нескольких лукарей складываются.`;
     if (type === 'archer') {
-      aura = `<p class="archer-description">Стреляет издалека, прячется за щитоносцами${aura ? `. ${aura}` : ''}</p>${archerPromotionMarkup(archerPromotionOpen)}`;
+      aura = `<p class="archer-description">Стреляет издалека, прячется за щитоносцами${aura ? `. ${aura}` : ''}</p>${archerPromotionMarkup(archerPromotionOpen)}`;
     }
-    if (type === 'scoutLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: дальность +${stats.rangeBonus}. Щитоносцы и командиры с собственной атакой этот бонус не получают`;
+    if (type === 'scoutLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: дальность +${stats.rangeBonus}. Щитоносцы и командиры с собственной атакой этот бонус не получают`;
     if (type === 'attackLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: шаг ${config.drumMoveAllies ? 'всех союзников' : 'щитоносцев'} +${config.drumShieldMoveBonus ?? 0} при начале действия в ауре${stats.damageBonus > 0 ? `, урон +${stats.damageBonus}` : ''}`;
     if (type === 'horn') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон всех союзников +${stats.damageBonus}`;
     if (type === 'defenseLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: стойкость +${stats.defenseBonus}`;
     if (type === 'shield') aura = shieldDescriptionMarkup(promotionOpen);
-    return `<tr data-reference-type="${type}"><th scope="row"><span class="reference-unit">${icon(type)}<span>${LABELS[type]}</span></span></th>${fields.map(field => `<td data-stat="${field}">${stats[field]}</td>`).join('')}</tr>${aura ? `<tr class="reference-aura" data-reference-aura="${type}"><td colspan="5">${aura}</td></tr>` : ''}`;
+    return `<tr data-reference-type="${type}"><th scope="row"><span class="reference-unit">${LABELS[type]}</span></th>${fields.map(field => `<td data-stat="${field}">${stats[field]}</td>`).join('')}</tr>${aura ? `<tr class="reference-aura" data-reference-aura="${type}"><td colspan="5">${aura}</td></tr>` : ''}`;
   }).join('');
-  const statIcons = [
-    ['move', 'Шаг', '<svg class="reference-step-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.1 2.1C2.8 2.5 2.9 7.5 4.3 11l4.8-1.1C9.2 6.4 7.6 1.7 5.1 2.1Zm-.2 10.5.5 2.3c.3 1.5 1.5 2.4 2.7 2.1 1.2-.3 1.7-1.7 1.4-3.2L9 11.6Zm13.8-4.5c-2.5-.4-4.1 4.3-4 7.8l4.8 1.1c1.4-3.5 1.5-8.5-.8-8.9Zm-4 9.5-.5 2.2c-.3 1.5.2 2.9 1.4 3.2 1.2.3 2.4-.6 2.7-2.1l.5-2.3Z"/></svg>'],
-    ['damage', 'Урон', '<svg class="reference-damage-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path transform="rotate(-45 12 12)" d="m12 2 2 3v10h2v2h-3v4h1v2h-4v-2h1v-4H8v-2h2V5Z"/></svg>'],
-    ['range', 'Дальность атаки', '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm0 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z"/><path d="M10.75 1h2.5v6h-2.5Zm0 16h2.5v6h-2.5ZM1 10.75h6v2.5H1Zm16 0h6v2.5h-6Z"/><circle cx="12" cy="12" r="2"/></svg>'],
-    ['fortitude', 'Стойкость', '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="m12 2 8 3v6c0 5-4 8-8 11-4-3-8-6-8-11V5Zm-1 4v3H8v2h3v6h2v-6h3V9h-3V6Z"/></svg>']
-  ];
-  const headings = statIcons.map(([field, label, image]) => `<th scope="col" aria-label="${label}"><span class="reference-stat" tabindex="0" aria-label="${label}" aria-describedby="reference-stat-${field}-hint">${image}<span class="reference-stat-hint" role="tooltip" id="reference-stat-${field}-hint">${label}</span></span></th>`).join('');
+  const headings = Object.entries(statLabels).map(([field, label]) => `<th scope="col" aria-label="${label}"><span class="reference-stat" data-stat="${field}" tabindex="0" aria-label="${label}" aria-describedby="reference-stat-${field}-hint"><span class="reference-stat-hint" role="tooltip" id="reference-stat-${field}-hint">${label}</span></span></th>`).join('');
   return '<table class="unit-reference-table"><thead><tr><th scope="col">Фигура</th>' + headings + '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 function matchResult(position) {

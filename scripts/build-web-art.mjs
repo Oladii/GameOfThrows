@@ -58,9 +58,10 @@ export async function buildWebArt(root) {
     await Promise.all(directories.map(dir => fs.writeFile(path.join(dir, filename), bytes)));
     return './art/' + filename;
   }
-  async function variants(name, input, cssWidth) {
+  async function variants(name, input, cssWidth, firstDensity) {
     const meta = await sharp(input, { animated: true }).metadata();
     const urls = [], seen = new Map();
+    if (firstDensity) seen.set(cssWidth, await write(name + '-' + cssWidth, 'png', firstDensity));
     for (const density of [1, 2, 3]) {
       const width = Math.min(meta.width, cssWidth * density);
       if (!seen.has(width)) {
@@ -72,8 +73,9 @@ export async function buildWebArt(root) {
     return urls;
   }
   const brands = {};
+  const logoAtOneDensity = await fs.readFile(path.join(root, 'mobile/art/logo.png'));
   for (const [name, filename, cssWidth] of brand) {
-    brands[name] = await variants(name, await fs.readFile(path.join(root, 'dist/brand', filename)), cssWidth);
+    brands[name] = await variants(name, await fs.readFile(path.join(root, 'dist/brand', filename)), cssWidth, name === 'logo' ? logoAtOneDensity : undefined);
   }
   const tokens = {};
   for (const [name, source] of Object.entries(TOKEN_ART)) {

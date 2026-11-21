@@ -63,7 +63,9 @@ const webCss = css.replace(controlIconPath, file => iconUrls.get(file));
 const web = assemble(webPage(publicHtml).replace(faviconSource, graphics.favicon), webCss, graphics.tokenModule);
 const controlFont = await interFontCss('Board Controls Inter');
 const withControlFont = page => page.replace('</head>', () => `<style id="board-control-font">${controlFont}</style>\n</head>`);
-const offlineHtml = publicHtml.replace(brandTag, '$1 src="' + await dataUrl('brand/bitva-znamen.png', 'image/png') + '"')
+const offlineLogo = await dataUrl(graphics.logoFallback.slice(2), 'image/png');
+const offlineLogoHiDpi = await dataUrl('brand/bitva-znamen.png', 'image/png');
+const offlineHtml = publicHtml.replace(brandTag, `$1 src="${offlineLogo}" srcset="${offlineLogoHiDpi} 2x"`)
   .replace(faviconSource, await dataUrl('token-art/bullseye.svg', 'image/svg+xml'));
 let offlineCss = webCss;
 for (const file of ['team-red.png', 'team-blue.png', 'advisor.webp', 'advisor.png']) {
