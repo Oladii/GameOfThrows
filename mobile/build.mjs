@@ -46,26 +46,27 @@ async function inlinePreviewFlags() {
 }
 
 export async function mobilePage(web, { preview = false } = {}) {
-  const iconNames = ['match-back', 'bulb', 'arrow-left-curved', 'arrow-left-inc', 'arrow-right-inc', 'close', 'chevron-left', 'chevron-down'];
+  const iconNames = ['match-back', 'bulb', 'arrow-left-curved', 'arrow-left-inc', 'arrow-right-inc', 'close', 'chevron-left', 'chevron-down', 'chevron-up', 'option-check'];
   const [css, controller, fontCss, icons, flags, artwork] = await Promise.all([
     read('mobile.css', 'utf8'), read('mobile.js', 'utf8'), interFontCss(),
     Promise.all(iconNames.map(name => assetUrl(`icons/${name}.svg`, 'image/svg+xml'))),
     preview ? inlinePreviewFlags() : [],
     Promise.all(['logo', 'flag-blue', 'flag-red'].map(name => assetUrl(`art/${name}.png`, 'image/png'))),
   ]);
-  const [matchBackUrl, hintUrl, undoUrl, previousUrl, nextUrl, closeUrl, roomBackUrl, selectUrl] = icons;
+  const [matchBackUrl, hintUrl, undoUrl, previousUrl, nextUrl, closeUrl, roomBackUrl, selectDown, selectUp, optionCheck] = icons;
   const [hint, undo, previous, next] = [hintUrl, undoUrl, previousUrl, nextUrl].map(url =>
-    `<span class="game-action-icon" aria-hidden="true"><img src="${url}" alt=""></span>`);
+    `<img src="${url}" width="24" height="24" alt="">`);
   const back = `<img class="match-back-icon" src="${matchBackUrl}" width="24" height="24" alt=""><img class="room-back-icon" src="${roomBackUrl}" width="24" height="24" alt="">`;
   const close = `<img src="${closeUrl}" width="24" height="24" alt="">`;
   const [homeLogo, blueFlag, redFlag] = artwork;
-  const selectIconCss = `:root{--start-select-chevron:url("${selectUrl}")}`;
+  const selectIconCss = `:root{--start-select-down:url("${selectDown}");--start-select-up:url("${selectUp}");--start-option-check:url("${optionCheck}")}`;
   const flagCss = `:root{--match-flag-blue:url("${blueFlag}");--match-flag-red:url("${redFlag}");${flags.join(';')}}`;
   let page = preview ? web : routePage(web, true);
   const change = (from, to) => { page = edit(page, from, to); };
   change('width=device-width,initial-scale=1"', 'width=device-width,initial-scale=1,viewport-fit=cover"');
   change('<meta name="theme-color" content="#fbfaf8">', '<meta name="theme-color" content="#fffefb">');
   change('</head>', `<style>\n${fontCss}\n${flagCss}\n${selectIconCss}\n${css}</style>\n</head>`);
+  page = page.replaceAll('Доступно обновление игры. Обнови вкладку, чтобы применить его', 'Доступно обновление игры. Обновите вкладку, чтобы применить его');
   change('#board .cell.move-destination .tile{fill:', '#board .cell:is(.selected,.mobile-origin,.move-destination) .tile{fill:');
   page = page.replace(/(\.cell(?:\.(?:reachable|selected|movement-range))?):hover \.tile/g, '$1.mobile-hover-unused .tile');
   // Room navigation stays reachable while players are choosing their sides.
@@ -95,6 +96,14 @@ export async function mobilePage(web, { preview = false } = {}) {
     <header class="guide-toolbar"><h1 id="guide-title">Обучение</h1><button id="guide-back" class="icon-button" type="button" aria-label="Закрыть обучение">${close}</button></header>
     `);
   change('aria-label="Цель игры"></div>\n    </section>\n  </section>', 'aria-label="Цель игры"></div>\n  </section>');
+  change('Уничтожь вражеское знамя и не потеряй своё', 'Уничтожь вражеское знамя и не потеряй своё');
+  change('Показывать своим фишкам кого бить — не надо', 'Показывать своим фишкам кого бить — не надо');
+  change('Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход', 'Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход');
+  change('<p><strong>Слева — урон:</strong> сколько урона наносит фигура<br><strong>Справа — полная стойкость:</strong> с усилениями союзников, без вычитания урона<br><strong>Сверху — под угрозой:</strong> при выборе и наведении показан входящий урон; смертельная угроза отмечается черепом</p>', `<div class="badge-guide-copy">
+    <p><strong>Слева — Урон</strong><br>Сколько урона наносит фигура</p>
+    <p><strong>Справа — Стойкость</strong><br>Сколько урона выдержит фигура</p>
+    <p><strong>Сверху — Угрозы</strong><br>Сколько урона нанесут фигуре в конце хода</p>
+  </div>`);
   change('    <div class="lesson-scene training-card">\n    <div class="training-layout"><div class="showcase-field">', '    <div class="showcase-field">');
   change('    </div></div></section>`;', '    </section>`;');
   change('[data-onboarding-step], .showcase-board, .close-dialog', '[data-onboarding-step], .showcase-board, .close-dialog, #guide-back');

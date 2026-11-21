@@ -1,5 +1,5 @@
-<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="17.8969" height="13.4484" viewBox="0 0 17.8969 13.4484" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="arrow-left-curved">
-<path id="icon" d="M7.94531 1.69687L4.59374 5.04844H11.8969C15.2106 5.04844 17.8969 7.73476 17.8969 11.0484V13.4484H15.4969V11.0484C15.4969 9.06016 13.8852 7.44844 11.8969 7.44844H4.59374L7.94531 10.8L6.24844 12.4968L0 6.24844L6.24844 0L7.94531 1.69687Z" fill="#4F422E"/>
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Fixer">
+<path id="PaintMe" d="M10.4482 6.24805L7.09668 9.59961H14.4004C17.7138 9.59982 20.4002 12.2862 20.4004 15.5996V18H18V15.5996C17.9998 13.6116 16.3884 12.0002 14.4004 12H7.09668L10.4482 15.3516L8.75195 17.0488L2.50293 10.7998L8.75195 4.55176L10.4482 6.24805Z" fill="#4F422E"/>
 </g>
 </svg>

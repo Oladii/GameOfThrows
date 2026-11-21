@@ -1179,7 +1179,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.125</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-21T12:19:23.009Z">Сборка 21.11.2026, 15:19:23 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.126</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-21T18:20:58.333Z">Сборка 21.11.2026, 21:20:58 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -4705,12 +4705,20 @@ function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}, rende
   const counts = [0, 1].map(team => position.pieces.filter(piece => piece.team === team).length);
   const advicePly = battle.presentation?.before.ply ?? viewedPly;
   const advice = (battle.copy||TRAINING_COPY)[Math.min((battle.copy||TRAINING_COPY).length-1, advicePly)];
+  let control = '';
+  if (battle.presentation?.phase === 'awaiting-combat') {
+    control = '<button class="button primary" type="button" data-showcase-action="continue">Дальше</button>';
+  } else if (battle.sceneKey && viewedPly > 0) {
+    control = '<button class="button outline" type="button" data-showcase-action="restart">Вернуть исходную позицию</button>';
+  } else if (!battle.sceneKey && battle.position.winner !== null) {
+    control = '<button class="button primary training-restart" type="button" data-showcase-action="restart">Сыграть ещё раз</button>';
+  }
   const markup = `<section class="showcase-scene training-scene" style="--training-arrow-outline:url(#${battle.sceneKey||'training'}-damage-arrow-outline)" data-showcase-battle="${battle.sceneKey||'main'}" data-phase="${battle.phase}" data-ply="${viewedPly}" aria-labelledby="showcase-title">
     <h3 id="showcase-title">${battle.title||'Учебный бой'}</h3>${battle.description?`<p class="training-description">${battle.description}</p>`:''}
     <div class="lesson-scene training-card">
     <div class="training-layout"><div class="showcase-field">
       <svg class="lesson-board showcase-board" data-combat-phase="${battle.presentation?.phase || 'idle'}" viewBox="${minX} ${minY} ${width} ${height}" role="group" aria-label="${battle.title||'Учебный бой'}. 37 клеток. Синие: ${counts[0]} фигур. Красные: ${counts[1]} фигур.">${defs}${tiles}<g id="training-overlays" pointer-events="none"><g clip-path="url(#training-field-clip)">${auras}</g>${reach.markup}</g><g id="training-units">${pieces}</g><g id="training-effects" pointer-events="none"><g class="attack-lines">${damageArrows}</g>${movement}${deathEffects}${guide}</g></svg>
-      </div><aside class="lesson-details training-advice" id="training-advice" aria-label="Подсказка к учебному бою" aria-live="polite">${advice.map(text => `<p>${text}</p>`).join('')}${battle.presentation?.phase==='awaiting-combat'?'<div class="unit-demo-controls"><button class="button primary" type="button" data-showcase-action="continue">Дальше</button></div>':battle.sceneKey?'<div class="unit-demo-controls"><button class="button outline" type="button" data-showcase-action="restart">Вернуть исходную позицию</button></div>':battle.position.winner!==null?'<div class="unit-demo-controls"><button class="button primary training-restart" type="button" data-showcase-action="restart">Сыграть ещё раз</button></div>':''}</aside>
+      </div><aside class="lesson-details training-advice" id="training-advice" aria-label="Подсказка к учебному бою" aria-live="polite">${advice.map(text => `<p>${text}</p>`).join('')}${control ? `<div class="unit-demo-controls">${control}</div>` : ''}</aside>
     </div></div></section>`;
   // All SVG references and update targets stay local when several battles share a page.
   return battle.sceneKey?markup.replace(/(id="|url\(#)training-/g,`$1${battle.sceneKey}-`).replaceAll('showcase-title',`${battle.sceneKey}-title`).replaceAll('hint-arrow-head',`${battle.sceneKey}-hint-arrow-head`):markup.replaceAll('hint-arrow-head','training-hint-arrow-head');

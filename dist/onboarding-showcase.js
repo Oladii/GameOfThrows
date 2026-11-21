@@ -325,12 +325,20 @@ export function renderShowcaseBattle(battle = createShowcaseBattle(), icons = {}
   const counts = [0, 1].map(team => position.pieces.filter(piece => piece.team === team).length);
   const advicePly = battle.presentation?.before.ply ?? viewedPly;
   const advice = (battle.copy||TRAINING_COPY)[Math.min((battle.copy||TRAINING_COPY).length-1, advicePly)];
+  let control = '';
+  if (battle.presentation?.phase === 'awaiting-combat') {
+    control = '<button class="button primary" type="button" data-showcase-action="continue">Дальше</button>';
+  } else if (battle.sceneKey && viewedPly > 0) {
+    control = '<button class="button outline" type="button" data-showcase-action="restart">Вернуть исходную позицию</button>';
+  } else if (!battle.sceneKey && battle.position.winner !== null) {
+    control = '<button class="button primary training-restart" type="button" data-showcase-action="restart">Сыграть ещё раз</button>';
+  }
   const markup = `<section class="showcase-scene training-scene" style="--training-arrow-outline:url(#${battle.sceneKey||'training'}-damage-arrow-outline)" data-showcase-battle="${battle.sceneKey||'main'}" data-phase="${battle.phase}" data-ply="${viewedPly}" aria-labelledby="showcase-title">
     <h3 id="showcase-title">${battle.title||'Учебный бой'}</h3>${battle.description?`<p class="training-description">${battle.description}</p>`:''}
     <div class="lesson-scene training-card">
     <div class="training-layout"><div class="showcase-field">
       <svg class="lesson-board showcase-board" data-combat-phase="${battle.presentation?.phase || 'idle'}" viewBox="${minX} ${minY} ${width} ${height}" role="group" aria-label="${battle.title||'Учебный бой'}. 37 клеток. Синие: ${counts[0]} фигур. Красные: ${counts[1]} фигур.">${defs}${tiles}<g id="training-overlays" pointer-events="none"><g clip-path="url(#training-field-clip)">${auras}</g>${reach.markup}</g><g id="training-units">${pieces}</g><g id="training-effects" pointer-events="none"><g class="attack-lines">${damageArrows}</g>${movement}${deathEffects}${guide}</g></svg>
-      </div><aside class="lesson-details training-advice" id="training-advice" aria-label="Подсказка к учебному бою" aria-live="polite">${advice.map(text => `<p>${text}</p>`).join('')}${battle.presentation?.phase==='awaiting-combat'?'<div class="unit-demo-controls"><button class="button primary" type="button" data-showcase-action="continue">Дальше</button></div>':battle.sceneKey?'<div class="unit-demo-controls"><button class="button outline" type="button" data-showcase-action="restart">Вернуть исходную позицию</button></div>':battle.position.winner!==null?'<div class="unit-demo-controls"><button class="button primary training-restart" type="button" data-showcase-action="restart">Сыграть ещё раз</button></div>':''}</aside>
+      </div><aside class="lesson-details training-advice" id="training-advice" aria-label="Подсказка к учебному бою" aria-live="polite">${advice.map(text => `<p>${text}</p>`).join('')}${control ? `<div class="unit-demo-controls">${control}</div>` : ''}</aside>
     </div></div></section>`;
   // All SVG references and update targets stay local when several battles share a page.
   return battle.sceneKey?markup.replace(/(id="|url\(#)training-/g,`$1${battle.sceneKey}-`).replaceAll('showcase-title',`${battle.sceneKey}-title`).replaceAll('hint-arrow-head',`${battle.sceneKey}-hint-arrow-head`):markup.replaceAll('hint-arrow-head','training-hint-arrow-head');

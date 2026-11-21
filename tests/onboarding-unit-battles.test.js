@@ -18,15 +18,22 @@ function setup(sceneKey, reducedMotion=true) {
   return {battle,timers,frames,settle,advance,play};
 }
 
-test('all unit demos use the training battle renderer and only a reset control',()=>{
+test('all unit demos reveal only a reset control once a move has been made',()=>{
   const html=renderUnitExamples({}, {}, renderUnitBadges);
   for(const sceneKey of UNIT_BATTLE_SCENES){
     const markup=renderShowcaseBattle(createUnitBattle(sceneKey),{},renderUnitBadges);
     assert.match(html,new RegExp(`data-showcase-battle="${sceneKey}"`));
     assert.doesNotMatch(html,new RegExp(`data-lesson-scene="${sceneKey}"`));
-    assert.deepEqual([...markup.matchAll(/data-showcase-action="([^"]+)"/g)].map(m=>m[1]),['restart']);
-    assert.match(markup,/Вернуть исходную позицию/);
-    assert.match(markup,/unit-demo-controls/);
+    assert.doesNotMatch(markup,/data-showcase-action|unit-demo-controls/);
+    const { battle, play } = setup(sceneKey);
+    battle.selectPiece(battle.expectedAction.id);
+    assert.doesNotMatch(renderShowcaseBattle(battle, {}, renderUnitBadges), /data-showcase-action/);
+    play();
+    const afterMove = renderShowcaseBattle(battle, {}, renderUnitBadges);
+    assert.deepEqual([...afterMove.matchAll(/data-showcase-action="([^"]+)"/g)].map(m => m[1]), ['restart']);
+    assert.match(afterMove, /Вернуть исходную позицию/);
+    battle.restart();
+    assert.doesNotMatch(renderShowcaseBattle(battle, {}, renderUnitBadges), /data-showcase-action/);
     assert.match(markup,new RegExp(`id="${sceneKey}-effects"`));
     assert.match(markup,new RegExp(`id="${sceneKey}-damage-arrow-north"`));
     assert.doesNotMatch(markup,/id="training-|url\(#training-/);
