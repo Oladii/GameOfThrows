@@ -37,7 +37,8 @@ function syncMobileBoard() {
     if (aura.rangeBonus) bonuses.push('+' + aura.rangeBonus + ' к дальности лукарей');
   }
   const caption = $('#aura-caption');
-  const description = bonuses.length ? `Аура ${auraOwners[piece.type]} даёт ${bonuses.join(', ')}` : '';
+  const bonusText = bonuses.length < 2 ? bonuses[0] : `${bonuses.slice(0, -1).join(', ')} и ${bonuses.at(-1)}`;
+  const description = bonuses.length ? `Аура ${auraOwners[piece.type]} даёт ${bonusText}` : '';
   if (caption.textContent !== description) caption.textContent = description;
 }
 function mobileTap(q,r) {
@@ -78,7 +79,7 @@ function renderMobileTurn(position, result) {
     detail = {flag: 'Уничтожено знамя', combat: 'Уничтожены войска', all: 'Уничтожены войска'}[result.lossKind] ?? result.reason;
   } else {
     const ownTurn = position.turn === player;
-    title = reviewingTurn ? combat ? 'Бой' : 'История' : ownTurn ? 'Ваш ход' : position.turn === 0 ? 'Ход синих' : 'Ход красных';
+    title = reviewingTurn ? combat ? 'Бой' : 'История' : ownTurn ? 'Ваш ход' : position.turn === 0 ? 'Ход Синих' : 'Ход Красных';
     const actor = !reviewingTurn && !ownTurn && playMode === 'bot'
       ? BOT_DIFFICULTIES[botDifficulty].label + (botDifficulty === 'hard' ? '' : ' бот')
       : TEAM_NAMES[position.turn];
@@ -225,7 +226,6 @@ function menuPage(title,html) {
   $('#mobile-close').focus();
 }
 const mobileHome = $('#mobile-home');
-mobileHome.querySelector('.home-actions').prepend($('.brand-logo').cloneNode(true));
 function syncMobileHome() {
   const canContinue = gamePhase === 'playing' || playMode === 'online' || Boolean(previousGame);
   $('#home-continue').hidden = !canContinue;
