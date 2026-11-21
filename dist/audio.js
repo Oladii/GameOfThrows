@@ -5,6 +5,7 @@ const VOLUME_PREFERENCE = 'game-of-trows-volume-v1';
 const silentSound = () => {};
 // Overall listening level, independent of the balance between individual cues.
 export const GAME_MASTER_GAIN = 4.5;
+export const CONTROL_SOUND_GAIN = .5;
 // Quiet, damped table sounds with subdued movement and short interface ticks.
 export const GAME_SOUND_PROFILES = {
   defeat: { gain: 1 / GAME_MASTER_GAIN, dry: true },
@@ -22,9 +23,8 @@ export const GAME_SOUND_PROFILES = {
   scatter: { gain: 1 / GAME_MASTER_GAIN, dry: true, immediate: true }
 };
 
-// Decode the tiny embedded PCM16 cues synchronously on the first user gesture.
-// This avoids losing the first knock while unrelated sounds decodeAudioData.
-function tableKnockWavBuffer(context, bytes) {
+// Decode immediate PCM16 cues without waiting for unrelated sounds.
+function pcm16WavBuffer(context, bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const tag = offset => String.fromCharCode(...bytes.subarray(offset, offset + 4));
   if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
@@ -75,6 +75,7 @@ export function bindButtonSounds(root, audio, defer = callback => setTimeout(cal
   };
   const selectTrigger = '[data-slot="select-trigger"]';
   const openingSelects = new WeakSet();
+  const controlSound = { gainScale: CONTROL_SOUND_GAIN };
   function playActivation(button) {
     const opensSelect = button.matches(selectTrigger);
     if (opensSelect) {
@@ -84,13 +85,13 @@ export function bindButtonSounds(root, audio, defer = callback => setTimeout(cal
     // Play after the action so a transition that stops the game's sounds cannot swallow its own click.
     defer(() => {
       if (opensSelect) openingSelects.delete(button);
-      if (!opensSelect || button.getAttribute('aria-expanded') === 'true') audio.click(button);
+      if (!opensSelect || button.getAttribute('aria-expanded') === 'true') audio.click(button, controlSound);
     });
   }
   root.addEventListener('pointerover', event => {
     if (!event.isTrusted || event.pointerType === 'touch') return;
     const button = enabledButton(event.target);
-    if (button && button !== buttonAt(event.relatedTarget)) audio.hover(button);
+    if (button && button !== buttonAt(event.relatedTarget)) audio.hover(button, controlSound);
   }, true);
   root.addEventListener('pointerout', event => {
     if (!event.isTrusted || event.pointerType === 'touch') return;
@@ -134,32 +135,39 @@ export class GameAudio {
       }
     } catch {}
   }
-  // Called in a user gesture. Never create an audio context on page load.
-  unlock() {
+  prepare() {
     if (!this.enabled || this.hidden()) return Promise.resolve();
+    if (this.loading) return this.loading;
     try {
       this.context ||= this.createContext();
-      const resumed = this.context.state !== 'running' ? this.context.resume().catch(() => {}) : Promise.resolve();
-      this.resuming = resumed;
       if (typeof this.context.createBuffer === 'function') {
-        for (const name of ['knock1', 'knock2', 'knock3', 'scatter']) {
+        for (const name of ['click', 'hover', 'knock1', 'knock2', 'knock3', 'scatter']) {
           if (this.buffers[name] || !this.assets[name]) continue;
           try {
             const bytes = Uint8Array.from(atob(this.assets[name].split(',')[1]), char => char.charCodeAt(0));
-            const buffer = tableKnockWavBuffer(this.context, bytes);
+            const buffer = pcm16WavBuffer(this.context, bytes);
             if (buffer) this.buffers[name] = buffer;
           } catch { /* Fall back to the normal decoder if PCM decoding fails. */ }
         }
       }
-      this.loading ||= Promise.all(Object.entries(this.assets).map(async ([name, data]) => {
+      this.loading = Promise.all(Object.entries(this.assets).map(async ([name, data]) => {
         if (this.buffers[name]) return;
         try {
           const bytes = Uint8Array.from(atob(data.split(',')[1]), char => char.charCodeAt(0));
           this.buffers[name] = await this.context.decodeAudioData(bytes.buffer);
         } catch { /* A missing sound must never interrupt a move. */ }
       }));
-      return Promise.all([resumed, this.loading]);
+      return this.loading;
     } catch { return Promise.resolve(); }
+  }
+  unlock() {
+    if (!this.enabled || this.hidden()) return Promise.resolve();
+    const loading = this.prepare();
+    try {
+      const context = this.context;
+      this.resuming = context && context.state !== 'running' ? context.resume().catch(() => {}) : Promise.resolve();
+      return Promise.all([this.resuming, loading]);
+    } catch { this.resuming = Promise.resolve(); return loading; }
   }
   setEnabled(enabled) {
     this.enabled = Boolean(enabled);
@@ -247,7 +255,7 @@ export class GameAudio {
     else void this.unlock().then(start).catch(cleanup);
     return stop;
   }
-  click(target, { silent = false, soft = false } = {}) {
+  click(target, { silent = false, soft = false, gainScale = 1 } = {}) {
     // Remember the clicked cell or button, including across a board redraw.
     if (target !== undefined) this.hoverKey = target;
     if (silent) {
@@ -257,16 +265,16 @@ export class GameAudio {
     if (this.now() - this.lastClick < 35) return;
     this.lastClick = this.now(); this.lastHover = this.now();
     this.hoverVoice(); this.clickVoice();
-    this.clickVoice = this.play('click', { gainScale: soft ? .5 : 1 });
+    this.clickVoice = this.play('click', { gainScale: gainScale * (soft ? .5 : 1) });
   }
-  hover(target) {
+  hover(target, { gainScale = 1 } = {}) {
     if (target === this.hoverKey) return;
     this.hoverKey = target;
     // Hover never unlocks audio, queues delayed ticks, or replays missed targets.
     if (!target || !this.enabled || this.hidden() || this.context?.state !== 'running'
       || !this.buffers.hover || this.now() - this.lastHover < 65) return;
     this.lastHover = this.now();
-    this.hoverVoice(); this.hoverVoice = this.play('hover');
+    this.hoverVoice(); this.hoverVoice = this.play('hover', { gainScale });
   }
   movement(route, pieces, durationMs, { instant = false } = {}) {
     const kind = movementSoundKind(route, pieces), epoch = this.epoch;

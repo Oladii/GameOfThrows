@@ -63,7 +63,10 @@ test('all sounds use their own attenuation and damping profiles', async () => {
 function buttonAudioHarness() {
   const listeners = new Map(), pending = [], calls = [];
   const root = { addEventListener(type, listener, capture) { assert.equal(capture, true); listeners.set(type, listener); } };
-  bindButtonSounds(root, { hover: button => calls.push(['hover', button]), click: button => calls.push(['click', button]) }, callback => pending.push(callback));
+  bindButtonSounds(root, {
+    hover: (button, options) => calls.push(['hover', button, options?.gainScale]),
+    click: (button, options) => calls.push(['click', button, options?.gainScale])
+  }, callback => pending.push(callback));
   return {
     calls,
     fire(type, target, event) { listeners.get(type)({ isTrusted: true, target, button: 0, pointerType: 'mouse', ...event }); },
@@ -99,9 +102,9 @@ test('button audio delegates activation, ignores touch hover and leaves board so
   h.fire('pointerover', button, { pointerType: 'touch' });
   h.fire('click', child, { pointerType: 'touch' });
   button.disabled = true;
-  assert.deepEqual(h.calls, [['hover', button], ['hover', null]]);
+  assert.deepEqual(h.calls, [['hover', button, .5], ['hover', null, undefined]]);
   h.flush();
-  assert.deepEqual(h.calls, [['hover', button], ['hover', null], ['click', button]]);
+  assert.deepEqual(h.calls, [['hover', button, .5], ['hover', null, undefined], ['click', button, .5]]);
 });
 
 test('select triggers play once when opened with a mouse, keyboard or touch', () => {
@@ -121,7 +124,41 @@ test('select triggers play once when opened with a mouse, keyboard or touch', ()
   h.fire('click', button, { pointerType: 'touch' });
   button.expanded = true;
   h.flush();
-  assert.deepEqual(h.calls, Array.from({ length: 3 }, () => ['click', button]));
+  assert.deepEqual(h.calls, Array.from({ length: 3 }, () => ['click', button, .5]));
+});
+
+test('preparing audio only enables pre-click hover if the browser is already running audio', async () => {
+  const allowed = harness();
+  await allowed.audio.prepare();
+  assert.equal(allowed.starts.length, 0);
+  allowed.audio.hover('board:0,0');
+  assert.equal(allowed.starts.length, 1);
+
+  const blocked = harness();
+  blocked.context.state = 'suspended';
+  await blocked.audio.prepare();
+  blocked.audio.hover('board:0,0');
+  assert.equal(blocked.context.state, 'suspended');
+  assert.equal(blocked.starts.length, 0);
+  await blocked.audio.unlock();
+  assert.equal(blocked.starts.length, 0, 'a missed hover is not replayed');
+  blocked.audio.click('board:0,0');
+  assert.equal(blocked.starts.length, 1);
+});
+
+test('controls use half the gain of the matching board cues at the selected volume', async () => {
+  const h = harness();
+  await h.audio.prepare();
+  h.audio.setVolume(.25);
+  for (const cue of ['hover', 'click']) {
+    h.tick(100);
+    h.audio[cue]('board:0,0');
+    const boardGain = h.gains.at(-1);
+    h.tick(100);
+    h.audio[cue]('control', { gainScale: .5 });
+    assert.ok(boardGain > 0);
+    assert.equal(h.gains.at(-1), boardGain * .5);
+  }
 });
 
 test('hover ticks only on cell changes, with no autoplay, repeat or catch-up', async () => {

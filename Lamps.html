@@ -1003,6 +1003,9 @@ main{padding:14px}
 .arena-column>.arena-top{height:auto;min-height:20px;padding:0 10px}
 .arena-top .move-counter{font-size:13px;font-weight:600;line-height:20px;color:#66502c}
 @media(min-width:1001px){
+body:not(.mobile-game,.guide-open){height:100dvh;display:flex;flex-direction:column}
+body:not(.mobile-game,.guide-open)>main{flex:1;min-height:0;width:100%;margin:0 auto;overflow:auto}
+body:not(.mobile-game,.guide-open)>main>.workspace{height:100%;--game-height:100%}
 .arena-column{height:var(--game-height);min-height:522px}
 .arena-column>.arena{height:auto;min-height:0;flex:1}
 }
@@ -1176,7 +1179,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.123</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-20T23:43:35.290Z">Сборка 21.11.2026, 02:43:35 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.124</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-21T00:39:44.457Z">Сборка 21.11.2026, 03:39:44 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -3584,6 +3587,7 @@ const VOLUME_PREFERENCE = 'game-of-trows-volume-v1';
 const silentSound = () => {};
 // Overall listening level, independent of the balance between individual cues.
 const GAME_MASTER_GAIN = 4.5;
+const CONTROL_SOUND_GAIN = .5;
 // Quiet, damped table sounds with subdued movement and short interface ticks.
 const GAME_SOUND_PROFILES = {
   defeat: { gain: 1 / GAME_MASTER_GAIN, dry: true },
@@ -3601,9 +3605,8 @@ const GAME_SOUND_PROFILES = {
   scatter: { gain: 1 / GAME_MASTER_GAIN, dry: true, immediate: true }
 };
 
-// Decode the tiny embedded PCM16 cues synchronously on the first user gesture.
-// This avoids losing the first knock while unrelated sounds decodeAudioData.
-function tableKnockWavBuffer(context, bytes) {
+// Decode immediate PCM16 cues without waiting for unrelated sounds.
+function pcm16WavBuffer(context, bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const tag = offset => String.fromCharCode(...bytes.subarray(offset, offset + 4));
   if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
@@ -3654,6 +3657,7 @@ function bindButtonSounds(root, audio, defer = callback => setTimeout(callback, 
   };
   const selectTrigger = '[data-slot="select-trigger"]';
   const openingSelects = new WeakSet();
+  const controlSound = { gainScale: CONTROL_SOUND_GAIN };
   function playActivation(button) {
     const opensSelect = button.matches(selectTrigger);
     if (opensSelect) {
@@ -3663,13 +3667,13 @@ function bindButtonSounds(root, audio, defer = callback => setTimeout(callback, 
     // Play after the action so a transition that stops the game's sounds cannot swallow its own click.
     defer(() => {
       if (opensSelect) openingSelects.delete(button);
-      if (!opensSelect || button.getAttribute('aria-expanded') === 'true') audio.click(button);
+      if (!opensSelect || button.getAttribute('aria-expanded') === 'true') audio.click(button, controlSound);
     });
   }
   root.addEventListener('pointerover', event => {
     if (!event.isTrusted || event.pointerType === 'touch') return;
     const button = enabledButton(event.target);
-    if (button && button !== buttonAt(event.relatedTarget)) audio.hover(button);
+    if (button && button !== buttonAt(event.relatedTarget)) audio.hover(button, controlSound);
   }, true);
   root.addEventListener('pointerout', event => {
     if (!event.isTrusted || event.pointerType === 'touch') return;
@@ -3713,32 +3717,39 @@ class GameAudio {
       }
     } catch {}
   }
-  // Called in a user gesture. Never create an audio context on page load.
-  unlock() {
+  prepare() {
     if (!this.enabled || this.hidden()) return Promise.resolve();
+    if (this.loading) return this.loading;
     try {
       this.context ||= this.createContext();
-      const resumed = this.context.state !== 'running' ? this.context.resume().catch(() => {}) : Promise.resolve();
-      this.resuming = resumed;
       if (typeof this.context.createBuffer === 'function') {
-        for (const name of ['knock1', 'knock2', 'knock3', 'scatter']) {
+        for (const name of ['click', 'hover', 'knock1', 'knock2', 'knock3', 'scatter']) {
           if (this.buffers[name] || !this.assets[name]) continue;
           try {
             const bytes = Uint8Array.from(atob(this.assets[name].split(',')[1]), char => char.charCodeAt(0));
-            const buffer = tableKnockWavBuffer(this.context, bytes);
+            const buffer = pcm16WavBuffer(this.context, bytes);
             if (buffer) this.buffers[name] = buffer;
           } catch { /* Fall back to the normal decoder if PCM decoding fails. */ }
         }
       }
-      this.loading ||= Promise.all(Object.entries(this.assets).map(async ([name, data]) => {
+      this.loading = Promise.all(Object.entries(this.assets).map(async ([name, data]) => {
         if (this.buffers[name]) return;
         try {
           const bytes = Uint8Array.from(atob(data.split(',')[1]), char => char.charCodeAt(0));
           this.buffers[name] = await this.context.decodeAudioData(bytes.buffer);
         } catch { /* A missing sound must never interrupt a move. */ }
       }));
-      return Promise.all([resumed, this.loading]);
+      return this.loading;
     } catch { return Promise.resolve(); }
+  }
+  unlock() {
+    if (!this.enabled || this.hidden()) return Promise.resolve();
+    const loading = this.prepare();
+    try {
+      const context = this.context;
+      this.resuming = context && context.state !== 'running' ? context.resume().catch(() => {}) : Promise.resolve();
+      return Promise.all([this.resuming, loading]);
+    } catch { this.resuming = Promise.resolve(); return loading; }
   }
   setEnabled(enabled) {
     this.enabled = Boolean(enabled);
@@ -3826,7 +3837,7 @@ class GameAudio {
     else void this.unlock().then(start).catch(cleanup);
     return stop;
   }
-  click(target, { silent = false, soft = false } = {}) {
+  click(target, { silent = false, soft = false, gainScale = 1 } = {}) {
     // Remember the clicked cell or button, including across a board redraw.
     if (target !== undefined) this.hoverKey = target;
     if (silent) {
@@ -3836,16 +3847,16 @@ class GameAudio {
     if (this.now() - this.lastClick < 35) return;
     this.lastClick = this.now(); this.lastHover = this.now();
     this.hoverVoice(); this.clickVoice();
-    this.clickVoice = this.play('click', { gainScale: soft ? .5 : 1 });
+    this.clickVoice = this.play('click', { gainScale: gainScale * (soft ? .5 : 1) });
   }
-  hover(target) {
+  hover(target, { gainScale = 1 } = {}) {
     if (target === this.hoverKey) return;
     this.hoverKey = target;
     // Hover never unlocks audio, queues delayed ticks, or replays missed targets.
     if (!target || !this.enabled || this.hidden() || this.context?.state !== 'running'
       || !this.buffers.hover || this.now() - this.lastHover < 65) return;
     this.lastHover = this.now();
-    this.hoverVoice(); this.hoverVoice = this.play('hover');
+    this.hoverVoice(); this.hoverVoice = this.play('hover', { gainScale });
   }
   movement(route, pieces, durationMs, { instant = false } = {}) {
     const kind = movementSoundKind(route, pieces), epoch = this.epoch;
@@ -5552,7 +5563,7 @@ function setSoundScaleOpen(open, restoreFocus = false) {
 renderSoundButton();
 soundButton.addEventListener('click', () => setSoundScaleOpen(soundScale.hidden, true));
 soundVolume.addEventListener('input', () => { gameAudio.setVolume(Number(soundVolume.value) / 100); renderSoundButton(); });
-soundVolume.addEventListener('change', () => gameAudio.play('click'));
+soundVolume.addEventListener('change', () => gameAudio.play('click', { gainScale: CONTROL_SOUND_GAIN }));
 soundControl.addEventListener('keydown', event => {
   if (event.key === 'Escape') { event.stopPropagation(); setSoundScaleOpen(false, true); }
 });
@@ -7093,6 +7104,7 @@ const initialRoomId = new URL(location.href).searchParams.get('room');
 if ((autoStartFreshGame || autoStartSavedBot && !freshNewGameRequested) && !initialRoomId) startGame();
 ready = true; render();
 globalThis.window?.gameSelects?.mount();
+setTimeout(() => { void gameAudio.prepare(); }, 0);
 void checkGameVersion();
 setInterval(() => { void checkGameVersion(); }, 60000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkGameVersion(); });

@@ -13,7 +13,7 @@ import { GameRecorder } from './game-archive.js';
 import { hexGridPoint, hexGridPolygon, inspectionDamageArrows, renderHintArrow, renderUnitBadges, lethalAttackPresentation, renderDamageArrows, unitStatParts, alliedBonusDetails, damageArrowMarkers, auraCircleMarkup, renderDeathEffects, renderMovingToken, unitAppearance, attackReachPresentation } from './board-presentation.js';
 import { createGuideController } from './guide-controller.js';
 import { MultiplayerSession } from './multiplayer-session.js';
-import { bindButtonSounds, GameAudio } from './audio.js';
+import { bindButtonSounds, CONTROL_SOUND_GAIN, GameAudio } from './audio.js';
 import { TableKnocks } from './table-knocks.js';
 import { TableRattle } from './table-rattle.js';
 import { BoardDrag } from './board-drag.js';
@@ -43,7 +43,7 @@ function setSoundScaleOpen(open, restoreFocus = false) {
 renderSoundButton();
 soundButton.addEventListener('click', () => setSoundScaleOpen(soundScale.hidden, true));
 soundVolume.addEventListener('input', () => { gameAudio.setVolume(Number(soundVolume.value) / 100); renderSoundButton(); });
-soundVolume.addEventListener('change', () => gameAudio.play('click'));
+soundVolume.addEventListener('change', () => gameAudio.play('click', { gainScale: CONTROL_SOUND_GAIN }));
 soundControl.addEventListener('keydown', event => {
   if (event.key === 'Escape') { event.stopPropagation(); setSoundScaleOpen(false, true); }
 });
@@ -1584,6 +1584,7 @@ const initialRoomId = new URL(location.href).searchParams.get('room');
 if ((autoStartFreshGame || autoStartSavedBot && !freshNewGameRequested) && !initialRoomId) startGame();
 ready = true; render();
 globalThis.window?.gameSelects?.mount();
+setTimeout(() => { void gameAudio.prepare(); }, 0);
 void checkGameVersion();
 setInterval(() => { void checkGameVersion(); }, 60000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkGameVersion(); });
