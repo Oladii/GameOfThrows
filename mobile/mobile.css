@@ -12,7 +12,7 @@ main .arena-column>.arena-top{position:relative;display:grid;grid-template-colum
 #home-back::before{content:"";position:absolute;inset:4px;z-index:-1;border-radius:inherit;background:var(--button-soft)}
 .mobile-game:not(.room-waiting) #home-back::before{inset:0}
 :is(.room-waiting,[data-keys]) #home-back:focus-visible::before{background:var(--mint)}
-.room-waiting .match-back-icon,body:not(.room-waiting) .room-back-icon{display:none}
+.room-waiting #home-back .match-back-icon,body:not(.room-waiting) .room-back-icon{display:none}
 .mobile-turn{display:grid;gap:2px;min-width:0;padding:8px;text-align:center;line-height:20px}
 .mobile-turn #team-name{font-size:16px;font-weight:600;color:var(--ink)}
 .mobile-turn #move-counter{margin:0;font-size:14px;font-weight:400;line-height:20px;color:var(--muted)}
@@ -39,8 +39,8 @@ main .arena-column>.arena-top{position:relative;display:grid;grid-template-colum
   .mobile-game :is(.home-actions,.board-footer) .button.subtle:hover:not(:active,:focus-visible){background:var(--tile-default)}
 }
 body.mobile-game #rules-dialog.guide-screen{position:fixed;inset:0;height:100dvh;min-height:0;display:grid;grid-template-rows:auto auto minmax(0,1fr);padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overflow:hidden;background:var(--surface)}
-.mobile-game .guide-toolbar,#start-dialog .dialog-header{display:flex;justify-content:space-between;align-items:flex-start;min-height:56px;margin:0;padding:4px 12px 4px 20px}
-.mobile-game #guide-title,#start-dialog #start-title{margin:9px 0 0;color:var(--ink);font-size:24px;font-weight:600;line-height:28px;letter-spacing:0}
+.mobile-game .guide-toolbar,#start-dialog .dialog-header{display:grid;grid-template-columns:48px minmax(0,1fr) 48px;align-items:start;gap:0;width:calc(100% - 12px);min-height:60px;margin:0;padding:8px 12px 4px}
+.mobile-game #guide-title,#start-dialog #start-title{margin:14px 0 0;padding-inline:8px;color:var(--ink);font-size:17px;font-weight:600;line-height:20px;letter-spacing:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mobile-game #guide-back,#start-dialog .close-dialog{width:48px;height:48px;backdrop-filter:blur(40px)}
 .mobile-game:not([data-keys]) :is(#guide-back,#start-dialog .close-dialog):focus-visible{background:var(--button-soft)}
 .mobile-game #guide-back img,#start-dialog .close-dialog img{display:block}
@@ -80,7 +80,7 @@ body.mobile-game #rules-dialog.guide-screen{position:fixed;inset:0;height:100dvh
 .mobile-game .training-advice .unit-demo-controls .outline:is(:hover,:focus-visible){border-color:var(--line);background:var(--mint)}
 .mobile-game .training-advice .unit-demo-controls .outline:active{border-color:var(--line);background:#e6d9c0}
 
-main .arena-column>.arena{position:relative;display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:0;flex:1;min-width:0;min-height:0;width:100%;height:auto;padding:0;border:0;border-radius:0;box-shadow:none;overflow:hidden}
+main .arena-column>.arena{position:relative;display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:0;flex:1;min-width:0;min-height:0;width:100%;height:auto;padding:8px 0 0;border:0;border-radius:0;box-shadow:none;overflow:hidden}
 #scoreboard{display:none}
 main .board-wrap{display:block;overflow:hidden;touch-action:none;align-self:stretch;min-height:0;min-width:0;width:100%;padding:0;margin:0}
 main #board{display:block;width:100%;height:100%;min-height:0;max-height:none;padding:0;touch-action:none;transform-origin:0 0;-webkit-tap-highlight-color:transparent}
