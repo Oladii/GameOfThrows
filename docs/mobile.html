@@ -759,7 +759,6 @@ to{opacity:1}}
 .arena-top[data-result="loss"] .move-counter{color:#853d31}
 .arena-top[data-result="draw"]{background:#ecece2}
 .panel-footer{display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:16px;grid-column:1/-1}
-.left-panel:has(#sidebar-overview[hidden])>.panel-footer{margin-top:auto}
 .panel-footer>.version{display:flex;flex:1;min-width:0;flex-direction:column;gap:2px;margin:0;padding:4px 0 6px;border:0;color:#817566;font-size:11px;line-height:14px;letter-spacing:0}
 .panel-footer>.version>#version-build{font-size:10px}
 #sound-toggle{width:40px;height:40px;flex:0 0 40px;padding:10px;border:0;background:var(--tile-default);color:var(--ink)}
@@ -773,7 +772,8 @@ to{opacity:1}}
 .arena-top[data-result="win"] .turn-mode{color:#66502c}
 .arena-top[data-result="loss"] .turn-mode{color:#853d31}
 @media(min-width:1001px){
-.left-panel{display:flex;flex-direction:column;height:calc(var(--game-height) + 48px);min-height:490px}
+.left-panel{display:flex;flex-direction:column;height:calc(var(--game-height) + var(--workspace-inset));min-height:490px}
+.left-panel>.panel-footer{margin-top:auto}
 .left-panel>*{flex-shrink:0}}
 @media(max-width:700px){
 .panel-footer{padding-top:12px}}
@@ -893,7 +893,7 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 /* Main game composition: controls and reference left, field right. */
 .left-panel>.brand{justify-content:center;grid-column:1/-1;margin:0 0 20px}
 .brand-logo{display:block;width:200px;height:100px;object-fit:contain}
-main{padding:24px}
+main{--workspace-inset:24px;padding:var(--workspace-inset)}
 .arena{padding:var(--arena-inset)}
 .panel-actions,.room-actions{display:flex;flex-direction:column;align-items:stretch}
 .room-actions{gap:4px}
@@ -911,12 +911,13 @@ main{padding:24px}
 .board-footer>.turn-actions{justify-content:flex-end;margin-left:auto}
 @media(min-width:701px){
 .workspace{grid-template-columns:320px minmax(0,1fr);gap:20px 16px}
-.left-panel{grid-column:1;grid-row:1;margin:-24px -16px 0 -24px;padding:24px 20px 20px}
+.left-panel{grid-column:1;grid-row:1;margin:calc(-1 * var(--workspace-inset)) -16px 0 -24px;padding:24px 20px 20px}
 .arena-column{grid-column:2;grid-row:1}
 }
 @media(min-width:1001px){
 :root{--game-height:calc(100dvh - 48px)}
-.left-panel{max-height:calc(var(--game-height) + 48px)}
+/* Align the sidebar controls with the buttons just inside the arena border. */
+.left-panel{max-height:calc(var(--game-height) + var(--workspace-inset));padding-bottom:calc(var(--arena-inset) + 1px)}
 }
 @media(max-width:700px){
 main{padding:14px}
@@ -1143,7 +1144,8 @@ html{scrollbar-gutter:auto;background:var(--surface)}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
 body.mobile-game{display:flex;flex-direction:column;height:100dvh;--mobile-soft-hover:#f2e9d7;--mobile-primary-border:#b88132;--mobile-disabled-ink:#817566}
 body>main{flex:1;min-height:0;width:100%;max-width:none;margin:0 auto;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-.mobile-game .update-notice{padding:calc(12px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 12px calc(20px + env(safe-area-inset-left));border:0;background:#e9f0e7;color:#385c40;line-height:18px}
+/* The viewport-edge banner supplies the status-bar tint in Safari. */
+.mobile-game .update-notice{position:sticky;top:0;padding:calc(12px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 12px calc(20px + env(safe-area-inset-left));border:0;background:#e9f0e7;color:#385c40;font-size:14px;line-height:18px;white-space:pre-line}
 .mobile-game .update-notice:not([hidden])+main{padding-top:0}
 main .workspace,main .arena-column{display:flex;flex-direction:column;align-items:stretch;width:100%;height:100%;min-height:0;gap:0;padding:0}
 .workspace>.left-panel,#mode-caption{display:none!important}
@@ -1307,7 +1309,8 @@ body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;po
 </style>
 </head>
 <body class="mobile-game">
-  <div id="update-notice" class="update-notice" role="status" hidden>Доступно обновление игры. Обновите вкладку, чтобы применить его</div>
+  <div id="update-notice" class="update-notice" role="status" hidden>Доступно обновление игры.
+Обновите вкладку, чтобы применить его</div>
   <main>
     <div class="workspace">
       <aside class="left-panel">
@@ -1347,7 +1350,7 @@ body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;po
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.129</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-21T23:46:36.971Z">Сборка 22.11.2026, 02:46:36 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.130</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-22T00:09:45.842Z">Сборка 22.11.2026, 03:09:45 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><button id="home-back" class="button" type="button" aria-label="На главный экран"><img class="match-back-icon" src="data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJGaXhlciI+CjxwYXRoIGlkPSJQYWludE1lIiBkPSJNMTYuMjA3IDQuNzA3MDNMOC45MTQwNiAxMkwxNi4yMDcgMTkuMjkzTDE0Ljc5MyAyMC43MDdMNi4wODU5NCAxMkwxNC43OTMgMy4yOTI5N0wxNi4yMDcgNC43MDcwM1oiIGZpbGw9IiM0RjQyMkUiLz4KPC9nPgo8L3N2Zz4K" width="24" height="24" alt=""><img class="room-back-icon" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE1LjIwNyA3LjIwNzAzTDEwLjQxNDEgMTJMMTUuMjA3IDE2Ljc5M0wxMy43OTMgMTguMjA3TDcuNTg1OTQgMTJMMTMuNzkzIDUuNzkyOTdMMTUuMjA3IDcuMjA3MDNaIiBmaWxsPSIjMDMwMzA2IiBmaWxsLW9wYWNpdHk9IjAuODgiLz4KPC9zdmc+Cg==" width="24" height="24" alt=""></button><div class="mobile-turn" role="status" aria-atomic="true"><strong id="team-name"></strong><span id="move-counter" class="move-counter"></span></div><span id="team-flag" aria-hidden="true"></span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
@@ -6520,7 +6523,7 @@ function renderUpdateNotice() {
   const pageUpdate = hasNewerGameVersion(CURRENT_GAME_VERSION, latestVersion);
   const notice = $('#update-notice');
   notice.hidden = playMode === 'online' || !(rulesUpdate || pageUpdate);
-  notice.textContent = rulesUpdate ? 'Правила игры обновлены. Начни новую партию, чтобы играть по ним' : 'Доступно обновление игры. Обновите вкладку, чтобы применить его';
+  notice.textContent = rulesUpdate ? 'Правила игры обновлены. Начни новую партию, чтобы играть по ним' : "Доступно обновление игры.\nОбновите вкладку, чтобы применить его";
 }
 async function checkGameVersion() {
   if (versionCheckPending || document.visibilityState === 'hidden') return;
@@ -7477,6 +7480,20 @@ function menuPage(title,html) {
   $('#mobile-close').focus();
 }
 const mobileHome = $('#mobile-home');
+const mobileTheme = $('meta[name="theme-color"]');
+const baseMobileTheme = mobileTheme.content;
+const mobileUpdateNotice = $('#update-notice');
+const mobileFullScreens = [mobileHome, $('#start-dialog'), $('#sheet')];
+const mobileThemeObserver = new MutationObserver(() => {
+  const showBanner = !mobileUpdateNotice.hidden && !document.body.classList.contains('guide-open')
+    && mobileFullScreens.every(dialog => !dialog.open);
+  const color = showBanner ? getComputedStyle(mobileUpdateNotice).backgroundColor : baseMobileTheme;
+  if (mobileTheme.content !== color) mobileTheme.content = color;
+});
+mobileThemeObserver.observe(mobileUpdateNotice, { attributeFilter: ['hidden'] });
+mobileThemeObserver.observe(document.body, { attributeFilter: ['class'] });
+for (const dialog of mobileFullScreens) mobileThemeObserver.observe(dialog, { attributeFilter: ['open'] });
+
 function syncMobileHome() {
   const canContinue = gamePhase === 'playing' || playMode === 'online' || Boolean(previousGame);
   $('#home-continue').hidden = !canContinue;

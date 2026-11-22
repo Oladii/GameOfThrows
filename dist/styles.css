@@ -736,7 +736,6 @@ to{opacity:1}}
 .arena-top[data-result="loss"] .move-counter{color:#853d31}
 .arena-top[data-result="draw"]{background:#ecece2}
 .panel-footer{display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:16px;grid-column:1/-1}
-.left-panel:has(#sidebar-overview[hidden])>.panel-footer{margin-top:auto}
 .panel-footer>.version{display:flex;flex:1;min-width:0;flex-direction:column;gap:2px;margin:0;padding:4px 0 6px;border:0;color:#817566;font-size:11px;line-height:14px;letter-spacing:0}
 .panel-footer>.version>#version-build{font-size:10px}
 #sound-toggle{width:40px;height:40px;flex:0 0 40px;padding:10px;border:0;background:var(--tile-default);color:var(--ink)}
@@ -750,7 +749,8 @@ to{opacity:1}}
 .arena-top[data-result="win"] .turn-mode{color:#66502c}
 .arena-top[data-result="loss"] .turn-mode{color:#853d31}
 @media(min-width:1001px){
-.left-panel{display:flex;flex-direction:column;height:calc(var(--game-height) + 48px);min-height:490px}
+.left-panel{display:flex;flex-direction:column;height:calc(var(--game-height) + var(--workspace-inset));min-height:490px}
+.left-panel>.panel-footer{margin-top:auto}
 .left-panel>*{flex-shrink:0}}
 @media(max-width:700px){
 .panel-footer{padding-top:12px}}
@@ -870,7 +870,7 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 /* Main game composition: controls and reference left, field right. */
 .left-panel>.brand{justify-content:center;grid-column:1/-1;margin:0 0 20px}
 .brand-logo{display:block;width:200px;height:100px;object-fit:contain}
-main{padding:24px}
+main{--workspace-inset:24px;padding:var(--workspace-inset)}
 .arena{padding:var(--arena-inset)}
 .panel-actions,.room-actions{display:flex;flex-direction:column;align-items:stretch}
 .room-actions{gap:4px}
@@ -888,12 +888,13 @@ main{padding:24px}
 .board-footer>.turn-actions{justify-content:flex-end;margin-left:auto}
 @media(min-width:701px){
 .workspace{grid-template-columns:320px minmax(0,1fr);gap:20px 16px}
-.left-panel{grid-column:1;grid-row:1;margin:-24px -16px 0 -24px;padding:24px 20px 20px}
+.left-panel{grid-column:1;grid-row:1;margin:calc(-1 * var(--workspace-inset)) -16px 0 -24px;padding:24px 20px 20px}
 .arena-column{grid-column:2;grid-row:1}
 }
 @media(min-width:1001px){
 :root{--game-height:calc(100dvh - 48px)}
-.left-panel{max-height:calc(var(--game-height) + 48px)}
+/* Align the sidebar controls with the buttons just inside the arena border. */
+.left-panel{max-height:calc(var(--game-height) + var(--workspace-inset));padding-bottom:calc(var(--arena-inset) + 1px)}
 }
 @media(max-width:700px){
 main{padding:14px}

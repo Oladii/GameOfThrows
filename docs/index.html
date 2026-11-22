@@ -759,7 +759,6 @@ to{opacity:1}}
 .arena-top[data-result="loss"] .move-counter{color:#853d31}
 .arena-top[data-result="draw"]{background:#ecece2}
 .panel-footer{display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:16px;grid-column:1/-1}
-.left-panel:has(#sidebar-overview[hidden])>.panel-footer{margin-top:auto}
 .panel-footer>.version{display:flex;flex:1;min-width:0;flex-direction:column;gap:2px;margin:0;padding:4px 0 6px;border:0;color:#817566;font-size:11px;line-height:14px;letter-spacing:0}
 .panel-footer>.version>#version-build{font-size:10px}
 #sound-toggle{width:40px;height:40px;flex:0 0 40px;padding:10px;border:0;background:var(--tile-default);color:var(--ink)}
@@ -773,7 +772,8 @@ to{opacity:1}}
 .arena-top[data-result="win"] .turn-mode{color:#66502c}
 .arena-top[data-result="loss"] .turn-mode{color:#853d31}
 @media(min-width:1001px){
-.left-panel{display:flex;flex-direction:column;height:calc(var(--game-height) + 48px);min-height:490px}
+.left-panel{display:flex;flex-direction:column;height:calc(var(--game-height) + var(--workspace-inset));min-height:490px}
+.left-panel>.panel-footer{margin-top:auto}
 .left-panel>*{flex-shrink:0}}
 @media(max-width:700px){
 .panel-footer{padding-top:12px}}
@@ -893,7 +893,7 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 /* Main game composition: controls and reference left, field right. */
 .left-panel>.brand{justify-content:center;grid-column:1/-1;margin:0 0 20px}
 .brand-logo{display:block;width:200px;height:100px;object-fit:contain}
-main{padding:24px}
+main{--workspace-inset:24px;padding:var(--workspace-inset)}
 .arena{padding:var(--arena-inset)}
 .panel-actions,.room-actions{display:flex;flex-direction:column;align-items:stretch}
 .room-actions{gap:4px}
@@ -911,12 +911,13 @@ main{padding:24px}
 .board-footer>.turn-actions{justify-content:flex-end;margin-left:auto}
 @media(min-width:701px){
 .workspace{grid-template-columns:320px minmax(0,1fr);gap:20px 16px}
-.left-panel{grid-column:1;grid-row:1;margin:-24px -16px 0 -24px;padding:24px 20px 20px}
+.left-panel{grid-column:1;grid-row:1;margin:calc(-1 * var(--workspace-inset)) -16px 0 -24px;padding:24px 20px 20px}
 .arena-column{grid-column:2;grid-row:1}
 }
 @media(min-width:1001px){
 :root{--game-height:calc(100dvh - 48px)}
-.left-panel{max-height:calc(var(--game-height) + 48px)}
+/* Align the sidebar controls with the buttons just inside the arena border. */
+.left-panel{max-height:calc(var(--game-height) + var(--workspace-inset));padding-bottom:calc(var(--arena-inset) + 1px)}
 }
 @media(max-width:700px){
 main{padding:14px}
@@ -1179,7 +1180,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.129</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-21T23:46:36.971Z">Сборка 22.11.2026, 02:46:36 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.130</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-22T00:09:45.842Z">Сборка 22.11.2026, 03:09:45 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <div class="arena-top"><span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>

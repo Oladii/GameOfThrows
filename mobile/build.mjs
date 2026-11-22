@@ -66,7 +66,10 @@ export async function mobilePage(web, { preview = false } = {}) {
   change('width=device-width,initial-scale=1"', 'width=device-width,initial-scale=1,viewport-fit=cover"');
   change('<meta name="theme-color" content="#fbfaf8">', '<meta name="theme-color" content="#fffefb">');
   change('</head>', `<style>\n${fontCss}\n${flagCss}\n${selectIconCss}\n${css}</style>\n</head>`);
-  page = page.replaceAll('Доступно обновление игры. Обнови вкладку, чтобы применить его', 'Доступно обновление игры. Обновите вкладку, чтобы применить его');
+  const desktopUpdateNotice = 'Доступно обновление игры. Обнови вкладку, чтобы применить его';
+  const mobileUpdateNotice = 'Доступно обновление игры.\nОбновите вкладку, чтобы применить его';
+  change(`>${desktopUpdateNotice}</div>`, `>${mobileUpdateNotice}</div>`);
+  change(`'${desktopUpdateNotice}'`, JSON.stringify(mobileUpdateNotice));
   change('#board .cell.move-destination .tile{fill:', '#board .cell:is(.selected,.mobile-origin,.move-destination) .tile{fill:');
   page = page.replace(/(\.cell(?:\.(?:reachable|selected|movement-range))?):hover \.tile/g, '$1.mobile-hover-unused .tile');
   // Room navigation stays reachable while players are choosing their sides.

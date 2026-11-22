@@ -226,6 +226,20 @@ function menuPage(title,html) {
   $('#mobile-close').focus();
 }
 const mobileHome = $('#mobile-home');
+const mobileTheme = $('meta[name="theme-color"]');
+const baseMobileTheme = mobileTheme.content;
+const mobileUpdateNotice = $('#update-notice');
+const mobileFullScreens = [mobileHome, $('#start-dialog'), $('#sheet')];
+const mobileThemeObserver = new MutationObserver(() => {
+  const showBanner = !mobileUpdateNotice.hidden && !document.body.classList.contains('guide-open')
+    && mobileFullScreens.every(dialog => !dialog.open);
+  const color = showBanner ? getComputedStyle(mobileUpdateNotice).backgroundColor : baseMobileTheme;
+  if (mobileTheme.content !== color) mobileTheme.content = color;
+});
+mobileThemeObserver.observe(mobileUpdateNotice, { attributeFilter: ['hidden'] });
+mobileThemeObserver.observe(document.body, { attributeFilter: ['class'] });
+for (const dialog of mobileFullScreens) mobileThemeObserver.observe(dialog, { attributeFilter: ['open'] });
+
 function syncMobileHome() {
   const canContinue = gamePhase === 'playing' || playMode === 'online' || Boolean(previousGame);
   $('#home-continue').hidden = !canContinue;
