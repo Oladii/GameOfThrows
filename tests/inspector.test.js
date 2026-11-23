@@ -73,16 +73,24 @@ test('a movement aura forecast changes real bonuses without hovering every other
 });
 
 
-test('the veteran reference separates permanent power and ally aura, including legacy saved settings', () => {
+test('the reference uses the design order and separates veteran power from ally aura', () => {
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
-  const context = vm.createContext({ playMode: 'local', humanTeam: 0, hint: null, config: structuredClone(DEFAULT_CONFIG), plural: () => 'клетку' });
-  vm.runInContext(app.slice(app.indexOf('function shieldPromotionDescription('), app.indexOf('function shieldDescriptionMarkup(')), context);
+  const context = vm.createContext({
+    config: structuredClone(DEFAULT_CONFIG), LABELS,
+    plural: (value, forms) => forms[value === 1 ? 0 : value < 5 ? 1 : 2]
+  });
+  vm.runInContext(app.slice(app.indexOf('function shieldPromotionDescription('), app.indexOf('function matchResult(')), context);
+  const reference = context.unitReferenceMarkup(true, true);
+  assert.deepEqual([...reference.matchAll(/data-reference-type="([^"]+)"/g)].map(([, type]) => type),
+    ['shield', 'archer', 'scoutLamp', 'attackLamp', 'defenseLamp', 'horn']);
+  assert.match(reference, /Достигнув чужого края, получает \+3 к урону\.<\/p>/);
+  assert.match(reference, /Аура 2 клетки: дальность лучников \+1/);
   const description = context.shieldPromotionDescription();
-  assert.match(description, /Урон: 6, дальность: 3, стойкость: 6/);
-  assert.match(description, /союзникам \+1 к урону, \+1 к дальности и \+1 к стойкости/);
+  assert.match(description, /урон: 6, дальность: 3, стойкость: 6/);
+  assert.match(description, /союзникам \+1 к урону, \+1 к дальности лучников и \+1 к стойкости/);
   context.config = structuredClone(PREVIOUS_FORMATION_CONFIG);
   delete context.config.shieldPromotion.allies;
-  assert.match(context.shieldPromotionDescription(), /союзникам \+9 к урону, \+2 к дальности и \+9 к стойкости/);
+  assert.match(context.shieldPromotionDescription(), /союзникам \+9 к урону, \+2 к дальности лучников и \+9 к стойкости/);
   assert.ok(!app.includes('Ничья — тоже поражение'));
 });
 

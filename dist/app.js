@@ -690,27 +690,29 @@ function renderInspector(context) {
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion, allies = p.allies ?? p;
-  return `Урон: ${stats.damage + p.damageBonus}, дальность: ${Math.min(stats.range + p.rangeBonus, p.maxRange)}, стойкость: ${stats.fortitude + p.defenseBonus}. Получает ауру в ${allies.aura} ${plural(allies.aura, ['клетку', 'клетки', 'клеток'])}, добавляя союзникам +${allies.damageBonus} к урону, +${allies.rangeBonus} к дальности и +${allies.defenseBonus} к стойкости${config.shieldDefenseOnly ? ' только щитоносцев' : ''}. Дальность щитоносцев и командиров с собственной атакой от союзных аур не растёт. Под этой аурой фигуры без собственной атаки могут атаковать.`;
+  const radius = allies.aura === stats.aura ? '' : ` радиусом в ${allies.aura} ${plural(allies.aura, ['клетку', 'клетки', 'клеток'])}`;
+  return `Достигнув чужого края получает способность ходить назад и усиливается: урон: ${stats.damage + p.damageBonus}, дальность: ${Math.min(stats.range + p.rangeBonus, p.maxRange)}, стойкость: ${stats.fortitude + p.defenseBonus}. Усиливает свою ауру${radius}: добавляет союзникам +${allies.damageBonus} к урону, +${allies.rangeBonus} к дальности лучников и +${allies.defenseBonus} к стойкости${config.shieldDefenseOnly ? ' только щитоносцев' : ''}. Под этой аурой фигуры без собственной атаки могут атаковать.`;
 }
 function shieldDescriptionMarkup(open = false) {
-  return `<p class="shield-description">Ходит вперёд и вбок. Аура ${config.stats.shield.aura} ${plural(config.stats.shield.aura, ['клетка', 'клетки', 'клеток'])}: стойкость ${config.shieldDefenseOnly ? 'союзных щитоносцев' : 'союзников'} +${config.stats.shield.defenseBonus}. Ауры других фигур не увеличивают дальность атаки щитоносцев.</p><details class="shield-promotion" data-shield-promotion${open ? ' open' : ''}><summary>Ветеран</summary><p>Завершив ход на противоположном краю, усиливается: ${shieldPromotionDescription()}</p></details>`;
+  return `<p class="shield-description">Ходит вперёд и вбок. Аура ${config.stats.shield.aura} ${plural(config.stats.shield.aura, ['клетка', 'клетки', 'клеток'])}: стойкость ${config.shieldDefenseOnly ? 'союзных щитоносцев' : 'союзников'} +${config.stats.shield.defenseBonus}.</p><details class="shield-promotion" data-shield-promotion${open ? ' open' : ''}><summary>Ветеран</summary><p>${shieldPromotionDescription()}</p></details>`;
 }
 function archerPromotionMarkup(open = false) {
   const enabled = config.archerEdgeDamageBonus > 0;
   const bonus = enabled ? config.archerEdgeDamageBonus : DEFAULT_CONFIG.archerEdgeDamageBonus;
-  return `<details class="archer-promotion" data-archer-promotion${open ? ' open' : ''}><summary>Ветеран</summary><p>Достигнув чужого края, навсегда получает +${bonus} к урону. Усиление даётся один раз и сохраняется после отхода. Венок отмечает ветерана. Союзники от него усилений не получают.</p>${enabled ? '' : '<p>Это стандартное правило; в текущей партии усиление за край не включено</p>'}</details>`;
+  return `<details class="archer-promotion" data-archer-promotion${open ? ' open' : ''}><summary>Ветеран</summary><p>Достигнув чужого края, получает +${bonus} к урону.</p>${enabled ? '' : '<p>Это стандартное правило; в текущей партии усиление за край не включено</p>'}</details>`;
 }
 function unitReferenceMarkup(promotionOpen = false, archerPromotionOpen = false) {
   const statLabels = { move: 'Шаг', damage: 'Урон', range: 'Дальность атаки', fortitude: 'Стойкость' };
   const fields = Object.keys(statLabels);
-  const rows = TYPES.filter(type => config.stats[type]).map(type => {
+  const referenceOrder = ['shield', 'archer', 'scoutLamp', 'attackLamp', 'defenseLamp', 'horn'];
+  const rows = referenceOrder.filter(type => config.stats[type]).map(type => {
     const stats = config.stats[type];
     let aura = '';
     if (type === 'archer' && stats.aura > 0 && stats.damageBonus > 0) aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон союзников +${stats.damageBonus}, кроме самого лукаря. Бонусы нескольких лукарей складываются.`;
     if (type === 'archer') {
       aura = `<p class="archer-description">Стреляет издалека, прячется за щитоносцами${aura ? `. ${aura}` : ''}</p>${archerPromotionMarkup(archerPromotionOpen)}`;
     }
-    if (type === 'scoutLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: дальность +${stats.rangeBonus}. Щитоносцы и командиры с собственной атакой этот бонус не получают`;
+    if (type === 'scoutLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: дальность лучников +${stats.rangeBonus}`;
     if (type === 'attackLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: шаг ${config.drumMoveAllies ? 'всех союзников' : 'щитоносцев'} +${config.drumShieldMoveBonus ?? 0} при начале действия в ауре${stats.damageBonus > 0 ? `, урон +${stats.damageBonus}` : ''}`;
     if (type === 'horn') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: урон всех союзников +${stats.damageBonus}`;
     if (type === 'defenseLamp') aura = `Аура ${stats.aura} ${plural(stats.aura, ['клетка', 'клетки', 'клеток'])}: стойкость +${stats.defenseBonus}`;
