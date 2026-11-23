@@ -1169,10 +1169,11 @@ body:not(.mobile-game) #onboarding-progress [data-slot="tabs-list"]{
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;height:40px;gap:0;padding:2px;border:0;border-radius:999px;background:var(--tile-default)
 }
 body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]{
-  min-height:36px;padding:0 8px;border:0;border-radius:999px;font-size:14px;line-height:20px;font-weight:500;color:var(--ink)
+  min-height:36px;padding:0 8px;border:0;border-radius:999px;font-size:14px;line-height:20px;font-weight:500;color:var(--muted)
 }
 body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]::after{display:none}
-body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]:is([data-state="active"],:hover,:focus-visible){background:#e9dfca;color:var(--ink)}
+body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]:is([data-state="active"],:hover,:focus-visible){background:#e9dfca}
+body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"][data-state="active"]{color:var(--ink)}
 body:not(.mobile-game) .onboarding-principles{margin:0 0 40px;max-width:680px;font-size:14px;line-height:20px}
 body:not(.mobile-game) .guide-basics{margin:0 0 16px;font-size:22px;line-height:28px;font-weight:600}
 body:not(.mobile-game) .guide-theory{max-width:680px;gap:40px;font-size:14px;line-height:22px}
@@ -1554,7 +1555,7 @@ body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;po
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.131</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-23T23:25:16.097Z">Сборка 24.11.2026, 02:25:16 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.131</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-23T23:28:42.637Z">Сборка 24.11.2026, 02:28:42 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <p id="room-banner" class="room-banner desktop-only" role="status" aria-live="polite" hidden></p>
