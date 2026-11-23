@@ -121,6 +121,7 @@ test('commander inspector distinguishes an independent attack from historical su
     const context = vm.createContext({ hint: null, config, selected: 'commander', movement: null, combat: null, visibleState: () => state, effective, shieldCanRetreat, archerHasEdgeBonus, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg/>', plural: () => 'клетки', $: selector => nodes[selector] });
     vm.runInContext(app.slice(app.indexOf('function renderInspector('), app.indexOf('function shieldPromotionDescription(')), context);
     context.renderInspector({});
+    assert.doesNotMatch(nodes['#inspector'].innerHTML, /class="sources"/);
     if (input === DEFAULT_CONFIG) {
       assert.match(nodes['#inspector'].innerHTML, /Атакует самостоятельно: урон 3, дальность 2/);
       assert.match(nodes['#inspector'].innerHTML, /Дальность не увеличивается от аур/);
