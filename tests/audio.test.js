@@ -183,6 +183,44 @@ test('preparing audio only enables pre-click hover if the browser is already run
   assert.equal(blocked.starts.length, 1);
 });
 
+test('game start plays immediately when unlocked and once on the first allowed gesture otherwise', async () => {
+  const unlocked = harness();
+  await unlocked.audio.unlock();
+  unlocked.audio.playGameStart();
+  assert.equal(unlocked.starts[0].buffer, unlocked.audio.buffers['game-start']);
+
+  const blocked = harness();
+  const resume = blocked.context.resume;
+  blocked.context.state = 'suspended';
+  blocked.context.resume = () => Promise.resolve();
+  blocked.audio.playGameStart();
+  await settle();
+  assert.equal(blocked.starts.length, 0);
+  blocked.tick(500);
+  blocked.context.resume = resume;
+  await Promise.all([blocked.audio.unlock(), blocked.audio.unlock()]);
+  assert.deepEqual(blocked.starts.map(source => source.buffer), [blocked.audio.buffers['game-start']]);
+});
+
+test('a queued start stays silent if the game is replaced or audio is muted', async () => {
+  for (const reason of ['reset', 'mute', 'stale']) {
+    const h = harness();
+    const resume = h.context.resume;
+    h.context.state = 'suspended';
+    h.context.resume = () => Promise.resolve();
+    let current = true;
+    h.audio.playGameStart(() => current);
+    await settle();
+    if (reason === 'reset') h.audio.stopAll();
+    if (reason === 'mute') h.audio.setEnabled(false);
+    if (reason === 'stale') current = false;
+    h.context.resume = resume;
+    if (!h.audio.enabled) h.audio.setEnabled(true);
+    await h.audio.unlock();
+    assert.equal(h.starts.length, 0);
+  }
+});
+
 test('the two control samples use the same reduced gain and start on the same tap', async () => {
   const h = harness();
   await h.audio.unlock();

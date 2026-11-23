@@ -30,6 +30,7 @@ function setup() {
     localStorage: { setItem(key, value) { saved = JSON.parse(value); } },
     $: selector => nodes[selector], resetBotContext() {}, openStartSettings() {}, renderStartSettings() {},
     archiveRecorder: { resume() {}, start() {} }, toast(message) { throw Error(message); }, readSnapshot: clone, readLastTurn: value => value,
+    gameAudio: { playGameStart() {} },
     recentBotHistory: () => [], botRunner: { run(value) { request = value; } },
     render() { context.save(); }, currentSnapshot: () => clone({ config: context.config, state: context.state, log: context.log, positionKind: context.positionKind, gameVersion: context.gameVersion }) });
   vm.runInContext(app.match(/^let botDifficulty = .*$/m)[0], context);

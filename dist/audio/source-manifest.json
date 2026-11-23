@@ -13,7 +13,8 @@
     "defeat": "defeat.wav",
     "control-hover": "control-hover.wav",
     "control-click": "control-click.wav",
-    "room-join": "room-join.mp3"
+    "room-join": "room-join.mp3",
+    "game-start": "game-start.mp3"
   },
   "runtime_sources": {
     "control-hover": {
@@ -35,6 +36,13 @@
       "provider": "Epidemic Sound",
       "url": "https://www.epidemicsound.com/sound-effects/tracks/b0116026-d063-4206-bdae-d2dfe75b2942/",
       "processing": "High quality API MP3, mixed at playback"
+    },
+    "game-start": {
+      "source": "User Interface, Click, Button Press Click, Tap, Video Game, Main Menu, Select 01",
+      "provider": "Epidemic Sound",
+      "url": "https://www.epidemicsound.com/sound-effects/tracks/3190076b-c1d8-4b6e-9a02-e903fe7a78cc/",
+      "processing": "High quality API MP3, mixed at playback",
+      "mp3_sha256": "83c07fa692b7f17bd47c43c110edad5d33bd43b829a1eaae7e863c9d90e05a1a"
     },
     "slide": {
       "source": "rsellick, kettlebell on concrete rock stone metal drag impact.wav",

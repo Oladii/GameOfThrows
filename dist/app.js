@@ -1087,6 +1087,7 @@ function startGame() {
     resetBotContext(); state = next; gamePhase = 'playing'; positionKind = classifyPosition(state, config); gameVersion = CURRENT_GAME_VERSION;
     archiveRecorder.start(archiveGameMetadata());
     history = []; log = []; previousGame = null; selected = null; $('#start-dialog').close(); render();
+    gameAudio.playGameStart();
   } catch (error) { toast(error.message); }
 }
 $('#start-setup').addEventListener('click', openStartSettings);
@@ -1312,6 +1313,12 @@ function applyRoomView(view) {
     else { roomMovePreview = null; presentKills(preview.before, preview.forecast, action.deaths || []); }
   } else if (animate) { presentMove(before, action.action, action.deaths || []); }
   else render();
+  if (previous?.roomId === next.roomId && previous.phase === 'waiting' && next.phase === 'playing'
+      && next.matchId && next.matchId !== previous.matchId && view.selfSeat != null
+      && view.status === 'connected') {
+    gameAudio.playGameStart(() => playMode === 'online' && roomSnapshot?.phase === 'playing'
+      && roomSnapshot.matchId === next.matchId);
+  }
 }
 async function connectOnlineRoom() {
   if (playMode !== 'online' || roomConnecting || roomView?.snapshot) return;

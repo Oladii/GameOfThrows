@@ -32,7 +32,7 @@ function setup(overrides={}){
 test('release39 selects existing production saves while localhost and standalone keep the local profile',()=>{
   const declaration=app.match(/^const archiveIsSite = .*;$/m)[0]+'\n'+app.match(/^const STORAGE = .*;$/m)[0]+'\nSTORAGE';
   for(const [origin,pathname,expected]of [['https://oladii.github.io','/GameOfThrows/','lamps-prototype-v1'],['http://127.0.0.1:35810','/','lamps-local-playtest13-v1'],['null','/Lamps.html','lamps-local-playtest13-v1']])assert.equal(vm.runInNewContext(declaration,{location:{origin,pathname}}),expected);
-  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.132');
+  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.133');
 });
 
 test('a fully known production revision16 standard pending setup upgrades to current13',()=>{
@@ -95,7 +95,7 @@ test('starting a random game rolls exactly once and fixes that turn for the runn
   for(const [roll,expected]of [[0.1,0],[0.9,1]]){
     let rolls=0,starts=0;
     const context=vm.createContext({hasNewerGameVersion,CURRENT_RULES_VERSION:'0.1.20',latestRulesVersion:null,playMode:'local',config:clone(DEFAULT_CONFIG),state:createGame(DEFAULT_CONFIG),firstMove:'random',gamePhase:'setup',editor:false,refreshingNewGame:false,history:[],log:[],previousGame:null,selected:null,
-      Math:{random:()=>{rolls++;return roll;},floor:Math.floor},prepareStartPosition,currentStartPreferences:()=>({firstMove:'random'}),resetBotContext(){},classifyPosition,CURRENT_GAME_VERSION:'0.1.39',gameVersion:'0.1.37',archiveGameMetadata:()=>({}),archiveRecorder:{start(){starts++;}},$:()=>({close(){}}),render(){},toast:message=>{throw Error(message);}});
+      Math:{random:()=>{rolls++;return roll;},floor:Math.floor},prepareStartPosition,currentStartPreferences:()=>({firstMove:'random'}),resetBotContext(){},classifyPosition,CURRENT_GAME_VERSION:'0.1.39',gameVersion:'0.1.37',archiveGameMetadata:()=>({}),archiveRecorder:{start(){starts++;}},gameAudio:{playGameStart(){}},$:()=>({close(){}}),render(){},toast:message=>{throw Error(message);}});
     vm.runInContext(startingTeam+'\n'+startGame+'\nstartGame();startGame();',context);
     assert.equal(rolls,1);assert.equal(starts,1);assert.equal(context.state.turn,expected);assert.equal(context.gamePhase,'playing');
   }

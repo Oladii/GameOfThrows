@@ -42,7 +42,7 @@ const functions = [
 // Keep real startup, persistence, rendering and bot scheduling together. Only
 // the DOM, visual leaf functions, recorder and timer execution are replaced.
 function boot({ raw = null, roll = 0.1, storageError = false, fresh = false, href = 'http://localhost/' } = {}) {
-  const nodes = new Map(), writes = [], starts = [], resumes = [], timers = [], messages = [];
+  const nodes = new Map(), writes = [], starts = [], resumes = [], timers = [], messages = [], startSounds = [];
   let rolls = 0, closed = 0, context;
   const node = selector => {
     if (selector === 'dialog[open]') return null;
@@ -67,7 +67,8 @@ function boot({ raw = null, roll = 0.1, storageError = false, fresh = false, hre
     },
     archiveRecorder: { start(value) { starts.push(clone(value)); }, resume(value) { resumes.push(clone(value)); } },
     botRunner: { active: false, cancel: noop }, hintRunner: { cancel: noop },
-    moveAnimator: { cancel: noop }, combatAnimator: { cancel: noop }, gameAudio: { stopAll: noop },
+    moveAnimator: { cancel: noop }, combatAnimator: { cancel: noop },
+    gameAudio: { stopAll: noop, playGameStart() { startSounds.push(vm.runInContext('gamePhase', context)); } },
     clearTimeout: noop, clearInterval: noop,
     setTimeout(callback, delay) { timers.push({ callback, delay, ready: vm.runInContext('ready', context) }); return timers.length; },
     toast(message) { messages.push(message); }, renderHint: noop, renderUpdateNotice: noop,
@@ -78,7 +79,7 @@ function boot({ raw = null, roll = 0.1, storageError = false, fresh = false, hre
   return {
     read: expression => clone(vm.runInContext(expression, context)),
     render: () => vm.runInContext('render()', context),
-    saved: () => writes.at(-1).saved, nodes, writes, starts, resumes, timers, messages,
+    saved: () => writes.at(-1).saved, nodes, writes, starts, resumes, timers, messages, startSounds,
     rolls: () => rolls, closed: () => closed
   };
 }
@@ -103,6 +104,7 @@ for (const [roll, turn] of [[0.1, 0], [0.9, 1]]) {
       playMode: 'bot', humanTeam: 1, firstMove: 'random', botDifficulty: 'training', editor: false, positionKind: 'default'
     });
     assert.equal(ui.rolls(), 1); assert.equal(ui.starts.length, 1); assert.equal(ui.resumes.length, 0);
+    assert.deepEqual(ui.startSounds, ['playing']);
     assert.equal(ui.closed(), 1); assert.deepEqual(ui.messages, []);
     assert.equal(ui.nodes.get('#start-setup').hidden, true);
     assert.equal(ui.nodes.get('#new-game').hidden, false);
@@ -120,6 +122,7 @@ for (const [roll, turn] of [[0.1, 0], [0.9, 1]]) {
 
     const persisted = ui.saved(), reload = boot({ raw: JSON.stringify(persisted), roll: 1 - roll });
     assert.equal(reload.rolls(), 0); assert.equal(reload.starts.length, 0); assert.equal(reload.resumes.length, 1);
+    assert.deepEqual(reload.startSounds, []);
     assert.deepEqual(reload.read('state'), persisted.state);
     assert.deepEqual(reload.saved(), persisted);
     assert.equal(reload.resumes[0].state.turn, turn);
