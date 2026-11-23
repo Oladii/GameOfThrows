@@ -73,10 +73,9 @@ export async function mobilePage(web, { preview = false } = {}) {
   change('#board .cell.move-destination .tile{fill:', '#board .cell:is(.selected,.mobile-origin,.move-destination) .tile{fill:');
   page = page.replace(/(\.cell(?:\.(?:reachable|selected|movement-range))?):hover \.tile/g, '$1.mobile-hover-unused .tile');
   // Room navigation stays reachable while players are choosing their sides.
-  change("  $('.arena-top').hidden = online && $('.board-wrap').hidden;", '');
   change('<body>', '<body class="mobile-game">');
   const counter = '<span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span>';
-  change(counter, `<button id="home-back" class="button" type="button" aria-label="На главный экран">${back}</button><div class="mobile-turn" role="status" aria-atomic="true"><strong id="team-name"></strong><span id="move-counter" class="move-counter"></span></div><span id="team-flag" aria-hidden="true"></span>`);
+  change(counter, `<button id="home-back" class="button" type="button" aria-label="На главный экран">${back}</button><div class="mobile-turn" role="status" aria-atomic="true"><strong id="team-name"></strong><span id="move-counter" class="move-counter"></span></div><span id="team-flag" aria-hidden="true"></span>`);
   const hintPanel = '<div id="move-hint" class="move-hint" role="status" aria-label="Совет" aria-live="polite" hidden></div>';
   change('        ' + hintPanel + '\n', '');
   change('<div class="board-footer">', `<div class="mobile-context"><p id="aura-caption" aria-live="polite"></p>${hintPanel}</div><div class="board-footer"><button id="result-new-game" class="button primary" type="button" hidden>Новая игра</button><div id="move-actions" hidden><button id="cancel-move" class="button">Отмена</button><button id="commit" class="button">Сделать ход</button></div>`);
@@ -91,26 +90,23 @@ export async function mobilePage(web, { preview = false } = {}) {
   change('<div class="hint-bubble">', '<div class="hint-bubble"><p class="mobile-hint-title">Подсказка</p>');
   change("previousGame = null; selected = null; $('#start-dialog').close(); render();", "previousGame = null; selected = null; $('#mobile-home').close(); $('#start-dialog').close(); render();");
   change('<div id="toast"', `<dialog id="mobile-home" aria-label="Главный экран"><div class="home-actions" tabindex="-1" autofocus><img class="home-logo" src="${homeLogo}" width="200" height="100" alt="Битва знамён"><button id="home-continue" class="button primary" hidden>Продолжить игру</button><button id="home-new" class="button subtle">Новая игра</button><button id="home-learn" class="button subtle">Обучение</button></div></dialog><dialog id="sheet" aria-labelledby="mobile-title"><div class="dialog-header"><h2 id="mobile-title"></h2><button class="button subtle" id="mobile-close">Закрыть</button></div><div id="mobile-body"></div></dialog><div id="toast"`);
-  const startHeader = '<div class="dialog-header"><div><h2 id="start-title">Настройки старта</h2></div>';
+  const startHeader = '<div class="dialog-header"><div><h2 id="start-title">Новая игра</h2></div>';
   page = between(page, startHeader, '    <div id="start-settings"', `<header class="dialog-header"><button type="button" class="icon-button close-dialog" aria-label="Назад">${matchBack}</button><h2 id="start-title">Новая игра</h2></header>\n`);
   const guideStart = '<section id="rules-dialog" class="guide-screen" aria-label="Обучение" hidden>';
   page = between(page, guideStart, '<nav id="onboarding-progress"', `<section id="rules-dialog" class="guide-screen" aria-labelledby="guide-title" hidden>
     <header class="guide-toolbar"><button id="guide-back" class="icon-button" type="button" aria-label="Назад">${matchBack}</button><h1 id="guide-title">Обучение</h1></header>
     `);
   change('aria-label="Цель игры"></div>\n    </section>\n  </section>', 'aria-label="Цель игры"></div>\n  </section>');
-  change('Уничтожь вражеское знамя и не потеряй своё', 'Уничтожь вражеское знамя и не потеряй своё');
-  change('Показывать своим фишкам кого бить — не надо', 'Показывать своим фишкам кого бить — не надо');
-  change('Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход', 'Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход');
-  change('<p><strong>Слева — урон:</strong> сколько урона наносит фигура<br><strong>Справа — полная стойкость:</strong> с усилениями союзников, без вычитания урона<br><strong>Сверху — под угрозой:</strong> при выборе и наведении показан входящий урон; смертельная угроза отмечается черепом</p>', `<div class="badge-guide-copy">
-    <p><strong>Слева — Урон</strong><br>Сколько урона наносит фигура</p>
-    <p><strong>Справа — Стойкость</strong><br>Сколько урона выдержит фигура</p>
-    <p><strong>Сверху — Угрозы</strong><br>Сколько урона нанесут фигуре в конце хода</p>
+  change('Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход', 'Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход');
+  change('<p><strong>Слева — урон:</strong> сколько урона наносит фигура<br><strong>Справа — полная стойкость:</strong> с усилениями союзников, без вычитания урона<br><strong>Сверху — под угрозой:</strong> при выборе и наведении показан входящий урон; смертельная угроза отмечается черепом</p>', `<div class="badge-guide-copy">
+    <p><strong>Слева — Урон</strong><br>Сколько урона наносит фигура</p>
+    <p><strong>Справа — Стойкость</strong><br>Сколько урона выдержит фигура</p>
+    <p><strong>Сверху — Угрозы</strong><br>Сколько урона нанесут фигуре в конце хода</p>
   </div>`);
   change('    <div class="lesson-scene training-card">\n    <div class="training-layout"><div class="showcase-field">', '    <div class="showcase-field">');
   change('    </div></div></section>`;', '    </section>`;');
-  change('[data-onboarding-step], .showcase-board, .close-dialog', '[data-onboarding-step], .showcase-board, .close-dialog, #guide-back');
   change('<div class="play-mode-field">', '<div class="play-mode-field" hidden>');
-  change('<option value="local">Вдвоём на одном экране</option>', '');
+  change('<option value="local">Вдвоём на одном экране</option>', '');
   change("    playMode: input.playMode === 'local' ? 'local' : 'bot',", "    playMode: 'bot',");
   const orientation = "playMode === 'online' && roomView?.selfSeat === 0";
   page = page.replaceAll(orientation, '(' + orientation + " || playMode === 'bot' && humanTeam === 0)");
@@ -118,7 +114,6 @@ export async function mobilePage(web, { preview = false } = {}) {
   page = between(page, "$('.board-wrap').addEventListener('click', event => {", "$('.board-wrap').addEventListener('contextmenu'", '');
   page = between(page, "$('#board').addEventListener('pointermove', hoverCell);", "$('#show-hint').addEventListener('click', requestHint);", '');
   change("event.preventDefault(); activateBoardCell(...cell.dataset.cell.split(',').map(Number)); hoverCell(event);", "event.preventDefault(); mobileTap(...cell.dataset.cell.split(',').map(Number));");
-  change("if (event.key === 'Tab' && playMode !== 'online' && !event.target.closest('dialog') && !soundControl.contains(event.target)) { event.preventDefault(); soundButton.focus(); return; }", '');
   change('  selected = null; hover = null; inspection = null;\n  hint = { positionKey, pending: true };', '  hover = null; inspection = null;\n  hint = { positionKey, pending: true };');
   change('  if (hint) selected = null;', '');
   change("trackHint('hint_shown');", "selected ??= result?.action?.id ?? null; trackHint('hint_shown');");
@@ -148,6 +143,6 @@ export async function mobilePage(web, { preview = false } = {}) {
   change("if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());", controller + `
 if (gamePhase === 'setup') playMode = 'bot';
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());`);
-  change("if ((autoStartFreshGame || autoStartSavedBot && !freshNewGameRequested) && !initialRoomId) startGame();", "if (!initialRoomId && !freshNewGameRequested) openMobileHome();");
+  change("if (!initialRoomId && !freshNewGameRequested) startLocalOnArrival();", "if (!initialRoomId && !freshNewGameRequested) openMobileHome();");
   return page;
 }

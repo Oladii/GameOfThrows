@@ -17,7 +17,7 @@ const rejected = { state: 'error', pending: 3, failed: 1, gameId: 'game', failur
 
 test('archive errors remain visible and retryable while disabled and acknowledged queues have no warning controls', () => {
   const { context, nodes } = setup(rejected);
-  assert.match(nodes['#archive-status'].textContent, /ещё не сохранена/);
+  assert.match(nodes['#archive-status'].textContent, /ещё не сохранена/);
   assert.equal(nodes['#archive-retry'].hidden, false);
   assert.equal(nodes['#archive-details'].hidden, false);
   assert.equal(nodes['#archive-errors'].textContent, '409 · sequence_conflict · записей: 1');
@@ -51,7 +51,7 @@ test('manual retry locks duplicate clicks and never shows saved before the recor
 test('an unsuccessful retry preserves the warning and allows a later retry', async () => {
   const { context, nodes } = setup(rejected);
   await context.retryArchive();
-  assert.match(nodes['#archive-status'].textContent, /ещё не сохранена/);
+  assert.match(nodes['#archive-status'].textContent, /ещё не сохранена/);
   assert.equal(nodes['#archive-retry'].hidden, false);
   assert.equal(nodes['#archive-retry'].disabled, false);
   assert.equal(nodes['#archive-details'].hidden, false);

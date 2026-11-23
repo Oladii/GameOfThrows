@@ -31,10 +31,10 @@ function syncMobileBoard() {
   const aura = piece ? (shieldCanRetreat(piece, config) ? config.shieldPromotion.allies ?? config.shieldPromotion : config.stats[piece.type]) : null;
   const bonuses = [];
   if (aura?.aura > 0) {
-    if (piece.type === 'attackLamp' && config.drumShieldMoveBonus) bonuses.push('+' + config.drumShieldMoveBonus + ' к шагу ' + (config.drumMoveAllies ? 'союзников' : 'щитоносцев'));
-    if (aura.damageBonus) bonuses.push('+' + aura.damageBonus + ' к урону союзников');
-    if (aura.defenseBonus) bonuses.push('+' + aura.defenseBonus + ' к стойкости ' + (piece.type === 'shield' && config.shieldDefenseOnly ? 'щитоносцев' : 'союзников'));
-    if (aura.rangeBonus) bonuses.push('+' + aura.rangeBonus + ' к дальности лукарей');
+    if (piece.type === 'attackLamp' && config.drumShieldMoveBonus) bonuses.push('+' + config.drumShieldMoveBonus + ' к шагу ' + (config.drumMoveAllies ? 'союзников' : 'щитоносцев'));
+    if (aura.damageBonus) bonuses.push('+' + aura.damageBonus + ' к урону союзников');
+    if (aura.defenseBonus) bonuses.push('+' + aura.defenseBonus + ' к стойкости ' + (piece.type === 'shield' && config.shieldDefenseOnly ? 'щитоносцев' : 'союзников'));
+    if (aura.rangeBonus) bonuses.push('+' + aura.rangeBonus + ' к дальности лукарей');
   }
   const caption = $('#aura-caption');
   const bonusText = bonuses.length < 2 ? bonuses[0] : `${bonuses.slice(0, -1).join(', ')} и ${bonuses.at(-1)}`;
@@ -263,7 +263,7 @@ function openMobileStartSettings() {
 }
 function mobileNewGame() {
   if (playMode !== 'online') { openMobileStartSettings(); return; }
-  menuPage('Выйти из комнаты для новой игры?', '<button id="leave-and-start" class="button primary">Выйти и начать новую игру</button>');
+  menuPage('Выйти из комнаты для новой игры?', '<button id="leave-and-start" class="button primary">Выйти и начать новую игру</button>');
   $('#leave-and-start').onclick = async () => {
     $('#leave-and-start').disabled = true;
     await leaveOnlineRoom();

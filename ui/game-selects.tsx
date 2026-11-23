@@ -6,10 +6,11 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 // Keep the game's native controls as the source of truth for events and FormData.
 const controls = new Map<HTMLSelectElement, { root: ReturnType<typeof createRoot>; host: HTMLElement; label: string }>();
 function sync() {
-  for (const [native, { root, label }] of controls) {
+  for (const [native, { root, host, label }] of controls) {
     root.render(<Select value={native.value} disabled={native.disabled} onValueChange={value => {
       native.value = value;
       native.dispatchEvent(new Event('change', { bubbles: true }));
+      host.dispatchEvent(new Event('game-control-activation', { bubbles: true }));
       sync();
     }}>
       <SelectTrigger id={`${native.id || native.name}-trigger`} aria-label={label}><SelectValue /></SelectTrigger>
@@ -20,7 +21,7 @@ function sync() {
   }
 }
 function mount() {
-  document.querySelectorAll<HTMLSelectElement>('#start-dialog select, #settings-dialog select').forEach(native => {
+  document.querySelectorAll<HTMLSelectElement>('#start-dialog select, #settings-dialog select, #room-seat-dialog select').forEach(native => {
     if (controls.has(native)) return;
     const label = Array.from(native.labels || []).map(item => {
       const copy = item.cloneNode(true) as HTMLElement;

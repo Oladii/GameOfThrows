@@ -5,11 +5,14 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('./', import.meta.url));
 const read = name => fs.readFile(root + 'dist/' + name, 'utf8');
-const soundData = Object.fromEntries(await Promise.all(['slide', 'place', 'click', 'hover', 'remove', 'knock1', 'knock2', 'knock3', 'scatter', 'victory', 'defeat'].map(async name =>
-  [name, 'data:audio/wav;base64,' + (await fs.readFile(root + `dist/audio/${name}.wav`)).toString('base64')])));
-const { defeat } = JSON.parse(await read('audio/source-manifest.json')).runtime_sources;
+const audioManifest = JSON.parse(await read('audio/source-manifest.json'));
+const soundData = Object.fromEntries(await Promise.all(Object.entries(audioManifest.runtime_files).map(async ([name, file]) => {
+  const mime = file.endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav';
+  return [name, `data:${mime};base64,` + (await fs.readFile(root + 'dist/audio/' + file)).toString('base64')];
+})));
+const { defeat } = audioManifest.runtime_sources;
 const audioAssets = [
-  '// Generated from audio/*.wav. Source metadata: https://github.com/Oladii/GameOfThrows/blob/main/dist/audio/source-manifest.json',
+  '// Generated from the runtime files in dist/audio/source-manifest.json.',
   `// Defeat sound: ${defeat.source} by ${defeat.author}. ${defeat.url}`,
   `// ${defeat.license} (${defeat.license_url}). ${defeat.processing}`,
   'export const GAME_AUDIO_ASSETS = ' + JSON.stringify(soundData) + ';',
@@ -57,9 +60,11 @@ const faviconSource = './token-art/bullseye.svg';
 async function dataUrl(file, type) {
   return 'data:' + type + ';base64,' + (await fs.readFile(root + 'dist/' + file)).toString('base64');
 }
-const controlIconPath = /\.\/control-icons\/[\w-]+\.svg/g;
+const controlIconPath = /\.\/(?:control|desktop)-icons\/[\w-]+\.svg/g;
 const iconUrls = new Map(await Promise.all([...new Set(css.match(controlIconPath))].map(async file => [file, await dataUrl(file.slice(2), 'image/svg+xml')])));
-const webCss = css.replace(controlIconPath, file => iconUrls.get(file));
+const inlinedIconsCss = css.replace(controlIconPath, file => iconUrls.get(file));
+let webCss = inlinedIconsCss;
+for (const [source, url] of Object.entries(graphics.resultFlags)) webCss = webCss.replaceAll(source, url);
 const web = assemble(webPage(publicHtml).replace(faviconSource, graphics.favicon), webCss, graphics.tokenModule);
 const controlFont = await interFontCss('Board Controls Inter');
 const withControlFont = page => page.replace('</head>', () => `<style id="board-control-font">${controlFont}</style>\n</head>`);
@@ -67,9 +72,14 @@ const offlineLogo = await dataUrl(graphics.logoFallback.slice(2), 'image/png');
 const offlineLogoHiDpi = await dataUrl('brand/bitva-znamen.png', 'image/png');
 const offlineHtml = publicHtml.replace(brandTag, `$1 src="${offlineLogo}" srcset="${offlineLogoHiDpi} 2x"`)
   .replace(faviconSource, await dataUrl('token-art/bullseye.svg', 'image/svg+xml'));
-let offlineCss = webCss;
-for (const file of ['team-red.png', 'team-blue.png', 'advisor.webp', 'advisor.png']) {
-  offlineCss = offlineCss.replace('./brand/' + file, await dataUrl('brand/' + file, 'image/' + file.split('.')[1]));
+let offlineCss = inlinedIconsCss;
+for (const file of Object.keys(graphics.resultFlags)) offlineCss = offlineCss.replaceAll(file, await dataUrl(file.slice(2), 'image/png'));
+for (const [name, file] of Object.entries(graphics.teamFlags)) {
+  const asset = await dataUrl(file.slice(2), file.endsWith('.webp') ? 'image/webp' : 'image/png');
+  offlineCss = offlineCss.replaceAll('./brand/' + name + '.png', asset);
+}
+for (const file of ['advisor.webp', 'advisor.png']) {
+  offlineCss = offlineCss.replaceAll('./brand/' + file, await dataUrl('brand/' + file, 'image/' + file.split('.')[1]));
 }
 const standalone = assemble(offlineHtml, offlineCss, tokenAssets);
 const rulesVersion = html.match(/id="version-number"[^>]*data-rules-version="(\d+\.\d+\.\d+)"/)?.[1];

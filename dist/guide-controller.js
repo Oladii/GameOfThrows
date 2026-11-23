@@ -13,7 +13,7 @@ export function createGuideController({ document: doc = globalThis.document, win
   const reducedMotion = () => win.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function suppressGuideTabStops() {
     $('#rules-dialog').querySelectorAll?.('button,a,input,select,textarea,summary,[tabindex]').forEach(element => {
-      if (element.closest?.('[data-slot="tabs"], [data-onboarding-step], .showcase-board, .close-dialog')) return;
+      if (element.closest?.('[data-slot="tabs"], [data-onboarding-step], .showcase-board, [data-showcase-action], .close-dialog, #guide-back')) return;
       element.setAttribute('tabindex', '-1');
     });
   }
@@ -23,21 +23,21 @@ export function createGuideController({ document: doc = globalThis.document, win
     else $('#onboarding-progress').innerHTML = onboardingSteps.map((label, index) => `<button type="button" data-onboarding-step="${index}"${index === onboardingStep ? ' aria-current="step"' : ''} aria-label="Шаг ${index + 1}: ${label}"><span class="step-number">${index + 1}</span>${label}</button>`).join('');
     let content = '';
     if (onboardingStep === 0) content =
-      '<ul class="onboarding-principles" id="onboarding-title"><li>Уничтожь вражеское знамя и не потеряй своё</li><li>Показывать своим фишкам кого бить — не надо</li><li>Обе армии автоматически атакуют доступные цели в конце хода</li><li>Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход</li></ul>' +
+      '<h2 class="guide-basics desktop-only">Основы</h2><ul class="onboarding-principles" id="onboarding-title"><li>Уничтожь вражеское знамя и не потеряй своё</li><li>Показывать своим фишкам кого бить — не надо</li><li>Обе армии автоматически атакуют доступные цели в конце хода</li><li>Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход</li></ul>' +
       renderShowcaseBattle(ensureShowcaseBattle('main'), icons, renderBadges);
     if (onboardingStep === 1) content = renderUnitExamples(onboardingUnitBattles, icons, renderBadges);
     if (onboardingStep === 2) content = `
       <div class="guide-theory">
         <section><h3>Дебют</h3>
-          <p>Держи врага под угрозой перекрёстного огня. Ставь лукарей так, чтобы они могли с разных сторон ударить по одной вражеской фигуре.</p></section>
+          <p>Держи врага под угрозой перекрёстного огня. Ставь лукарей так, чтобы они могли с разных сторон ударить по одной вражеской фигуре.</p></section>
         <section><h3>Атака</h3>
-          <p>Если знамя прикрыто щитоносцем, убери его или зайди сбоку. Одним лукарем целься в знамя, другим — туда, куда оно может уйти.</p></section>
+          <p>Если знамя прикрыто щитоносцем, убери его или зайди сбоку. Одним лукарем целься в знамя, другим — туда, куда оно может уйти.</p></section>
         <section><h3>Открытый фланг</h3>
-          <p>Если соперник оставил фланг без защиты, рискни провести по нему лукаря или щитоносца до чужого края поля. Там он станет ветераном. Это усиление может переломить ход битвы.</p></section>
+          <p>Если соперник оставил фланг без защиты, рискни провести по нему лукаря или щитоносца до чужого края поля. Там он станет ветераном. Это усиление может переломить ход битвы.</p></section>
         <section><h3>Защита</h3>
-          <p>Закрывай знамя щитоносцем. Без прикрытия врагу может хватить одного удара для победы.</p></section>
-        <section><h3>Следи за флангами</h3>
-          <p>Если вражеский лукарь или щитоносец обойдёт строй и дойдёт до твоего края поля, он станет ветераном. Перехвати его ещё на чужой половине. Твои обычные щитоносцы не ходят назад, поэтому не могут догнать врага, который уже прошёл за спину.</p></section>
+          <p>Закрывай знамя щитоносцем. Без прикрытия врагу может хватить одного удара для победы.</p></section>
+        <section><h3>Следи за флангами</h3>
+          <p>Если вражеский лукарь или щитоносец обойдёт строй и дойдёт до твоего края поля, он станет ветераном. Перехвати его ещё на чужой половине. Твои обычные щитоносцы не ходят назад, поэтому не могут догнать врага, который уже прошёл за спину.</p></section>
       </div>`;
     const panel = $('#onboarding-body');
     panel.innerHTML = content;

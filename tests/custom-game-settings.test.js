@@ -29,6 +29,6 @@ test('settings button is outside the header and grouped with custom formation co
  const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
  assert.ok(!html.slice(html.indexOf('<header'),html.indexOf('</header>')).includes('id="settings-open"'));
  const start=html.slice(html.indexOf('<dialog id="start-dialog"'),html.indexOf('<dialog id="settings-dialog"'));
- assert.ok(start.includes('Расстановка и правила'));assert.ok(start.includes('id="settings-open"'));assert.ok(start.includes('Параметры боя'));
+ assert.ok(start.includes('Расстановка и правила'));assert.ok(start.includes('id="settings-open"'));assert.ok(start.includes('Параметры боя'));
  assert.ok(!html.includes('settings-gear'));
 });

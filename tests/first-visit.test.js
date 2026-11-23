@@ -35,7 +35,8 @@ const bootSource = app.slice(bootStart, app.indexOf('\nglobalThis.window?.gameSe
 const functions = [
   'startingTeam', 'visibleState', 'isBotTurn', 'humanCanMove', 'clearHint',
   'cancelBot', 'cancelMovement', 'resetBotContext', 'lastTurnFromHistory',
-  'hasPreviousReview', 'canStepReview', 'localReviewTurn', 'setFooterDisabled', 'positionText', 'archiveGameMetadata', 'queueBot', 'renderStartSettings', 'render', 'startGame'
+  'hasPreviousReview', 'canStepReview', 'localReviewTurn', 'setFooterDisabled', 'positionText', 'archiveGameMetadata', 'queueBot', 'renderStartSettings', 'render', 'startGame',
+  'resetNewGameDefaults', 'cancelStartRefresh', 'returnToGame'
 ].map(declaration).join('\n');
 
 // Keep real startup, persistence, rendering and bot scheduling together. Only
@@ -53,12 +54,12 @@ function boot({ raw = null, roll = 0.1, storageError = false, fresh = false, hre
   };
   const noop = () => {};
   context = vm.createContext({
-    tableRattle: null, tableKnocks: null, boardDrag: null, roomMovePreview: null, freshNewGameRequested: fresh, DEFAULT_START_CHOICES, resolveStartChoices, hasNewerGameVersion, CURRENT_RULES_VERSION: '0.1.20', latestRulesVersion: null,
-    DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance,
+    tableRattle: null, tableKnocks: null, boardDrag: null, roomMovePreview: null, startRefreshController: null, freshNewGameRequested: fresh, DEFAULT_START_CHOICES, resolveStartChoices, hasNewerGameVersion, CURRENT_RULES_VERSION: '0.1.20', latestRulesVersion: null,
+    DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, TEAM_NAMES, BALANCE_REVISION, updateSavedBalance, upgradeSelectedBalancePreset: value => value,
     clone, createGame, validateConfig, validateState, analyze, reachable, shieldCanRetreat, inspectCell,
     DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty, classifyPosition, prepareStartPosition,
     URL, location: { href }, CURRENT_GAME_VERSION: version, archiveIsSite: false, $: node, window: {},
-    document: { querySelectorAll: () => [] }, matchMedia: () => ({ matches: true }),
+    document: { body: { classList: { contains: () => false } }, querySelectorAll: () => [] }, matchMedia: () => ({ matches: true }),
     Math: { random() { rolls++; return roll; }, floor: Math.floor },
     localStorage: {
       getItem() { if (storageError) throw new Error('Storage unavailable'); return raw; },
@@ -135,7 +136,7 @@ test('existing setup, editor, custom deployment and previous-game backup survive
     snapshot: { config: earlier.config, state: earlier.state, log: [], positionKind: 'default', gameVersion: version, actor: 'other', action: null },
     history: [], lastTurn: null, playMode: 'bot', humanTeam: 1, botDifficulty: 'training', firstMove: 'north'
   };
-  for (const overrides of [{}, { editor: true }, { positionKind: 'custom', config: customConfig, state: customState }, { previousGame }, { previousGame, playMode: 'bot' }]) {
+  for (const overrides of [{ editor: true }, { positionKind: 'custom', config: customConfig, state: customState }, { previousGame, editor: true }]) {
     const saved = savedSetup(overrides), ui = boot({ raw: JSON.stringify(saved) });
     assert.equal(ui.read('gamePhase'), 'setup'); assert.equal(ui.read('editor'), saved.editor);
     assert.deepEqual(ui.read('config'), saved.config); assert.deepEqual(ui.read('state'), saved.state);
@@ -149,6 +150,12 @@ test('existing setup, editor, custom deployment and previous-game backup survive
     assert.equal(ui.saved().gamePhase, 'setup'); assert.deepEqual(ui.saved().state, saved.state);
     assert.deepEqual(ui.saved().previousGame, saved.previousGame);
   }
+  const interrupted = boot({ raw: JSON.stringify(savedSetup({ previousGame, playMode: 'bot' })) });
+  assert.equal(interrupted.read('gamePhase'), 'playing');
+  assert.deepEqual(interrupted.read('state'), earlier.state);
+  assert.equal(interrupted.starts.length, 0);
+  assert.equal(interrupted.resumes.length, 1);
+  assert.equal(interrupted.saved().previousGame, null);
 });
 
 test('a saved battle resumes its progress, history and choices without preparing a new game', () => {
@@ -172,16 +179,15 @@ test('a saved battle resumes its progress, history and choices without preparing
   assert.equal(ui.closed(), 0); assert.equal(ui.timers.length, 0); assert.deepEqual(ui.messages, []);
 });
 
-test('malformed, empty and unavailable storage keep the existing setup fallback without starting', () => {
+test('malformed, empty and unavailable storage start a game with defaults', () => {
   for (const options of [{ raw: '{invalid' }, { raw: '' }, { storageError: true }]) {
     const ui = boot(options);
-    assert.equal(ui.read('gamePhase'), 'setup');
-    assert.deepEqual(ui.read('config'), DEFAULT_CONFIG); assert.deepEqual(ui.read('state'), createGame(DEFAULT_CONFIG));
-    assert.equal(ui.rolls(), 0); assert.equal(ui.starts.length, 0); assert.equal(ui.resumes.length, 0);
-    assert.equal(ui.closed(), 0); assert.equal(ui.timers.length, 0);
-    assert.equal(ui.saved().gamePhase, 'setup');
-    assert.equal(ui.nodes.get('#start-setup').hidden, false);
-    assert.equal(ui.messages.length, options.raw === '' ? 0 : 1);
+    assert.equal(ui.read('gamePhase'), 'playing');
+    assert.deepEqual(ui.read('config'), DEFAULT_CONFIG);
+    assert.deepEqual(ui.read('state'), prepareStartPosition(createGame(DEFAULT_CONFIG), DEFAULT_CONFIG, 0));
+    assert.equal(ui.rolls(), 1); assert.equal(ui.starts.length, 1); assert.equal(ui.resumes.length, 0);
+    assert.equal(ui.saved().gamePhase, 'playing');
+    assert.equal(ui.nodes.get('#start-setup').hidden, true);
   }
 });
 
@@ -208,6 +214,14 @@ test('a saved standard bot setup starts on arrival with the chosen side, difficu
     assert.equal(reload.starts.length, 0); assert.equal(reload.resumes.length, 1);
     assert.deepEqual(reload.read('state'), ui.read('state'));
   }
+});
+
+test('a saved standard two-player setup starts with its explicitly chosen first move', () => {
+  const ui = boot({ raw: JSON.stringify(savedSetup()) });
+  assert.equal(ui.read('gamePhase'), 'playing');
+  assert.equal(ui.read('playMode'), 'local');
+  assert.equal(ui.read('state.turn'), 1);
+  assert.equal(ui.starts.length, 1);
 });
 
 test('a saved bot setup never starts a solo game when the URL invites the player into a room', () => {

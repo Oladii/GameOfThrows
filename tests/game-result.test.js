@@ -18,17 +18,17 @@ const support = ['defenseLamp', 'scoutLamp', 'horn'];
 const endings = [
   ['flag-or-combat', alive, ['archer'], 0, 'Уничтожено знамя противника'],
   ['flag-or-combat', ['archer'], alive, 1, 'Уничтожено знамя противника'],
-  ['flag-or-combat', alive, ['defenseLamp'], 0, 'Уничтожены все лучники и щитоносцы'],
-  ['flag-or-combat', ['defenseLamp'], alive, 1, 'Уничтожены все лучники и щитоносцы'],
-  ['flag-or-combat', alive, support, 0, 'Уничтожены все лучники и щитоносцы'],
-  ['flag-or-combat', support, alive, 1, 'Уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', alive, ['defenseLamp'], 0, 'Уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', ['defenseLamp'], alive, 1, 'Уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', alive, support, 0, 'Уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', support, alive, 1, 'Уничтожены все лучники и щитоносцы'],
   ['flag-or-combat', ['archer'], ['shield'], 'draw', 'Знамёна обеих сторон уничтожены'],
-  ['flag-or-combat', support, support, 'draw', 'У обеих сторон уничтожены все лучники и щитоносцы'],
-  ['flag-or-combat', ['defenseLamp'], ['defenseLamp'], 'draw', 'У обеих сторон уничтожены все лучники и щитоносцы'],
-  ['flag-or-combat', ['archer'], ['defenseLamp'], 'draw', 'Знамя Синих уничтожено. У Красных уничтожены все лучники и щитоносцы'],
-  ['combat-units', ['shield'], ['defenseLamp'], 0, 'Уничтожены все лучники и щитоносцы'],
-  ['combat-units', ['scoutLamp'], ['archer'], 1, 'Уничтожены все лучники и щитоносцы'],
-  ['combat-units', ['horn'], ['scoutLamp'], 'draw', 'У обеих сторон уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', support, support, 'draw', 'У обеих сторон уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', ['defenseLamp'], ['defenseLamp'], 'draw', 'У обеих сторон уничтожены все лучники и щитоносцы'],
+  ['flag-or-combat', ['archer'], ['defenseLamp'], 'draw', 'Знамя Синих уничтожено. У Красных уничтожены все лучники и щитоносцы'],
+  ['combat-units', ['shield'], ['defenseLamp'], 0, 'Уничтожены все лучники и щитоносцы'],
+  ['combat-units', ['scoutLamp'], ['archer'], 1, 'Уничтожены все лучники и щитоносцы'],
+  ['combat-units', ['horn'], ['scoutLamp'], 'draw', 'У обеих сторон уничтожены все лучники и щитоносцы'],
   ['all-units', ['shield'], [], 0, 'Уничтожены все фигуры противника'],
   ['all-units', [], [], 'draw', 'Все фигуры обеих сторон уничтожены']
 ];
@@ -85,19 +85,19 @@ test('connection status replaces turn status for both seats and clears on reconn
     const snapshot = { seats: [{ guestId: 'blue' }, { guestId: 'red' }], participants: [{ guestId: 'blue', present: true }, { guestId: 'red', present: true }] };
     Object.assign(ui.context, { playMode: 'online', roomView: { selfSeat, status: 'reconnecting', snapshot } });
     ui.context.renderGameResult(position);
-    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с вами');
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с вами');
     ui.context.roomView.status = 'connected'; snapshot.participants[1-selfSeat].present = false;
     ui.context.renderGameResult(position);
-    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с соперником');
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с соперником');
     snapshot.participants[selfSeat].present = false;
     ui.context.renderGameResult(position);
-    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с вами');
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с вами');
     snapshot.participants.forEach(person => { person.present = true; });
     ui.context.renderGameResult(position);
     assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Ваш ход');
     ui.context.roomView.selfSeat = null; snapshot.participants[0].present = false;
     ui.context.renderGameResult(position);
-    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с Синими');
+    assert.equal(ui.nodes['#move-counter'].textContent, 'Ход 4 • Нет связи с Синими');
   }
 });
 

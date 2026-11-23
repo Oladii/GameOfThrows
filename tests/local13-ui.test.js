@@ -123,7 +123,7 @@ test('commander inspector distinguishes an independent attack from historical su
     context.renderInspector({});
     if (input === DEFAULT_CONFIG) {
       assert.match(nodes['#inspector'].innerHTML, /Атакует самостоятельно: урон 3, дальность 2/);
-      assert.match(nodes['#inspector'].innerHTML, /Дальность не увеличивается от аур/);
+      assert.match(nodes['#inspector'].innerHTML, /Дальность не увеличивается от аур/);
     }
     else {
       assert.match(nodes['#inspector'].innerHTML, /Может атаковать только рядом с союзным ветераном/);

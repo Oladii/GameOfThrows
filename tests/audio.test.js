@@ -34,8 +34,10 @@ function harness({ delayed = false, enabled = true } = {}) {
     decode() { for (const resolve of decoders) resolve({duration:.54}); } };
 }
 
-test('approved WAVs are embedded unchanged and load without external requests', () => {
+test('approved audio files are embedded unchanged and load without external requests', () => {
   assert.ok(GAME_AUDIO_ASSETS.remove);
+  const manifest = JSON.parse(fs.readFileSync(new URL('../dist/audio/source-manifest.json', import.meta.url)));
+  assert.deepEqual(Object.keys(GAME_AUDIO_ASSETS), Object.keys(manifest.runtime_files));
   for (const [name, hash] of [
     ['click','9bc09be1a3046828a97ac0f07df0deb10a99426e92de0582f88385757a6d7bab'],
     ['hover','90deeca3bf5afe75271de86856624d0674ad05d1fdccbd54613ba1c404a1c47c']
@@ -44,8 +46,9 @@ test('approved WAVs are embedded unchanged and load without external requests', 
     '4f328a5b8f8df7d5a4de5a2ef71edbb4f96827c0efff7da8424a85039330daa0');
   for (const [name,data] of Object.entries(GAME_AUDIO_ASSETS)) {
     const embedded=Buffer.from(data.split(',')[1],'base64');
-    assert.deepEqual(embedded,fs.readFileSync(new URL(`../dist/audio/${name}.wav`,import.meta.url)));
-    assert.equal(embedded.toString('ascii',0,4),'RIFF');
+    const file = manifest.runtime_files[name];
+    assert.deepEqual(embedded,fs.readFileSync(new URL(`../dist/audio/${file}`,import.meta.url)));
+    assert.ok(data.startsWith(file.endsWith('.mp3') ? 'data:audio/mpeg;' : 'data:audio/wav;'));
   }
 });
 test('all sounds use their own attenuation and damping profiles', async () => {
@@ -60,24 +63,32 @@ test('all sounds use their own attenuation and damping profiles', async () => {
   assert.equal(h.starts.at(-1).buffer,h.audio.buffers.hover);
   assert.notEqual(h.audio.buffers.click,h.audio.buffers.hover);
 });
-function buttonAudioHarness() {
+function buttonAudioHarness(mobile = false) {
   const listeners = new Map(), pending = [], calls = [];
-  const root = { addEventListener(type, listener, capture) { assert.equal(capture, true); listeners.set(type, listener); } };
+  const root = {
+    body: { classList: { contains: value => mobile && value === 'mobile-game' } },
+    addEventListener(type, listener, capture) { assert.equal(capture, true); listeners.set(type, listener); }
+  };
   bindButtonSounds(root, {
-    hover: (button, options) => calls.push(['hover', button, options?.gainScale]),
-    click: (button, options) => calls.push(['click', button, options?.gainScale])
+    hover: (button, options) => calls.push(['hover', button, options?.cue]),
+    play: name => calls.push(['play', name])
   }, callback => pending.push(callback));
   return {
     calls,
-    fire(type, target, event) { listeners.get(type)({ isTrusted: true, target, button: 0, pointerType: 'mouse', ...event }); },
+    fire(type, target, event) { listeners.get(type)?.({ isTrusted: true, target, button: 0, pointerType: 'mouse', ...event }); },
     flush() { for (const callback of pending.splice(0)) callback(); },
   };
 }
 
-function soundButton({ board = false, disabled = false, select = false } = {}) {
+function soundButton({ board = false, disabled = false, select = false, input = false, tab = false } = {}) {
   return {
     expanded: false, disabled,
-    matches(selector) { return selector.includes(':disabled') ? this.disabled : select; },
+    matches(selector) {
+      if (selector.includes(':disabled')) return this.disabled;
+      if (selector.includes('select-trigger')) return select;
+      if (selector.includes('tabs-trigger')) return tab;
+      return selector.startsWith('select,input') && input;
+    },
     closest(selector) {
       if (selector.startsWith('button,')) return this;
       return board && selector.includes('#board') ? this : null;
@@ -86,9 +97,9 @@ function soundButton({ board = false, disabled = false, select = false } = {}) {
   };
 }
 
-test('button audio delegates activation, ignores touch hover and leaves board sounds to the board', () => {
+test('desktop uses distinct sounds for control hover and activation', () => {
   const h = buttonAudioHarness(), button = soundButton(), child = { closest: selector => button.closest(selector) };
-  const board = soundButton({ board: true }), disabled = soundButton({ disabled: true });
+  const input = soundButton({ input: true }), board = soundButton({ board: true }), disabled = soundButton({ disabled: true });
   h.fire('pointerover', child);
   h.fire('pointerover', button, { relatedTarget: child });
   h.fire('pointerout', child, { relatedTarget: button });
@@ -100,15 +111,29 @@ test('button audio delegates activation, ignores touch hover and leaves board so
   h.fire('click', disabled);
   h.fire('click', button, { isTrusted: false });
   h.fire('pointerover', button, { pointerType: 'touch' });
-  h.fire('click', child, { pointerType: 'touch' });
-  button.disabled = true;
-  assert.deepEqual(h.calls, [['hover', button, .5], ['hover', null, undefined]]);
+  h.fire('click', button);
+  h.fire('pointerover', input);
+  h.fire('change', input);
   h.flush();
-  assert.deepEqual(h.calls, [['hover', button, .5], ['hover', null, undefined], ['click', button, .5]]);
+  assert.deepEqual(h.calls, [
+    ['hover', button, 'control-hover'], ['hover', null, undefined], ['hover', input, 'control-hover'],
+    ['play', 'control-click'], ['play', 'control-click']
+  ]);
+});
+
+test('mobile plays both control sounds on one tap and stays silent on hover', () => {
+  const h = buttonAudioHarness(true), button = soundButton();
+  h.fire('pointerover', button);
+  h.fire('click', soundButton({ disabled: true }));
+  h.fire('click', soundButton({ board: true }));
+  h.fire('click', button, { isTrusted: false });
+  h.fire('click', button, { pointerType: 'touch' });
+  h.flush();
+  assert.deepEqual(h.calls, [['play', 'control-hover'], ['play', 'control-click']]);
 });
 
 test('select triggers play once when opened with a mouse, keyboard or touch', () => {
-  const h = buttonAudioHarness(), button = soundButton({ select: true });
+  const h = buttonAudioHarness(true), button = soundButton({ select: true });
   h.fire('pointerdown', button);
   button.expanded = true;
   h.fire('click', button);
@@ -124,7 +149,19 @@ test('select triggers play once when opened with a mouse, keyboard or touch', ()
   h.fire('click', button, { pointerType: 'touch' });
   button.expanded = true;
   h.flush();
-  assert.deepEqual(h.calls, Array.from({ length: 3 }, () => ['click', button, .5]));
+  assert.deepEqual(h.calls, Array.from({ length: 3 }, () => [['play', 'control-hover'], ['play', 'control-click']]).flat());
+});
+
+test('committed native and Radix values play the control cue once', () => {
+  const h = buttonAudioHarness(true), input = soundButton({ input: true }), tab = soundButton({ tab: true });
+  h.fire('input', input);
+  h.fire('change', input, { isTrusted: false });
+  h.fire('change', soundButton({ input: true, disabled: true }));
+  h.fire('change', input);
+  h.fire('click', tab);
+  h.fire('game-control-activation', tab, { isTrusted: false });
+  h.flush();
+  assert.deepEqual(h.calls, [['play', 'control-hover'], ['play', 'control-click'], ['play', 'control-hover'], ['play', 'control-click']]);
 });
 
 test('preparing audio only enables pre-click hover if the browser is already running audio', async () => {
@@ -146,19 +183,17 @@ test('preparing audio only enables pre-click hover if the browser is already run
   assert.equal(blocked.starts.length, 1);
 });
 
-test('controls use half the gain of the matching board cues at the selected volume', async () => {
+test('the two control samples use the same reduced gain and start on the same tap', async () => {
   const h = harness();
-  await h.audio.prepare();
+  await h.audio.unlock();
   h.audio.setVolume(.25);
-  for (const cue of ['hover', 'click']) {
-    h.tick(100);
-    h.audio[cue]('board:0,0');
-    const boardGain = h.gains.at(-1);
-    h.tick(100);
-    h.audio[cue]('control', { gainScale: .5 });
-    assert.ok(boardGain > 0);
-    assert.equal(h.gains.at(-1), boardGain * .5);
-  }
+  h.audio.play('control-hover');
+  h.audio.play('control-click');
+  assert.deepEqual(h.starts, [
+    { time: 0, buffer: h.audio.buffers['control-hover'] },
+    { time: 0, buffer: h.audio.buffers['control-click'] }
+  ]);
+  assert.deepEqual(h.gains.slice(-2), [.0225, .0225]);
 });
 
 test('hover ticks only on cell changes, with no autoplay, repeat or catch-up', async () => {

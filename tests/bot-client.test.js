@@ -31,6 +31,6 @@ test('worker errors and creation failures release the search', () => {
 
 test('a hung worker times out without applying a move', async () => {
   const worker = fakeWorker(), runner = new BotRunner(() => worker, 5);
-  await new Promise(resolve => runner.run({}, () => assert.fail('unexpected move'), error => { assert.match(error.message, /не успел/); resolve(); }));
+  await new Promise(resolve => runner.run({}, () => assert.fail('unexpected move'), error => { assert.match(error.message, /не успел/); resolve(); }));
   assert.equal(runner.active, false); assert.equal(worker.stopped, true);
 });

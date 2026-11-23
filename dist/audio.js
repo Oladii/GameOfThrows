@@ -5,9 +5,11 @@ const VOLUME_PREFERENCE = 'game-of-trows-volume-v1';
 const silentSound = () => {};
 // Overall listening level, independent of the balance between individual cues.
 export const GAME_MASTER_GAIN = 4.5;
-export const CONTROL_SOUND_GAIN = .5;
 // Quiet, damped table sounds with subdued movement and short interface ticks.
 export const GAME_SOUND_PROFILES = {
+  'control-hover': { gain: .045 / GAME_MASTER_GAIN, dry: true },
+  'control-click': { gain: .045 / GAME_MASTER_GAIN, dry: true },
+  'room-join': { gain: .24 / GAME_MASTER_GAIN, dry: true },
   defeat: { gain: 1 / GAME_MASTER_GAIN, dry: true },
   victory: { gain: .0875 / GAME_MASTER_GAIN, dry: true },
   slide: { gain: .045, lowpass: 450, highpass: 220, duration: .10, attack: .015 },
@@ -64,18 +66,40 @@ export function movementSoundKind(route, pieces) {
 }
 
 export function bindButtonSounds(root, audio, defer = callback => setTimeout(callback, 0)) {
-  const buttonAt = target => {
-    const button = target?.closest?.('button,[role="button"],summary,input:is([type="button"],[type="submit"],[type="reset"])');
-    return button && !button.closest('#board,.showcase-field') ? button : null;
-  };
+  const board = '#board,.showcase-field';
+  const disabled = ':disabled,[data-disabled]';
+  const inactive = '[aria-disabled="true"],[hidden],[inert]';
+  const buttons = 'button,[role="button"],summary,input:is([type="button"],[type="submit"],[type="reset"])';
+  const values = 'select,input:is([type="checkbox"],[type="radio"],[type="range"],[type="number"])';
+  const enabled = control => control && !control.matches(disabled) && !control.closest(inactive);
+  const mobile = root.body.classList.contains('mobile-game');
+  if (!mobile) {
+    const controlAt = target => {
+      const control = target?.closest?.(`${buttons},${values},[role="tab"],[role="option"]`) ?? target?.closest?.('label')?.control;
+      return control && !control.closest(board) ? control : null;
+    };
+    root.addEventListener('pointerover', event => {
+      if (!event.isTrusted || event.pointerType === 'touch') return;
+      const control = controlAt(event.target);
+      if (enabled(control) && control !== controlAt(event.relatedTarget)) audio.hover(control, { cue: 'control-hover' });
+    }, true);
+    root.addEventListener('pointerout', event => {
+      if (!event.isTrusted || event.pointerType === 'touch') return;
+      const control = controlAt(event.target);
+      if (control && control !== controlAt(event.relatedTarget)) audio.hover(null);
+    }, true);
+  }
+
+  function playControlClick() {
+    if (mobile) audio.play('control-hover');
+    audio.play('control-click');
+  }
   const enabledButton = target => {
-    const button = buttonAt(target);
-    if (!button || button.matches(':disabled,[data-disabled]') || button.closest('[aria-disabled="true"],[hidden],[inert]')) return null;
-    return button;
+    const button = target?.closest?.(buttons);
+    return enabled(button) && !button.closest(board) ? button : null;
   };
   const selectTrigger = '[data-slot="select-trigger"]';
   const openingSelects = new WeakSet();
-  const controlSound = { gainScale: CONTROL_SOUND_GAIN };
   function playActivation(button) {
     const opensSelect = button.matches(selectTrigger);
     if (opensSelect) {
@@ -85,23 +109,22 @@ export function bindButtonSounds(root, audio, defer = callback => setTimeout(cal
     // Play after the action so a transition that stops the game's sounds cannot swallow its own click.
     defer(() => {
       if (opensSelect) openingSelects.delete(button);
-      if (!opensSelect || button.getAttribute('aria-expanded') === 'true') audio.click(button, controlSound);
+      if (!opensSelect || button.getAttribute('aria-expanded') === 'true') playControlClick();
     });
   }
-  root.addEventListener('pointerover', event => {
-    if (!event.isTrusted || event.pointerType === 'touch') return;
-    const button = enabledButton(event.target);
-    if (button && button !== buttonAt(event.relatedTarget)) audio.hover(button, controlSound);
-  }, true);
-  root.addEventListener('pointerout', event => {
-    if (!event.isTrusted || event.pointerType === 'touch') return;
-    const button = buttonAt(event.target);
-    if (button && button !== buttonAt(event.relatedTarget)) audio.hover(null);
-  }, true);
   root.addEventListener('click', event => {
     if (!event.isTrusted) return;
     const button = enabledButton(event.target);
-    if (button) playActivation(button);
+    if (button && !button.matches('[data-slot="tabs-trigger"]')) playActivation(button);
+  }, true);
+  root.addEventListener('change', event => {
+    const control = event.target;
+    if (event.isTrusted && control?.matches?.(values) &&
+        enabled(control) && !control.closest(board)) defer(playControlClick);
+  }, true);
+  // Radix commits values through callbacks, including keyboard selections in its portal.
+  root.addEventListener('game-control-activation', event => {
+    if (enabled(event.target) && !event.target.closest(board)) defer(playControlClick);
   }, true);
   // Radix Select opens on mouse down and keyboard commands without requiring a click event.
   root.addEventListener('pointerdown', event => {
@@ -141,7 +164,7 @@ export class GameAudio {
     try {
       this.context ||= this.createContext();
       if (typeof this.context.createBuffer === 'function') {
-        for (const name of ['click', 'hover', 'knock1', 'knock2', 'knock3', 'scatter']) {
+        for (const name of ['click', 'hover', 'control-hover', 'control-click', 'knock1', 'knock2', 'knock3', 'scatter']) {
           if (this.buffers[name] || !this.assets[name]) continue;
           try {
             const bytes = Uint8Array.from(atob(this.assets[name].split(',')[1]), char => char.charCodeAt(0));
@@ -267,14 +290,14 @@ export class GameAudio {
     this.hoverVoice(); this.clickVoice();
     this.clickVoice = this.play('click', { gainScale: gainScale * (soft ? .5 : 1) });
   }
-  hover(target, { gainScale = 1 } = {}) {
+  hover(target, { cue = 'hover', gainScale = 1 } = {}) {
     if (target === this.hoverKey) return;
     this.hoverKey = target;
     // Hover never unlocks audio, queues delayed ticks, or replays missed targets.
     if (!target || !this.enabled || this.hidden() || this.context?.state !== 'running'
-      || !this.buffers.hover || this.now() - this.lastHover < 65) return;
+      || !this.buffers[cue] || this.now() - this.lastHover < 65) return;
     this.lastHover = this.now();
-    this.hoverVoice(); this.hoverVoice = this.play('hover', { gainScale });
+    this.hoverVoice(); this.hoverVoice = this.play(cue, { gainScale });
   }
   movement(route, pieces, durationMs, { instant = false } = {}) {
     const kind = movementSoundKind(route, pieces), epoch = this.epoch;

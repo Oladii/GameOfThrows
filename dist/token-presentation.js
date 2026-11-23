@@ -145,7 +145,7 @@ export function renderTokenBadges(info, { showIncoming = false, potentialDamage 
       : showIncoming?detailedTarget():tokenArtwork('bullseye',tokenX(80.6875),tokenY(9.075),78.625*TOKEN_UNIT_SCALE,78.625*TOKEN_UNIT_SCALE,'incoming-badge');
     const number=!info.dead&&showIncoming?renderTokenNumber(`−${info.incoming}`,tokenX(120),tokenY(-1+TOKEN_BADGE_LAYOUT.incomingInkY),'incoming'):'';
     const state=info.dead?' lethal':!showIncoming?' under-fire-target':'';
-    threat=`<g class="incoming-indicator${state}" data-incoming="${info.incoming}"><title>Входящий урон: ${info.incoming}${info.dead?' · погибнет при расчёте':''}</title>${badge}${number}</g>`;
+    threat=`<g class="incoming-indicator${state}" data-incoming="${info.incoming}"><title>Входящий урон: ${info.incoming}${info.dead?' · погибнет при расчёте':''}</title>${badge}${number}</g>`;
   }
   return `<g class="unit-badges${potentialDamage ? ' potential-damage' : ''}" data-token-style="matrix">${attack}${armor}${threat}</g>`;
 }

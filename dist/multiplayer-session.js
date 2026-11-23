@@ -187,6 +187,7 @@ export class MultiplayerSession {
     } finally { if (this.#current(generation)) { this.#pending = false; this.#emit(); } }
   }
   claimSeat(team, wantsFirst) { return this.#command('seat', { team, ...(typeof wantsFirst === 'boolean' ? { wantsFirst } : {}) }); }
+  changeSeat(team, wantsFirst) { return this.#command('change-seat', { team, wantsFirst }); }
   setFirstMovePreference(wantsFirst) { return this.#command('first-move', { wantsFirst }); }
   stand() { return this.#command('stand', {}); }
   move(action) {
@@ -194,6 +195,7 @@ export class MultiplayerSession {
     return this.#command('move', { id: action.id, to: action.to });
   }
   endMatch() { return this.#command('finish', {}); }
+  resign() { return this.#command('resign', {}); }
   async historyPosition(ply) {
     const snapshot = this.#snapshot, generation = this.#generation;
     if (!snapshot?.matchId || !this.#current(generation) || this.#status === 'closed') throw new MultiplayerError('not_joined');

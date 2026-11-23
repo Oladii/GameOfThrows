@@ -19,11 +19,13 @@ function node() {
     querySelector(selector) { if (!children.has(selector)) children.set(selector, node()); return children.get(selector); },
     addEventListener(type, fn) { events[type] = fn; } };
 }
-function setup() {
+function setup({ mobile = true } = {}) {
   const nodes = new Map(), storage = new Map(), calls = [], location = { href: 'http://localhost/?theme=light', protocol: 'http:' };
   const $ = selector => { if (!nodes.has(selector)) nodes.set(selector, node()); return nodes.get(selector); };
   const context = vm.createContext({ tableRattle: null, MultiplayerSession: class { create() { return Promise.resolve(); } join() { return Promise.resolve(); } stop() {} }, $, URL, location, navigator: {}, ROOM_STORAGE: 'online', STORAGE: 'local',
-    document: { body: node(), querySelectorAll: () => [] }, window: { history: { replaceState(_state, _title, url) { location.href = url; } } },
+    document: { body: { ...node(), classList: { toggle() {}, contains: key => mobile && key === 'mobile-game' } }, querySelectorAll: () => [] },
+    window: { history: { replaceState(_state, _title, url) { location.href = url; } } },
+    gameAudio: { play: name => calls.push(['sound', name]) },
     localStorage: { getItem: key => storage.get(key), setItem(key, value) { storage.set(key, value); } },
     playMode: 'online', gamePhase: 'playing', editor: false, positionKind: 'default', config: structuredClone(DEFAULT_CONFIG), state: createGame(DEFAULT_CONFIG),
     roomMovePreview: null, roomWantsFirst: true, roomFirstMoveNotices: new Set(), renderFirstMoveNotice() {}, roomSession: null, roomView: null, roomLocalGame: null, roomTarget: null, roomSnapshot: null, roomConnecting: false, roomLeaving: false, roomError: '',
@@ -57,13 +59,55 @@ function view(snap, selfSeat = null, overrides = {}) {
 test('the scoreboard offers free sides without rosters, names or player actions', () => {
   const ui = setup(), snap = snapshot(); ui.context.roomView = view(snap); ui.context.renderOnlineRoom();
   const markup = ui.$('#scoreboard').innerHTML;
-  assert.match(markup, /aria-label="Синие"><div class="team-card-heading"><span class="team-title">Синие — ожидаем игрока/); assert.match(markup, /aria-label="Красные"><div class="team-card-heading"><span class="team-title">Красные — ожидаем игрока/);
-  assert.match(markup, /Играть за синих/); assert.match(markup, /Играть за красных/);
+  assert.match(markup, /aria-label="Синие"><div class="team-card-heading"><span class="team-title">Синие — ожидаем игрока/); assert.match(markup, /aria-label="Красные"><div class="team-card-heading"><span class="team-title">Красные — ожидаем игрока/);
+  assert.match(markup, /Играть за синих/); assert.match(markup, /Играть за красных/);
   assert.doesNotMatch(markup, /team-roster|team-count/);
   assert.equal(ui.$('#room-finish').hidden, true);
   assert.equal(ui.$('.board-wrap').hidden, true); assert.equal(ui.context.humanCanMove(), false);
   assert.equal(ui.$('#room-title').textContent, 'Игровая комната #1234');
   assert.doesNotMatch(html, /room-name|room-entry|room-role|room-last-result|room-seats|room-stand|room-ready/);
+});
+
+test('desktop preparation keeps the board and puts the seat action in the room card', () => {
+  const ui = setup({ mobile: false }), snap = snapshot();
+  ui.context.gamePhase = 'setup'; ui.context.roomView = view(snap);
+  ui.context.renderOnlineRoom();
+  const scoreboard = ui.$('#scoreboard').innerHTML;
+  assert.match(scoreboard, /Подготовка<\/span><strong>Ждём игроков/);
+  assert.match(scoreboard, /class="team-roster"/);
+  assert.doesNotMatch(scoreboard, /data-(claim|stand)-seat/);
+  assert.equal(ui.$('#room-seat').textContent, 'Присоединиться к игре');
+  assert.equal(ui.$('#room-seat').hidden, false);
+  assert.equal(ui.$('.board-wrap').hidden, false);
+  assert.equal(ui.$('.board-wrap').inert, true);
+  assert.equal(ui.context.humanCanMove(), false);
+});
+
+test('one bell per newly occupied seat reaches the participating players across snapshots', () => {
+  const first = { guestId: 'first', joinedRevision: 2, ready: true };
+  const second = { guestId: 'second', joinedRevision: 4, ready: true };
+  const sounds = ui => ui.calls.filter(([type]) => type === 'sound').map(([, name]) => name);
+  const lobby = snapshot();
+  const admitted = snapshot({ revision: 2, seats: [first, null] });
+  const changed = snapshot({ revision: 3, seats: [null, first] });
+  const playing = snapshot({ revision: 4, phase: 'playing', matchId: 'match', state: createGame(DEFAULT_CONFIG), seats: [second, first] });
+  const original = setup({ mobile: false });
+  original.context.applyRoomView(view(lobby));
+  original.context.applyRoomView(view(admitted, 0));
+  original.context.applyRoomView(view(changed, 1));
+  assert.deepEqual(sounds(original), ['room-join']);
+  original.context.applyRoomView(view(playing, 1));
+  original.context.applyRoomView(view(playing, 1));
+  assert.deepEqual(sounds(original), ['room-join', 'room-join']);
+  const joining = setup(), spectator = setup({ mobile: false }), restored = setup({ mobile: false });
+  joining.context.applyRoomView(view(changed));
+  joining.context.applyRoomView(view(playing, 0));
+  spectator.context.applyRoomView(view(changed));
+  spectator.context.applyRoomView(view(playing));
+  restored.context.applyRoomView(view(playing, 1));
+  assert.deepEqual(sounds(joining), ['room-join']);
+  assert.deepEqual(sounds(spectator), []);
+  assert.deepEqual(sounds(restored), []);
 });
 
 test('each online player sees their army below the opponent, spectators keep South below', () => {
@@ -87,11 +131,11 @@ test('selecting a side is sufficient; its card offers cancellation only before t
     let stands = 0; ui.context.roomView = view(snap, team); ui.context.roomSession = { stand: () => { stands++; } };
     ui.context.renderOnlineRoom();
     const waiting = ui.$('#scoreboard').innerHTML;
-    assert.match(waiting, new RegExp(`aria-label="${team === 0 ? 'Синие' : 'Красные'}"><div class="team-card-heading"><span class="team-title">Вы играете за ${team === 0 ? 'Синих' : 'Красных'}`));
+    assert.match(waiting, new RegExp(`aria-label="${team === 0 ? 'Синие' : 'Красные'}"><div class="team-card-heading"><span class="team-title">Вы играете за ${team === 0 ? 'Синих' : 'Красных'}`));
     assert.equal((waiting.match(/class="team-roster"/g) || []).length, 0);
     assert.match(waiting, /data-claim-seat="[01]" disabled/);
     assert.match(waiting, new RegExp(`data-stand-seat="${team}"`)); assert.match(waiting, /Отменить выбор/);
-    assert.doesNotMatch(waiting, /ГОТОВ|НЕ ГОТОВ/);
+    assert.doesNotMatch(waiting, /ГОТОВ|НЕ ГОТОВ/);
     const event = { target: { closest: () => ({ dataset: { standSeat: String(team) }, disabled: false }) } };
     await ui.$('#scoreboard').events.click(event); assert.equal(stands, 1);
     snap.phase = 'playing'; snap.state = createGame(DEFAULT_CONFIG); snap.seats[1 - team] = { guestId: 'other', ready: true };
@@ -102,12 +146,13 @@ test('selecting a side is sufficient; its card offers cancellation only before t
   }
 });
 
-test('either seated player can finish immediately, spectators cannot, including after victory', async () => {
+test('only seated players can resign while playing or clear a completed result', async () => {
   for (const phase of ['playing', 'won']) for (const team of [null, 0, 1]) {
     const ui = setup(), snap = snapshot({ phase, matchId: 'match', state: createGame(DEFAULT_CONFIG) });
-    let finishes = 0; ui.context.roomSession = { endMatch() { finishes++; } }; ui.context.roomView = view(snap, team);
+    const actions = []; ui.context.roomSession = { endMatch() { actions.push('finish'); }, resign() { actions.push('resign'); } }; ui.context.roomView = view(snap, team);
     ui.context.renderOnlineRoom(); assert.equal(ui.$('#room-finish').hidden, team === null);
-    await ui.$('#room-finish').events.click(); assert.equal(finishes, team === null ? 0 : 1);
+    await ui.$('#room-finish').events.click();
+    assert.deepEqual(actions, team === null ? [] : [phase === 'playing' ? 'resign' : 'finish']);
   }
 });
 
@@ -157,7 +202,7 @@ test('same-revision presence refresh preserves animation while updating connecti
   assert.equal(ui.context.movement.active, true);
   assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /Нет связи/);
   ui.context.movement = null; ui.context.renderOnlineRoom();
-  assert.match(ui.$('#move-counter').textContent, /Нет связи с вами/);
+  assert.match(ui.$('#move-counter').textContent, /Нет связи с вами/);
 });
 
 test('finish clears displayed seats and readiness, and early finish never claims a winner', () => {
@@ -191,8 +236,8 @@ test('local and bot permissions remain available, room links contain no session 
   assert.equal(url.searchParams.get('room'), 'room-a'); assert.equal(url.searchParams.get('theme'), 'light');
   assert.equal(url.searchParams.has('_fresh'), false); assert.equal(url.hash, '');
   assert.doesNotMatch(html, /id="room-link"/);
-  assert.match(html, /Копировать ссылку на комнату/);
-  assert.match(app, /event\.key === 'Tab' && playMode !== 'online'/);
+  assert.match(html, /Копировать ссылку на комнату/);
+  assert.doesNotMatch(app, /event\.key === 'Tab'.*event\.preventDefault/);
 });
 
 test('local undo, start and settings handlers cannot mutate an online match', async () => {
@@ -208,13 +253,25 @@ test('local undo, start and settings handlers cannot mutate an online match', as
   assert.equal(ui.context.history.length, 1); assert.equal(ui.context.playMode, 'online');
 });
 
-test('client setup failure leaves an explicit retry and recovery copy', async () => {
+test('initial room failures explain how to reconnect without a retry button', async () => {
   const ui = setup();
   ui.context.MultiplayerSession = class { constructor() { throw Object.assign(new Error('unavailable'), { code: 'storage_unavailable' }); } };
   await ui.context.connectOnlineRoom();
   assert.equal(ui.context.roomConnecting, false);
   assert.match(ui.$('#room-error').textContent, /Разрешите хранение данных/);
-  assert.equal(ui.$('#room-retry').hidden, false);
+  assert.doesNotMatch(html, /id="room-retry"/);
+  assert.match(ui.context.roomErrorText({ code: 'network_error' }), /создать комнату. Обновите страницу/);
+  assert.match(ui.context.roomErrorText({ code: 'invalid_response' }), /создать комнату. Обновите страницу/);
+  ui.context.roomTarget = 'room-a';
+  assert.match(ui.context.roomErrorText({ code: 'network_error' }), /войти в комнату. Обновите страницу/);
+});
+
+test('a standalone file directs players to the web build before contacting the room API', async () => {
+  const ui = setup({ mobile: false });
+  ui.location.protocol = 'file:';
+  ui.context.MultiplayerSession = class { constructor() { assert.fail('file origins cannot use the room API'); } };
+  await ui.context.connectOnlineRoom();
+  assert.equal(ui.$('#room-banner').textContent, 'Для игры по ссылке откройте веб‑версию игры.');
 });
 
 test('recovery clears a stale connection error, but a failed connected command keeps its message', () => {
@@ -224,7 +281,7 @@ test('recovery clears a stale connection error, but a failed connected command k
   assert.equal(ui.context.roomError, 'Previous failure'); assert.equal(ui.$('#room-error').hidden, false);
   ui.context.applyRoomView(view(snap));
   assert.equal(ui.context.roomError, ''); assert.equal(ui.$('#room-error').hidden, true);
-  assert.equal(ui.context.roomErrorText({ code: 'storage_unavailable', status: 503 }), 'Сервер комнаты временно недоступен. Подключение восстановится автоматически.');
+  assert.equal(ui.context.roomErrorText({ code: 'storage_unavailable', status: 503 }), 'Нет связи с комнатой. Восстанавливаем подключение…');
   assert.match(ui.context.roomErrorText({ code: 'storage_unavailable', status: 0 }), /Разрешите хранение данных/);
 });
 
@@ -232,19 +289,18 @@ test('the room counts players and spectators with Russian plurals and no duplica
   const ui = setup(), snap = snapshot({ seats: [{ guestId: 'me', ready: true }, { guestId: 'other', ready: true }],
     participants: [{ guestId: 'me', present: true, seat: 0 }, { guestId: 'other', present: true, seat: 1 }, { guestId: 'viewer', present: true, seat: null }] });
   ui.context.roomView = view(snap, 0); ui.context.renderOnlineRoom();
-  assert.equal(ui.$('#room-participants').textContent, '2 игрока и 1 зритель');
-  assert.match(ui.$('#scoreboard').innerHTML, /aria-label="Синие"><div class="team-card-heading"><span class="team-title">Вы играете за Синих/); assert.match(ui.$('#scoreboard').innerHTML, /aria-label="Красные"><div class="team-card-heading"><span class="team-title">Соперник играет за Красных/);
+  assert.equal(ui.$('#room-participants').textContent, '2 игрока и 1 зритель');
+  assert.match(ui.$('#scoreboard').innerHTML, /aria-label="Синие"><div class="team-card-heading"><span class="team-title">Вы играете за Синих/); assert.match(ui.$('#scoreboard').innerHTML, /aria-label="Красные"><div class="team-card-heading"><span class="team-title">Соперник играет за Красных/);
   assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /data-claim-seat/);
 });
 
-test('closed state hides the field and game actions, and explicit re-entry uses join', async () => {
+test('closed state hides game actions and asks for a reload', () => {
   const ui = setup(), snap = snapshot({ phase: 'playing', matchId: 'old', state: createGame(DEFAULT_CONFIG), seats: [{ guestId: 'me', ready: true }, null] });
   ui.context.roomTarget = snap.roomId; ui.context.roomView = view(snap, 0, { status: 'closed', canMove: false, error: { code: 'room_not_found' } });
   ui.context.renderOnlineRoom();
   assert.equal(ui.$('.board-wrap').hidden, true); assert.equal(ui.$('#room-finish').hidden, true);
-  assert.equal(ui.$('#room-retry').textContent, 'Войти снова');
-  const calls = []; ui.context.MultiplayerSession = class { join(id) { calls.push(id); return Promise.resolve(); } };
-  await ui.$('#room-retry').events.click(); assert.deepEqual(calls, ['room-a']);
+  assert.equal(ui.$('#room-error').textContent, 'Комната закрыта. Обновите страницу, чтобы войти снова.');
+  assert.doesNotMatch(html, /id="room-retry"/);
 });
 
 test('room entry and invitation URLs connect automatically without a name', async () => {
@@ -274,7 +330,7 @@ test('team cards contain identities rather than duplicate turn statuses', () => 
       participants: [{ guestId: 'blue', present: true, seat: 0 }, { guestId: 'red', present: true, seat: 1 }] });
     ui.context.state = position; ui.context.roomView = view(snap, selfSeat); ui.context.renderOnlineRoom();
     assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /turn-tag|Ваш ход|Ход соперника|Ожидает вашего хода/);
-    for (const team of [0, 1]) assert.ok(ui.$('#scoreboard').innerHTML.includes(`${team === selfSeat ? 'Вы играете за' : selfSeat === null ? 'Игрок за' : 'Соперник играет за'} ${team ? 'Красных' : 'Синих'}`));
+    for (const team of [0, 1]) assert.ok(ui.$('#scoreboard').innerHTML.includes(`${team === selfSeat ? 'Вы играете за' : selfSeat === null ? 'Игрок за' : 'Соперник играет за'} ${team ? 'Красных' : 'Синих'}`));
   }
 });
 
@@ -283,7 +339,7 @@ test('the turn line omits a seated player color while retaining the spectator ro
   const caption = app.split('\n').find(line => line.includes("$('#mode-caption').textContent = playMode"));
   for (const selfSeat of [0, 1, null]) {
     ui.context.roomView = view(snapshot(), selfSeat); vm.runInContext(caption, ui.context);
-    assert.equal(ui.$('#mode-caption').textContent, selfSeat === null ? 'По ссылке · зритель' : 'По ссылке');
+    assert.equal(ui.$('#mode-caption').textContent, selfSeat === null ? 'По ссылке · зритель' : 'По ссылке');
   }
 });
 
@@ -333,7 +389,7 @@ test('copy button copies only the invitation and reports clipboard failure', asy
   assert.equal(message, 'Ссылка скопирована.');
   ui.context.navigator.clipboard.writeText = async () => { throw new Error('denied'); };
   await ui.$('#room-copy').events.click();
-  assert.match(message, /Не удалось скопировать ссылку/);
+  assert.match(message, /Не удалось скопировать ссылку/);
 });
 
 function setupReview() {
@@ -405,7 +461,7 @@ test('the room card is absent outside online mode; room creation stays in start 
   assert.equal(ui.$('.multiplayer-panel').hidden,true);
   assert.doesNotMatch(html,/id="room-open"/);
   assert.doesNotMatch(html,/id="replay-combat"/);
-  assert.match(html,/<option value="online">Вдвоём по ссылке<\/option>/);
+  assert.match(html,/<option value="online">Вдвоём по ссылке<\/option>/);
   ui.context.playMode='online'; ui.context.renderOnlineRoom();
   assert.equal(ui.$('.multiplayer-panel').hidden,false);
   ui.context.playMode='bot'; ui.context.renderOnlineRoom();
@@ -431,7 +487,7 @@ test('only the player who lost a contested first move sees the dialog, once per 
   ui.context.roomView = view(snap, null); ui.context.renderFirstMoveNotice(); assert.equal(shown, 0);
   ui.context.roomView = view(snap, 0); ui.context.renderFirstMoveNotice(); assert.equal(shown, 0);
   ui.context.roomView = view(snap, 1); ui.context.renderFirstMoveNotice(); assert.equal(shown, 1);
-  assert.equal(ui.$('#first-move-message').textContent, 'Синий тоже хотел ходить первым, и удача оказалась на его стороне.');
+  assert.equal(ui.$('#first-move-message').textContent, 'Синий тоже хотел ходить первым, и удача оказалась на его стороне.');
   dialog.close(); ui.context.renderFirstMoveNotice(); assert.equal(shown, 1);
   snap.matchId = 'match-two'; snap.firstMove.team = 1; ui.context.roomView = view(snap, 0);
   ui.context.renderFirstMoveNotice(); assert.equal(shown, 2);
@@ -456,7 +512,7 @@ test('first move checkbox is available while waiting and carries the choice with
   const ui = setup(); ui.context.playMode = 'bot'; ui.context.humanTeam = 1;
   for (const [difficulty, label] of [['training','Неопытный бот'],['normal','Опытный бот'],['hard','Воевода']]) {
     ui.context.botDifficulty = difficulty; ui.context.renderScoreboard(ui.context.state);
-    assert.match(ui.$('#scoreboard').innerHTML, new RegExp(`aria-label="Синие"><div class="team-card-heading"><span class="team-title">${label} играет за Синих`));
+    assert.match(ui.$('#scoreboard').innerHTML, new RegExp(`aria-label="Синие"><div class="team-card-heading"><span class="team-title">${label} играет за Синих`));
     assert.doesNotMatch(ui.$('#scoreboard').innerHTML, /воевода бот/);
   }
 });
@@ -468,7 +524,7 @@ test('when neither wants the first move only the selected starter sees the notic
     const snap = snapshot({ phase: 'playing', state: createGame(DEFAULT_CONFIG), matchId: 'neither-' + team, seats: [{ wantsFirst: false }, { wantsFirst: false }], firstMove: { team, contested: false } });
     ui.context.roomView = view(snap, 1-team); ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, false);
     ui.context.roomView = view(snap, team); ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, true);
-    assert.equal(ui.$('#first-move-message').textContent, `Никто не хотел ходить первым, но удача оказалась на стороне ${team === 0 ? 'Синего' : 'Красного'}.`);
+    assert.equal(ui.$('#first-move-message').textContent, `Никто не хотел ходить первым, но удача оказалась на стороне ${team === 0 ? 'Синего' : 'Красного'}.`);
     dialog.close(); ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, false);
   }
 });

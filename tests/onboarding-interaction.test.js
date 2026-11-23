@@ -69,7 +69,7 @@ test('guide opens as a separate screen and Back restores the game scroll positio
   const panel = ui.nodes['#onboarding-body'];
   assert.equal(panel.attrs['aria-label'], 'Теория');
   assert.deepEqual([...panel.innerHTML.matchAll(/<h3>([^<]*)<\/h3>/g)].map(match => match[1]),
-    ['Дебют', 'Атака', 'Открытый фланг', 'Защита', 'Следи за флангами']);
+    ['Дебют', 'Атака', 'Открытый фланг', 'Защита', 'Следи за флангами']);
   ui.nodes['#guide-back'].listeners.click();
   assert.equal(ui.nodes['#rules-dialog'].hidden, true);
   assert.equal(ui.classes.has('guide-open'), false);

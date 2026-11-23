@@ -1,0 +1,11 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="shield">
+<g id="icon">
+<path d="M8 1L14 3.1V7.3C14 10.8 11 12.9 8 15C5 12.9 2 10.8 2 7.3V3.1L8 1Z" fill="#A19786"/>
+<mask id="stroke0_0_140" fill="white">
+<path d="M8 1L14 3.1V7.3C14 10.8 11 12.9 8 15C5 12.9 2 10.8 2 7.3V3.1L8 1Z"/>
+</mask>
+<path d="M8 1L14 3.1V7.3C14 10.8 11 12.9 8 15C5 12.9 2 10.8 2 7.3V3.1L8 1Z" stroke-width="2.66667" stroke="#A19786" mask="url(#stroke0_0_140)"/>
+</g>
+</g>
+</svg>

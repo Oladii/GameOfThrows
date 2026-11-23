@@ -28,6 +28,17 @@ test('the downloadable game embeds its own graphics and controls', async () => {
   assert.doesNotMatch(html, /\.\/art\/|<script src="\/game-selects.js"|type="importmap"/);
 });
 
+test('standalone match results embed the web-sized winning flags', async () => {
+  const html = await read('Lamps.html');
+  const web = await read('docs/index.html');
+  for (const team of ['red', 'blue']) {
+    const variants = web.match(new RegExp(`--team-${team}:image-set\\(([^;]+)\\);`))[1];
+    const file = variants.match(/url\("\.\/(art\/[^"]+)"\) 3x/)[1];
+    const embedded = html.match(new RegExp(`--result-flag:var\\(--team-${team},url\\('data:image/[^;]+;base64,([A-Za-z0-9+/=]+)'\\)\\)`))[1];
+    assert.deepEqual(Buffer.from(embedded, 'base64'), await readFile(new URL(`docs/${file}`, root)));
+  }
+});
+
 test('game focus styles keep the outline disabled in every build', async () => {
   for (const file of ['dist/styles.css', 'mobile/mobile.css', 'docs/index.html', 'docs/mobile.html', 'Lamps.html']) {
     const source = await read(file);

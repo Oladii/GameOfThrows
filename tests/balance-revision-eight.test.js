@@ -107,7 +107,7 @@ test('validation and action guards recognize completed combat games with stale w
 test('start preparation requires combat units in the new mode and preserves legacy support-only starts', () => {
   const supportOnly = state([piece('north', 'scoutLamp', 0, 0, -2), piece('south', 'defenseLamp', 1, 0, 2)]);
   assert.equal(validateState(supportOnly, REVISION_EIGHT_CONFIG).winner, 'draw');
-  assert.throws(() => prepareStartPosition(supportOnly, REVISION_EIGHT_CONFIG, 0), /щитоносец или лукарь/);
+  assert.throws(() => prepareStartPosition(supportOnly, REVISION_EIGHT_CONFIG, 0), /щитоносец или лукарь/);
   const config = clone(REVISION_EIGHT_CONFIG); delete config.victoryCondition;
   assert.equal(prepareStartPosition(supportOnly, config, 0).winner, null);
   config.victoryCondition = 'all-units';

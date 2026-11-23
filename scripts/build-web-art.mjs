@@ -86,8 +86,13 @@ export async function buildWebArt(root) {
   const font = await write('belwe', 'ttf', Buffer.from(TOKEN_FONT.split(',')[1], 'base64'));
   const tokenModule = 'export const TOKEN_ART = ' + JSON.stringify(tokens) + ';\nexport const TOKEN_FONT = ' + JSON.stringify(font) + ';\n';
   const tokenModuleUrl = await write('tokens', 'js', tokenModule);
+  const resultFlags = Object.fromEntries(await Promise.all(['draw-left', 'draw-right'].map(async name => {
+    const file = './desktop-icons/' + name + '.png';
+    return [file, await write(name, 'png', await fs.readFile(path.join(root, 'dist', file)))];
+  })));
   const logo = brands.logo.map((url, i) => url + ' ' + (i+1) + 'x').join(', ');
   const backgrounds = Object.entries(brands).filter(([name]) => name !== 'logo')
     .map(([name, urls]) => '--' + name + ':image-set(' + urls.map((url,i) => 'url("' + url + '") ' + (i+1) + 'x').join(',') + ')').join(';');
-  return { logo, logoFallback: brands.logo[0], backgrounds, tokenModule, tokenModuleUrl, favicon: tokens.bullseye };
+  const teamFlags = { 'team-red': brands['team-red'][2], 'team-blue': brands['team-blue'][2] };
+  return { logo, logoFallback: brands.logo[0], backgrounds, resultFlags, teamFlags, tokenModule, tokenModuleUrl, favicon: tokens.bullseye };
 }

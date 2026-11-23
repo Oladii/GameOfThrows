@@ -7,7 +7,10 @@ function render(labels: string[], selected: number, change: (step: number) => vo
   const host = document.getElementById('onboarding-progress');
   if (!host) return;
   root ??= createRoot(host);
-  flushSync(() => root!.render(<Tabs value={String(selected)} onValueChange={value => change(Number(value))}>
+  flushSync(() => root!.render(<Tabs value={String(selected)} onValueChange={value => {
+    host.dispatchEvent(new Event('game-control-activation', { bubbles: true }));
+    change(Number(value));
+  }}>
     <TabsList variant="line" aria-label="Разделы обучения">
       {labels.map((label, index) => <TabsTrigger key={index} id={`guide-tab-${index}`} value={String(index)} aria-controls="onboarding-body">{label}</TabsTrigger>)}
     </TabsList>

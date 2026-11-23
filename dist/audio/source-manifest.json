@@ -10,9 +10,32 @@
     "knock3": "knock3.wav",
     "scatter": "scatter.wav",
     "victory": "victory.wav",
-    "defeat": "defeat.wav"
+    "defeat": "defeat.wav",
+    "control-hover": "control-hover.wav",
+    "control-click": "control-click.wav",
+    "room-join": "room-join.mp3"
   },
   "runtime_sources": {
+    "control-hover": {
+      "source": "User Interface, Click, Button Click, Input Response, Tap, Short",
+      "provider": "Epidemic Sound",
+      "url": "https://www.epidemicsound.com/sound-effects/tracks/74f12d06-aeff-40f3-9882-5f4e21aafcf2/",
+      "processing": "Second sound in the second take (2.192–2.270 s), stereo PCM16 at 48 kHz, 1 ms fade-in and 8 ms fade-out",
+      "wav_sha256": "5afadc01a86b9b505ec00760493154a73c5b1218e906f22601cb8b5f3c830ef1"
+    },
+    "control-click": {
+      "source": "User Interface, Click, Button Click, Input Response, Tap, Short",
+      "provider": "Epidemic Sound",
+      "url": "https://www.epidemicsound.com/sound-effects/tracks/74f12d06-aeff-40f3-9882-5f4e21aafcf2/",
+      "processing": "First sound in the second take (2.015–2.149 s), stereo PCM16 at 48 kHz, 1 ms fade-in and 8 ms fade-out",
+      "wav_sha256": "9f7d438434f1ac517e2c139f6805d7468183b7c9fe60178356cdd5b0f652d8de"
+    },
+    "room-join": {
+      "source": "User Interface, Alert, Notification, Attention, Positive, Cute, Bell, Short 02",
+      "provider": "Epidemic Sound",
+      "url": "https://www.epidemicsound.com/sound-effects/tracks/b0116026-d063-4206-bdae-d2dfe75b2942/",
+      "processing": "High quality API MP3, mixed at playback"
+    },
     "slide": {
       "source": "rsellick, kettlebell on concrete rock stone metal drag impact.wav",
       "url": "https://freesound.org/people/rsellick/sounds/545544/",

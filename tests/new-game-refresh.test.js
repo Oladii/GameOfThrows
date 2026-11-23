@@ -117,7 +117,7 @@ test('update notice distinguishes refreshing the app from starting a match with 
   context.CURRENT_GAME_VERSION = '0.1.84'; context.CURRENT_RULES_VERSION = '0.1.84';
   context.renderUpdateNotice();
   assert.equal(notice.hidden, false);
-  assert.equal(notice.textContent, 'Правила игры обновлены. Начни новую партию, чтобы играть по ним');
+  assert.equal(notice.textContent, 'Правила игры обновлены. Начни новую партию, чтобы играть по ним');
   context.gameVersion = '0.1.84'; context.renderUpdateNotice();
   assert.equal(notice.hidden, true);
   context.playMode = 'online'; context.latestVersion = '0.1.85'; context.renderUpdateNotice();
