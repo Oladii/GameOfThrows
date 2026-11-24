@@ -772,10 +772,6 @@ to{opacity:1}}
 .turn-mode::before{content:'·';margin-right:8px}
 .arena-top[data-result="win"] .turn-mode{color:#66502c}
 .arena-top[data-result="loss"] .turn-mode{color:#853d31}
-@media(min-width:1001px){
-.left-panel{display:flex;flex-direction:column;height:calc(var(--game-height) + var(--workspace-inset));min-height:490px}
-.left-panel>.panel-footer{margin-top:auto}
-.left-panel>*{flex-shrink:0}}
 @media(max-width:700px){
 .panel-footer{padding-top:12px}}
 .custom-game-actions{display:flex;gap:10px}
@@ -915,11 +911,6 @@ main{--workspace-inset:24px;padding:var(--workspace-inset)}
 .left-panel{grid-column:1;grid-row:1;margin:calc(-1 * var(--workspace-inset)) -16px 0 -24px;padding:24px 20px 20px}
 .arena-column{grid-column:2;grid-row:1}
 }
-@media(min-width:1001px){
-:root{--game-height:calc(100dvh - 48px)}
-/* Align the sidebar controls with the buttons just inside the arena border. */
-.left-panel{max-height:calc(var(--game-height) + var(--workspace-inset));padding-bottom:calc(var(--arena-inset) + 1px)}
-}
 @media(max-width:700px){
 main{padding:14px}
 .left-panel>.brand{grid-row:1;margin:0}
@@ -1003,12 +994,16 @@ main{padding:14px}
 .arena-column{min-width:0;display:flex;flex-direction:column;gap:12px}
 .arena-column>.arena-top{height:auto;min-height:20px;padding:0 10px}
 .arena-top .move-counter{font-size:13px;font-weight:600;line-height:20px;color:#66502c}
-@media(min-width:1001px){
+@media(min-width:701px){
 body:not(.mobile-game,.guide-open){height:100dvh;display:flex;flex-direction:column}
 body:not(.mobile-game,.guide-open)>main{flex:1;min-height:0;width:100%;margin:0 auto;overflow:auto}
-body:not(.mobile-game,.guide-open)>main>.workspace{height:100%;--game-height:100%}
-.arena-column{height:var(--game-height);min-height:522px}
-.arena-column>.arena{height:auto;min-height:0;flex:1}
+body:not(.mobile-game)>main>.workspace{height:100%;min-height:522px;grid-template-rows:minmax(0,1fr);align-items:stretch}
+body:not(.mobile-game) .left-panel{display:flex;flex-direction:column;max-height:none;padding-bottom:16px}
+body:not(.mobile-game) .left-panel>*{flex-shrink:0}
+body:not(.mobile-game) .left-panel>.panel-footer{margin-top:auto}
+body:not(.mobile-game) .arena-column>.arena{height:auto;min-height:0;flex:1}
+body:not(.mobile-game) .board-wrap{display:flex;align-items:flex-start;justify-content:center}
+body:not(.mobile-game) #board{height:100%;width:100%;min-height:0;max-height:none}
 }
 
 /* A stacked roster collapses to a single compact result card. */
@@ -1037,15 +1032,20 @@ body:not(.mobile-game,.guide-open)>main>.workspace{height:100%;--game-height:100
 /* Desktop game frame, room controls and guide. */
 .mobile-game .desktop-only{display:none!important}
 body:not(.mobile-game) .arena-column{gap:12px}
-body:not(.mobile-game) .arena{display:flex;flex-direction:column;gap:16px;padding:12px;border-radius:24px;box-shadow:none}
+body:not(.mobile-game) .arena{display:flex;flex-direction:column;gap:16px;padding:12px;border-radius:24px;box-shadow:none;container:game-arena / inline-size;-webkit-user-select:none;user-select:none}
 body:not(.mobile-game) .arena>.board-wrap{min-height:0;margin:0 12px;padding:8px 0 0;flex:1}
-body:not(.mobile-game) .arena>.board-footer{margin:0 4px;padding:12px 0 3px}
+body:not(.mobile-game) .arena>.board-footer{flex-shrink:0;margin:0 4px;padding:12px 0 3px}
 body:not(.mobile-game).online-room .arena>.board-footer{border-top:0;padding-top:0}
-body:not(.mobile-game) .scoreboard{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;min-height:64px}
+body:not(.mobile-game) .scoreboard{
+  display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;min-height:64px;
+  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums
+}
 body:not(.mobile-game) .scoreboard>.team-card:not(.match-result){
   --team-flag-width:60px;
   --team-flag-space:calc(var(--team-flag-width) + 16px);
-  min-height:64px;justify-content:center;gap:2px;border:0;border-radius:0;background:none;color:var(--muted)
+  min-height:64px;justify-content:center;gap:2px;border:0;border-radius:0;background:none;color:var(--muted);
+  /* The content box is the width available to the title and counters. */
+  container:team-content / inline-size
 }
 body:not(.mobile-game) .scoreboard>.team-card.south:not(.match-result){grid-area:1/1;order:0;padding:0 0 0 var(--team-flag-space)}
 body:not(.mobile-game) .scoreboard>.team-card.north:not(.match-result){grid-area:1/3;padding:0 var(--team-flag-space) 0 0}
@@ -1053,8 +1053,15 @@ body:not(.mobile-game) .scoreboard>.team-card:not(.match-result)::before{top:0;w
 body:not(.mobile-game) .scoreboard>.team-card.south::before{left:0;right:auto}
 body:not(.mobile-game) .scoreboard>.team-card.north::before{left:auto;right:0}
 body:not(.mobile-game) .scoreboard .team-title{font-weight:600;color:var(--ink)}
+body:not(.mobile-game) .scoreboard>.team-card:not(.match-result) .team-title{overflow-wrap:anywhere}
+body:not(.mobile-game) .scoreboard .team-title-short{display:none}
 body:not(.mobile-game) .scoreboard .team-count{display:none}
-body:not(.mobile-game) .scoreboard .team-roster{gap:2px 7px;color:var(--muted)}
+body:not(.mobile-game) .scoreboard .team-roster{
+  flex-wrap:nowrap;color:var(--muted);
+  /* Leave room for six two-digit counters at the wide layout's minimum. */
+  column-gap:clamp(2px,calc((100cqi - 216px) / 5),7px)
+}
+body:not(.mobile-game) .scoreboard .north .team-roster{justify-content:end}
 body:not(.mobile-game) .scoreboard .team-unit{gap:3px;font-size:13px;line-height:16px}
 body:not(.mobile-game) .scoreboard .team-unit svg{display:none}
 body:not(.mobile-game) .scoreboard .team-unit[data-unit-type="scoutLamp"]{order:1}
@@ -1062,6 +1069,11 @@ body:not(.mobile-game) .scoreboard .team-unit[data-unit-type="attackLamp"]{order
 body:not(.mobile-game) .scoreboard .team-unit[data-unit-type="horn"]{order:3}
 body:not(.mobile-game) .scoreboard .team-unit[data-unit-type="defenseLamp"]{order:4}
 body:not(.mobile-game) .scoreboard .team-unit::before{content:"";width:16px;height:16px;background:var(--count-icon) center no-repeat}
+@container team-content (width < 230px){
+  body:not(.mobile-game) .scoreboard .team-title:has(+.team-title-short){display:none}
+  body:not(.mobile-game) .scoreboard .team-title-short{display:block}
+  body:not(.mobile-game) .scoreboard .team-roster{display:grid;grid-template-columns:repeat(3,max-content);gap:8px 7px}
+}
 [data-unit-type="shield"]{--count-icon:url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJzaGllbGQiPgo8cGF0aCBpZD0iaWNvbiIgZD0iTTggMS4zMzMyTDE0IDMuNDMzMlY3LjYzMzJDMTQgMTEuMTMzMiAxMSAxMy4yMzMyIDggMTUuMzMzMkM1IDEzLjIzMzIgMiAxMS4xMzMyIDIgNy42MzMyVjMuNDMzMkw4IDEuMzMzMlpNNy4yNSA0LjEzMzJWNi4yMzMySDVWNy42MzMySDcuMjVWMTEuODMzMkg4Ljc1VjcuNjMzMkgxMVY2LjIzMzJIOC43NVY0LjEzMzJINy4yNVoiIGZpbGw9IiNBQTlFODYiLz4KPC9nPgo8L3N2Zz4K")}
 [data-unit-type="archer"]{--count-icon:url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJib3ctYXJyb3ctMTYtb3B0aW1pemVkIDEiPgo8cGF0aCBpZD0iVmVjdG9yIiBkPSJNMi41IDMuNUwzLjUgMTIuNUwxMi41IDEzLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlPSIjQUE5RTg2Ii8+CjxwYXRoIGlkPSJWZWN0b3JfMiIgZD0iTTIuNSAzLjVDNC4yIDQuNCA1LjQgMy4yIDcuNCAzLjVDOS40IDMuOCAxMi41IDUuOCAxMi41IDguNkMxMi41IDExLjQgMTEuNiAxMS44IDEyLjUgMTMuNSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlPSIjQUE5RTg2Ii8+CjxwYXRoIGlkPSJWZWN0b3JfMyIgZD0iTTMuNSAxMi41TDEzIDMiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZT0iI0FBOUU4NiIvPgo8cGF0aCBpZD0iVmVjdG9yXzQiIGQ9Ik0xMC4yNSAyLjc1TDE0LjUgMS41TDEzLjI1IDUuNzVMMTAuMjUgMi43NVpNMS41IDEyLjc1TDMuNzUgMTAuNUg1LjVWMTIuMjVMMy4yNSAxNC41VjEyLjc1SDEuNVoiIGZpbGw9IiNBQTlFODYiLz4KPC9nPgo8L3N2Zz4K")}
 [data-unit-type="scoutLamp"]{--count-icon:url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSImIzIwODsmIzE1MjsmIzIwODsmIzE4NjsmIzIwODsmIzE5MDsmIzIwODsmIzE4OTsmIzIwODsmIzE4NjsmIzIwODsmIzE3NjsgLyAmIzIwODsmIzE1NDsmIzIwODsmIzE5MDsmIzIwODsmIzE4ODsmIzIwODsmIzE3NjsmIzIwODsmIzE4OTsmIzIwODsmIzE4MDsmIzIwODsmIzE4NDsmIzIwOTsmIzEyODsiIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8wXzc3MykiPgo8cGF0aCBpZD0iVmVjdG9yIiBkPSJNMSA2QzEgMi45Mjg1NyA0LjExMTExIDEgOCAxTTggMUMxMS44ODg5IDEgMTUgMi45Mjg1NyAxNSA2TTggMVYzLjE0Mjg2TTMuMzMzMzMgNkMzLjMzMzMzIDUuMDc5NyAzLjg5MTEgNC4zNDkxMiA0Ljc4MzA2IDMuODU3MTRNNC43ODMwNiAzLjg1NzE0QzUuNjIxODIgMy4zOTQ1IDYuNzU2MTEgMy4xNDI4NiA4IDMuMTQyODZNNC43ODMwNiAzLjg1NzE0QzQuMTc1NTcgMy4yOTkyNSAzLjk0MDgyIDIuOTg2NDYgMy4zMzMzMyAyLjQyODU3TTEyLjY2NjcgNkMxMi42NjY3IDUuMDc5NyAxMi4xMDg5IDQuMzQ5MTIgMTEuMjE2OSAzLjg1NzE0QzEwLjM3ODIgMy4zOTQ1IDkuMjQzODkgMy4xNDI4NiA4IDMuMTQyODZNMTEuMjE2OSAzLjg1NzE0TDEyLjY2NjcgMi40Mjg1N004IDMuODU3MTRWNiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlPSIjQUE5RTg2Ii8+CjxwYXRoIGlkPSJWZWN0b3JfMiIgZD0iTTMuMzMzMzMgOS4zMzMzM0gxMi42NjY3TTYuOTk5ODQgMTBWMTVMNCAxMy4zMzMzTDMuOTk5ODQgOUMzLjk5OTg0IDguMTE1OTQgNC40MjE0MyA3LjYwMTQzIDUuMTcxNTcgNi45NzYzMUM1LjkyMTcyIDYuMzUxMTkgNi45MzkxMyA2IDggNkM5LjA2MDg3IDYgMTAuMDc4MyA2LjM1MTE5IDEwLjgyODQgNi45NzYzMUMxMS41Nzg2IDcuNjAxNDMgMTEuOTk5OCA4LjExNTk0IDExLjk5OTggOUwxMiAxMy4zMzMzTDguOTk5ODQgMTVWMTAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZT0iI0FBOUU4NiIvPgo8L2c+CjxkZWZzPgo8Y2xpcFBhdGggaWQ9ImNsaXAwXzBfNzczIj4KPHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSJ3aGl0ZSIvPgo8L2NsaXBQYXRoPgo8L2RlZnM+Cjwvc3ZnPgo=")}
@@ -1083,9 +1095,11 @@ body:not(.mobile-game) .scoreboard>.team-card.match-result::after{
   content:"";display:block;position:absolute;top:0;left:0;right:auto;width:60px;height:64px;background:var(--result-flag) center/contain no-repeat;pointer-events:none;transform:none
 }
 body:not(.mobile-game) .scoreboard>.team-card.match-result::after{left:auto;right:0;transform:scaleX(-1)}
-body:not(.mobile-game) .scoreboard>.match-result.draw::before{background-image:url("./art/draw-left-5396942188fa.png")}
-body:not(.mobile-game) .scoreboard>.match-result.draw::after{background-image:url("./art/draw-right-975d499f3e6d.png");transform:none}
-body:not(.mobile-game) .match-result-reason{font-size:13px;color:var(--muted)}
+body:not(.mobile-game) .scoreboard>.match-result.north::before{transform:scaleX(-1)}
+body:not(.mobile-game) .scoreboard>.match-result.north::after{transform:none}
+body:not(.mobile-game) .scoreboard>.match-result.draw::before{background:url("./art/draw-left-5396942188fa.png") center/contain no-repeat}
+body:not(.mobile-game) .scoreboard>.match-result.draw::after{background:url("./art/draw-right-975d499f3e6d.png") center/contain no-repeat;transform:none}
+body:not(.mobile-game) .match-result-reason{font-size:13px;font-weight:500;line-height:16px;color:#aa9e86}
 
 .room-banner,body:not(.mobile-game)>.update-notice{
   flex-shrink:0;margin:0;min-height:32px;padding:6px 14px;border:0;border-radius:20px;
@@ -1182,17 +1196,21 @@ body:not(.mobile-game) .guide-screen .lesson-scene{border-radius:24px}
 body:not(.mobile-game) .guide-screen .training-advice{border-radius:12px;padding:12px}
 body:not(.mobile-game) .guide-screen .training-advice p{font-size:14px;line-height:20px;color:var(--ink)}
 
-body:not(.mobile-game) .selection-panel .inspector-card{padding:12px;font-size:13px;line-height:20px}
+body:not(.mobile-game) .selection-panel .inspector-card{
+  --inspector-secondary:#a19786;
+  padding:8px 12px 12px;font-size:13px;line-height:20px;font-variant-numeric:tabular-nums
+}
 .inspection-label{margin:0 0 2px;color:var(--muted)}
-body:not(.mobile-game) .selection-panel .piece-heading{gap:6px;margin:0 0 8px}
-body:not(.mobile-game) .selection-panel .piece-heading h2{margin:0;font-size:14px;line-height:20px}
+body:not(.mobile-game) .selection-panel .inspection-label{margin:0;padding:6px 0 0;color:var(--inspector-secondary)}
+body:not(.mobile-game) .selection-panel .piece-heading{gap:4px;margin:0;padding:2px 0 6px}
+body:not(.mobile-game) .selection-panel .piece-heading h2{margin:0;color:var(--muted);font-size:13px;font-weight:600;line-height:20px}
 body:not(.mobile-game) .selection-panel .unit-icon{width:16px;height:16px;background:var(--count-icon) center no-repeat}
 body:not(.mobile-game) .selection-panel .unit-icon svg{display:none}
-body:not(.mobile-game) .selection-panel .unit-description{margin:0 0 8px}
+body:not(.mobile-game) .selection-panel .unit-description{margin:0;padding-bottom:6px}
 body:not(.mobile-game) .selection-panel .stat-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin:0;padding-top:0}
-body:not(.mobile-game) .selection-panel .stat-box{display:flex;align-items:center;gap:5px;padding:8px 0 6px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none}
+body:not(.mobile-game) .selection-panel .stat-box{display:flex;align-items:center;gap:0;padding:8px 4px 6px 0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none}
 body:not(.mobile-game) .selection-panel .stat-grid:last-child>.stat-box:last-child{border-bottom:0}
-body:not(.mobile-game) .selection-panel .stat-box span{margin:0 auto 0 0;font-size:13px}
+body:not(.mobile-game) .selection-panel .stat-box>span{margin:0 auto 0 4px;color:var(--inspector-secondary);font-size:13px;font-weight:600;line-height:20px}
 body:not(.mobile-game) .selection-panel .stat-box::before,
 body:not(.mobile-game) .selection-panel .unit-aura strong::before{
   content:"";display:inline-block;flex:0 0 16px;width:16px;height:16px;background:var(--stat-icon) center no-repeat
@@ -1202,25 +1220,28 @@ body:not(.mobile-game) .selection-panel .unit-aura strong::before{
 .selection-panel [data-unit-stat="range"]{--stat-icon:url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJ0YXJnZXQiPgo8ZyBpZD0iaWNvbiI+CjxwYXRoIGQ9Ik05LjMzMzMzIDhMOCA5LjMzMzMzTDYuNjY2NjcgOEw4IDYuNjY2NjdMOS4zMzMzMyA4WiIgZmlsbD0iI0ExOTc4NiIvPgo8cGF0aCBkPSJNOCAxLjMzMzMzQzkuNjAwNyAxLjMzMzMzIDExLjA2OTUgMS44OTc1OSAxMi4yMTg3IDIuODM3ODlMMTIuODYyIDIuMTk1MzFMMTMuODA0NyAzLjEzODAyTDEzLjE2MTUgMy43ODA2QzE0LjEwMjEgNC45Mjk5IDE0LjY2NjcgNi4zOTg5NyAxNC42NjY3IDhDMTQuNjY2NyA5LjYwMDg1IDE0LjEwMTkgMTEuMDY5NSAxMy4xNjE1IDEyLjIxODdMMTMuODA0NyAxMi44NjJMMTIuODYyIDEzLjgwNDdMMTIuMjE4NyAxMy4xNjE1QzExLjA2OTUgMTQuMTAxOSA5LjYwMDg1IDE0LjY2NjcgOCAxNC42NjY3QzYuMzk4OTcgMTQuNjY2NyA0LjkyOTkgMTQuMTAyMSAzLjc4MDYgMTMuMTYxNUwzLjEzODAyIDEzLjgwNDdMMi4xOTUzMSAxMi44NjJMMi44Mzc4OSAxMi4yMTg3QzEuODk3NTkgMTEuMDY5NSAxLjMzMzMzIDkuNjAwNyAxLjMzMzMzIDhDMS4zMzMzMyA2LjM5OTEyIDEuODk3MzkgNC45Mjk4NiAyLjgzNzg5IDMuNzgwNkwyLjE5NTMxIDMuMTM4MDJMMy4xMzgwMiAyLjE5NTMxTDMuNzgwNiAyLjgzNzg5QzQuOTI5ODYgMS44OTczOSA2LjM5OTEyIDEuMzMzMzMgOCAxLjMzMzMzWk04IDIuNjY2NjdDNi43Njc1NiAyLjY2NjY3IDUuNjMzNTggMy4wODU3NiA0LjczMDQ3IDMuNzg3NzZMNS4xMzgwMiA0LjE5NTMxTDQuMTk1MzEgNS4xMzgwMkwzLjc4Nzc2IDQuNzMwNDdDMy4wODU3NiA1LjYzMzU4IDIuNjY2NjcgNi43Njc1NiAyLjY2NjY3IDhDMi42NjY2NyA5LjIzMjI1IDMuMDg1OTUgMTAuMzY1OCAzLjc4Nzc2IDExLjI2ODlMNC4xOTUzMSAxMC44NjJMNS4xMzgwMiAxMS44MDQ3TDQuNzMwNDcgMTIuMjExNkM1LjYzMzYzIDEyLjkxMzcgNi43Njc0MiAxMy4zMzMzIDggMTMuMzMzM0M5LjIzMjQgMTMuMzMzMyAxMC4zNjU4IDEyLjkxMzYgMTEuMjY4OSAxMi4yMTE2TDEwLjg2MiAxMS44MDQ3TDExLjgwNDcgMTAuODYyTDEyLjIxMTYgMTEuMjY4OUMxMi45MTM2IDEwLjM2NTggMTMuMzMzMyA5LjIzMjQgMTMuMzMzMyA4QzEzLjMzMzMgNi43Njc0MiAxMi45MTM3IDUuNjMzNjMgMTIuMjExNiA0LjczMDQ3TDExLjgwNDcgNS4xMzgwMkwxMC44NjIgNC4xOTUzMUwxMS4yNjg5IDMuNzg3NzZDMTAuMzY1OCAzLjA4NTk1IDkuMjMyMjUgMi42NjY2NyA4IDIuNjY2NjdaIiBmaWxsPSIjQTE5Nzg2Ii8+CjwvZz4KPC9nPgo8L3N2Zz4K")}
 .selection-panel [data-unit-stat="fortitude"]{--stat-icon:url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJzaGllbGQiPgo8ZyBpZD0iaWNvbiI+CjxwYXRoIGQ9Ik04IDFMMTQgMy4xVjcuM0MxNCAxMC44IDExIDEyLjkgOCAxNUM1IDEyLjkgMiAxMC44IDIgNy4zVjMuMUw4IDFaIiBmaWxsPSIjQTE5Nzg2Ii8+CjxtYXNrIGlkPSJzdHJva2UwXzBfMTQwIiBmaWxsPSJ3aGl0ZSI+CjxwYXRoIGQ9Ik04IDFMMTQgMy4xVjcuM0MxNCAxMC44IDExIDEyLjkgOCAxNUM1IDEyLjkgMiAxMC44IDIgNy4zVjMuMUw4IDFaIi8+CjwvbWFzaz4KPHBhdGggZD0iTTggMUwxNCAzLjFWNy4zQzE0IDEwLjggMTEgMTIuOSA4IDE1QzUgMTIuOSAyIDEwLjggMiA3LjNWMy4xTDggMVoiIHN0cm9rZS13aWR0aD0iMi42NjY2NyIgc3Ryb2tlPSIjQTE5Nzg2IiBtYXNrPSJ1cmwoI3N0cm9rZTBfMF8xNDApIi8+CjwvZz4KPC9nPgo8L3N2Zz4K")}
 .selection-panel .unit-aura{--stat-icon:url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJhdXJhIj4KPGcgaWQ9Imljb24iPgo8cGF0aCBkPSJNMTAuNjI1IDkuMDk4MDJDMTMuMTkwMyA5LjU1MjM0IDE1IDEwLjY1MjMgMTUgMTEuOTM3NUMxNSAxMy42Mjg5IDExLjg2NiAxNSA4IDE1QzQuMTM0MDEgMTUgMSAxMy42Mjg5IDEgMTEuOTM3NUMxIDEwLjY1MjMgMi44MDk2OSA5LjU1MjM0IDUuMzc1IDkuMDk4MDJWMTAuODc5NkM0Ljc0Nzg4IDExLjAwODggNC4xOTkgMTEuMTc5NCAzLjc1MTQ2IDExLjM3NTJDMy4yNzc1NSAxMS41ODI2IDIuOTg4MzMgMTEuNzg4MSAyLjgzNDU5IDExLjkzNzVDMi45ODgzMyAxMi4wODY5IDMuMjc3NTUgMTIuMjkyNCAzLjc1MTQ2IDEyLjQ5OThDNC43NDkxMiAxMi45MzYyIDYuMjQ5OTkgMTMuMjUgOCAxMy4yNUM5Ljc1MDAxIDEzLjI1IDExLjI1MDkgMTIuOTM2MiAxMi4yNDg1IDEyLjQ5OThDMTIuNzIyIDEyLjI5MjYgMTMuMDEwNyAxMi4wODY4IDEzLjE2NDYgMTEuOTM3NUMxMy4wMTA3IDExLjc4ODIgMTIuNzIyIDExLjU4MjQgMTIuMjQ4NSAxMS4zNzUyQzExLjgwMSAxMS4xNzk0IDExLjI1MjEgMTEuMDA4OCAxMC42MjUgMTAuODc5NlY5LjA5ODAyWiIgZmlsbD0iI0ExOTc4NiIvPgo8cGF0aCBkPSJNOCAxQzkuMjA4MTIgMSAxMC4xODc1IDEuOTc5MzggMTAuMTg3NSAzLjE4NzVDMTAuMTg3NSA0LjA4NDI3IDkuNjQ3MjUgNC44NTM1OSA4Ljg3NSA1LjE5MTI4VjExLjVINy4xMjVWNS4xOTEyOEM2LjM1Mjc1IDQuODUzNTkgNS44MTI1IDQuMDg0MjcgNS44MTI1IDMuMTg3NUM1LjgxMjUgMS45NzkzOCA2Ljc5MTg4IDEgOCAxWiIgZmlsbD0iI0ExOTc4NiIvPgo8L2c+CjwvZz4KPC9zdmc+Cg==")}
-body:not(.mobile-game) .selection-panel .unit-aura strong{display:flex;align-items:center;gap:5px;margin:0 0 6px;font-size:13px;line-height:20px}
-body:not(.mobile-game) .selection-panel .stat-box strong{font-size:13px;letter-spacing:0}
-body:not(.mobile-game) .selection-panel .stat-calculation{order:0;margin:0;color:var(--muted);font-size:11px}
+body:not(.mobile-game) .selection-panel .unit-aura strong{display:flex;align-items:center;gap:5px;margin:0 0 6px;color:var(--inspector-secondary);font-size:13px;font-weight:600;line-height:20px}
+body:not(.mobile-game) .selection-panel .stat-box strong{color:var(--inspector-secondary);font-size:13px;font-weight:600;letter-spacing:0}
+body:not(.mobile-game) .selection-panel .stat-grid .stat-calculation{
+  margin:0 2px 0 4px;color:var(--ink);opacity:.3;font-size:13px;line-height:20px;white-space:nowrap
+}
 body:not(.mobile-game) .selection-panel .unit-aura{margin:0;border:0;border-bottom:1px solid var(--line);padding:8px 0 6px;font-size:13px;line-height:20px}
 body:not(.mobile-game) .selection-panel .unit-aura:last-child{border-bottom:0;padding-bottom:7px}
-body:not(.mobile-game) .selection-panel .unit-aura p{margin:0}
+body:not(.mobile-game) .selection-panel .unit-aura p{margin:0;color:var(--muted)}
 body:not(.mobile-game) .selection-panel .sources{margin:0;border:0;padding-top:20px}
-body:not(.mobile-game) .selection-panel .sources>strong{font-size:13px;line-height:20px}
-body:not(.mobile-game) .selection-panel .allied-bonus-list{gap:0}
-body:not(.mobile-game) .selection-panel .allied-bonus-list li{padding:6px 0}
+body:not(.mobile-game) .selection-panel .sources>strong{font-size:13px;font-weight:600;line-height:20px}
+body:not(.mobile-game) .selection-panel .allied-bonus-list{gap:0;margin-top:0}
+body:not(.mobile-game) .selection-panel .allied-bonus-list li{gap:6px;padding:8px 0 6px}
 body:not(.mobile-game) .selection-panel .allied-bonus-list li+li{border-top:1px solid var(--line)}
-body:not(.mobile-game) .selection-panel .allied-bonus-list strong{display:flex;align-items:center;gap:6px}
+body:not(.mobile-game) .selection-panel .sources .allied-bonus-list strong{display:flex;align-items:center;gap:4px;color:var(--inspector-secondary);font-size:13px;font-weight:600;line-height:20px}
+body:not(.mobile-game) .selection-panel .allied-bonus-list span{color:var(--muted);font-size:13px;line-height:20px}
 body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{content:"";width:16px;height:16px;flex:0 0 16px;background:var(--count-icon) center no-repeat}
 
 @media(min-width:701px){
   body:not(.mobile-game) #onboarding-progress{position:absolute;inset:45px 22% auto}
   body:not(.mobile-game)>.update-notice{margin-left:360px}
 }
-@media(min-width:1001px){
+@media(min-width:701px){
   body:not(.mobile-game) .left-panel{overflow:visible}
   body:not(.mobile-game) .left-panel>:is(.sidebar-overview,.selection-panel,#editor-controls){
     flex-shrink:1;min-height:0;overflow:auto;scrollbar-width:thin
@@ -1233,10 +1254,17 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
   body:not(.mobile-game) .scoreboard>.team-card:not(.match-result){--team-flag-width:44px}
   .turn-badge{min-width:0;padding-inline:10px}
 }
-@media(max-width:520px){
+@container game-arena (width < 550px){
   body:not(.mobile-game) .scoreboard{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body:not(.mobile-game) .scoreboard>.team-card:not(.match-result){--team-flag-width:44px}
   body:not(.mobile-game) .scoreboard>.team-card.north:not(.match-result){grid-area:1/2}
-  .turn-badge{grid-area:2/1/3/3}
+  body:not(.mobile-game) .turn-badge{grid-area:2/1/3/3}
+}
+@container game-arena (width < 370px){
+  body:not(.mobile-game) .scoreboard>.team-card:is(.south,.north):not(.match-result){padding:48px 0 0}
+  body:not(.mobile-game) .scoreboard>.team-card:not(.match-result)::before{height:44px}
+}
+@media(max-width:520px){
   body:not(.mobile-game) #start-dialog :is(.start-fields,#human-side-field){grid-template-columns:minmax(0,1fr)}
 }
 .table-rattle-active :is(#aura-circles,#selected-attack-reach,#attack-lines,#death-effects){opacity:0}
@@ -1557,7 +1585,7 @@ body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;po
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.134</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-23T23:56:15.080Z">Сборка 24.11.2026, 02:56:15 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.135</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-24T09:30:00.986Z">Сборка 24.11.2026, 12:30:00 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <p id="room-banner" class="room-banner desktop-only" role="status" aria-live="polite" hidden></p>
@@ -5983,6 +6011,8 @@ class MultiplayerSession {
 
 const $ = selector => document.querySelector(selector);
 const gameAudio = new GameAudio();
+// Leave time for both control samples and for the dialog to leave the screen.
+const START_CUE_DELAY = 240;
 const soundButton = $('#sound-toggle');
 const soundControl = $('#sound-control'), soundScale = $('#sound-scale'), soundVolume = $('#sound-volume');
 function renderSoundButton() {
@@ -6636,12 +6666,16 @@ function renderInspector(context) {
   const pieceId = piece?.id || '';
   $('#sidebar-overview').hidden = Boolean(piece) || Boolean(hint);
   $('#selection-panel').hidden = !piece || Boolean(hint);
-  if (panel.dataset.pieceId !== pieceId) { panel.dataset.pieceId = pieceId; $('.left-panel').scrollTop = 0; }
+  if (panel.dataset.pieceId !== pieceId) {
+    panel.dataset.pieceId = pieceId;
+    $('.left-panel').scrollTop = $('#selection-panel').scrollTop = 0;
+  }
   if (!piece) {
     panel.innerHTML = '';
     return;
   }
   const info = effective(piece, position, config), base = config.stats[piece.type];
+  const desktop = !document.body.classList.contains('mobile-game');
   const names = { move: 'Шаг', damage: 'Урон', range: 'Дальность атаки', fortitude: 'Стойкость' };
   const descriptions = {
     scoutLamp: `Увеличивает дальность союзных лукарей на ${base.rangeBonus}. Не увеличивает дальность щитоносцев. ${base.damage > 0 && base.range > 0 ? `Атакует самостоятельно: урон ${base.damage}, дальность ${base.range}. Дальность не увеличивается от аур.` : 'Может атаковать только рядом с союзным ветераном'}`,
@@ -6652,8 +6686,17 @@ function renderInspector(context) {
     defenseLamp: 'Повышает стойкость союзников. Может атаковать только под поддержкой союзного ветерана'
   };
   const stats = unitStatParts(piece, position, config).map(stat => {
-    const calculation = [stat.base, stat.personal ? `+ ${stat.personal}` : '', stat.allied ? `${stat.allied > 0 ? '+' : '−'} ${Math.abs(stat.allied)}` : ''].filter(value => value !== '').join(' ');
-    return `<div class="stat-box" data-unit-stat="${stat.field}"><span>${names[stat.field]}</span><strong title="Итого: ${stat.total}">${stat.total}</strong>${stat.personal || stat.allied ? `<em class="stat-calculation">(${calculation} = ${stat.total})</em>` : ''}${stat.personal ? `<small class="personal-bonus">+${stat.personal} за край</small>` : ''}</div>`;
+    const total = `<strong title="Итого: ${stat.total}">${stat.total}</strong>`;
+    let value = total;
+    if (stat.personal || stat.allied) {
+      const gap = desktop ? '' : ' ';
+      const personal = stat.personal ? `${gap}+${gap}${stat.personal}` : '';
+      const allied = stat.allied ? `${gap}${stat.allied > 0 ? '+' : '−'}${gap}${Math.abs(stat.allied)}` : '';
+      const formula = `${stat.base}${personal}${allied}${gap}=`;
+      value = desktop ? `<em class="stat-calculation">${formula}</em>${total}`
+        : `${total}<em class="stat-calculation">(${formula} ${stat.total})</em>${stat.personal ? `<small class="personal-bonus">+${stat.personal} за край</small>` : ''}`;
+    }
+    return `<div class="stat-box" data-unit-stat="${stat.field}"><span>${names[stat.field]}</span>${value}</div>`;
   }).join('');
   const sources = alliedBonusDetails(piece, position, config);
   const bonusLabels = { move: 'к шагу', damage: 'к урону', range: 'к дальности', fortitude: 'к стойкости' };
@@ -6661,7 +6704,10 @@ function renderInspector(context) {
   const alliedBonuses = sourceDetails ? `<section class="sources"><strong>Усиления от союзников</strong><ul class="allied-bonus-list">${sourceDetails}</ul></section>` : '';
   const aura = shieldCanRetreat(piece, config) ? config.shieldPromotion.allies ?? config.shieldPromotion : base;
   const bonuses = [[piece.type === 'attackLamp' ? config.drumShieldMoveBonus ?? 0 : 0, config.drumMoveAllies ? 'шаг союзников' : 'шаг щитоносцев'], [aura.damageBonus, 'урон'], [aura.rangeBonus, 'дальность'], [aura.defenseBonus, config.shieldDefenseOnly && piece.type === 'shield' ? 'стойкость щитоносцев' : 'стойкость']].filter(([value]) => value > 0).map(([value, name]) => `${name} +${value}`).join(', ');
-  panel.innerHTML = `<section class="sidebar-card inspector-card"><p class="inspection-label desktop-only">Выбран</p><div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' veteran' : ''}" data-unit-type="${piece.type}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p><div class="stat-grid">${stats}</div>${info.aura > 0 ? `<section class="unit-aura"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><p>${bonuses}</p></section>` : ''}${alliedBonuses}</section>`;
+  const radius = `${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}`;
+  const auraTitle = desktop ? 'Аура' : `Аура · ${radius}`;
+  const auraDescription = desktop ? `Радиус ${radius}: ${bonuses}` : bonuses;
+  panel.innerHTML = `<section class="sidebar-card inspector-card"><p class="inspection-label desktop-only">Выбран</p><div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' veteran' : ''}" data-unit-type="${piece.type}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p><div class="stat-grid">${stats}</div>${info.aura > 0 ? `<section class="unit-aura"><strong>${auraTitle}</strong><p>${auraDescription}</p></section>` : ''}${alliedBonuses}</section>`;
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion, allies = p.allies ?? p;
@@ -6846,7 +6892,8 @@ function render(deaths = [], restoredIds) {
   tableKnocks?.reset();
   if (typeof browserAnalytics !== 'undefined') queueMicrotask(trackGameTime);
   // Keep the current board behind the start dialog while its draft is edited.
-  if (previousGame && gamePhase === 'setup' && !editor && $('#start-dialog').open) { renderStartSettings(); save(); return; }
+  if (previousGame && gamePhase === 'setup' && !editor
+      && ($('#start-dialog').open || $('#start-dialog').dataset?.starting)) { renderStartSettings(); save(); return; }
   if (hint && (hint.positionKey !== hintPositionKey() || !canRequestHint())) clearHint();
 
   renderHint();
@@ -7013,7 +7060,7 @@ $('#undo').addEventListener('click', () => {
 function openStartSettings() {
   if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
   const dialog = $('#start-dialog');
-  if (!dialog.open) dialog.showModal();
+  if (!dialog.open && !dialog.dataset?.starting) dialog.showModal();
 }
 function cancelStartRefresh() {
   startRefreshController?.abort(); startRefreshController = null; refreshingNewGame = false;
@@ -7056,7 +7103,20 @@ function startGame() {
 }
 $('#start-setup').addEventListener('click', openStartSettings);
 $('#new-game').addEventListener('click', openNewGame);
-$('#start-game').addEventListener('click', startGame);
+$('#start-game').addEventListener('click', () => {
+  const dialog = $('#start-dialog');
+  if (!dialog.open || dialog.dataset.starting || refreshingNewGame) return;
+  if ($('#play-mode').value === 'online' || hasNewerGameVersion(CURRENT_RULES_VERSION, latestRulesVersion)) {
+    startGame();
+    return;
+  }
+  dialog.dataset.starting = 'true';
+  dialog.close();
+  setTimeout(() => {
+    delete dialog.dataset.starting;
+    startGame();
+  }, START_CUE_DELAY);
+});
 function returnToGame() {
   if (playMode === 'online' || !previousGame || gamePhase !== 'setup') return;
   cancelStartRefresh();
@@ -7280,8 +7340,8 @@ function applyRoomView(view) {
   if (previous?.roomId === next.roomId && previous.phase === 'waiting' && next.phase === 'playing'
       && next.matchId && next.matchId !== previous.matchId && view.selfSeat != null
       && view.status === 'connected') {
-    gameAudio.playGameStart(() => playMode === 'online' && roomSnapshot?.phase === 'playing'
-      && roomSnapshot.matchId === next.matchId);
+    setTimeout(() => gameAudio.playGameStart(() => playMode === 'online' && roomSnapshot?.phase === 'playing'
+      && roomSnapshot.roomId === next.roomId && roomSnapshot.matchId === next.matchId), START_CUE_DELAY);
   }
 }
 async function connectOnlineRoom() {
@@ -7358,9 +7418,13 @@ function renderScoreboard(position) {
   const teamCards = [0, 1].map(team => {
     const seat = snapshot?.seats[team], free = online && !seat;
     const side = team === 0 ? 'Синих' : 'Красных';
-    const role = online ? free ? desktop ? 'Ожидаем игрока' : `${TEAM_NAMES[team]} — ожидаем игрока` : roomView.selfSeat === team ? `Вы играете за ${side}` : seated ? `Соперник играет за ${side}` : `Игрок за ${side}`
-      : playMode === 'bot' ? team === humanTeam ? `Вы играете за ${side}` : `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'} играет за ${side}` : `Игрок за ${side}`;
-    const title = `<span class="team-title">${role}</span>`;
+    const ownTeam = online ? roomView?.selfSeat === team : playMode === 'bot' && team === humanTeam;
+    const bot = playMode === 'bot' && !ownTeam ? BOT_DIFFICULTIES[botDifficulty].label + (botDifficulty === 'hard' ? '' : ' бот') : '';
+    const role = ownTeam ? `Вы играете за ${side}` : bot ? `${bot} играет за ${side}`
+      : free ? desktop ? 'Ожидаем игрока' : `${TEAM_NAMES[team]} — ожидаем игрока`
+      : online && seated ? `Соперник играет за ${side}` : `Игрок за ${side}`;
+    const shortRole = ownTeam ? `Вы за ${side}` : bot;
+    const title = `<span class="team-title">${role}</span>${desktop && shortRole ? `<span class="team-title team-title-short">${shortRole}</span>` : ''}`;
     const pieces = position.pieces.filter(piece => piece.team === team), count = pieces.length;
     const active = gamePhase === 'playing' && position.turn === team && position.winner === null && !editor && !combat && !currentDeaths.length;
     const roster = TYPES.map(type => {

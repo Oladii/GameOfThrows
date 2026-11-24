@@ -11,7 +11,7 @@ test('the left panel alternates between the reference and selected figure, prese
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   const nodes = { '#inspector': { innerHTML: '', dataset: {} }, '#sidebar-overview': { hidden: false }, '#selection-panel': { hidden: true }, '.left-panel': { scrollTop: 180 } };
   const state = { pieces: [{ id: 'own', type: 'shield', team: 1, q: 0, r: 1 }, { id: 'ally', type: 'defenseLamp', team: 1, q: 1, r: 3 }], turn: 1, ply: 0, winner: null };
-  const context = vm.createContext({ inspectionDamageArrows, hover: null, playMode: 'local', humanTeam: 0, hint: null, $: selector => nodes[selector], selected: null, movement: null, combat: null, config: structuredClone(DEFAULT_CONFIG), visibleState: () => state,
+  const context = vm.createContext({ document: { body: { classList: { contains: () => false } } }, inspectionDamageArrows, hover: null, playMode: 'local', humanTeam: 0, hint: null, $: selector => nodes[selector], selected: null, movement: null, combat: null, config: structuredClone(DEFAULT_CONFIG), visibleState: () => state,
     effective, shieldCanRetreat, archerHasEdgeBonus, unitStatParts, alliedBonusDetails, LABELS, icon: () => '<svg></svg>', plural: () => 'клетка' });
   vm.runInContext(app.slice(app.indexOf('function renderInspector('), app.indexOf('function shieldPromotionDescription(')), context);
   context.renderInspector({});
@@ -20,8 +20,9 @@ test('the left panel alternates between the reference and selected figure, prese
   assert.equal(nodes['#sidebar-overview'].hidden, true); assert.equal(nodes['#selection-panel'].hidden, false);
   assert.ok(nodes['#inspector'].innerHTML.includes('Щитоносец'));
   assert.equal(nodes['.left-panel'].scrollTop, 0);
-  const fortitude = /data-unit-stat="fortitude"><span>Стойкость<\/span><strong title="Итого: (\d+)"/;
+  const fortitude = /data-unit-stat="fortitude"><span>Стойкость<\/span>(?:<em class="stat-calculation">[^<]*<\/em>)?<strong title="Итого: (\d+)"/;
   assert.equal(nodes['#inspector'].innerHTML.match(fortitude)[1], '6');
+  assert.match(nodes['#inspector'].innerHTML, /<em class="stat-calculation">5\+1=<\/em><strong title="Итого: 6">6<\/strong>/);
   nodes['.left-panel'].scrollTop = 140;
   const preview = structuredClone(state); preview.pieces[0].r = 0;
   context.renderInspector({ isPreview: true, piece: preview.pieces[0], position: preview });
@@ -35,8 +36,8 @@ test('the left panel alternates between the reference and selected figure, prese
   const token = { dataset: { pieceId: 'own' }, classList: { toggle() {} }, querySelector: () => badge };
   nodes['#inspector'].classList = { toggle() {} };
   nodes['#inspector'].querySelector = () => null;
-  context.document = { querySelectorAll: selector => selector.endsWith('[data-piece-id]')
-    ? selector.startsWith('#board ') ? [token] : [token, nodes['#inspector']] : [] };
+  context.document.querySelectorAll = selector => selector.endsWith('[data-piece-id]')
+    ? selector.startsWith('#board ') ? [token] : [token, nodes['#inspector']] : [];
   context.report = new Map([['own', { damage: 15 }]]);
   context.inspectionContext = () => ({ position: state, report: context.report });
   context.unitBadges = () => '<g class="unit-badges">updated</g>';

@@ -20,12 +20,13 @@ function node() {
     addEventListener(type, fn) { events[type] = fn; } };
 }
 function setup({ mobile = true } = {}) {
-  const nodes = new Map(), storage = new Map(), calls = [], location = { href: 'http://localhost/?theme=light', protocol: 'http:' };
+  const nodes = new Map(), storage = new Map(), calls = [], timers = [], location = { href: 'http://localhost/?theme=light', protocol: 'http:' };
   const $ = selector => { if (!nodes.has(selector)) nodes.set(selector, node()); return nodes.get(selector); };
   const context = vm.createContext({ tableRattle: null, MultiplayerSession: class { create() { return Promise.resolve(); } join() { return Promise.resolve(); } stop() {} }, $, URL, location, navigator: {}, ROOM_STORAGE: 'online', STORAGE: 'local',
     document: { body: { ...node(), classList: { toggle() {}, contains: key => mobile && key === 'mobile-game' } }, querySelectorAll: () => [] },
     window: { history: { replaceState(_state, _title, url) { location.href = url; } } },
-    gameAudio: { play: name => calls.push(['sound', name]), playGameStart: () => calls.push(['sound', 'game-start']) },
+    START_CUE_DELAY: 240, setTimeout: (callback, delay) => timers.push({ callback, delay }),
+    gameAudio: { play: name => calls.push(['sound', name]), playGameStart: isCurrent => { if (isCurrent()) calls.push(['sound', 'game-start']); } },
     localStorage: { getItem: key => storage.get(key), setItem(key, value) { storage.set(key, value); } },
     playMode: 'online', gamePhase: 'playing', editor: false, positionKind: 'default', config: structuredClone(DEFAULT_CONFIG), state: createGame(DEFAULT_CONFIG),
     roomMovePreview: null, roomWantsFirst: true, roomFirstMoveNotices: new Set(), renderFirstMoveNotice() {}, roomSession: null, roomView: null, roomLocalGame: null, roomTarget: null, roomSnapshot: null, roomConnecting: false, roomLeaving: false, roomError: '',
@@ -44,7 +45,7 @@ function setup({ mobile = true } = {}) {
   });
   vm.runInContext(declaration('point') + '\n' + declaration('currentSnapshot') + '\n' + declaration('humanCanMove') + '\n'
     + source('function matchResult(', 'function renderUpdateNotice(') + source('function savedRoomReference()', '\nconst statFields ='), context);
-  return { context, $, storage, calls, location };
+  return { context, $, storage, calls, timers, location };
 }
 function snapshot(overrides = {}) {
   return { roomId: 'room-a', roomNumber: 1234, revision: 1, phase: 'waiting', matchId: null, config: structuredClone(DEFAULT_CONFIG), state: null,
@@ -87,6 +88,10 @@ test('each seat assignment and match start play their own sound once for the par
   const first = { guestId: 'first', joinedRevision: 2, ready: true };
   const second = { guestId: 'second', joinedRevision: 4, ready: true };
   const sounds = ui => ui.calls.filter(([type]) => type === 'sound').map(([, name]) => name);
+  const playStartCue = ui => {
+    assert.deepEqual(ui.timers.map(timer => timer.delay), [240]);
+    ui.timers.pop().callback();
+  };
   const lobby = snapshot();
   const admitted = snapshot({ revision: 2, seats: [first, null] });
   const changed = snapshot({ revision: 3, seats: [null, first] });
@@ -100,6 +105,8 @@ test('each seat assignment and match start play their own sound once for the par
   original.context.applyRoomView(view(playing, 1));
   original.context.applyRoomView({ ...view(playing, 1), status: 'reconnecting' });
   original.context.applyRoomView(view({ ...playing, revision: 5 }, 1));
+  assert.deepEqual(sounds(original), ['room-join', 'room-join']);
+  playStartCue(original);
   assert.deepEqual(sounds(original), ['room-join', 'room-join', 'game-start']);
   const joining = setup(), spectator = setup({ mobile: false }), restored = setup({ mobile: false });
   joining.context.applyRoomView(view(changed));
@@ -107,13 +114,24 @@ test('each seat assignment and match start play their own sound once for the par
   spectator.context.applyRoomView(view(changed));
   spectator.context.applyRoomView(view(playing));
   restored.context.applyRoomView(view(playing, 1));
+  assert.deepEqual(sounds(joining), ['room-join']);
+  playStartCue(joining);
   assert.deepEqual(sounds(joining), ['room-join', 'game-start']);
+  assert.equal(spectator.timers.length, 0);
+  assert.equal(restored.timers.length, 0);
   assert.deepEqual(sounds(spectator), []);
   assert.deepEqual(sounds(restored), []);
   const retrying = setup({ mobile: false });
   retrying.context.applyRoomView({ ...view(changed, 1), status: 'reconnecting' });
   retrying.context.applyRoomView(view(playing, 1));
+  playStartCue(retrying);
   assert.deepEqual(sounds(retrying), ['game-start']);
+  const leaving = setup({ mobile: false });
+  leaving.context.applyRoomView(view(changed, 1));
+  leaving.context.applyRoomView(view(playing, 1));
+  leaving.context.roomSnapshot = null;
+  playStartCue(leaving);
+  assert.deepEqual(sounds(leaving), ['room-join']);
 });
 
 test('each online player sees their army below the opponent, spectators keep South below', () => {

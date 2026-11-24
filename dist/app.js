@@ -19,6 +19,8 @@ import { TableRattle } from './table-rattle.js';
 import { BoardDrag } from './board-drag.js';
 const $ = selector => document.querySelector(selector);
 const gameAudio = new GameAudio();
+// Leave time for both control samples and for the dialog to leave the screen.
+const START_CUE_DELAY = 240;
 const soundButton = $('#sound-toggle');
 const soundControl = $('#sound-control'), soundScale = $('#sound-scale'), soundVolume = $('#sound-volume');
 function renderSoundButton() {
@@ -661,12 +663,16 @@ function renderInspector(context) {
   const pieceId = piece?.id || '';
   $('#sidebar-overview').hidden = Boolean(piece) || Boolean(hint);
   $('#selection-panel').hidden = !piece || Boolean(hint);
-  if (panel.dataset.pieceId !== pieceId) { panel.dataset.pieceId = pieceId; $('.left-panel').scrollTop = 0; }
+  if (panel.dataset.pieceId !== pieceId) {
+    panel.dataset.pieceId = pieceId;
+    $('.left-panel').scrollTop = $('#selection-panel').scrollTop = 0;
+  }
   if (!piece) {
     panel.innerHTML = '';
     return;
   }
   const info = effective(piece, position, config), base = config.stats[piece.type];
+  const desktop = !document.body.classList.contains('mobile-game');
   const names = { move: 'Шаг', damage: 'Урон', range: 'Дальность атаки', fortitude: 'Стойкость' };
   const descriptions = {
     scoutLamp: `Увеличивает дальность союзных лукарей на ${base.rangeBonus}. Не увеличивает дальность щитоносцев. ${base.damage > 0 && base.range > 0 ? `Атакует самостоятельно: урон ${base.damage}, дальность ${base.range}. Дальность не увеличивается от аур.` : 'Может атаковать только рядом с союзным ветераном'}`,
@@ -677,8 +683,17 @@ function renderInspector(context) {
     defenseLamp: 'Повышает стойкость союзников. Может атаковать только под поддержкой союзного ветерана'
   };
   const stats = unitStatParts(piece, position, config).map(stat => {
-    const calculation = [stat.base, stat.personal ? `+ ${stat.personal}` : '', stat.allied ? `${stat.allied > 0 ? '+' : '−'} ${Math.abs(stat.allied)}` : ''].filter(value => value !== '').join(' ');
-    return `<div class="stat-box" data-unit-stat="${stat.field}"><span>${names[stat.field]}</span><strong title="Итого: ${stat.total}">${stat.total}</strong>${stat.personal || stat.allied ? `<em class="stat-calculation">(${calculation} = ${stat.total})</em>` : ''}${stat.personal ? `<small class="personal-bonus">+${stat.personal} за край</small>` : ''}</div>`;
+    const total = `<strong title="Итого: ${stat.total}">${stat.total}</strong>`;
+    let value = total;
+    if (stat.personal || stat.allied) {
+      const gap = desktop ? '' : ' ';
+      const personal = stat.personal ? `${gap}+${gap}${stat.personal}` : '';
+      const allied = stat.allied ? `${gap}${stat.allied > 0 ? '+' : '−'}${gap}${Math.abs(stat.allied)}` : '';
+      const formula = `${stat.base}${personal}${allied}${gap}=`;
+      value = desktop ? `<em class="stat-calculation">${formula}</em>${total}`
+        : `${total}<em class="stat-calculation">(${formula} ${stat.total})</em>${stat.personal ? `<small class="personal-bonus">+${stat.personal} за край</small>` : ''}`;
+    }
+    return `<div class="stat-box" data-unit-stat="${stat.field}"><span>${names[stat.field]}</span>${value}</div>`;
   }).join('');
   const sources = alliedBonusDetails(piece, position, config);
   const bonusLabels = { move: 'к шагу', damage: 'к урону', range: 'к дальности', fortitude: 'к стойкости' };
@@ -686,7 +701,10 @@ function renderInspector(context) {
   const alliedBonuses = sourceDetails ? `<section class="sources"><strong>Усиления от союзников</strong><ul class="allied-bonus-list">${sourceDetails}</ul></section>` : '';
   const aura = shieldCanRetreat(piece, config) ? config.shieldPromotion.allies ?? config.shieldPromotion : base;
   const bonuses = [[piece.type === 'attackLamp' ? config.drumShieldMoveBonus ?? 0 : 0, config.drumMoveAllies ? 'шаг союзников' : 'шаг щитоносцев'], [aura.damageBonus, 'урон'], [aura.rangeBonus, 'дальность'], [aura.defenseBonus, config.shieldDefenseOnly && piece.type === 'shield' ? 'стойкость щитоносцев' : 'стойкость']].filter(([value]) => value > 0).map(([value, name]) => `${name} +${value}`).join(', ');
-  panel.innerHTML = `<section class="sidebar-card inspector-card"><p class="inspection-label desktop-only">Выбран</p><div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' veteran' : ''}" data-unit-type="${piece.type}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p><div class="stat-grid">${stats}</div>${info.aura > 0 ? `<section class="unit-aura"><strong>Аура · ${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}</strong><p>${bonuses}</p></section>` : ''}${alliedBonuses}</section>`;
+  const radius = `${info.aura} ${plural(info.aura, ['клетка', 'клетки', 'клеток'])}`;
+  const auraTitle = desktop ? 'Аура' : `Аура · ${radius}`;
+  const auraDescription = desktop ? `Радиус ${radius}: ${bonuses}` : bonuses;
+  panel.innerHTML = `<section class="sidebar-card inspector-card"><p class="inspection-label desktop-only">Выбран</p><div class="piece-heading"><span class="unit-icon ${piece.team ? 'south' : 'north'}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' veteran' : ''}" data-unit-type="${piece.type}">${icon(piece.type, piece)}</span><div><h2>${LABELS[piece.type]}${shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config) ? ' · ветеран' : ''}</h2></div></div><p class="unit-description">${descriptions[piece.type]}</p><div class="stat-grid">${stats}</div>${info.aura > 0 ? `<section class="unit-aura"><strong>${auraTitle}</strong><p>${auraDescription}</p></section>` : ''}${alliedBonuses}</section>`;
 }
 function shieldPromotionDescription() {
   const stats = config.stats.shield, p = config.shieldPromotion, allies = p.allies ?? p;
@@ -876,7 +894,8 @@ function render(deaths = [], restoredIds) {
   tableKnocks?.reset();
   if (typeof browserAnalytics !== 'undefined') queueMicrotask(trackGameTime);
   // Keep the current board behind the start dialog while its draft is edited.
-  if (previousGame && gamePhase === 'setup' && !editor && $('#start-dialog').open) { renderStartSettings(); save(); return; }
+  if (previousGame && gamePhase === 'setup' && !editor
+      && ($('#start-dialog').open || $('#start-dialog').dataset?.starting)) { renderStartSettings(); save(); return; }
   if (hint && (hint.positionKey !== hintPositionKey() || !canRequestHint())) clearHint();
   if (hint) selected = null;
   renderHint();
@@ -1051,7 +1070,7 @@ $('#undo').addEventListener('click', () => {
 function openStartSettings() {
   if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
   const dialog = $('#start-dialog');
-  if (!dialog.open) dialog.showModal();
+  if (!dialog.open && !dialog.dataset?.starting) dialog.showModal();
 }
 function cancelStartRefresh() {
   startRefreshController?.abort(); startRefreshController = null; refreshingNewGame = false;
@@ -1094,7 +1113,20 @@ function startGame() {
 }
 $('#start-setup').addEventListener('click', openStartSettings);
 $('#new-game').addEventListener('click', openNewGame);
-$('#start-game').addEventListener('click', startGame);
+$('#start-game').addEventListener('click', () => {
+  const dialog = $('#start-dialog');
+  if (!dialog.open || dialog.dataset.starting || refreshingNewGame) return;
+  if ($('#play-mode').value === 'online' || hasNewerGameVersion(CURRENT_RULES_VERSION, latestRulesVersion)) {
+    startGame();
+    return;
+  }
+  dialog.dataset.starting = 'true';
+  dialog.close();
+  setTimeout(() => {
+    delete dialog.dataset.starting;
+    startGame();
+  }, START_CUE_DELAY);
+});
 function returnToGame() {
   if (playMode === 'online' || !previousGame || gamePhase !== 'setup') return;
   cancelStartRefresh();
@@ -1318,8 +1350,8 @@ function applyRoomView(view) {
   if (previous?.roomId === next.roomId && previous.phase === 'waiting' && next.phase === 'playing'
       && next.matchId && next.matchId !== previous.matchId && view.selfSeat != null
       && view.status === 'connected') {
-    gameAudio.playGameStart(() => playMode === 'online' && roomSnapshot?.phase === 'playing'
-      && roomSnapshot.matchId === next.matchId);
+    setTimeout(() => gameAudio.playGameStart(() => playMode === 'online' && roomSnapshot?.phase === 'playing'
+      && roomSnapshot.roomId === next.roomId && roomSnapshot.matchId === next.matchId), START_CUE_DELAY);
   }
 }
 async function connectOnlineRoom() {
@@ -1396,9 +1428,13 @@ function renderScoreboard(position) {
   const teamCards = [0, 1].map(team => {
     const seat = snapshot?.seats[team], free = online && !seat;
     const side = team === 0 ? 'Синих' : 'Красных';
-    const role = online ? free ? desktop ? 'Ожидаем игрока' : `${TEAM_NAMES[team]} — ожидаем игрока` : roomView.selfSeat === team ? `Вы играете за ${side}` : seated ? `Соперник играет за ${side}` : `Игрок за ${side}`
-      : playMode === 'bot' ? team === humanTeam ? `Вы играете за ${side}` : `${BOT_DIFFICULTIES[botDifficulty].label}${botDifficulty === 'hard' ? '' : ' бот'} играет за ${side}` : `Игрок за ${side}`;
-    const title = `<span class="team-title">${role}</span>`;
+    const ownTeam = online ? roomView?.selfSeat === team : playMode === 'bot' && team === humanTeam;
+    const bot = playMode === 'bot' && !ownTeam ? BOT_DIFFICULTIES[botDifficulty].label + (botDifficulty === 'hard' ? '' : ' бот') : '';
+    const role = ownTeam ? `Вы играете за ${side}` : bot ? `${bot} играет за ${side}`
+      : free ? desktop ? 'Ожидаем игрока' : `${TEAM_NAMES[team]} — ожидаем игрока`
+      : online && seated ? `Соперник играет за ${side}` : `Игрок за ${side}`;
+    const shortRole = ownTeam ? `Вы за ${side}` : bot;
+    const title = `<span class="team-title">${role}</span>${desktop && shortRole ? `<span class="team-title team-title-short">${shortRole}</span>` : ''}`;
     const pieces = position.pieces.filter(piece => piece.team === team), count = pieces.length;
     const active = gamePhase === 'playing' && position.turn === team && position.winner === null && !editor && !combat && !currentDeaths.length;
     const roster = TYPES.map(type => {
