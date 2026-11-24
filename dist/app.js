@@ -60,14 +60,14 @@ document.addEventListener('keydown', () => { void gameAudio.unlock(); }, { captu
 bindButtonSounds(document, gameAudio);
 document.addEventListener('visibilitychange', () => { if (document.hidden) gameAudio.stopAll(); });
 addEventListener('pagehide', () => gameAudio.stopAll());
-const CURRENT_GAME_VERSION = $('#version-number').textContent.replace(/^v/, '');
+const CURRENT_GAME_VERSION = $('#version-number').textContent;
 const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
-$('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
+$('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? ' · Локально' : '';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
 const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
 const archiveRecorder = new GameRecorder({
   endpoint: archiveEndpoint, enabled: archiveIsSite && Boolean(archiveEndpoint),
-  app: { version: $('#version-number').textContent.replace(/^v/, ''), build: $('#version-build').dataset.builtAt, channel: archiveIsSite ? 'site' : 'local' }
+  app: { version: CURRENT_GAME_VERSION, build: $('#version-build').dataset.builtAt, channel: archiveIsSite ? 'site' : 'local' }
 });
 const browserAnalytics = new BrowserAnalytics({ enabled:archiveIsSite && Boolean(archiveEndpoint),geoEnabled:true,endpoint:archiveEndpoint });
 function analyticsContext(localGameId) {
@@ -382,12 +382,12 @@ function startBattleIntro(room = null) {
     intro.timer = setTimeout(() => {
       if (battleIntro !== intro) return;
       battleIntro = null;
-      const canPlayCue = () => room
+      const canPlayCue = () => !docGuideOpen() && (room
         ? playMode === 'online' && !roomLeaving && roomView?.selfSeat != null && roomSnapshot?.phase === 'playing'
           && roomSnapshot.roomId === room.roomId && roomSnapshot.matchId === room.matchId
-        : playMode !== 'online' && gamePhase === 'playing' && !battleIntro && state.ply === 0;
+        : playMode !== 'online' && gamePhase === 'playing' && !battleIntro && state.ply === 0);
       render();
-      if (canPlayCue()) gameAudio.playGameStart(canPlayCue);
+      gameAudio.playGameStart(canPlayCue);
       if (intro.pendingView) applyRoomView(intro.pendingView);
     }, BATTLE_INTRO_DURATION);
   };

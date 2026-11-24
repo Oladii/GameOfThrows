@@ -30,8 +30,12 @@ test('shared game and room links select a device once and preserve query and has
 
 test('both published entries contain the same release, room bootstrap and bot worker', async () => {
   const [desktop, mobile, manifest] = await Promise.all(['index.html', 'mobile.html', 'version.json'].map(file => readFile(new URL(file, root), 'utf8')));
+  const { version, rulesVersion } = JSON.parse(manifest);
   for (const page of [desktop, mobile]) {
-    assert.ok(page.includes('>v' + JSON.parse(manifest).version + '</span>'));
+    assert.ok(page.includes(`id="version-number" data-rules-version="${rulesVersion}">${version}</span><span id="version-channel"></span>`));
+    assert.match(page, /id="version-build" data-built-at="[^"]+">\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}:\d{2}<\/span>/);
+    assert.equal([...page.matchAll(/@font-face\{font-family:"Inter";/g)].length, 1);
+    assert.match(page, /html\{[^}]*-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale/);
     assert.match(page, /if \(initialRoomId\) openOnlineRoom\(initialRoomId\);/);
   }
   const worker = page => page.match(/<script id="bot-worker-source"[^>]*>([^]*?)<\/script>/)[1];

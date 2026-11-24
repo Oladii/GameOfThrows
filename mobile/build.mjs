@@ -30,9 +30,9 @@ function between(source, start, end, replacement) {
 const read = (file, encoding) => readFile(new URL(file, import.meta.url), encoding);
 const assetUrl = async (file, mime) => `data:${mime};base64,${(await read(file)).toString('base64')}`;
 
-export async function interFontCss(family = 'Inter') {
+export async function interFontCss() {
   const [font, license] = await Promise.all([assetUrl('fonts/InterVariable.woff2', 'font/woff2'), read('fonts/OFL.txt', 'utf8')]);
-  return `/*\n${license}\n*/\n@font-face{font-family:"${family}";src:url(${font}) format('woff2');font-weight:100 900;font-display:swap}`;
+  return `/*\n${license}\n*/\n@font-face{font-family:"Inter";src:url(${font}) format('woff2');font-weight:100 900;font-display:swap}`;
 }
 
 async function inlinePreviewFlags() {

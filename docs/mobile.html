@@ -25,7 +25,7 @@
 
 :root{--bg:#fbfaf8;--panel-border:#aa8c57;--tile-default:#f7f2e6;--surface:#fffefb;--ink:#4f422e;--muted:#83745f;--line:#e1d8c7;--blue:#3e607c;--rust:#af6a4b;--accent:#e8d5b2;--mint:#eae0cd;--red:#ba5349;--button-soft:rgba(215,194,146,.2);--button-soft-hover:rgba(215,194,146,.32);--radius-control:8px;--radius-card:12px;--arena-inset:14px;--radius-arena:calc(var(--radius-control) + var(--arena-inset) + 1px);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);font-synthesis:none}
 *{box-sizing:border-box}
-html{scrollbar-gutter:stable}
+html{scrollbar-gutter:stable;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 body{margin:0;background:var(--bg);font-size:14px}
 button,input,select{font:inherit}
 button,a,input,select,summary{-webkit-tap-highlight-color:transparent}
@@ -134,7 +134,7 @@ select{font-size:11px}
 .board-footer{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0 14px;border-top:1px solid var(--line);flex-wrap:wrap}
 .turn-actions{display:flex;gap:8px}
 .turn-actions .button{font-size:10px;padding:7px 10px;min-height:31px}
-body:not(.mobile-game) .board-footer :is(#show-hint,#undo,.history-arrow){height:40px;padding:7px 10px;gap:4px;font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12px;font-weight:550;line-height:normal}
+body:not(.mobile-game) .board-footer :is(#show-hint,#undo,.history-arrow){height:40px;padding:7px 10px;gap:4px;font-size:12px;font-weight:550;line-height:normal}
 body:not(.mobile-game) .board-footer .history-arrow{width:40px;padding:8px 0}
 body:not(.mobile-game) .board-footer .button.subtle:disabled:not([data-visibly-disabled=false]){background:var(--button-soft)}
 .board-footer .button[data-visibly-disabled=false]{opacity:1}
@@ -881,7 +881,7 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 .topbar .brand{font-size:18px;letter-spacing:1px}
 .guide-toolbar{margin-bottom:18px}}
 .topbar #new-game{border-color:var(--ink)}
-.left-panel{font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;scrollbar-gutter:auto;scrollbar-width:none}
+.left-panel{scrollbar-gutter:auto;scrollbar-width:none}
 .left-panel::-webkit-scrollbar{display:none}
 .reference-panel,.selection-panel{margin-top:0;padding-top:0;border-top:0}
 .selection-panel .piece-heading{margin:0 0 8px}
@@ -1040,28 +1040,29 @@ body:not(.mobile-game) .arena>.board-footer{flex-shrink:0;margin:0 4px;padding:1
 body:not(.mobile-game).online-room .arena>.board-footer{border-top:0;padding-top:0}
 body:not(.mobile-game) .scoreboard{
   display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;min-height:64px;
-  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums
+  font-variant-numeric:tabular-nums
 }
 body:not(.mobile-game) .scoreboard>.team-card:not(.match-result){
   --team-flag-width:60px;
   --team-flag-space:calc(var(--team-flag-width) + 16px);
-  min-height:64px;justify-content:center;gap:2px;border:0;border-radius:0;background:none;color:var(--muted);
+  min-height:64px;align-self:start;justify-content:flex-start;gap:6px;padding-block:8px 14px;
+  border:0;border-radius:0;background:none;color:var(--muted);
   /* The content box is the width available to the title and counters. */
   container:team-content / inline-size
 }
-body:not(.mobile-game) .scoreboard>.team-card.south:not(.match-result){grid-area:1/1;order:0;padding:0 0 0 var(--team-flag-space)}
-body:not(.mobile-game) .scoreboard>.team-card.north:not(.match-result){grid-area:1/3;padding:0 var(--team-flag-space) 0 0}
+body:not(.mobile-game) .scoreboard>.team-card.south:not(.match-result){grid-area:1/1;order:0;padding-inline:var(--team-flag-space) 0}
+body:not(.mobile-game) .scoreboard>.team-card.north:not(.match-result){grid-area:1/3;padding-inline:0 var(--team-flag-space)}
 body:not(.mobile-game) .scoreboard>.team-card:not(.match-result)::before{top:0;width:var(--team-flag-width);height:64px;transform:scaleX(-1)}
 body:not(.mobile-game) .scoreboard>.team-card.south::before{left:0;right:auto}
 body:not(.mobile-game) .scoreboard>.team-card.north::before{left:auto;right:0}
 body:not(.mobile-game) .scoreboard .team-title{font-weight:600;color:var(--ink)}
-body:not(.mobile-game) .scoreboard>.team-card:not(.match-result) .team-title{overflow-wrap:anywhere}
+body:not(.mobile-game) .scoreboard>.team-card:not(.match-result) .team-title{line-height:20px;overflow-wrap:anywhere}
 body:not(.mobile-game) .scoreboard .team-title-short{display:none}
 body:not(.mobile-game) .scoreboard .team-count{display:none}
 body:not(.mobile-game) .scoreboard .team-roster{
   flex-wrap:nowrap;color:var(--muted);
-  /* Leave room for six two-digit counters at the wide layout's minimum. */
-  column-gap:clamp(2px,calc((100cqi - 216px) / 5),7px)
+  /* Leave room for six two-digit counters near the compact breakpoint. */
+  column-gap:clamp(2px,calc((100cqi - 216px) / 5),8px)
 }
 body:not(.mobile-game) .scoreboard .north .team-roster{justify-content:end}
 body:not(.mobile-game) .scoreboard .team-unit{gap:3px;font-size:13px;line-height:16px}
@@ -1074,7 +1075,7 @@ body:not(.mobile-game) .scoreboard .team-unit::before{content:"";width:16px;heig
 @container team-content (width < 230px){
   body:not(.mobile-game) .scoreboard .team-title:has(+.team-title-short){display:none}
   body:not(.mobile-game) .scoreboard .team-title-short{display:block}
-  body:not(.mobile-game) .scoreboard .team-roster{display:grid;grid-template-columns:repeat(3,max-content);gap:8px 7px}
+  body:not(.mobile-game) .scoreboard .team-roster{display:grid;grid-template-columns:repeat(3,max-content);gap:8px}
 }
 [data-unit-type="shield"]{--count-icon:url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJzaGllbGQiPgo8cGF0aCBpZD0iaWNvbiIgZD0iTTggMS4zMzMyTDE0IDMuNDMzMlY3LjYzMzJDMTQgMTEuMTMzMiAxMSAxMy4yMzMyIDggMTUuMzMzMkM1IDEzLjIzMzIgMiAxMS4xMzMyIDIgNy42MzMyVjMuNDMzMkw4IDEuMzMzMlpNNy4yNSA0LjEzMzJWNi4yMzMySDVWNy42MzMySDcuMjVWMTEuODMzMkg4Ljc1VjcuNjMzMkgxMVY2LjIzMzJIOC43NVY0LjEzMzJINy4yNVoiIGZpbGw9IiNBQTlFODYiLz4KPC9nPgo8L3N2Zz4K")}
 [data-unit-type="archer"]{--count-icon:url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJib3ctYXJyb3ctMTYtb3B0aW1pemVkIDEiPgo8cGF0aCBpZD0iVmVjdG9yIiBkPSJNMi41IDMuNUwzLjUgMTIuNUwxMi41IDEzLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlPSIjQUE5RTg2Ii8+CjxwYXRoIGlkPSJWZWN0b3JfMiIgZD0iTTIuNSAzLjVDNC4yIDQuNCA1LjQgMy4yIDcuNCAzLjVDOS40IDMuOCAxMi41IDUuOCAxMi41IDguNkMxMi41IDExLjQgMTEuNiAxMS44IDEyLjUgMTMuNSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlPSIjQUE5RTg2Ii8+CjxwYXRoIGlkPSJWZWN0b3JfMyIgZD0iTTMuNSAxMi41TDEzIDMiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZT0iI0FBOUU4NiIvPgo8cGF0aCBpZD0iVmVjdG9yXzQiIGQ9Ik0xMC4yNSAyLjc1TDE0LjUgMS41TDEzLjI1IDUuNzVMMTAuMjUgMi43NVpNMS41IDEyLjc1TDMuNzUgMTAuNUg1LjVWMTIuMjVMMy4yNSAxNC41VjEyLjc1SDEuNVoiIGZpbGw9IiNBQTlFODYiLz4KPC9nPgo8L3N2Zz4K")}
@@ -1128,8 +1129,7 @@ body:not(.mobile-game) :is(#room-seat,#room-copy,#room-leave,#room-finish[data-a
 
 body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog),#first-move-dialog{
   width:560px;max-width:calc(100% - 32px);max-height:calc(100dvh - 32px);padding:20px 20px 24px 24px;
-  border:1px solid var(--line);border-radius:32px;background:var(--surface);box-shadow:none;overflow:auto;
-  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+  border:1px solid var(--line);border-radius:32px;background:var(--surface);box-shadow:none;overflow:auto
 }
 body:not(.mobile-game) #start-dialog[open],#room-seat-form{display:flex;flex-direction:column;gap:24px}
 body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .dialog-header,#first-move-dialog .dialog-header{gap:12px;align-items:end;margin:0;padding:0}
@@ -1182,8 +1182,7 @@ body:not(.mobile-game) :is(#start-game,#room-seat-submit):not(:disabled):active,
 
 html:has(body.guide-open:not(.mobile-game)){scrollbar-gutter:stable both-edges}
 body:not(.mobile-game) #rules-dialog.guide-screen{
-  position:relative;padding:45px clamp(20px,4vw,48px) 60px;color:var(--ink);
-  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+  position:relative;padding:45px clamp(20px,4vw,48px) 60px;color:var(--ink)
 }
 body:not(.mobile-game) .guide-toolbar{max-width:1024px;margin:0 auto 40px}
 body:not(.mobile-game) .guide-back{min-height:40px;gap:4px;padding:0 16px 0 8px;border:0;background:var(--tile-default);font-size:15px;line-height:20px;font-weight:500}
@@ -1687,7 +1686,7 @@ body.mobile-game dialog:not(#first-move-dialog)[open]{box-sizing:border-box;posi
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.60">v0.1.141</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-24T22:55:41.255Z">Сборка 25.11.2026, 01:55:41 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.60">0.1.142</span><span id="version-channel"></span></span><span id="version-build" data-built-at="2026-11-24T23:27:37.359Z">25.11.2026, 02:27:37</span></span></div>
       </aside>
       <div class="arena-column">
         <p id="room-banner" class="room-banner desktop-only" role="status" aria-live="polite" hidden></p>
@@ -4258,7 +4257,6 @@ class GameAudio {
     this.epoch = 0; this.voices = new Set(); this.lastClick = -Infinity;
     this.lastHover = -Infinity; this.hoverKey = null;
     this.hoverVoice = silentSound; this.clickVoice = silentSound;
-    this.pendingGameStart = null;
     try {
       const saved = this.storage()?.getItem(VOLUME_PREFERENCE);
       if (saved != null && saved.trim() !== '' && Number.isFinite(Number(saved))) {
@@ -4300,26 +4298,12 @@ class GameAudio {
     try {
       const context = this.context;
       this.resuming = context && context.state !== 'running' ? context.resume().catch(() => {}) : Promise.resolve();
-      const unlocked = Promise.all([this.resuming, loading]);
-      if (!this.pendingGameStart) return unlocked;
-      return unlocked.then(() => {
-        const isCurrent = this.pendingGameStart;
-        if (!isCurrent || context?.state !== 'running') return;
-        this.pendingGameStart = null;
-        if (isCurrent()) this.play('game-start');
-      });
+      return Promise.all([this.resuming, loading]);
     } catch { this.resuming = Promise.resolve(); return loading; }
   }
   playGameStart(isCurrent = () => true) {
-    if (!this.enabled || this.hidden() || !isCurrent()) return;
-    if (this.context?.state === 'running' && this.buffers['game-start']) {
-      this.pendingGameStart = null;
-      this.play('game-start');
-      return;
-    }
-    // A fresh page can start the game before the browser allows sound.
-    this.pendingGameStart = isCurrent;
-    void this.unlock();
+    // Autoplay can be blocked on the first visit. Don't replay this cue on a later click.
+    if (this.context?.state === 'running' && isCurrent()) this.play('game-start');
   }
   setEnabled(enabled) {
     this.enabled = Boolean(enabled);
@@ -4339,7 +4323,6 @@ class GameAudio {
   stopAll() {
     this.epoch++;
     this.hoverKey = null;
-    this.pendingGameStart = null;
     for (const stop of [...this.voices]) stop();
     this.hoverVoice = silentSound; this.clickVoice = silentSound;
   }
@@ -6157,14 +6140,14 @@ document.addEventListener('keydown', () => { void gameAudio.unlock(); }, { captu
 bindButtonSounds(document, gameAudio);
 document.addEventListener('visibilitychange', () => { if (document.hidden) gameAudio.stopAll(); });
 addEventListener('pagehide', () => gameAudio.stopAll());
-const CURRENT_GAME_VERSION = $('#version-number').textContent.replace(/^v/, '');
+const CURRENT_GAME_VERSION = $('#version-number').textContent;
 const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
-$('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
+$('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? ' · Локально' : '';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
 const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
 const archiveRecorder = new GameRecorder({
   endpoint: archiveEndpoint, enabled: archiveIsSite && Boolean(archiveEndpoint),
-  app: { version: $('#version-number').textContent.replace(/^v/, ''), build: $('#version-build').dataset.builtAt, channel: archiveIsSite ? 'site' : 'local' }
+  app: { version: CURRENT_GAME_VERSION, build: $('#version-build').dataset.builtAt, channel: archiveIsSite ? 'site' : 'local' }
 });
 const browserAnalytics = new BrowserAnalytics({ enabled:archiveIsSite && Boolean(archiveEndpoint),geoEnabled:true,endpoint:archiveEndpoint });
 function analyticsContext(localGameId) {
@@ -6487,12 +6470,12 @@ function startBattleIntro(room = null) {
     intro.timer = setTimeout(() => {
       if (battleIntro !== intro) return;
       battleIntro = null;
-      const canPlayCue = () => room
+      const canPlayCue = () => !docGuideOpen() && (room
         ? playMode === 'online' && !roomLeaving && roomView?.selfSeat != null && roomSnapshot?.phase === 'playing'
           && roomSnapshot.roomId === room.roomId && roomSnapshot.matchId === room.matchId
-        : playMode !== 'online' && gamePhase === 'playing' && !battleIntro && state.ply === 0;
+        : playMode !== 'online' && gamePhase === 'playing' && !battleIntro && state.ply === 0);
       render();
-      if (canPlayCue()) gameAudio.playGameStart(canPlayCue);
+      gameAudio.playGameStart(canPlayCue);
       if (intro.pendingView) applyRoomView(intro.pendingView);
     }, BATTLE_INTRO_DURATION);
   };

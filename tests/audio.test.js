@@ -183,7 +183,7 @@ test('preparing audio only enables pre-click hover if the browser is already run
   assert.equal(blocked.starts.length, 1);
 });
 
-test('game start plays immediately when unlocked and once on the first allowed gesture otherwise', async () => {
+test('game start plays at the start and stays silent on a later gesture if autoplay was blocked', async () => {
   const unlocked = harness();
   await unlocked.audio.unlock();
   unlocked.audio.playGameStart();
@@ -192,6 +192,7 @@ test('game start plays immediately when unlocked and once on the first allowed g
   const blocked = harness();
   const resume = blocked.context.resume;
   blocked.context.state = 'suspended';
+  await blocked.audio.prepare();
   blocked.context.resume = () => Promise.resolve();
   blocked.audio.playGameStart();
   await settle();
@@ -199,26 +200,18 @@ test('game start plays immediately when unlocked and once on the first allowed g
   blocked.tick(500);
   blocked.context.resume = resume;
   await Promise.all([blocked.audio.unlock(), blocked.audio.unlock()]);
+  assert.equal(blocked.starts.length, 0);
+  blocked.audio.playGameStart();
   assert.deepEqual(blocked.starts.map(source => source.buffer), [blocked.audio.buffers['game-start']]);
 });
 
-test('a queued start stays silent if the game is replaced or audio is muted', async () => {
-  for (const reason of ['reset', 'mute', 'stale']) {
-    const h = harness();
-    const resume = h.context.resume;
-    h.context.state = 'suspended';
-    h.context.resume = () => Promise.resolve();
-    let current = true;
-    h.audio.playGameStart(() => current);
-    await settle();
-    if (reason === 'reset') h.audio.stopAll();
-    if (reason === 'mute') h.audio.setEnabled(false);
-    if (reason === 'stale') current = false;
-    h.context.resume = resume;
-    if (!h.audio.enabled) h.audio.setEnabled(true);
-    await h.audio.unlock();
-    assert.equal(h.starts.length, 0);
-  }
+test('a stale battle start and a muted battle start stay silent', async () => {
+  const h = harness();
+  await h.audio.unlock();
+  h.audio.playGameStart(() => false);
+  h.audio.setEnabled(false);
+  h.audio.playGameStart();
+  assert.equal(h.starts.length, 0);
 });
 
 test('the two control samples use the same reduced gain and start on the same tap', async () => {

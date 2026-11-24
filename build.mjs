@@ -29,7 +29,7 @@ const { version } = JSON.parse(await fs.readFile(root + 'package.json', 'utf8'))
 const [tokenAssets, tokenPresentation] = await Promise.all(['token-assets.js','token-presentation.js'].map(read));
 const builtAt = new Date();
 const buildLabel = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(builtAt);
-const html = sourceHtml.replace(/(<span id="version-number"[^>]*>)[^<]*(<\/span>)/, (_, start, end) => `${start}v${version}${end}`).replace(/<span id="version-build"[^>]*>[^<]*<\/span>/, `<span id="version-build" data-built-at="${builtAt.toISOString()}">Сборка ${buildLabel} МСК</span>`);
+const html = sourceHtml.replace(/(<span id="version-number"[^>]*>)[^<]*(<\/span>)/, (_, start, end) => `${start}${version}${end}`).replace(/<span id="version-build"[^>]*>[^<]*<\/span>/, `<span id="version-build" data-built-at="${builtAt.toISOString()}">${buildLabel}</span>`);
 
 const strip = code => code.replace(/^import .*?;\n/gm, '').replace(/^export /gm, '');
 const [multiplayerClient, multiplayerSession] = await Promise.all(['multiplayer-client.js', 'multiplayer-session.js'].map(read));
@@ -42,7 +42,7 @@ if (!publicRoomEndpoint) throw new Error('Missing production room API endpoint')
 const brandTag = /(<img class="(?:brand-logo|startup-logo)") src="[^"]+"(?: srcset="[^"]+")?/g;
 const template = html.replace(/<style id="web-art">[^<]*<\/style>\n?/g, '')
   .replace(/ *<link id="startup-logo-preload"[^>]*>\n/g, '')
-  .replace(/<style id="board-control-font">[^<]*<\/style>\n?/g, '')
+  .replace(/<style id="(?:board-control|interface)-font">[^<]*<\/style>\n?/g, '')
   .replace(/<script type="importmap" id="web-token-art">[^<]*<\/script>\n?/g, '');
 const publicHtml = template.replace('<meta name="game-room-endpoint" content="">', `<meta name="game-room-endpoint" content="${publicRoomEndpoint}">`);
 const selectBundle = (await read('game-selects.js')).replaceAll('</script', '<\\/script');
@@ -70,8 +70,8 @@ const inlinedIconsCss = css.replace(controlIconPath, file => iconUrls.get(file))
 let webCss = inlinedIconsCss;
 for (const [source, url] of Object.entries(graphics.resultFlags)) webCss = webCss.replaceAll(source, url);
 const web = assemble(webPage(publicHtml).replace(faviconSource, graphics.favicon), webCss, graphics.tokenModule);
-const controlFont = await interFontCss('Board Controls Inter');
-const withControlFont = page => page.replace('</head>', () => `<style id="board-control-font">${controlFont}</style>\n</head>`);
+const interfaceFont = await interFontCss();
+const withInterfaceFont = page => page.replace('</head>', () => `<style id="interface-font">${interfaceFont}</style>\n</head>`);
 const offlineLogos = await Promise.all(graphics.logoVariants.map(file => dataUrl(file.slice(2), file.endsWith('.png') ? 'image/png' : 'image/webp')));
 const offlineLogoSet = offlineLogos.map((url, i) => `${url} ${i + 1}x`).join(', ');
 const offlineHtml = publicHtml.replace(brandTag, `$1 src="${offlineLogos[0]}" srcset="${offlineLogoSet}"`)
@@ -90,10 +90,10 @@ const rulesVersion = html.match(/id="version-number"[^>]*data-rules-version="(\d
 if (!rulesVersion) throw new Error('Missing rules version');
 const manifest = JSON.stringify({ version, rulesVersion }) + '\n';
 await Promise.all([
-  fs.writeFile(root + 'Lamps.html', withControlFont(standalone)),
-  fs.writeFile(root + 'dist/index.html', withControlFont(development)),
+  fs.writeFile(root + 'Lamps.html', withInterfaceFont(standalone)),
+  fs.writeFile(root + 'dist/index.html', withInterfaceFont(development)),
   fs.writeFile(root + 'dist/version.json', manifest),
-  fs.writeFile(root + 'docs/index.html', withControlFont(routePage(web, false))),
+  fs.writeFile(root + 'docs/index.html', withInterfaceFont(routePage(web, false))),
   fs.writeFile(root + 'docs/mobile.html', await mobilePage(web)),
   fs.writeFile(root + 'docs/version.json', manifest),
   fs.writeFile(root + 'docs/.nojekyll', '')

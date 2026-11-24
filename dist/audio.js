@@ -149,7 +149,6 @@ export class GameAudio {
     this.epoch = 0; this.voices = new Set(); this.lastClick = -Infinity;
     this.lastHover = -Infinity; this.hoverKey = null;
     this.hoverVoice = silentSound; this.clickVoice = silentSound;
-    this.pendingGameStart = null;
     try {
       const saved = this.storage()?.getItem(VOLUME_PREFERENCE);
       if (saved != null && saved.trim() !== '' && Number.isFinite(Number(saved))) {
@@ -191,26 +190,12 @@ export class GameAudio {
     try {
       const context = this.context;
       this.resuming = context && context.state !== 'running' ? context.resume().catch(() => {}) : Promise.resolve();
-      const unlocked = Promise.all([this.resuming, loading]);
-      if (!this.pendingGameStart) return unlocked;
-      return unlocked.then(() => {
-        const isCurrent = this.pendingGameStart;
-        if (!isCurrent || context?.state !== 'running') return;
-        this.pendingGameStart = null;
-        if (isCurrent()) this.play('game-start');
-      });
+      return Promise.all([this.resuming, loading]);
     } catch { this.resuming = Promise.resolve(); return loading; }
   }
   playGameStart(isCurrent = () => true) {
-    if (!this.enabled || this.hidden() || !isCurrent()) return;
-    if (this.context?.state === 'running' && this.buffers['game-start']) {
-      this.pendingGameStart = null;
-      this.play('game-start');
-      return;
-    }
-    // A fresh page can start the game before the browser allows sound.
-    this.pendingGameStart = isCurrent;
-    void this.unlock();
+    // Autoplay can be blocked on the first visit. Don't replay this cue on a later click.
+    if (this.context?.state === 'running' && isCurrent()) this.play('game-start');
   }
   setEnabled(enabled) {
     this.enabled = Boolean(enabled);
@@ -230,7 +215,6 @@ export class GameAudio {
   stopAll() {
     this.epoch++;
     this.hoverKey = null;
-    this.pendingGameStart = null;
     for (const stop of [...this.voices]) stop();
     this.hoverVoice = silentSound; this.clickVoice = silentSound;
   }

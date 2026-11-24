@@ -1,7 +1,7 @@
 
 :root{--bg:#fbfaf8;--panel-border:#aa8c57;--tile-default:#f7f2e6;--surface:#fffefb;--ink:#4f422e;--muted:#83745f;--line:#e1d8c7;--blue:#3e607c;--rust:#af6a4b;--accent:#e8d5b2;--mint:#eae0cd;--red:#ba5349;--button-soft:rgba(215,194,146,.2);--button-soft-hover:rgba(215,194,146,.32);--radius-control:8px;--radius-card:12px;--arena-inset:14px;--radius-arena:calc(var(--radius-control) + var(--arena-inset) + 1px);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);font-synthesis:none}
 *{box-sizing:border-box}
-html{scrollbar-gutter:stable}
+html{scrollbar-gutter:stable;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 body{margin:0;background:var(--bg);font-size:14px}
 button,input,select{font:inherit}
 button,a,input,select,summary{-webkit-tap-highlight-color:transparent}
@@ -110,7 +110,7 @@ select{font-size:11px}
 .board-footer{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0 14px;border-top:1px solid var(--line);flex-wrap:wrap}
 .turn-actions{display:flex;gap:8px}
 .turn-actions .button{font-size:10px;padding:7px 10px;min-height:31px}
-body:not(.mobile-game) .board-footer :is(#show-hint,#undo,.history-arrow){height:40px;padding:7px 10px;gap:4px;font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12px;font-weight:550;line-height:normal}
+body:not(.mobile-game) .board-footer :is(#show-hint,#undo,.history-arrow){height:40px;padding:7px 10px;gap:4px;font-size:12px;font-weight:550;line-height:normal}
 body:not(.mobile-game) .board-footer .history-arrow{width:40px;padding:8px 0}
 body:not(.mobile-game) .board-footer .button.subtle:disabled:not([data-visibly-disabled=false]){background:var(--button-soft)}
 .board-footer .button[data-visibly-disabled=false]{opacity:1}
@@ -857,7 +857,7 @@ body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{disp
 .topbar .brand{font-size:18px;letter-spacing:1px}
 .guide-toolbar{margin-bottom:18px}}
 .topbar #new-game{border-color:var(--ink)}
-.left-panel{font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;scrollbar-gutter:auto;scrollbar-width:none}
+.left-panel{scrollbar-gutter:auto;scrollbar-width:none}
 .left-panel::-webkit-scrollbar{display:none}
 .reference-panel,.selection-panel{margin-top:0;padding-top:0;border-top:0}
 .selection-panel .piece-heading{margin:0 0 8px}
@@ -1016,28 +1016,29 @@ body:not(.mobile-game) .arena>.board-footer{flex-shrink:0;margin:0 4px;padding:1
 body:not(.mobile-game).online-room .arena>.board-footer{border-top:0;padding-top:0}
 body:not(.mobile-game) .scoreboard{
   display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;min-height:64px;
-  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums
+  font-variant-numeric:tabular-nums
 }
 body:not(.mobile-game) .scoreboard>.team-card:not(.match-result){
   --team-flag-width:60px;
   --team-flag-space:calc(var(--team-flag-width) + 16px);
-  min-height:64px;justify-content:center;gap:2px;border:0;border-radius:0;background:none;color:var(--muted);
+  min-height:64px;align-self:start;justify-content:flex-start;gap:6px;padding-block:8px 14px;
+  border:0;border-radius:0;background:none;color:var(--muted);
   /* The content box is the width available to the title and counters. */
   container:team-content / inline-size
 }
-body:not(.mobile-game) .scoreboard>.team-card.south:not(.match-result){grid-area:1/1;order:0;padding:0 0 0 var(--team-flag-space)}
-body:not(.mobile-game) .scoreboard>.team-card.north:not(.match-result){grid-area:1/3;padding:0 var(--team-flag-space) 0 0}
+body:not(.mobile-game) .scoreboard>.team-card.south:not(.match-result){grid-area:1/1;order:0;padding-inline:var(--team-flag-space) 0}
+body:not(.mobile-game) .scoreboard>.team-card.north:not(.match-result){grid-area:1/3;padding-inline:0 var(--team-flag-space)}
 body:not(.mobile-game) .scoreboard>.team-card:not(.match-result)::before{top:0;width:var(--team-flag-width);height:64px;transform:scaleX(-1)}
 body:not(.mobile-game) .scoreboard>.team-card.south::before{left:0;right:auto}
 body:not(.mobile-game) .scoreboard>.team-card.north::before{left:auto;right:0}
 body:not(.mobile-game) .scoreboard .team-title{font-weight:600;color:var(--ink)}
-body:not(.mobile-game) .scoreboard>.team-card:not(.match-result) .team-title{overflow-wrap:anywhere}
+body:not(.mobile-game) .scoreboard>.team-card:not(.match-result) .team-title{line-height:20px;overflow-wrap:anywhere}
 body:not(.mobile-game) .scoreboard .team-title-short{display:none}
 body:not(.mobile-game) .scoreboard .team-count{display:none}
 body:not(.mobile-game) .scoreboard .team-roster{
   flex-wrap:nowrap;color:var(--muted);
-  /* Leave room for six two-digit counters at the wide layout's minimum. */
-  column-gap:clamp(2px,calc((100cqi - 216px) / 5),7px)
+  /* Leave room for six two-digit counters near the compact breakpoint. */
+  column-gap:clamp(2px,calc((100cqi - 216px) / 5),8px)
 }
 body:not(.mobile-game) .scoreboard .north .team-roster{justify-content:end}
 body:not(.mobile-game) .scoreboard .team-unit{gap:3px;font-size:13px;line-height:16px}
@@ -1050,7 +1051,7 @@ body:not(.mobile-game) .scoreboard .team-unit::before{content:"";width:16px;heig
 @container team-content (width < 230px){
   body:not(.mobile-game) .scoreboard .team-title:has(+.team-title-short){display:none}
   body:not(.mobile-game) .scoreboard .team-title-short{display:block}
-  body:not(.mobile-game) .scoreboard .team-roster{display:grid;grid-template-columns:repeat(3,max-content);gap:8px 7px}
+  body:not(.mobile-game) .scoreboard .team-roster{display:grid;grid-template-columns:repeat(3,max-content);gap:8px}
 }
 [data-unit-type="shield"]{--count-icon:url("./desktop-icons/count-shield.svg")}
 [data-unit-type="archer"]{--count-icon:url("./desktop-icons/count-archer.svg")}
@@ -1104,8 +1105,7 @@ body:not(.mobile-game) :is(#room-seat,#room-copy,#room-leave,#room-finish[data-a
 
 body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog),#first-move-dialog{
   width:560px;max-width:calc(100% - 32px);max-height:calc(100dvh - 32px);padding:20px 20px 24px 24px;
-  border:1px solid var(--line);border-radius:32px;background:var(--surface);box-shadow:none;overflow:auto;
-  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+  border:1px solid var(--line);border-radius:32px;background:var(--surface);box-shadow:none;overflow:auto
 }
 body:not(.mobile-game) #start-dialog[open],#room-seat-form{display:flex;flex-direction:column;gap:24px}
 body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .dialog-header,#first-move-dialog .dialog-header{gap:12px;align-items:end;margin:0;padding:0}
@@ -1158,8 +1158,7 @@ body:not(.mobile-game) :is(#start-game,#room-seat-submit):not(:disabled):active,
 
 html:has(body.guide-open:not(.mobile-game)){scrollbar-gutter:stable both-edges}
 body:not(.mobile-game) #rules-dialog.guide-screen{
-  position:relative;padding:45px clamp(20px,4vw,48px) 60px;color:var(--ink);
-  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+  position:relative;padding:45px clamp(20px,4vw,48px) 60px;color:var(--ink)
 }
 body:not(.mobile-game) .guide-toolbar{max-width:1024px;margin:0 auto 40px}
 body:not(.mobile-game) .guide-back{min-height:40px;gap:4px;padding:0 16px 0 8px;border:0;background:var(--tile-default);font-size:15px;line-height:20px;font-weight:500}

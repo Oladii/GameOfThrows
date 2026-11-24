@@ -43,7 +43,7 @@ function setup({ mobile = true } = {}) {
     move() { throw new Error('Online UI must not run a local move'); },
     checkpoint() { throw new Error('Online UI must not record local history'); }
   });
-  vm.runInContext(declaration('point') + '\n' + declaration('currentSnapshot') + '\n' + declaration('humanCanMove') + '\n'
+  vm.runInContext(declaration('point') + '\n' + declaration('currentSnapshot') + '\n' + declaration('humanCanMove') + '\n' + declaration('docGuideOpen') + '\n'
     + source('function cancelBattleIntro()', 'function cancelBot()')
     + source('function matchResult(', 'function renderUpdateNotice(') + source('function savedRoomReference()', '\nconst statFields ='), context);
   return { context, $, storage, calls, timers, location };

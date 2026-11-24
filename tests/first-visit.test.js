@@ -34,7 +34,7 @@ const bootStart = app.lastIndexOf("if (gamePhase === 'playing') archiveRecorder.
 assert.ok(bootStart >= 0, 'Missing app boot sequence');
 const bootSource = app.slice(bootStart, app.indexOf('\nglobalThis.window?.gameSelects?.mount();', bootStart));
 const functions = [
-  'startingTeam', 'visibleState', 'isBotTurn', 'humanCanMove', 'clearHint',
+  'startingTeam', 'visibleState', 'isBotTurn', 'humanCanMove', 'clearHint', 'docGuideOpen',
   'cancelBot', 'cancelMovement', 'cancelBattleIntro', 'startBattleIntro', 'resetBotContext', 'lastTurnFromHistory',
   'hasPreviousReview', 'canStepReview', 'localReviewTurn', 'setFooterDisabled', 'positionText', 'archiveGameMetadata', 'queueBot', 'renderStartSettings', 'render', 'startGame',
   'resetNewGameDefaults', 'cancelStartRefresh', 'returnToGame'
@@ -44,6 +44,7 @@ const functions = [
 // the DOM, visual leaf functions, recorder and timer execution are replaced.
 function boot({ raw = null, roll = 0.1, storageError = false, fresh = false, href = 'http://localhost/' } = {}) {
   const nodes = new Map(), writes = [], starts = [], resumes = [], timers = [], messages = [], startSounds = [];
+  const bodyClasses = new Set();
   let rolls = 0, closed = 0, context;
   const node = selector => {
     if (selector === 'dialog[open]') return null;
@@ -60,7 +61,7 @@ function boot({ raw = null, roll = 0.1, storageError = false, fresh = false, hre
     clone, createGame, validateConfig, validateState, analyze, reachable, shieldCanRetreat, inspectCell,
     DEFAULT_BOT_DIFFICULTY, BOT_DIFFICULTIES, readBotDifficulty, classifyPosition, prepareStartPosition,
     URL, location: { href }, CURRENT_GAME_VERSION: version, archiveIsSite: false, $: node, window: {},
-    document: { body: { classList: { contains: () => false } }, querySelectorAll: () => [] }, matchMedia: () => ({ matches: true }),
+    document: { body: { classList: { contains: name => bodyClasses.has(name) } }, querySelectorAll: () => [] }, matchMedia: () => ({ matches: true }),
     Math: { random() { rolls++; return roll; }, floor: Math.floor },
     localStorage: {
       getItem() { if (storageError) throw new Error('Storage unavailable'); return raw; },
@@ -69,7 +70,7 @@ function boot({ raw = null, roll = 0.1, storageError = false, fresh = false, hre
     archiveRecorder: { start(value) { starts.push(clone(value)); }, resume(value) { resumes.push(clone(value)); } },
     botRunner: { active: false, cancel: noop }, hintRunner: { cancel: noop },
     moveAnimator: { cancel: noop }, combatAnimator: { cancel: noop },
-    gameAudio: { stopAll: noop, playGameStart() { startSounds.push(vm.runInContext('gamePhase', context)); } },
+    gameAudio: { stopAll: noop, playGameStart(isCurrent) { if (isCurrent()) startSounds.push(vm.runInContext('gamePhase', context)); } },
     clearTimeout: noop, clearInterval: noop,
     setTimeout(callback, delay) { timers.push({ callback, delay, ready: vm.runInContext('ready', context) }); return timers.length; },
     toast(message) { messages.push(message); }, renderHint: noop, renderUpdateNotice: noop,
@@ -80,7 +81,7 @@ function boot({ raw = null, roll = 0.1, storageError = false, fresh = false, hre
   return {
     read: expression => clone(vm.runInContext(expression, context)),
     render: () => vm.runInContext('render()', context),
-    saved: () => writes.at(-1).saved, nodes, writes, starts, resumes, timers, messages, startSounds,
+    saved: () => writes.at(-1).saved, nodes, writes, starts, resumes, timers, messages, startSounds, bodyClasses,
     rolls: () => rolls, closed: () => closed
   };
 }
@@ -138,6 +139,15 @@ for (const [roll, turn] of [[0.1, 0], [0.9, 1]]) {
     assert.equal(reload.timers.length, turn === 0 ? 1 : 0);
   });
 }
+
+test('opening the guide during the initial countdown silences the battle cue', () => {
+  const ui = boot();
+  ui.bodyClasses.add('guide-open');
+  ui.read("$('#rules-dialog').hidden = false");
+  ui.timers.shift().callback();
+  assert.equal(ui.nodes.get('#board').dataset.intro, 'false');
+  assert.deepEqual(ui.startSounds, []);
+});
 
 test('existing setup, editor, custom deployment and previous-game backup survive startup', () => {
   const customConfig = clone(DEFAULT_CONFIG); customConfig.stats.shield.damage = 4;
