@@ -870,7 +870,7 @@ to{opacity:1}}
 .badge-guide>.lesson-scene-heading{padding:0;margin-bottom:20px}
 /* Training is a document screen with one page scrollbar. */
 body.guide-open{background:var(--bg)}
-body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{display:none}
+body.guide-open>.topbar,body.guide-open>main{display:none}
 #rules-dialog.guide-screen{position:static;inset:auto;width:100%;height:auto;min-height:100dvh;max-height:none;overflow:visible;display:block;padding:28px clamp(16px,4vw,48px) 48px;background:var(--bg)}
 .guide-toolbar{max-width:1040px;margin:0 auto 24px}
 .guide-back{border-radius:999px;padding:10px 18px;min-height:42px}
@@ -1104,13 +1104,12 @@ body:not(.mobile-game) .scoreboard>.match-result.draw::before{background:url("./
 body:not(.mobile-game) .scoreboard>.match-result.draw::after{background:url("./art/draw-right-975d499f3e6d.png") center/contain no-repeat;transform:none}
 body:not(.mobile-game) .match-result-reason{font-size:13px;font-weight:500;line-height:16px;color:#aa9e86}
 
-.room-banner,body:not(.mobile-game)>.update-notice{
+.room-banner,body:not(.mobile-game) .arena-column>.update-notice{
   flex-shrink:0;margin:0;min-height:32px;padding:6px 14px;border:0;border-radius:20px;
   font-size:13px;line-height:20px;text-align:center
 }
 .room-banner{background:#fbe2e2;color:#853327}
 body:not(.mobile-game) .arena-column>.room-banner{position:absolute;inset:0 0 auto;z-index:4;pointer-events:none}
-body:not(.mobile-game)>.update-notice{position:fixed;inset:4px 24px auto;z-index:5;pointer-events:none}
 body:not(.mobile-game) #room-connected{display:grid;gap:4px}
 body:not(.mobile-game).online-room .panel-actions{display:none}
 body:not(.mobile-game) .room-panel h2{font-size:14px;line-height:20px}
@@ -1281,7 +1280,6 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
 
 @media(min-width:701px){
   body:not(.mobile-game) #onboarding-progress{position:absolute;inset:45px 22% auto}
-  body:not(.mobile-game)>.update-notice{left:max(360px,calc((100vw - 1800px)/2 + 360px))}
 }
 @media(max-width:700px){
   body:not(.mobile-game) .guide-toolbar{margin-bottom:12px}
@@ -1650,8 +1648,6 @@ body.mobile-game dialog:not(#first-move-dialog)[open]{box-sizing:border-box;posi
   logo.addEventListener('load', tryShowingLogo, { once: true });
 })();
 </script>
-  <div id="update-notice" class="update-notice" role="status" hidden>Доступно обновление игры.
-Обновите вкладку, чтобы применить его</div>
   <main>
     <div class="workspace">
       <aside class="left-panel">
@@ -1687,9 +1683,11 @@ body.mobile-game dialog:not(#first-move-dialog)[open]{box-sizing:border-box;posi
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.60">0.1.143</span><span id="version-channel"></span></span><span id="version-build" data-built-at="2026-11-24T23:38:39.008Z">25.11.2026, 02:38:39</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.60">0.1.144</span><span id="version-channel"></span></span><span id="version-build" data-built-at="2026-11-24T23:47:09.118Z">25.11.2026, 02:47:09</span></span></div>
       </aside>
       <div class="arena-column">
+        <div id="update-notice" class="update-notice" role="status" hidden>Доступно обновление игры.
+Обновите вкладку, чтобы применить его</div>
         <p id="room-banner" class="room-banner desktop-only" role="status" aria-live="polite" hidden></p>
         <div class="arena-top"><button id="home-back" class="button" type="button" aria-label="На главный экран"><img class="match-back-icon" src="data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJGaXhlciI+CjxwYXRoIGlkPSJQYWludE1lIiBkPSJNMTYuMjA3IDQuNzA3MDNMOC45MTQwNiAxMkwxNi4yMDcgMTkuMjkzTDE0Ljc5MyAyMC43MDdMNi4wODU5NCAxMkwxNC43OTMgMy4yOTI5N0wxNi4yMDcgNC43MDcwM1oiIGZpbGw9IiM0RjQyMkUiLz4KPC9nPgo8L3N2Zz4K" width="24" height="24" alt=""><img class="room-back-icon" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE1LjIwNyA3LjIwNzAzTDEwLjQxNDEgMTJMMTUuMjA3IDE2Ljc5M0wxMy43OTMgMTguMjA3TDcuNTg1OTQgMTJMMTMuNzkzIDUuNzkyOTdMMTUuMjA3IDcuMjA3MDNaIiBmaWxsPSIjMDMwMzA2IiBmaWxsLW9wYWNpdHk9IjAuODgiLz4KPC9zdmc+Cg==" width="24" height="24" alt=""></button><div class="mobile-turn" role="status" aria-atomic="true"><strong id="team-name"></strong><span id="move-counter" class="move-counter"></span></div><span id="team-flag" aria-hidden="true"></span><span id="mode-caption" class="turn-mode">2 игрока на одном экране</span></div>
       <section class="arena" aria-label="Игровая доска">

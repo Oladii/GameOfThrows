@@ -846,7 +846,7 @@ to{opacity:1}}
 .badge-guide>.lesson-scene-heading{padding:0;margin-bottom:20px}
 /* Training is a document screen with one page scrollbar. */
 body.guide-open{background:var(--bg)}
-body.guide-open>.topbar,body.guide-open>main,body.guide-open>#update-notice{display:none}
+body.guide-open>.topbar,body.guide-open>main{display:none}
 #rules-dialog.guide-screen{position:static;inset:auto;width:100%;height:auto;min-height:100dvh;max-height:none;overflow:visible;display:block;padding:28px clamp(16px,4vw,48px) 48px;background:var(--bg)}
 .guide-toolbar{max-width:1040px;margin:0 auto 24px}
 .guide-back{border-radius:999px;padding:10px 18px;min-height:42px}
@@ -1080,13 +1080,12 @@ body:not(.mobile-game) .scoreboard>.match-result.draw::before{background:url("./
 body:not(.mobile-game) .scoreboard>.match-result.draw::after{background:url("./desktop-icons/draw-right.png") center/contain no-repeat;transform:none}
 body:not(.mobile-game) .match-result-reason{font-size:13px;font-weight:500;line-height:16px;color:#aa9e86}
 
-.room-banner,body:not(.mobile-game)>.update-notice{
+.room-banner,body:not(.mobile-game) .arena-column>.update-notice{
   flex-shrink:0;margin:0;min-height:32px;padding:6px 14px;border:0;border-radius:20px;
   font-size:13px;line-height:20px;text-align:center
 }
 .room-banner{background:#fbe2e2;color:#853327}
 body:not(.mobile-game) .arena-column>.room-banner{position:absolute;inset:0 0 auto;z-index:4;pointer-events:none}
-body:not(.mobile-game)>.update-notice{position:fixed;inset:4px 24px auto;z-index:5;pointer-events:none}
 body:not(.mobile-game) #room-connected{display:grid;gap:4px}
 body:not(.mobile-game).online-room .panel-actions{display:none}
 body:not(.mobile-game) .room-panel h2{font-size:14px;line-height:20px}
@@ -1257,7 +1256,6 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
 
 @media(min-width:701px){
   body:not(.mobile-game) #onboarding-progress{position:absolute;inset:45px 22% auto}
-  body:not(.mobile-game)>.update-notice{left:max(360px,calc((100vw - 1800px)/2 + 360px))}
 }
 @media(max-width:700px){
   body:not(.mobile-game) .guide-toolbar{margin-bottom:12px}
