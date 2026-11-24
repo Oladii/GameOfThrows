@@ -69,6 +69,7 @@ test('a slow first-screen image keeps the splash open past its minimum and can f
   ui.run(1000);
   await drain();
   assert.equal(ui.screen.hidden, false);
+  assert.equal(ui.timers.size, 0);
   image.settle('error');
   await drain();
   assert.equal(ui.screen.hidden, true);

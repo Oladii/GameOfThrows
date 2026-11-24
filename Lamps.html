@@ -1417,7 +1417,6 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     if (!loading) return;
     loading = false;
     clearTimeout(displayDelay);
-    clearTimeout(deadline);
     if (minimumDisplay) void minimumDisplay.then(revealGame);
     else revealGame();
   }
@@ -1445,8 +1444,6 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   root.dataset.gameStartup = 'pending';
   // Let cached resources and synchronous setup settle without a flash.
   const displayDelay = setTimeout(() => { canShow = true; tryShowingLogo(); }, 120);
-  // Release the interface even if a resource stalls instead of completing or failing.
-  const deadline = setTimeout(finish, 10000);
   window.gameStartup = {
     whenReady(callback) { callbacks.push(callback); },
     complete(firstScreenLogo, artwork) {
@@ -1502,7 +1499,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.138</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-24T21:42:54.821Z">Сборка 25.11.2026, 00:42:54 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.139</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-24T21:47:38.563Z">Сборка 25.11.2026, 00:47:38 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <p id="room-banner" class="room-banner desktop-only" role="status" aria-live="polite" hidden></p>

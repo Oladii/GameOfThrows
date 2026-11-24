@@ -18,7 +18,6 @@
     if (!loading) return;
     loading = false;
     clearTimeout(displayDelay);
-    clearTimeout(deadline);
     if (minimumDisplay) void minimumDisplay.then(revealGame);
     else revealGame();
   }
@@ -46,8 +45,6 @@
   root.dataset.gameStartup = 'pending';
   // Let cached resources and synchronous setup settle without a flash.
   const displayDelay = setTimeout(() => { canShow = true; tryShowingLogo(); }, 120);
-  // Release the interface even if a resource stalls instead of completing or failing.
-  const deadline = setTimeout(finish, 10000);
   window.gameStartup = {
     whenReady(callback) { callbacks.push(callback); },
     complete(firstScreenLogo, artwork) {
