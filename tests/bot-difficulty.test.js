@@ -31,7 +31,7 @@ function setup() {
     $: selector => nodes[selector], resetBotContext() {}, startBattleIntro() {}, openStartSettings() {}, renderStartSettings() {},
     archiveRecorder: { resume() {}, start() {} }, toast(message) { throw Error(message); }, readSnapshot: clone, readLastTurn: value => value,
     gameAudio: { playGameStart() {} },
-    recentBotHistory: () => [], botRunner: { run(value) { request = value; } },
+    recentBotHistory: () => [], botFailures: 0, botRunner: { run(value) { request = value; } },
     render() { context.save(); }, currentSnapshot: () => clone({ config: context.config, state: context.state, log: context.log, positionKind: context.positionKind, gameVersion: context.gameVersion }) });
   vm.runInContext(app.match(/^let botDifficulty = .*$/m)[0], context);
   for (const name of ['cancelStartRefresh', 'dismissDialog', 'rememberStartChoice', 'readStartPreferences', 'currentStartPreferences', 'applyStartPreferences', 'save', 'archiveGameMetadata', 'readPreviousGame', 'resetNewGameDefaults', 'openNewGame', 'returnToGame', 'startBot', 'startingTeam', 'startGame']) vm.runInContext(declaration(name), context);

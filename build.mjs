@@ -23,6 +23,7 @@ const audio = await read('audio.js');
 const tableKnocksSource = await read('table-knocks.js');
 const tableRattleSource = await read('table-rattle.js');
 const boardDragSource = await read('board-drag.js');
+const startupSource = await read('startup.js');
 const [sourceHtml, css, rules, engine, defensiveSelection, formationStrategy, bot, worker, client, startChoices, startPosition, moveAnimation, gameArchive, browserAnalytics, boardPresentation, onboardingUnits, onboardingShowcase, boardNavigation, newGameRefresh, hint, guideController, app] = await Promise.all(['index.html', 'styles.css', 'rules.js', 'engine.js', 'defensive-selection.mjs', 'formation-strategy.mjs', 'bot.js', 'bot-worker.js', 'bot-client.js', 'start-preferences.js', 'start-position.js', 'move-animation.js', 'game-archive.js', 'browser-analytics.js', 'board-presentation.js', 'onboarding-units.js', 'onboarding-showcase.js', 'board-navigation.js', 'new-game-refresh.js', 'hint.js', 'guide-controller.js', 'app.js'].map(read));
 const { version } = JSON.parse(await fs.readFile(root + 'package.json', 'utf8'));
 const [tokenAssets, tokenPresentation] = await Promise.all(['token-assets.js','token-presentation.js'].map(read));
@@ -38,14 +39,16 @@ const workerSource = JSON.stringify([rules, engine, defensiveSelection, formatio
 const publicRoomEndpoint = html.match(/<meta name="game-archive-endpoint" content="([^"]+)">/)?.[1];
 if (!publicRoomEndpoint) throw new Error('Missing production room API endpoint');
 // Normalise the generated development entry before deriving either distribution.
-const brandTag = /(<img class="brand-logo") src="[^"]+"(?: srcset="[^"]+")?/;
+const brandTag = /(<img class="(?:brand-logo|startup-logo)") src="[^"]+"(?: srcset="[^"]+")?/g;
 const template = html.replace(/<style id="web-art">[^<]*<\/style>\n?/g, '')
+  .replace(/ *<link id="startup-logo-preload"[^>]*>\n/g, '')
   .replace(/<style id="board-control-font">[^<]*<\/style>\n?/g, '')
   .replace(/<script type="importmap" id="web-token-art">[^<]*<\/script>\n?/g, '');
 const publicHtml = template.replace('<meta name="game-room-endpoint" content="">', `<meta name="game-room-endpoint" content="${publicRoomEndpoint}">`);
 const selectBundle = (await read('game-selects.js')).replaceAll('</script', '<\\/script');
 function assemble(page, styles, artwork) {
   return page.replace('<link rel="stylesheet" href="/styles.css">', () => `<style>\n${styles}\n</style>`)
+    .replace('<script src="/startup.js"></script>', () => `<script>\n${startupSource}</script>`)
     .replace('<script src="/game-selects.js"></script>', () => `<script>${selectBundle}</script>`)
     .replace('<script type="module" src="/app.js"></script>', () => `<script id="bot-worker-source" type="application/json">${workerSource}</script>\n<script type="module">\n${script(artwork)}\n</script>`)
     .replace('<a class="brand" href="/"', '<a class="brand" href="#"');
@@ -53,6 +56,7 @@ function assemble(page, styles, artwork) {
 const graphics = await buildWebArt(root);
 function webPage(page) {
   return page.replace(brandTag, `$1 src="${graphics.logoFallback}" srcset="${graphics.logo}"`)
+    .replace('  <link rel="icon"', `  <link id="startup-logo-preload" rel="preload" as="image" imagesrcset="${graphics.logo}">\n  <link rel="icon"`)
     .replace('</head>', `<style id="web-art">:root{${graphics.backgrounds}}</style>\n</head>`);
 }
 const development = webPage(template).replace('</head>', `<script type="importmap" id="web-token-art">{"imports":{"./token-assets.js":"${graphics.tokenModuleUrl}"}}</script>\n</head>`);
@@ -68,9 +72,9 @@ for (const [source, url] of Object.entries(graphics.resultFlags)) webCss = webCs
 const web = assemble(webPage(publicHtml).replace(faviconSource, graphics.favicon), webCss, graphics.tokenModule);
 const controlFont = await interFontCss('Board Controls Inter');
 const withControlFont = page => page.replace('</head>', () => `<style id="board-control-font">${controlFont}</style>\n</head>`);
-const offlineLogo = await dataUrl(graphics.logoFallback.slice(2), 'image/png');
-const offlineLogoHiDpi = await dataUrl('brand/bitva-znamen.png', 'image/png');
-const offlineHtml = publicHtml.replace(brandTag, `$1 src="${offlineLogo}" srcset="${offlineLogoHiDpi} 2x"`)
+const offlineLogos = await Promise.all(graphics.logoVariants.map(file => dataUrl(file.slice(2), file.endsWith('.png') ? 'image/png' : 'image/webp')));
+const offlineLogoSet = offlineLogos.map((url, i) => `${url} ${i + 1}x`).join(', ');
+const offlineHtml = publicHtml.replace(brandTag, `$1 src="${offlineLogos[0]}" srcset="${offlineLogoSet}"`)
   .replace(faviconSource, await dataUrl('token-art/bullseye.svg', 'image/svg+xml'));
 let offlineCss = inlinedIconsCss;
 for (const file of Object.keys(graphics.resultFlags)) offlineCss = offlineCss.replaceAll(file, await dataUrl(file.slice(2), 'image/png'));

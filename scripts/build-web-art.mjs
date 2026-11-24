@@ -94,5 +94,5 @@ export async function buildWebArt(root) {
   const backgrounds = Object.entries(brands).filter(([name]) => name !== 'logo')
     .map(([name, urls]) => '--' + name + ':image-set(' + urls.map((url,i) => 'url("' + url + '") ' + (i+1) + 'x').join(',') + ')').join(';');
   const teamFlags = { 'team-red': brands['team-red'][2], 'team-blue': brands['team-blue'][2] };
-  return { logo, logoFallback: brands.logo[0], backgrounds, resultFlags, teamFlags, tokenModule, tokenModuleUrl, favicon: tokens.bullseye };
+  return { logo, logoVariants: brands.logo, logoFallback: brands.logo[0], backgrounds, resultFlags, teamFlags, tokenModule, tokenModuleUrl, favicon: tokens.bullseye };
 }

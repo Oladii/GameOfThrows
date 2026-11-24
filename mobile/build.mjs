@@ -138,6 +138,6 @@ export async function mobilePage(web, { preview = false } = {}) {
   change("if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());", controller + `
 if (gamePhase === 'setup') playMode = 'bot';
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());`);
-  change("if (!initialRoomId && !freshNewGameRequested) startLocalOnArrival();", "if (!initialRoomId && !freshNewGameRequested) openMobileHome();");
+  change("if (!initialRoomId && !freshNewGameRequested) startLocalOnArrival();", "if (!initialRoomId && !freshNewGameRequested) afterGameStartup(openMobileHome);");
   return page;
 }

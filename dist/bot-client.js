@@ -37,7 +37,7 @@ export class BotRunner {
     if (this.worker) this.worker.terminate();
     this.worker = null; this.serial++;
   }
-  run(request, onResult, onError) {
+  run(request, onResult, onError, timeoutMs = this.timeoutMs) {
     this.cancel();
     const id = this.serial;
     try {
@@ -53,7 +53,7 @@ export class BotRunner {
       };
       worker.onerror = event => { event.preventDefault?.(); finish(onError, new Error('Не удалось рассчитать ход бота')); };
       worker.onmessageerror = () => finish(onError, new Error('Не удалось прочитать ответ бота'));
-      this.timer = setTimeout(() => finish(onError, new Error('Бот не успел рассчитать ход. Попробуй ещё раз')), this.timeoutMs);
+      this.timer = setTimeout(() => finish(onError, new Error('Бот не успел рассчитать ход. Попробуй ещё раз')), timeoutMs);
       worker.postMessage({ ...request, id });
     } catch (error) { this.cancel(); onError(error); }
   }

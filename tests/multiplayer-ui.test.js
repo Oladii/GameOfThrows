@@ -495,7 +495,7 @@ test('history arrows cannot interrupt the current live combat', async () => {
   assert.equal(ui.context.reviewTurn,null);
   assert.equal(ui.context.canReviewPrevious(),false);
   vm.runInContext(source('function setFooterDisabled(', '\nfunction requestHint(') + '\n'
-    + source('  const reviewBlocked =', "  $('#resume-bot').hidden"), ui.context);
+    + source('  const reviewBlocked =', '  const shownTurn ='), ui.context);
   assert.equal(ui.$('#review-current').disabled,true);
 });
 

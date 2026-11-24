@@ -318,8 +318,10 @@ function moveWithReachable(state, config, id, destination, getReachable) {
   outcome.state.turn = 1 - state.turn; outcome.state.ply = state.ply + 1;
   return { ...outcome, action: { team: piece.team, type: piece.type, from: { q: piece.q, r: piece.r }, to: destination } };
 }
-export function pass(state, config) {
-  if (!config.experiments.allowPass) throw new Error('Пропуск хода выключен в настройках эксперимента');
+export function pass(state, config, { forced = false } = {}) {
+  if (!config.experiments.allowPass && (!forced || state.pieces.some(piece => piece.team === state.turn && reachable(piece, state, config).length))) {
+    throw new Error('Пропуск хода выключен в настройках эксперимента');
+  }
   if (state.winner !== null || ['combat-units', 'flag-or-combat'].includes(config.victoryCondition) && winnerForPieces(state.pieces, config) !== null) throw new Error('Партия завершена');
   const outcome = resolve(state, config);
   outcome.state.turn = 1 - state.turn; outcome.state.ply = state.ply + 1;

@@ -32,7 +32,7 @@ test('both published entries contain the same release, room bootstrap and bot wo
   const [desktop, mobile, manifest] = await Promise.all(['index.html', 'mobile.html', 'version.json'].map(file => readFile(new URL(file, root), 'utf8')));
   for (const page of [desktop, mobile]) {
     assert.ok(page.includes('>v' + JSON.parse(manifest).version + '</span>'));
-    assert.match(page, /if \(initialRoomId\) \{\s*openOnlineRoom\(initialRoomId\);/);
+    assert.match(page, /if \(initialRoomId\) openOnlineRoom\(initialRoomId\);/);
   }
   const worker = page => page.match(/<script id="bot-worker-source"[^>]*>([^]*?)<\/script>/)[1];
   assert.equal(worker(desktop), worker(mobile));

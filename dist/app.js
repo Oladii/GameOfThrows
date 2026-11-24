@@ -65,24 +65,10 @@ const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? 'Локально' : 'Сайт';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
 const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
-let archiveRetrying = false;
-function renderArchiveStatus(info) {
-  const text = { disabled: '', pending: 'Записи партий ожидают отправки в архив', syncing: 'Сохраняем партию в общем архиве…', saved: 'Партия сохранена в общем архиве', error: 'Не удалось сохранить запись в общем архиве. Игра продолжается' };
-  $('#archive-status').textContent = archiveRetrying ? 'Повторяем сохранение записей в архив…' : info.failed > 0 ? 'Часть партий ещё не сохранена в архиве. Записи остаются в этом браузере; можно повторить отправку' : !info.gameId && !info.pending && !['disabled', 'error'].includes(info.state) ? 'Партии автоматически записываются для анализа баланса' : text[info.state] || '';
-  $('#archive-status').hidden = !archiveRetrying && !info.failed && info.state !== 'error';
-  $('#archive-retry').hidden = !archiveRetrying && info.failed === 0 && info.state !== 'error';
-  $('#archive-retry').disabled = archiveRetrying || info.state === 'syncing';
-  $('#archive-retry').textContent = archiveRetrying ? 'Сохраняем…' : 'Повторить сохранение';
-  const failures = info.failures || [];
-  $('#archive-details').hidden = !info.failed || !failures.length;
-  $('#archive-errors').textContent = failures.map(failure => [failure.httpStatus, failure.code, `записей: ${failure.count}`].filter(value => value !== undefined && value !== '').join(' · ')).join('\n');
-}
 const archiveRecorder = new GameRecorder({
   endpoint: archiveEndpoint, enabled: archiveIsSite && Boolean(archiveEndpoint),
-  app: { version: $('#version-number').textContent.replace(/^v/, ''), build: $('#version-build').dataset.builtAt, channel: archiveIsSite ? 'site' : 'local' },
-  onStatus: renderArchiveStatus
+  app: { version: $('#version-number').textContent.replace(/^v/, ''), build: $('#version-build').dataset.builtAt, channel: archiveIsSite ? 'site' : 'local' }
 });
-renderArchiveStatus(archiveRecorder.status);
 const browserAnalytics = new BrowserAnalytics({ enabled:archiveIsSite && Boolean(archiveEndpoint),geoEnabled:true,endpoint:archiveEndpoint });
 function analyticsContext(localGameId) {
   if (gamePhase !== 'playing' || editor || state.winner !== null || docGuideOpen()) return null;
@@ -99,14 +85,6 @@ addEventListener('visibilitychange',trackGameTime); addEventListener('focus',tra
 addEventListener('online',() => void browserAnalytics.flush());
 addEventListener('pagehide',() => { browserAnalytics.tick(null,false); void browserAnalytics.flush(); });
 
-async function retryArchive() {
-  if (archiveRetrying) return;
-  archiveRetrying = true; renderArchiveStatus(archiveRecorder.status);
-  try { await archiveRecorder.retryFailed(); }
-  catch { toast('Не удалось повторить сохранение. Записи остаются в этом браузере'); }
-  finally { archiveRetrying = false; renderArchiveStatus(archiveRecorder.status); }
-}
-$('#archive-retry').addEventListener('click', retryArchive);
 function archiveGameMetadata() { return { config, state, mode: playMode, humanTeam, firstMove, botDepth: playMode === 'bot' ? BOT_DIFFICULTIES[botDifficulty].depth : undefined }; }
 function recordGameAction(type, details = {}) {
   if ((type === 'move' || type === 'pass') && state.winner != null) pendingMatchResults.add(state);
@@ -134,7 +112,7 @@ let gamePhase = 'setup', positionKind = 'default', previousGame = null;
 let battleIntro = null;
 let botDifficulty = DEFAULT_START_CHOICES.botDifficulty;
 let startPreferences = null;
-let playMode = 'bot', humanTeam = DEFAULT_START_CHOICES.humanTeam, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
+let playMode = 'bot', humanTeam = DEFAULT_START_CHOICES.humanTeam, lastTurn = null, reviewingTurn = false, botTimer = null, botFailures = 0;
 let reviewTurn = null, reviewLoading = false, reviewRequest = 0;
 const ROOM_STORAGE = 'trows-online-room-v1';
 let roomSession = null, roomView = null, roomLocalGame = null, roomTarget = null, roomSnapshot = null, roomConnecting = false, roomLeaving = false, roomError = '';
@@ -399,17 +377,22 @@ function startBattleIntro(room = null) {
   cancelBattleIntro();
   const intro = { room, timer: null, pendingView: null };
   battleIntro = intro;
-  intro.timer = setTimeout(() => {
+  const start = () => {
     if (battleIntro !== intro) return;
-    battleIntro = null;
-    const canPlayCue = () => room
-      ? playMode === 'online' && !roomLeaving && roomView?.selfSeat != null && roomSnapshot?.phase === 'playing'
-        && roomSnapshot.roomId === room.roomId && roomSnapshot.matchId === room.matchId
-      : playMode !== 'online' && gamePhase === 'playing' && !battleIntro && state.ply === 0;
-    render();
-    if (canPlayCue()) gameAudio.playGameStart(canPlayCue);
-    if (intro.pendingView) applyRoomView(intro.pendingView);
-  }, BATTLE_INTRO_DURATION);
+    intro.timer = setTimeout(() => {
+      if (battleIntro !== intro) return;
+      battleIntro = null;
+      const canPlayCue = () => room
+        ? playMode === 'online' && !roomLeaving && roomView?.selfSeat != null && roomSnapshot?.phase === 'playing'
+          && roomSnapshot.roomId === room.roomId && roomSnapshot.matchId === room.matchId
+        : playMode !== 'online' && gamePhase === 'playing' && !battleIntro && state.ply === 0;
+      render();
+      if (canPlayCue()) gameAudio.playGameStart(canPlayCue);
+      if (intro.pendingView) applyRoomView(intro.pendingView);
+    }, BATTLE_INTRO_DURATION);
+  };
+  const startup = globalThis.window?.gameStartup;
+  if (startup) startup.whenReady(start); else start();
 }
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
 function cancelMovement() {
@@ -418,7 +401,7 @@ function cancelMovement() {
   movement?.stopRestore?.(); movement?.sound?.cancel(); combat?.stopRemoval?.();
   moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null;
 }
-function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBattleIntro(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
+function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBattleIntro(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botFailures = 0; }
 function completeMovementPresentation(completed) {
   if (!completed) return;
   if (completed.startTimer != null) clearTimeout(completed.startTimer);
@@ -526,28 +509,67 @@ function recentBotHistory() {
   return recent;
 }
 function queueBot() {
-  if (!ready || battleIntro || !isBotTurn() || movement || combat || currentDeaths.length || reviewingTurn || botIssue || botSuspended || $('#rules-dialog')?.hidden === false || $('dialog[open]') || botRunner.active || botTimer !== null) return;
-  botTimer = setTimeout(() => { botTimer = null; if (isBotTurn() && !movement && !combat && !reviewingTurn && $('#rules-dialog')?.hidden !== false && !$('dialog[open]')) startBot(); }, 420);
+  const canStart = () => ready && !globalThis.window?.gameStartup && !battleIntro && isBotTurn() && !movement && !combat && !currentDeaths.length
+    && !reviewingTurn && $('#rules-dialog')?.hidden !== false && !$('dialog[open]');
+  if (!canStart() || botRunner.active || botTimer !== null) return;
+  botTimer = setTimeout(() => {
+    botTimer = null;
+    if (canStart()) startBot();
+  }, 420);
+}
+function fallbackBotAction() {
+  for (const piece of state.pieces) {
+    if (piece.team !== state.turn) continue;
+    const [to] = reachable(piece, state, config);
+    if (to) return { id: piece.id, to };
+  }
+  return { pass: true };
+}
+function applyBotAction(candidate, forcedPass = false) {
+  const action = readAction(candidate?.pass === true ? candidate : {
+    id: candidate?.id, to: candidate?.to, from: state.pieces.find(piece => piece.id === candidate?.id)
+  });
+  if (!action) return false;
+  let outcome;
+  try {
+    outcome = action.pass ? pass(state, config, { forced: forcedPass }) : move(state, config, action.id, action.to);
+  } catch { return false; }
+
+  const before = currentSnapshot();
+  checkpoint('bot', action);
+  lastTurn = { before, action };
+  state = outcome.state;
+  botFailures = 0;
+  log.push({ text: action.pass ? `${TEAM_NAMES[before.state.turn]} · бот · пропуск хода` : `${TEAM_NAMES[outcome.action.team]} · бот · ${LABELS[outcome.action.type]}: ${positionText(outcome.action.from)} → ${positionText(outcome.action.to)}`, detail: deathDetail(outcome.deaths) });
+  recordGameAction(action.pass ? 'pass' : 'move', { action, deaths: outcome.deaths, actor: 'bot' });
+  selected = null;
+  try { presentMove(before, action, outcome.deaths); }
+  catch { cancelMovement(); render(); }
+  return true;
 }
 function startBot() {
+  if (botFailures >= 2) {
+    applyBotAction(fallbackBotAction(), true);
+    return;
+  }
   const requestedState = state, requestedConfig = config, recent = recentBotHistory(), lastActions = new Map();
   const rulesKey = JSON.stringify(config);
   const initialOwnCount = history.reduce((count, entry) => JSON.stringify(entry.config) === rulesKey
     ? Math.max(count, entry.state.pieces.filter(piece => piece.team === state.turn).length) : count,
   state.pieces.filter(piece => piece.team === state.turn).length);
   for (const entry of recent) if (entry.action?.id) lastActions.set(entry.action.id, entry.action);
-  botRunner.run({ state, config, options: { ...BOT_DIFFICULTIES[botDifficulty], seed: 17001, initialOwnCount, previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
-    if (state !== requestedState || config !== requestedConfig || !isBotTurn() || editor || reviewingTurn) return;
-    if (!result?.action) { botIssue = 'У бота нет доступных ходов. Начни новую игру'; render(); return; }
-    try {
-      const before = currentSnapshot(), action = result.action.pass ? { pass: true } : { ...result.action, from: clone(state.pieces.find(p => p.id === result.action.id)) };
-      const outcome = action.pass ? pass(state, config) : move(state, config, action.id, action.to);
-      checkpoint('bot', action); lastTurn = { before, action: readAction(action) }; state = outcome.state;
-      log.push({ text: action.pass ? `${TEAM_NAMES[before.state.turn]} · бот · пропуск хода` : `${TEAM_NAMES[outcome.action.team]} · бот · ${LABELS[outcome.action.type]}: ${positionText(outcome.action.from)} → ${positionText(outcome.action.to)}`, detail: deathDetail(outcome.deaths) });
-      recordGameAction(action.pass ? 'pass' : 'move', { action, deaths: outcome.deaths, actor: 'bot' });
-      selected = null; botIssue = ''; presentMove(before, action, outcome.deaths);
-    } catch { botIssue = 'Не удалось применить ход бота. Попробуй ещё раз'; render(); }
-  }, error => { botIssue = error.message || 'Не удалось запустить бота. Попробуй ещё раз'; render(); });
+  const recovery = botFailures > 0;
+  const difficulty = BOT_DIFFICULTIES[botDifficulty];
+  const options = { ...difficulty, depth: recovery ? 1 : difficulty.depth, seed: 17001, initialOwnCount, previousStates: [...recent.map(entry => entry.state), state], lastActions };
+  const stillCurrent = () => state === requestedState && config === requestedConfig && isBotTurn() && !reviewingTurn;
+  const retry = () => {
+    if (!stillCurrent()) return;
+    botFailures++;
+    queueBot();
+  };
+  botRunner.run({ state, config, options }, result => {
+    if (stillCurrent() && !applyBotAction(result?.action)) retry();
+  }, retry, recovery ? 5000 : undefined);
 }
 function point(c) { const p = config.geometry === 'hex' ? hexGridPoint(c) : { x: c.q * 59, y: c.r * 59 }; return playMode === 'online' && roomView?.selfSeat === 0 ? { x: -p.x, y: -p.y } : p; }
 function polygon(c) { const { x, y } = point(c); return config.geometry === 'hex' ? hexGridPolygon({ x, y }) : `${x-28},${y-28} ${x+28},${y-28} ${x+28},${y+28} ${x-28},${y+28}`; }
@@ -924,7 +946,6 @@ function render(deaths = [], restoredIds) {
   deaths = combat?.phase === 'deaths' ? combat.activeDeaths : deaths;
   currentDeaths = Array.isArray(deaths) && !matchMedia('(prefers-reduced-motion: reduce)').matches ? deaths : [];
   renderStartSettings();
-  $('#bot-controls').hidden = playMode !== 'bot' || gamePhase !== 'playing';
   $('#start-setup').hidden = playMode === 'online' || gamePhase !== 'setup' || editor;
   $('#start-setup').disabled = refreshingNewGame;
   $('#new-game').disabled = false;
@@ -952,14 +973,10 @@ function render(deaths = [], restoredIds) {
   const reviewBlocked = !canStepReview(), previousUnavailable = !hasPreviousReview();
   setFooterDisabled($('#review-previous'), reviewBlocked || previousUnavailable, previousUnavailable);
   setFooterDisabled($('#review-current'), reviewBlocked || !reviewingTurn, !reviewingTurn);
-  $('#resume-bot').hidden = !isBotTurn() || reviewingTurn || editor || (!botIssue && !botSuspended);
-  $('#resume-bot').disabled = Boolean(movement || combat);
-  $('#resume-bot').textContent = botIssue ? 'Повторить ход бота' : 'Ход бота';
   const shownTurn = reviewingTurn ? reviewTurn || lastTurn : lastTurn;
   const lastAction = shownTurn?.action;
   const lastPiece = lastAction && !lastAction.pass ? shownTurn.before.state.pieces.find(p => p.id === lastAction.id) : null;
   const lastMoveText = lastAction ? lastAction.pass ? `Ход: ${TEAM_NAMES[shownTurn.before.state.turn]} · пропуск` : `Ход: ${TEAM_NAMES[shownTurn.before.state.turn]} · ${LABELS[lastPiece?.type] || 'Фигура'} · ${positionText(lastAction.from)} → ${positionText(lastAction.to)}` : 'Сделай ход. Стрелки рядом с «Отменить» позволяют посмотреть предыдущую позицию';
-  $('#bot-status').textContent = combat ? 'Расчёт боя…' : movement ? `${TEAM_NAMES[movement.piece.team]} · ${LABELS[movement.piece.type]} перемещается…` : currentDeaths.length ? 'Расчёт боя…' : editor ? 'Бот не ходит в редакторе' : reviewingTurn ? lastMoveText : botIssue || (isBotTurn() ? botSuspended ? 'Ход бота приостановлен. Нажми «Ход бота», чтобы продолжить' : $('dialog[open]') ? 'Бот ждёт закрытия окна' : 'Бот выбирает ход…' : lastMoveText);
   let boardMessage = editor ? 'Выбери фигуру в палитре и нажми на пустую клетку. Для удаления выбери фигуру и нажми Backspace или используй ластик' : selected && p?.team === state.turn ? 'Подсвечены пустые клетки, до которых можно пройти. Наведи на клетку для прогноза' : 'Выбери свою фигуру, затем подсвеченную клетку';
   if (!editor && selected && p?.team === state.turn && p.type === 'shield') boardMessage = shieldCanRetreat(p, config) ? `Край достигнут: ход во все стороны, постоянные +${config.shieldPromotion.damageBonus} к урону и +${config.shieldPromotion.defenseBonus} к стойкости, дальность до ${config.shieldPromotion.maxRange}; аура атаки и защиты — ${(config.shieldPromotion.allies ?? config.shieldPromotion).aura} ${plural((config.shieldPromotion.allies ?? config.shieldPromotion).aura, ['клетка', 'клетки', 'клеток'])}` : 'Щитоносец ходит вперёд и вбок. Завершив ход на противоположном краю поля, навсегда получает ход назад';
   if (!editor && state.winner === null && !state.pieces.filter(p => p.team === state.turn).some(p => reachable(p, state, config).length)) boardMessage = 'У команды нет доступных ходов. Исследуй позицию в редакторе или разреши пропуск в настройках';
@@ -973,8 +990,6 @@ function render(deaths = [], restoredIds) {
   if (combat && !reviewingTurn) boardMessage = combat.phase === 'dimming' ? 'Выделяем участников расчёта боя' : combat.phase === 'attacks' ? 'Стрелки по очереди показывают вклад в смертельный урон каждой цели' : 'Показ гибели. Ход перейдёт другой стороне после завершения расчёта';
   $('#board-hint').textContent = boardMessage;
   $('#board-hint').hidden = true;
-  $('#bot-status').hidden = !botIssue;
-  $('#bot-controls').hidden = !botIssue && $('#resume-bot').hidden;
   document.querySelectorAll('[data-team]').forEach(b => b.classList.toggle('active', Number(b.dataset.team) === editorTeam));
   $('#erase-tool').classList.toggle('selected-tool', tool === 'erase');
   $('#piece-palette').innerHTML = TYPES.map(type => `<button class="palette-item ${tool === type ? 'active' : ''}" data-tool="${type}">${icon(type)}<span>${LABELS[type]}</span></button>`).join('');
@@ -1082,7 +1097,7 @@ $('#undo').addEventListener('click', () => {
   if (playMode === 'bot' && !editor && latest.actor === 'bot' && history.at(-1)?.actor === 'human' && history.at(-1).state.ply === latest.state.ply - 1) undoSteps.push(history.pop());
   const previous = undoSteps.at(-1), current = state;
   resetBotContext(); config = previous.config; state = previous.state; log = previous.log; positionKind = previous.positionKind; gameVersion = previous.gameVersion ?? null; selected = null;
-  lastTurn = lastTurnFromHistory(); botSuspended = isBotTurn();
+  lastTurn = lastTurnFromHistory();
   if (editor || gamePhase !== 'playing') { render(); return; }
   archiveRecorder.record('undo', { config, state });
   presentUndo(undoSteps.map((before, index) => ({ before, after: undoSteps[index - 1]?.state ?? current })));
@@ -1250,7 +1265,6 @@ async function stepReview(direction) {
 }
 $('#review-previous').addEventListener('click', () => stepReview(-1));
 $('#review-current').addEventListener('click', () => stepReview(1));
-$('#resume-bot').addEventListener('click', () => { botIssue = ''; botSuspended = false; render(); });
 document.querySelector('.team-select').addEventListener('click', event => { const b = event.target.closest('[data-team]'); if (b) { editorTeam = Number(b.dataset.team); selected = null; render(); } });
 $('#piece-palette').addEventListener('click', event => { const b = event.target.closest('[data-tool]'); if (b) { tool = b.dataset.tool; selected = null; render(); } });
 $('#erase-tool').addEventListener('click', () => { tool = 'erase'; selected = null; render(); });
@@ -1526,7 +1540,6 @@ function renderOnlineRoom() {
   if (banner.textContent !== message) banner.textContent = message;
   banner.hidden = !message;
   if (!online) return;
-  $('#archive-status').hidden = true; $('#archive-retry').hidden = true; $('#archive-details').hidden = true;
   $('#pass-turn').hidden = true; $('#editor-controls').hidden = true; $('#settings-open').disabled = true; $('#configure-position').disabled = true;
   const busy = roomConnecting || Boolean(roomView?.pending), connected = roomView?.status === 'connected', canAct = connected && !busy;
   $('#room-title').textContent = Number.isSafeInteger(snapshot?.roomNumber) ? `Игровая комната ${desktop ? '№ ' : '#'}${snapshot.roomNumber}` : 'Игровая комната';
@@ -1746,6 +1759,10 @@ attackReachObserver.observe($('#board'));
 document.addEventListener('visibilitychange', updateAttackReachPlayback);
 updateAttackReachPlayback();
 if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());
+function afterGameStartup(callback) {
+  const startup = window.gameStartup;
+  if (startup) startup.whenReady(callback); else callback();
+}
 const initialRoomId = new URL(location.href).searchParams.get('room');
 if (!initialRoomId && !freshNewGameRequested) startLocalOnArrival();
 ready = true; render();
@@ -1755,11 +1772,18 @@ void checkGameVersion();
 setInterval(() => { void checkGameVersion(); }, 60000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkGameVersion(); });
 addEventListener('online', () => { void checkGameVersion(); });
-if (freshNewGameStartRequested && gamePhase === 'setup') startGame();
-else if (freshNewGameRequested && gamePhase === 'setup' && previousGame) openStartSettings();
-if (presetUpdated) toast('Подготовлена расстановка с одним барабаном и одним знаменем. Нажми «Начать», чтобы играть');
-
-if (balanceUpdated) toast(commanderUpdated ? 'Командир: урон 3, дальность 2. Расстановка сохранена' : 'Обновлена расстановка: щитоносец в центре, два новых лукаря; знамя и барабан отодвинуты назад');
-if (initialRoomId) {
-  openOnlineRoom(initialRoomId);
+afterGameStartup(() => {
+  if (freshNewGameStartRequested && gamePhase === 'setup') startGame();
+  else if (freshNewGameRequested && gamePhase === 'setup' && previousGame) openStartSettings();
+  if (presetUpdated) toast('Подготовлена расстановка с одним барабаном и одним знаменем. Нажми «Начать», чтобы играть');
+  if (balanceUpdated) toast(commanderUpdated ? 'Командир: урон 3, дальность 2. Расстановка сохранена' : 'Обновлена расстановка: щитоносец в центре, два новых лукаря; знамя и барабан отодвинуты назад');
+  if (initialRoomId) openOnlineRoom(initialRoomId);
+  queueBot();
+});
+if (window.gameStartup) {
+  const mobile = document.body.classList.contains('mobile-game');
+  const home = mobile && !initialRoomId && !freshNewGameRequested;
+  const startSettings = freshNewGameRequested && !freshNewGameStartRequested && gamePhase === 'setup' && previousGame;
+  const artwork = home || startSettings ? [] : [...$('#board').querySelectorAll('image.token-art')].map(image => image.getAttribute('href'));
+  window.gameStartup.complete(home ? $('#mobile-home .home-logo') : mobile ? null : $('.brand-logo'), artwork);
 }

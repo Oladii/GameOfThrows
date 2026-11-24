@@ -151,7 +151,7 @@ test('loading revision20 arms the current commander without rebuilding the posit
   assert.equal(context.commanderUpdated, true);
   let notification = '';
   context.toast = message => { notification = message; };
-  vm.runInContext(app.slice(app.lastIndexOf('if (balanceUpdated) toast(')), context);
+  vm.runInContext(app.split('\n').find(line => line.includes('if (balanceUpdated) toast(')), context);
   assert.equal(notification, 'Командир: урон 3, дальность 2. Расстановка сохранена');
 });
 
