@@ -3,7 +3,7 @@ html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
 body.mobile-game{display:flex;flex-direction:column;height:100dvh;--mobile-soft-hover:#f2e9d7;--mobile-primary-border:#b88132;--mobile-disabled-ink:#817566}
 body>main{flex:1;min-height:0;width:100%;max-width:none;margin:0 auto;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 /* The viewport-edge banner supplies the status-bar tint in Safari. */
-.mobile-game .update-notice{position:sticky;top:0;padding:calc(12px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 12px calc(20px + env(safe-area-inset-left));border:0;background:#e9f0e7;color:#385c40;font-size:14px;line-height:18px;white-space:pre-line}
+.mobile-game .update-notice{position:sticky;top:0;padding:calc(12px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 12px calc(20px + env(safe-area-inset-left));font-size:14px;line-height:18px;white-space:pre-line}
 .mobile-game .update-notice:not([hidden])+main{padding-top:0}
 main .workspace,main .arena-column{display:flex;flex-direction:column;align-items:stretch;width:100%;height:100%;min-height:0;gap:0;padding:0}
 .workspace>.left-panel,#mode-caption{display:none!important}

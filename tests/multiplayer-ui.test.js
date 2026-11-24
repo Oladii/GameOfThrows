@@ -72,7 +72,14 @@ test('the scoreboard offers free sides without rosters, names or player actions'
 
 test('desktop preparation keeps the board and puts the seat action in the room card', () => {
   const ui = setup({ mobile: false }), snap = snapshot();
-  ui.context.gamePhase = 'setup'; ui.context.roomView = view(snap);
+  ui.context.gamePhase = 'setup'; ui.context.roomConnecting = true;
+  ui.context.renderOnlineRoom();
+  assert.equal(ui.$('#room-banner').hidden, true);
+  assert.match(ui.$('#scoreboard').innerHTML, /Подготовка<\/span><strong>Ждём игроков/);
+  assert.equal(ui.$('#room-panel').hidden, false);
+  assert.equal(ui.$('#room-seat').disabled, true);
+
+  ui.context.roomConnecting = false; ui.context.roomView = view(snap);
   ui.context.renderOnlineRoom();
   const scoreboard = ui.$('#scoreboard').innerHTML;
   assert.match(scoreboard, /Подготовка<\/span><strong>Ждём игроков/);
@@ -83,6 +90,12 @@ test('desktop preparation keeps the board and puts the seat action in the room c
   assert.equal(ui.$('.board-wrap').hidden, false);
   assert.equal(ui.$('.board-wrap').inert, true);
   assert.equal(ui.context.humanCanMove(), false);
+  assert.equal(ui.$('#room-banner').hidden, true);
+
+  ui.context.roomView = view(snap, null, { status: 'reconnecting' });
+  ui.context.renderOnlineRoom();
+  assert.equal(ui.$('#room-banner').hidden, false);
+  assert.match(ui.$('#room-banner').textContent, /Нет связи с комнатой/);
 });
 
 test('each seat assignment and match start play their own sound once for the participating players', () => {

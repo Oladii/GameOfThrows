@@ -1518,9 +1518,11 @@ function renderOnlineRoom() {
   for (const id of ['review-previous', 'review-current']) $('#' + id).hidden = online && (!snapshot || waiting || closed);
   const banner = $('#room-banner');
   const connectionMessage = closed ? roomErrorText({ code: 'room_not_found' }) : roomError;
-  const message = online && desktop ?
-    roomConnecting || roomView?.status === 'connecting' || roomView?.status === 'reconnecting' ? 'Подключение…' :
-    connectionMessage || connectionStatus() : '';
+  const reconnecting = snapshot && roomView.status === 'reconnecting';
+  const roomConnectionLost = 'Нет связи с комнатой. Восстанавливаем подключение…';
+  const message = online && desktop
+    ? connectionMessage || (reconnecting ? roomConnectionLost : snapshot ? connectionStatus() : '')
+    : '';
   if (banner.textContent !== message) banner.textContent = message;
   banner.hidden = !message;
   if (!online) return;
@@ -1551,7 +1553,7 @@ function renderOnlineRoom() {
       `${players ? playerCount : spectatorCount}${players + spectators === 1 ? ' (вы)' : ''}` :
       `${players} ${plural(players, ['игрок', 'игрока', 'игроков'])} и ${spectators} ${plural(spectators, ['зритель', 'зрителя', 'зрителей'])}`;
   }
-  const connectionError = snapshot && !connected && !busy && !closed ? 'Нет связи с комнатой. Восстанавливаем подключение…' : '';
+  const connectionError = snapshot && !connected && !busy && !closed ? roomConnectionLost : '';
   $('#room-error').textContent = connectionMessage || connectionError; $('#room-error').hidden = desktop || !$('#room-error').textContent;
   if (desktop) renderRoomSeatDialog(waiting && !closed, canAct);
   renderGameResult(visibleState());

@@ -728,7 +728,7 @@ to{opacity:1}}
 .attack-lines .attack-ray{filter:url(#damage-arrow-outline)}
 /* Keep both team headers still when the active turn or combat phase changes. */
 .turn-tag{min-height:10px;line-height:10px}
-.update-notice{background:#fff1bd;color:#684b13;border-bottom:1px solid #d8bd71;padding:10px 24px;font-size:13px;line-height:1.5;text-align:center;flex-shrink:0}
+.update-notice{background:#e9f0e7;color:#385c40;padding:10px 24px;font-size:13px;line-height:1.5;text-align:center;flex-shrink:0}
 /* A recommendation never moves a piece or obscures board controls. */
 .board-footer,.turn-actions{flex-wrap:wrap}
 .move-hint{position:relative;margin:0 0 210px;color:var(--ink);font-size:14px;line-height:1.65;overflow-wrap:anywhere}
@@ -985,12 +985,13 @@ main{padding:14px}
 .arena-column>.arena-top{height:auto;min-height:20px;padding:0 10px}
 .arena-top .move-counter{font-size:13px;font-weight:600;line-height:20px;color:#66502c}
 @media(min-width:701px){
-body:not(.mobile-game,.guide-open){height:100dvh;display:flex;flex-direction:column}
-body:not(.mobile-game,.guide-open)>main{flex:1;min-height:0;width:100%;margin:0 auto;overflow:auto}
-body:not(.mobile-game)>main>.workspace{height:100%;min-height:522px;grid-template-rows:minmax(0,1fr);align-items:stretch}
-body:not(.mobile-game) .left-panel{display:flex;flex-direction:column;max-height:none;padding-bottom:16px}
+body:not(.mobile-game,.guide-open){min-height:100dvh;display:flex;flex-direction:column}
+body:not(.mobile-game,.guide-open)>main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto}
+body:not(.mobile-game)>main>.workspace{flex:1;min-height:522px;grid-template-rows:minmax(0,1fr);align-items:stretch}
+body:not(.mobile-game) .left-panel{display:flex;flex-direction:column;max-height:none;overflow:visible;padding-bottom:16px}
 body:not(.mobile-game) .left-panel>*{flex-shrink:0}
-body:not(.mobile-game) .left-panel>.panel-footer{margin-top:auto}
+body:not(.mobile-game) .left-panel>.panel-footer{margin-top:auto;padding-top:16px}
+body:not(.mobile-game) .arena-column{contain:size}
 body:not(.mobile-game) .arena-column>.arena{height:auto;min-height:0;flex:1}
 body:not(.mobile-game) .board-wrap{display:flex;align-items:flex-start;justify-content:center}
 body:not(.mobile-game) #board{height:100%;width:100%;min-height:0;max-height:none}
@@ -1096,7 +1097,7 @@ body:not(.mobile-game) .match-result-reason{font-size:13px;font-weight:500;line-
   font-size:13px;line-height:20px;text-align:center
 }
 .room-banner{background:#fbe2e2;color:#853327}
-body:not(.mobile-game)>.update-notice{margin:20px 20px 0;background:#ffefd9;color:#704819}
+body:not(.mobile-game)>.update-notice{margin:20px 20px 0}
 body:not(.mobile-game) #room-connected{display:grid;gap:4px}
 body:not(.mobile-game).online-room .panel-actions{display:none}
 body:not(.mobile-game) .room-panel h2{font-size:14px;line-height:20px}
@@ -1270,13 +1271,6 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
   body:not(.mobile-game) .guide-screen:has(.badge-guide,.guide-theory) #onboarding-progress{top:43px}
   body:not(.mobile-game)>.update-notice{margin-left:360px}
 }
-@media(min-width:701px){
-  body:not(.mobile-game) .left-panel{overflow:visible}
-  body:not(.mobile-game) .left-panel>:is(.sidebar-overview,.selection-panel,#editor-controls){
-    flex-shrink:1;min-height:0;overflow:auto;scrollbar-width:thin
-  }
-  body:not(.mobile-game) .left-panel>.panel-footer{padding-top:16px}
-}
 @media(max-width:700px){
   body:not(.mobile-game) .guide-toolbar{margin-bottom:12px}
   body:not(.mobile-game) #onboarding-progress{margin-bottom:28px}
@@ -1443,7 +1437,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.136</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-24T13:26:10.993Z">Сборка 24.11.2026, 16:26:10 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.137</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-24T20:47:45.112Z">Сборка 24.11.2026, 23:47:45 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <p id="room-banner" class="room-banner desktop-only" role="status" aria-live="polite" hidden></p>
@@ -7372,9 +7366,11 @@ function renderOnlineRoom() {
   for (const id of ['review-previous', 'review-current']) $('#' + id).hidden = online && (!snapshot || waiting || closed);
   const banner = $('#room-banner');
   const connectionMessage = closed ? roomErrorText({ code: 'room_not_found' }) : roomError;
-  const message = online && desktop ?
-    roomConnecting || roomView?.status === 'connecting' || roomView?.status === 'reconnecting' ? 'Подключение…' :
-    connectionMessage || connectionStatus() : '';
+  const reconnecting = snapshot && roomView.status === 'reconnecting';
+  const roomConnectionLost = 'Нет связи с комнатой. Восстанавливаем подключение…';
+  const message = online && desktop
+    ? connectionMessage || (reconnecting ? roomConnectionLost : snapshot ? connectionStatus() : '')
+    : '';
   if (banner.textContent !== message) banner.textContent = message;
   banner.hidden = !message;
   if (!online) return;
@@ -7405,7 +7401,7 @@ function renderOnlineRoom() {
       `${players ? playerCount : spectatorCount}${players + spectators === 1 ? ' (вы)' : ''}` :
       `${players} ${plural(players, ['игрок', 'игрока', 'игроков'])} и ${spectators} ${plural(spectators, ['зритель', 'зрителя', 'зрителей'])}`;
   }
-  const connectionError = snapshot && !connected && !busy && !closed ? 'Нет связи с комнатой. Восстанавливаем подключение…' : '';
+  const connectionError = snapshot && !connected && !busy && !closed ? roomConnectionLost : '';
   $('#room-error').textContent = connectionMessage || connectionError; $('#room-error').hidden = desktop || !$('#room-error').textContent;
   if (desktop) renderRoomSeatDialog(waiting && !closed, canAct);
   renderGameResult(visibleState());
