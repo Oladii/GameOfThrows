@@ -30,8 +30,5 @@ export function prepareStartPosition(state, inputConfig, turn) {
   if (![0, 1].every(team => position.pieces.some(piece => piece.team === team && (!combatOnly || isCombatUnit(piece))))) {
     throw new Error(combatOnly ? 'Для начала игры нужен хотя бы один щитоносец или лукарь у каждой стороны' : 'Для начала игры нужна хотя бы одна фигура у каждой стороны');
   }
-  position.turn = turn;
-  position.ply = 0;
-  if (!combatOnly) position.winner = null;
-  return position;
+  return validateState({ ...position, turn, ply: 0, winner: null }, config);
 }

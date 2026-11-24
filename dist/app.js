@@ -143,11 +143,11 @@ function requestHint() {
     previousStates: [...recent.map(entry => entry.state), state], lastActions: [...lastActions] } }, result => {
     if (hint?.positionKey !== positionKey || hintPositionKey() !== positionKey || !canRequestHint()) return;
     try { hint = { positionKey, ...explainHint(state, config, result?.action, hintVoice), action: result?.action }; trackHint('hint_shown'); }
-    catch { hint = { positionKey, failed: true, title: 'Советник уснул. Попробуй ещё раз', reasons: [] }; }
+    catch { hint = { positionKey, failed: true, title: 'Советник уснул — попробуй ещё раз', reasons: [] }; }
     render();
   }, () => {
     if (hint?.positionKey !== positionKey || hintPositionKey() !== positionKey || !canRequestHint()) return;
-    hint = { positionKey, failed: true, title: 'Советник уснул. Попробуй ещё раз', reasons: [] }; render();
+    hint = { positionKey, failed: true, title: 'Советник уснул — попробуй ещё раз', reasons: [] }; render();
   });
   render();
 }
@@ -523,16 +523,16 @@ function fallbackBotAction() {
     const [to] = reachable(piece, state, config);
     if (to) return { id: piece.id, to };
   }
-  return { pass: true };
+  return null;
 }
-function applyBotAction(candidate, forcedPass = false) {
+function applyBotAction(candidate) {
   const action = readAction(candidate?.pass === true ? candidate : {
     id: candidate?.id, to: candidate?.to, from: state.pieces.find(piece => piece.id === candidate?.id)
   });
   if (!action) return false;
   let outcome;
   try {
-    outcome = action.pass ? pass(state, config, { forced: forcedPass }) : move(state, config, action.id, action.to);
+    outcome = action.pass ? pass(state, config) : move(state, config, action.id, action.to);
   } catch { return false; }
 
   const before = currentSnapshot();
@@ -549,7 +549,7 @@ function applyBotAction(candidate, forcedPass = false) {
 }
 function startBot() {
   if (botFailures >= 2) {
-    applyBotAction(fallbackBotAction(), true);
+    applyBotAction(fallbackBotAction());
     return;
   }
   const requestedState = state, requestedConfig = config, recent = recentBotHistory(), lastActions = new Map();
@@ -801,6 +801,7 @@ function matchResult(position) {
     }
   } else {
     reason = { flag: 'Уничтожено знамя противника', combat: 'Уничтожены все лучники и щитоносцы', all: 'Уничтожены все фигуры противника' }[loss[1 - winner]] || '';
+    if (!reason && position.turn === 1 - winner) reason = `У ${winner === 0 ? 'Красных' : 'Синих'} нет доступных ходов`;
   }
   const viewerTeam = playMode === 'bot' ? humanTeam : playMode === 'online' ? roomView?.selfSeat : null;
   const roomResult = roomView?.snapshot?.lastResult;
@@ -1142,7 +1143,8 @@ function startGame() {
     startPreferences = currentStartPreferences();
     resetBotContext(); state = next; gamePhase = 'playing'; positionKind = classifyPosition(state, config); gameVersion = CURRENT_GAME_VERSION;
     archiveRecorder.start(archiveGameMetadata());
-    startBattleIntro();
+    if (state.winner === null) startBattleIntro();
+    else archiveRecorder.record('finish', { config, state, outcome: { winner: state.winner } });
     history = []; log = []; previousGame = null; selected = null; $('#start-dialog').close(); render();
   } catch (error) { toast(error.message); }
 }

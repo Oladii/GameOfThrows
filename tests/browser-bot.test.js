@@ -37,22 +37,19 @@ test('browser bot obeys supplied balance and movement settings', () => {
   assert.equal(move(state, config, result.action.id, result.action.to).state.winner, 0);
 });
 
-test('browser bot distinguishes a blocked turn, an allowed pass, and a finished game', () => {
+test('a blocked turn is already finished whether or not optional passing is enabled', () => {
   const config = clone(DEFAULT_CONFIG);
   config.victoryCondition = 'all-units';
   config.geometry = 'square'; config.size = 6; config.experiments.squareDiagonals = false;
   config.stats.defenseLamp.move = 1;
   const state = position([piece('blocked', 'defenseLamp', 0, 0, 0), piece('wall-1', 'shield', 1, 1, 0), piece('wall-2', 'shield', 1, 0, 1)]);
-  const blocked = chooseBotAction(state, config);
-  assert.equal(blocked.action, null);
-  assert.equal(blocked.stats.reason, 'no-legal-moves');
-  config.experiments.allowPass = true;
-  const passed = chooseBotAction(state, config);
-  assert.deepEqual(passed.action, { pass: true });
-  assert.doesNotThrow(() => pass(state, config));
-  const finished = chooseBotAction({ ...state, winner: 1 }, config);
-  assert.equal(finished.action, null);
-  assert.equal(finished.stats.reason, 'finished');
+  for (const allowed of [false, true]) {
+    config.experiments.allowPass = allowed;
+    const blocked = chooseBotAction(state, config);
+    assert.equal(blocked.action, null);
+    assert.equal(blocked.stats.reason, 'finished');
+  }
+  assert.throws(() => pass(state, config), /Партия завершена/);
 });
 
 test('position identity preserves promotion and turn while ignoring unit IDs', () => {

@@ -26,7 +26,7 @@ test('explanation reports a verified immediate win and enemy loss', () => {
   config.stats.shield.damage = 10;
   const state = position([piece('s', 'shield', 0, 0, 0), piece('e', 'defenseLamp', 1, 2, 0)]);
   const hint = explainHint(state, config, { id: 's', to: { q: 1, r: 0 } });
-  assert.equal(hint.reasons[0], 'Убираем знамя противника и выигрываем бой.');
+  assert.equal(hint.reasons[0], 'Убираем знамя противника и выигрываем бой');
 });
 
 test('explanation discloses allied casualties instead of claiming safety', () => {
@@ -36,7 +36,7 @@ test('explanation discloses allied casualties instead of claiming safety', () =>
   config.stats.archer.damage = 10;
   const state = position([piece('s', 'shield', 0, 0, 0), piece('e', 'archer', 1, 2, 0)]);
   const hint = explainHint(state, config, { id: 's', to: { q: 1, r: 0 } });
-  assert.deepEqual(hint.reasons, ['После этого хода проиграют обе стороны.']);
+  assert.deepEqual(hint.reasons, ['После этого хода проиграют обе стороны, но лучшего хода я не вижу']);
   assert.equal(hint.suppressArrow, true);
 });
 
@@ -47,11 +47,22 @@ test('quiet support move explains actual allied stat increases', () => {
   assert.match(hint.reasons.join(' '), /Подведём барабан к лукарю, чтобы увеличить дальность хода/);
 });
 
-test('pass and absence of legal actions have distinct explanations', () => {
+test('the advisor requires a move even when optional passing is enabled', () => {
   const config = clone(DEFAULT_CONFIG); config.victoryCondition = 'all-units'; config.experiments.allowPass = true;
   const state = position([piece('a', 'archer', 0, 0, 0), piece('e', 'archer', 1, 0, 5)]);
-  assert.match(explainHint(state, config, { pass: true }).title, /Передаём инициативу/);
-  assert.match(explainHint(state, config, null).title, /нет допустимого хода/);
+  assert.throws(() => explainHint(state, config, { pass: true }), /Missing advisor move/);
+  assert.throws(() => explainHint(state, config, null), /Missing advisor move/);
+});
+
+test('the advisor explains a win from blocking the next turn without reporting a capture', () => {
+  const config = clone(DEFAULT_CONFIG);
+  config.victoryCondition = 'all-units'; config.geometry = 'square'; config.size = 6;
+  config.experiments.squareDiagonals = false; config.stats.attackLamp.damage = 0;
+  const state = position([piece('move', 'attackLamp', 0, 2, 0), piece('wall', 'attackLamp', 0, 0, 1), piece('flag', 'defenseLamp', 1, 0, 0)]);
+  const voice = createHintVoice(), action = { id: 'move', to: { q: 1, r: 0 } };
+  for (let advice = 0; advice < 2; advice++) {
+    assert.equal(explainHint(state, config, action, voice).reasons[0], 'Лишаем противника ходов и выигрываем');
+  }
 });
 
 const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
@@ -104,7 +115,7 @@ for (const failure of ['calculation', 'explanation']) test(`${failure} failure c
     fixture.finish({ action: { pass: true } });
   }
   assert.equal(fixture.context.hint.failed, true);
-  assert.equal(fixture.context.hint.title, 'Советник уснул. Попробуй ещё раз');
+  assert.equal(fixture.context.hint.title, 'Советник уснул — попробуй ещё раз');
   fixture.context.requestHint();
   assert.equal(fixture.requests, 2);
   assert.equal(fixture.context.hint.pending, true);
@@ -140,10 +151,10 @@ test('pending advice replaces left reference, animates dots and keeps the button
   assert.match(node('#move-hint').innerHTML, /^<div class="hint-bubble"><p>Уходим из‑под атаки/);
   assert.doesNotMatch(node('#move-hint').innerHTML, /Думовую|<h2>Спасаем/);
   assert.equal(node('#show-hint').disabled, true); assert.equal(cleared, true);
-  context.hint = { failed: true, title: 'Советник уснул. Попробуй ещё раз', reasons: [] }; context.renderHint();
+  context.hint = { failed: true, title: 'Советник уснул — попробуй ещё раз', reasons: [] }; context.renderHint();
   assert.equal(node('#show-hint').disabled, false);
   assert.equal(node('#show-hint').textContent, 'Подсказать ход');
-  assert.match(node('#move-hint').innerHTML, /Советник уснул\. Попробуй ещё раз/);
+  assert.match(node('#move-hint').innerHTML, /Советник уснул — попробуй ещё раз/);
   context.canRequestHint = () => false; context.renderHint();
   assert.equal(node('#show-hint').disabled, true);
   context.canRequestHint = () => true;
@@ -189,7 +200,7 @@ test('own terminal defeat is an admission, not a recommended arrow or a positive
   const state = position([piece('s', 'shield', 0, 0, 0), piece('e', 'archer', 1, 2, 0)]);
   const original = JSON.stringify(state);
   const hint = explainHint(state, config, { id: 's', to: { q: 1, r: 0 } });
-  assert.deepEqual(hint.reasons, ['Ход ведёт к поражению. Дальше сражаться смысла нет. Прости, я очень старался, но подвёл тебя.']);
+  assert.deepEqual(hint.reasons, ['Ход ведёт к поражению, и бой на этом закончится — прости, я очень старался, но подвёл тебя']);
   assert.equal(hint.suppressArrow, true);
   const context = vm.createContext({ hint: { ...hint, action: { id: 's', to: { q: 1, r: 0 } } } });
   vm.runInContext(declaration('hintTrace'), context);
@@ -259,6 +270,6 @@ test('grouped aura gains keep different bonuses attached to their actual recipie
   const state = position([piece('h', 'horn', 0, 0, 0), piece('a', 'archer', 0, 3, 0), piece('s', 'shield', 0, 2, 1), piece('e', 'archer', 1, 0, 5)]);
   const hint = explainHint(state, config, { id: 'h', to: { q: 1, r: 0 } });
   assert.equal(hint.reasons.length, 1);
-  assert.match(hint.reasons[0], /урон у лукаря и щитоносца; дальность атаки у лукаря/);
+  assert.match(hint.reasons[0], /урон у лукаря и щитоносца, дальность атаки у лукаря/);
   assert.doesNotMatch(hint.reasons[0], /дальность атаки у .*щитоносца/);
 });

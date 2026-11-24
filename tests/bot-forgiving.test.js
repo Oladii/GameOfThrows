@@ -81,7 +81,7 @@ test('training can leave a previously prepared attack in place instead of killin
   assert.deepEqual(apply(state, config, result.action).deaths, []);
 });
 
-test('training takes immediate wins and handles blocked, pass and finished positions normally', () => {
+test('training takes immediate wins and stops when the turn is blocked', () => {
   const config = clone(DEFAULT_CONFIG); config.victoryCondition = 'all-units'; config.stats.shield.damage = 10;
   const win = { pieces: [piece('s', 'shield', 0, 0, 0), piece('e', 'defenseLamp', 1, 2, 0)], turn: 0, ply: 0, winner: null };
   for (const seed of [1, 2, 3, 4, 5]) {
@@ -94,7 +94,7 @@ test('training takes immediate wins and handles blocked, pass and finished posit
   const blocked = { pieces: [piece('b', 'defenseLamp', 0, 0, 0), piece('e1', 'shield', 1, 1, 0), piece('e2', 'shield', 1, 0, 1)], turn: 0, ply: 0, winner: null };
   assert.equal(chooseBotAction(blocked, config, BOT_DIFFICULTIES.training).action, null);
   config.experiments.allowPass = true;
-  assert.deepEqual(chooseBotAction(blocked, config, BOT_DIFFICULTIES.training).action, { pass: true });
+  assert.equal(chooseBotAction(blocked, config, BOT_DIFFICULTIES.training).action, null);
   assert.equal(chooseBotAction({ ...blocked, winner: 1 }, config, BOT_DIFFICULTIES.training).action, null);
 });
 

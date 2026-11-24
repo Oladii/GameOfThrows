@@ -354,12 +354,9 @@ function chooseBotAction(inputState, inputConfig, options = {}) {
   const searchDepth = depth === 2 && state.pieces.length <= 12 ? 3 : depth;
   stats.planningDepth = searchDepth;
   const movement = createSearchMovement(config);
-  const legalActions = position => {
-    if (position.winner !== null) return [];
-    const actions = position.pieces.filter(p => p.team === position.turn).flatMap(p => movement.reachable(p, position)
+  const legalActions = position => position.winner !== null ? [] : position.pieces.filter(p => p.team === position.turn)
+    .flatMap(p => movement.reachable(p, position)
       .map(to => ({ id: p.id, to: { q: to.q, r: to.r }, type: p.type, from: { q: p.q, r: p.r } })));
-    return actions.length || !config.experiments.allowPass ? actions : [{ pass: true }];
-  };
   const simulate = (position, action) => {
     stats.nodes++;
     if (advisor && stats.nodes % 128 === 0 && performance.now() > options.deadline) { const error = new Error('Advisor search deadline'); error.name = 'AdvisorSearchTimeout'; throw error; }

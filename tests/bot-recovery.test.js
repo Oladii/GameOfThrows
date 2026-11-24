@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { createGame, move, pass, reachable } from '../dist/engine.js';
+import { createGame, move, pass, reachable, validateState } from '../dist/engine.js';
 import { BOT_DIFFICULTIES } from '../dist/bot-client.js';
 import { DEFAULT_CONFIG, LABELS, TEAM_NAMES } from '../dist/rules.js';
 
@@ -10,17 +10,22 @@ const app = readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
 
 function exerciseBot(replies, { blocked = false } = {}) {
   const config = structuredClone(DEFAULT_CONFIG);
-  const state = createGame(config);
+  let state;
   if (blocked) {
-    for (const stats of Object.values(config.stats)) stats.move = 0;
-    config.drumShieldMoveBonus = 0;
-  }
+    config.geometry = 'square'; config.size = 6; config.victoryCondition = 'all-units';
+    config.experiments.squareDiagonals = false;
+    state = validateState({ turn: 0, ply: 0, winner: null, pieces: [
+      { id: 'flag', type: 'defenseLamp', team: 0, q: 0, r: 0 },
+      { id: 'east', type: 'attackLamp', team: 1, q: 1, r: 0 },
+      { id: 'south', type: 'attackLamp', team: 1, q: 0, r: 1 },
+    ] }, config);
+  } else state = createGame(config);
   const timers = [], requests = [], actions = [];
   const context = vm.createContext({
     state, config, selected: null, botFailures: 0, botTimer: null, botDifficulty: 'hard',
     ready: true, battleIntro: null, movement: null, combat: null, currentDeaths: [], reviewingTurn: false,
     history: [], log: [], BOT_DIFFICULTIES, LABELS, TEAM_NAMES,
-    reachable, move, pass, $: () => null, isBotTurn: () => context.state.turn === state.turn,
+    reachable, move, pass, $: () => null, isBotTurn: () => context.state.turn === state.turn && context.state.winner === null,
     currentSnapshot: () => ({ state: context.state, config }),
     recentBotHistory: () => [],
     readAction: value => value.pass === true ? { pass: true } : typeof value.id === 'string' && value.from && value.to ? value : null,
@@ -68,11 +73,11 @@ test('bot makes a legal fallback move after repeated worker failure or malformed
   assert.deepEqual(result.context.state, move(result.state, result.config, action.id, action.to).state);
 });
 
-test('a blocked bot automatically hands the turn back and voluntary passing stays disabled', () => {
+test('a blocked bot loses without requesting a turn or automatically passing', () => {
   const result = exerciseBot([null, null], { blocked: true });
-  assert.deepEqual(result.actions.map(action => action.type), ['pass']);
-  assert.equal(result.context.state.turn, 1 - result.state.turn);
-  assert.equal(result.context.state.ply, result.state.ply + 1);
+  assert.deepEqual(result.requests, []);
+  assert.deepEqual(result.actions, []);
+  assert.equal(result.context.state.winner, 1 - result.state.turn);
+  assert.equal(result.context.state.ply, result.state.ply);
   assert.throws(() => pass(result.state, result.config), /выключен/);
-  assert.throws(() => pass(createGame(DEFAULT_CONFIG), DEFAULT_CONFIG, { forced: true }), /выключен/);
 });

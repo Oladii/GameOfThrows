@@ -102,6 +102,7 @@ export function validateState(input, config) {
   }
   if (![null, 0, 1, 'draw'].includes(state.winner)) throw new Error('Неверный результат партии');
   if (['combat-units', 'flag-or-combat'].includes(config.victoryCondition)) state.winner = winnerForPieces(state.pieces, config);
+  state.winner ??= winnerForBlockedTurn(state, config);
   return state;
 }
 function roundCube(q, r) {
@@ -231,7 +232,7 @@ function resolveOwnedState(next, config, state = next) {
   next.winner = winnerForPieces(next.pieces, config);
   return { state: next, deaths, report };
 }
-function movementSearch(piece, state, config, includePath = false, includeArea = false) {
+function movementSearch(piece, state, config, includePath = false, includeArea = false, stopAtFirst = false) {
   const occupied = new Map(state.pieces.map(p => [key(p.q, p.r), p]));
   const unlocked = shieldCanRetreat(piece, config) || archerHasEdgeBonus(piece, config);
   // Fix the allowance at the start, even when the destination leaves the aura.
@@ -261,11 +262,21 @@ function movementSearch(piece, state, config, includePath = false, includeArea =
       // Archers retain an edge-touch bonus; shield promotion is endpoint-only.
       if (!blocking && (!out.has(pos) || reached && !out.get(pos).reachedFarEdge && !out.get(pos).archerReachedFarEdge)) {
         out.set(pos, { q, r, steps: current.steps + 1, ...(piece.type === 'shield' && reached ? { reachedFarEdge: true } : {}), ...(piece.type === 'archer' && reached ? { archerReachedFarEdge: true } : {}) });
+        if (stopAtFirst) return { out };
         if (endpoints) endpoints.set(pos, queue.length - 1);
       }
     }
   }
   return { out, queue, parents, endpoints, area };
+}
+function winnerForBlockedTurn(state, config) {
+  const canMove = state.pieces.some(piece => piece.team === state.turn && movementSearch(piece, state, config, false, false, true).out.size > 0);
+  return canMove ? null : 1 - state.turn;
+}
+function advanceTurn(state, config) {
+  state.turn = 1 - state.turn;
+  state.ply++;
+  state.winner ??= winnerForBlockedTurn(state, config);
 }
 export function reachable(piece, state, config) {
   return [...movementSearch(piece, state, config).out.values()];
@@ -315,16 +326,14 @@ function moveWithReachable(state, config, id, destination, getReachable) {
   if (route.reachedFarEdge) moving.reachedFarEdge = true;
   if (route.archerReachedFarEdge) moving.archerReachedFarEdge = true;
   const outcome = resolveOwnedState(next, config);
-  outcome.state.turn = 1 - state.turn; outcome.state.ply = state.ply + 1;
+  advanceTurn(outcome.state, config);
   return { ...outcome, action: { team: piece.team, type: piece.type, from: { q: piece.q, r: piece.r }, to: destination } };
 }
-export function pass(state, config, { forced = false } = {}) {
-  if (!config.experiments.allowPass && (!forced || state.pieces.some(piece => piece.team === state.turn && reachable(piece, state, config).length))) {
-    throw new Error('Пропуск хода выключен в настройках эксперимента');
-  }
-  if (state.winner !== null || ['combat-units', 'flag-or-combat'].includes(config.victoryCondition) && winnerForPieces(state.pieces, config) !== null) throw new Error('Партия завершена');
+export function pass(state, config) {
+  if (!config.experiments.allowPass) throw new Error('Пропуск хода выключен в настройках эксперимента');
+  if (state.winner !== null || winnerForPieces(state.pieces, config) !== null || winnerForBlockedTurn(state, config) !== null) throw new Error('Партия завершена');
   const outcome = resolve(state, config);
-  outcome.state.turn = 1 - state.turn; outcome.state.ply = state.ply + 1;
+  advanceTurn(outcome.state, config);
   return outcome;
 }
 function mirror(c, config) { return config.geometry === 'hex' ? { q: -c.q, r: -c.r } : { q: config.size - 1 - c.q, r: config.size - 1 - c.r }; }
@@ -421,7 +430,9 @@ export function createGame(input) {
     if (!boardKeys.has(pos) || deployed.has(pos)) throw new Error('Начальная расстановка с выбранным отступом не помещается на поле. Увеличь поле, уменьши армию или измени отступ');
     deployed.add(pos);
   }
-  return { pieces, turn: 0, ply: 0, winner: ['combat-units', 'flag-or-combat'].includes(config.victoryCondition) ? winnerForPieces(pieces, config) : null };
+  const state = { pieces, turn: 0, ply: 0, winner: winnerForPieces(pieces, config) };
+  state.winner ??= winnerForBlockedTurn(state, config);
+  return state;
 }
 export function createScenario(name, config) {
   if (name === 'start') return createGame(config);
