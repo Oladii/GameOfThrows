@@ -233,7 +233,7 @@ test('presentation blocks player moves and cell clicks without changing a positi
     return app.slice(start, app.slice(start, end).endsWith('}') ? end : app.indexOf('\n}', end) + 2);
   };
   const state = { pieces: [], winner: null }, original = JSON.stringify(state);
-  const ctx = vm.createContext({ state, tableRattle: { active: true }, gamePhase: 'playing', roomMovePreview: null,
+  const ctx = vm.createContext({ state, battleIntro: null, tableRattle: { active: true }, gamePhase: 'playing', roomMovePreview: null,
     movement: null, combat: null, currentDeaths: [], reviewingTurn: false, reviewLoading: false,
     isBotTurn: () => false, playMode: 'local', roomView: null, visibleState: () => { throw Error('cell activation must be blocked'); } });
   for (const name of ['humanCanMove', 'onCell', 'activateBoardCell']) vm.runInContext(declaration(name), ctx);

@@ -98,11 +98,6 @@ export async function mobilePage(web, { preview = false } = {}) {
     `);
   change('aria-label="Цель игры"></div>\n    </section>\n  </section>', 'aria-label="Цель игры"></div>\n  </section>');
   change('Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход', 'Урон от нескольких врагов складывается за один ход. Если фигура выжила, этот урон не переносится на следующий ход');
-  change('<p><strong>Слева — урон:</strong> сколько урона наносит фигура<br><strong>Справа — полная стойкость:</strong> с усилениями союзников, без вычитания урона<br><strong>Сверху — под угрозой:</strong> при выборе и наведении показан входящий урон; смертельная угроза отмечается черепом</p>', `<div class="badge-guide-copy">
-    <p><strong>Слева — Урон</strong><br>Сколько урона наносит фигура</p>
-    <p><strong>Справа — Стойкость</strong><br>Сколько урона выдержит фигура</p>
-    <p><strong>Сверху — Угрозы</strong><br>Сколько урона нанесут фигуре в конце хода</p>
-  </div>`);
   change('    <div class="lesson-scene training-card">\n    <div class="training-layout"><div class="showcase-field">', '    <div class="showcase-field">');
   change('    </div></div></section>`;', '    </section>`;');
   change('<div class="play-mode-field">', '<div class="play-mode-field" hidden>');

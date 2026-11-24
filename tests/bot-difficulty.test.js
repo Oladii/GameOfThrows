@@ -28,7 +28,7 @@ function setup() {
     STORAGE: 'test', BALANCE_REVISION: 5, PRESET_REVISION: 1, START_PREFS_REVISION: 1, CURRENT_GAME_VERSION: '0.1.20', gameVersion: '0.1.19',
     DEFAULT_CONFIG, upgradeSelectedBalancePreset, validateConfig, validateState, prepareStartPosition, startPreferences: null, refreshingNewGame: false, startRefreshController: null, AbortController, movement: null, combat: null,
     localStorage: { setItem(key, value) { saved = JSON.parse(value); } },
-    $: selector => nodes[selector], resetBotContext() {}, openStartSettings() {}, renderStartSettings() {},
+    $: selector => nodes[selector], resetBotContext() {}, startBattleIntro() {}, openStartSettings() {}, renderStartSettings() {},
     archiveRecorder: { resume() {}, start() {} }, toast(message) { throw Error(message); }, readSnapshot: clone, readLastTurn: value => value,
     gameAudio: { playGameStart() {} },
     recentBotHistory: () => [], botRunner: { run(value) { request = value; } },

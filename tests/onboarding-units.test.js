@@ -16,5 +16,5 @@ test('Figures renders the seven requested demos in order without the old unit ex
   const titles=['Щитоносец — ветеран','Щитоносец — защитник','Строй — сила','Барабан и щитоносец','Лукарь, горн и командир','Лукарь — ветеран','Знамя — не обуза'];
   let previous=-1;for(const title of titles){const index=html.indexOf(`>${title}</h3>`);assert.ok(index>previous);previous=index;}
   assert.doesNotMatch(html,/data-lesson-scene=|unit-horn|unit-scoutLamp|unit-defenseLamp|unit-attackLamp/);
-  assert.match(html,/Справа — полная стойкость/);
+  assert.match(html,/Справа — Стойкость/);
 });

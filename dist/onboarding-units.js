@@ -15,6 +15,10 @@ export function badgeExamples(){
 }
 
 export function renderUnitExamples(battles={},icons={},renderBadges=()=>''){
-  const badges=`<section class="badge-guide" aria-labelledby="badge-guide-title"><div class="lesson-scene-heading"><h4 id="badge-guide-title">Значения на бейджах</h4><p><strong>Слева — урон:</strong> сколько урона наносит фигура<br><strong>Справа — полная стойкость:</strong> с усилениями союзников, без вычитания урона<br><strong>Сверху — под угрозой:</strong> при выборе и наведении показан входящий урон; смертельная угроза отмечается черепом</p></div><div class="lesson-scene"><div class="badge-examples">${badgeExamples().map(example=>`<figure><svg viewBox="-38 -32 76 70" role="img" aria-label="${example.label}: ${example.explanation}"><g class="lesson-piece lesson-friendly${example.info.dead?' lesson-fatal':''}">${renderTokenBody({type:'shield',icon:icons.shield,veteran:false},1)}${renderBadges(example.info,{showIncoming:example.showIncoming})}</g></svg><figcaption><strong>${example.label}</strong><span>${example.explanation}</span></figcaption></figure>`).join('')}</div></div></section>`;
+  const badges=`<section class="badge-guide" aria-labelledby="badge-guide-title"><div class="lesson-scene-heading"><h4 id="badge-guide-title">Значения на бейджах</h4><div class="badge-guide-copy">
+    <p><strong>Слева — Урон</strong><br>Сколько урона наносит фигура</p>
+    <p><strong>Справа — Стойкость</strong><br>Сколько урона выдержит фигура</p>
+    <p><strong>Сверху — Угрозы</strong><br>Сколько урона нанесут фигуре в конце хода</p>
+  </div></div><div class="lesson-scene"><div class="badge-examples">${badgeExamples().map(example=>`<figure><svg viewBox="-38 -32 76 70" role="img" aria-label="${example.label}: ${example.explanation}"><g class="lesson-piece lesson-friendly${example.info.dead?' lesson-fatal':''}">${renderTokenBody({type:'shield',icon:icons.shield,veteran:false},1)}${renderBadges(example.info,{showIncoming:example.showIncoming})}</g></svg><figcaption><strong>${example.label}</strong><span>${example.explanation}</span></figcaption></figure>`).join('')}</div></div></section>`;
   return '<div class="lesson-page">'+badges+UNIT_BATTLE_SCENES.map(key=>renderShowcaseBattle(battles[key]||createUnitBattle(key),icons,renderBadges)).join('')+'</div>';
 }

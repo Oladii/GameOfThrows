@@ -26,7 +26,8 @@ const initialDeclarations = [
   'let botDifficulty =', 'let startPreferences =', 'let playMode =', 'let hint =',
   'let selected =', 'let report =', 'const STORAGE =', 'const PRESET_REVISION =',
   'const START_PREFS_REVISION =', 'let presetUpdated =', 'let refreshingNewGame =',
-  'let currentDeaths =', 'let movement =', 'let reviewTurn =', 'let roomSession ='
+  'let currentDeaths =', 'let movement =', 'let reviewTurn =', 'let roomSession =',
+  'let battleIntro =', 'const BATTLE_INTRO_DURATION ='
 ].map(line).join('\n');
 const storageSource = app.slice(app.indexOf('function currentSnapshot()'), app.indexOf('\nfunction resetNewGameDefaults()'));
 const bootStart = app.lastIndexOf("if (gamePhase === 'playing') archiveRecorder.resume(archiveGameMetadata());");
@@ -34,7 +35,7 @@ assert.ok(bootStart >= 0, 'Missing app boot sequence');
 const bootSource = app.slice(bootStart, app.indexOf('\nglobalThis.window?.gameSelects?.mount();', bootStart));
 const functions = [
   'startingTeam', 'visibleState', 'isBotTurn', 'humanCanMove', 'clearHint',
-  'cancelBot', 'cancelMovement', 'resetBotContext', 'lastTurnFromHistory',
+  'cancelBot', 'cancelMovement', 'cancelBattleIntro', 'startBattleIntro', 'resetBotContext', 'lastTurnFromHistory',
   'hasPreviousReview', 'canStepReview', 'localReviewTurn', 'setFooterDisabled', 'positionText', 'archiveGameMetadata', 'queueBot', 'renderStartSettings', 'render', 'startGame',
   'resetNewGameDefaults', 'cancelStartRefresh', 'returnToGame'
 ].map(declaration).join('\n');
@@ -104,7 +105,10 @@ for (const [roll, turn] of [[0.1, 0], [0.9, 1]]) {
       playMode: 'bot', humanTeam: 1, firstMove: 'random', botDifficulty: 'training', editor: false, positionKind: 'default'
     });
     assert.equal(ui.rolls(), 1); assert.equal(ui.starts.length, 1); assert.equal(ui.resumes.length, 0);
-    assert.deepEqual(ui.startSounds, ['playing']);
+    assert.deepEqual(ui.startSounds, []);
+    assert.equal(ui.nodes.get('#board').dataset.intro, 'true');
+    assert.equal(ui.read('state.ply'), 0);
+    assert.equal(ui.read('humanCanMove()'), false);
     assert.equal(ui.closed(), 1); assert.deepEqual(ui.messages, []);
     assert.equal(ui.nodes.get('#start-setup').hidden, true);
     assert.equal(ui.nodes.get('#new-game').hidden, false);
@@ -115,10 +119,15 @@ for (const [roll, turn] of [[0.1, 0], [0.9, 1]]) {
     assert.deepEqual(ui.saved().startPreferences, {
       playMode: 'bot', humanTeam: 1, firstMove: 'random', botDifficulty: 'training', positionKind: 'default', customSetup: null, explicit: {firstMove:false,humanTeam:false,botDifficulty:false}, defaults: DEFAULT_START_CHOICES
     });
-    assert.deepEqual(ui.timers.map(({ delay, ready }) => ({ delay, ready })), turn === 0 ? [{ delay: 420, ready: true }] : []);
+    assert.deepEqual(ui.timers.map(({ delay, ready }) => ({ delay, ready })), [{ delay: 1000, ready: false }]);
     ui.render();
     assert.equal(ui.rolls(), 1); assert.equal(ui.starts.length, 1);
-    assert.equal(ui.timers.length, turn === 0 ? 1 : 0);
+    assert.equal(ui.timers.length, 1);
+    ui.timers.shift().callback();
+    assert.equal(ui.nodes.get('#board').dataset.intro, 'false');
+    assert.equal(ui.read('humanCanMove()'), turn === 1);
+    assert.deepEqual(ui.startSounds, ['playing']);
+    assert.deepEqual(ui.timers.map(({ delay, ready }) => ({ delay, ready })), turn === 0 ? [{ delay: 420, ready: true }] : []);
 
     const persisted = ui.saved(), reload = boot({ raw: JSON.stringify(persisted), roll: 1 - roll });
     assert.equal(reload.rolls(), 0); assert.equal(reload.starts.length, 0); assert.equal(reload.resumes.length, 1);

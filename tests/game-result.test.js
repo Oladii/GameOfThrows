@@ -30,7 +30,7 @@ const endings = [
   ['combat-units', ['scoutLamp'], ['archer'], 1, 'Уничтожены все лучники и щитоносцы'],
   ['combat-units', ['horn'], ['scoutLamp'], 'draw', 'У обеих сторон уничтожены все лучники и щитоносцы'],
   ['all-units', ['shield'], [], 0, 'Уничтожены все фигуры противника'],
-  ['all-units', [], [], 'draw', 'Все фигуры обеих сторон уничтожены']
+  ['all-units', [], [], 'draw', 'Все войска разбиты']
 ];
 for (const [condition, north, south, winner, reason] of endings) test(`result explains ${condition}: ${north} / ${south}`, () => {
   const ui = setup(condition), pieces = [...army(0, north), ...army(1, south)];

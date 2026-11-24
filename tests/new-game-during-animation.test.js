@@ -14,7 +14,7 @@ for (const phase of ['movement', 'combat']) test(`new game interrupts ${phase} a
   const lastTurn = { before: history[0], action: history[0].action };
   let canceled = 0, soundsStopped = 0;
   const dialog = { open: false, showModal() { this.open = true; }, close() { this.open = false; } };
-  const c = vm.createContext({ tableRattle: null, state: structuredClone(result), config: {}, log: [], history: structuredClone(history), lastTurn: structuredClone(lastTurn),
+  const c = vm.createContext({ tableRattle: null, battleIntro: null, state: structuredClone(result), config: {}, log: [], history: structuredClone(history), lastTurn: structuredClone(lastTurn),
     playMode: 'bot', humanTeam: 0, firstMove: 'north', botDifficulty: 'hard', gamePhase: 'playing', refreshingNewGame: false,
     positionKind: 'default', gameVersion: 'test', previousGame: null, editor: false, movement: null, combat: null,
     roomMovePreview: null, reviewRequest: 0, reviewLoading: false, reviewTurn: null, reviewingTurn: false,
@@ -27,7 +27,7 @@ for (const phase of ['movement', 'combat']) test(`new game interrupts ${phase} a
   c.currentSnapshot = () => structuredClone({ state: c.state, config: c.config, log: c.log, positionKind: c.positionKind, gameVersion: c.gameVersion });
   c.applyStartPreferences = () => { c.state = { pieces: [], ply: 0 }; };
   c[phase] = { before: { state: { ply: 6 } } };
-  for (const name of ['cancelBot', 'cancelMovement', 'resetBotContext', 'openStartSettings', 'openNewGame', 'returnToGame']) vm.runInContext(declaration(name), c);
+  for (const name of ['cancelBot', 'cancelMovement', 'cancelBattleIntro', 'resetBotContext', 'openStartSettings', 'openNewGame', 'returnToGame']) vm.runInContext(declaration(name), c);
   c.openNewGame();
   assert.equal(dialog.open, true);
   assert.equal(c.movement, null); assert.equal(c.combat, null);

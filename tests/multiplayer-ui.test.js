@@ -25,7 +25,7 @@ function setup({ mobile = true } = {}) {
   const context = vm.createContext({ tableRattle: null, MultiplayerSession: class { create() { return Promise.resolve(); } join() { return Promise.resolve(); } stop() {} }, $, URL, location, navigator: {}, ROOM_STORAGE: 'online', STORAGE: 'local',
     document: { body: { ...node(), classList: { toggle() {}, contains: key => mobile && key === 'mobile-game' } }, querySelectorAll: () => [] },
     window: { history: { replaceState(_state, _title, url) { location.href = url; } } },
-    START_CUE_DELAY: 240, setTimeout: (callback, delay) => timers.push({ callback, delay }),
+    BATTLE_INTRO_DURATION: 1000, battleIntro: null, setTimeout: (callback, delay) => timers.push({ callback, delay }),
     gameAudio: { play: name => calls.push(['sound', name]), playGameStart: isCurrent => { if (isCurrent()) calls.push(['sound', 'game-start']); } },
     localStorage: { getItem: key => storage.get(key), setItem(key, value) { storage.set(key, value); } },
     playMode: 'online', gamePhase: 'playing', editor: false, positionKind: 'default', config: structuredClone(DEFAULT_CONFIG), state: createGame(DEFAULT_CONFIG),
@@ -44,6 +44,7 @@ function setup({ mobile = true } = {}) {
     checkpoint() { throw new Error('Online UI must not record local history'); }
   });
   vm.runInContext(declaration('point') + '\n' + declaration('currentSnapshot') + '\n' + declaration('humanCanMove') + '\n'
+    + source('function cancelBattleIntro()', 'function cancelBot()')
     + source('function matchResult(', 'function renderUpdateNotice(') + source('function savedRoomReference()', '\nconst statFields ='), context);
   return { context, $, storage, calls, timers, location };
 }
@@ -89,7 +90,7 @@ test('each seat assignment and match start play their own sound once for the par
   const second = { guestId: 'second', joinedRevision: 4, ready: true };
   const sounds = ui => ui.calls.filter(([type]) => type === 'sound').map(([, name]) => name);
   const playStartCue = ui => {
-    assert.deepEqual(ui.timers.map(timer => timer.delay), [240]);
+    assert.deepEqual(ui.timers.map(timer => timer.delay), [1000]);
     ui.timers.pop().callback();
   };
   const lobby = snapshot();
@@ -105,9 +106,14 @@ test('each seat assignment and match start play their own sound once for the par
   original.context.applyRoomView(view(playing, 1));
   original.context.applyRoomView({ ...view(playing, 1), status: 'reconnecting' });
   original.context.applyRoomView(view({ ...playing, revision: 5 }, 1));
+  const afterFirstMove = { ...playing, revision: 6, state: { ...playing.state, ply: 1 } };
+  original.context.applyRoomView(view(afterFirstMove, 1));
+  assert.equal(original.context.state.ply, 0);
+  assert.equal(original.context.humanCanMove(), false);
   assert.deepEqual(sounds(original), ['room-join', 'room-join']);
   playStartCue(original);
   assert.deepEqual(sounds(original), ['room-join', 'room-join', 'game-start']);
+  assert.equal(original.context.state.ply, 1);
   const joining = setup(), spectator = setup({ mobile: false }), restored = setup({ mobile: false });
   joining.context.applyRoomView(view(changed));
   joining.context.applyRoomView(view(playing, 0));
@@ -117,7 +123,7 @@ test('each seat assignment and match start play their own sound once for the par
   assert.deepEqual(sounds(joining), ['room-join']);
   playStartCue(joining);
   assert.deepEqual(sounds(joining), ['room-join', 'game-start']);
-  assert.equal(spectator.timers.length, 0);
+  playStartCue(spectator);
   assert.equal(restored.timers.length, 0);
   assert.deepEqual(sounds(spectator), []);
   assert.deepEqual(sounds(restored), []);
@@ -511,7 +517,7 @@ test('only the player who lost a contested first move sees the dialog, once per 
   ui.context.roomView = view(snap, null); ui.context.renderFirstMoveNotice(); assert.equal(shown, 0);
   ui.context.roomView = view(snap, 0); ui.context.renderFirstMoveNotice(); assert.equal(shown, 0);
   ui.context.roomView = view(snap, 1); ui.context.renderFirstMoveNotice(); assert.equal(shown, 1);
-  assert.equal(ui.$('#first-move-message').textContent, 'Синий тоже хотел ходить первым, и удача оказалась на его стороне.');
+  assert.equal(ui.$('#first-move-message').textContent, 'Синий тоже хотел ходить первым, и удача оказалась\nна его стороне');
   dialog.close(); ui.context.renderFirstMoveNotice(); assert.equal(shown, 1);
   snap.matchId = 'match-two'; snap.firstMove.team = 1; ui.context.roomView = view(snap, 0);
   ui.context.renderFirstMoveNotice(); assert.equal(shown, 2);
@@ -548,7 +554,7 @@ test('when neither wants the first move only the selected starter sees the notic
     const snap = snapshot({ phase: 'playing', state: createGame(DEFAULT_CONFIG), matchId: 'neither-' + team, seats: [{ wantsFirst: false }, { wantsFirst: false }], firstMove: { team, contested: false } });
     ui.context.roomView = view(snap, 1-team); ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, false);
     ui.context.roomView = view(snap, team); ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, true);
-    assert.equal(ui.$('#first-move-message').textContent, `Никто не хотел ходить первым, но удача оказалась на стороне ${team === 0 ? 'Синего' : 'Красного'}.`);
+    assert.equal(ui.$('#first-move-message').textContent, 'Никто не хотел ходить первым. Но кто-то должен сделать первый шаг, и этот кто-то — вы');
     dialog.close(); ui.context.renderFirstMoveNotice(); assert.equal(dialog.open, false);
   }
 });

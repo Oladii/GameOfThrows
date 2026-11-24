@@ -76,6 +76,7 @@ select{font-size:11px}
 .turn-tag{font-size:8px;letter-spacing:.6px;margin-top:3px;opacity:.8}
 .board-wrap{position:relative;display:grid;place-items:center;min-height:380px;padding:15px 0 8px}
 .board-wrap,.showcase-field{-webkit-user-select:none;user-select:none}
+#board[data-intro="true"] .unit-badges{display:none}
 #board{width:100%;max-height:650px;overflow:visible;display:block;touch-action:manipulation}
 .cell{cursor:pointer;outline:none}
 .cell.draggable{cursor:grab;touch-action:none}
@@ -916,8 +917,6 @@ main{padding:14px}
 .room-first-choice input{appearance:none;display:block;box-sizing:border-box;width:16px;height:16px;flex:0 0 16px;margin:0;border:1px solid var(--muted);border-radius:4px;background:var(--surface) center/12px 12px no-repeat;cursor:pointer}
 .room-first-choice input:checked{border-color:var(--ink);background-color:var(--ink);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fffefb' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 4 4 10-10'/%3E%3C/svg%3E")}
 .room-first-choice input:disabled{opacity:.4;cursor:not-allowed}
-#first-move-dialog{width:440px;max-width:calc(100% - 24px)}
-#first-move-message{font-size:16px;line-height:1.5;margin:0 0 24px}
 .room-note{margin:16px 0 0;color:#83745f;font-size:12px;line-height:1.5}
 #room-error{margin:16px 0 0;line-height:1.5}
 #room-retry{margin-top:8px}
@@ -1100,23 +1099,28 @@ body:not(.mobile-game) :is(#room-seat,#room-copy,#room-leave,#room-finish[data-a
   content:"";flex:0 0 20px;height:20px;background:var(--room-icon) center no-repeat
 }
 
-body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog){
-  width:560px;max-width:calc(100% - 32px);max-height:calc(100dvh - 32px);padding:20px 24px 24px;
-  border:1px solid var(--line);border-radius:32px;background:var(--surface);box-shadow:none;overflow:auto
+body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog),#first-move-dialog{
+  width:560px;max-width:calc(100% - 32px);max-height:calc(100dvh - 32px);padding:20px 20px 24px 24px;
+  border:1px solid var(--line);border-radius:32px;background:var(--surface);box-shadow:none;overflow:auto;
+  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
 }
 body:not(.mobile-game) #start-dialog[open],#room-seat-form{display:flex;flex-direction:column;gap:24px}
-body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .dialog-header{gap:12px;align-items:center;margin:0;padding:0}
-body:not(.mobile-game) :is(#start-title,#room-seat-title){margin:0;color:var(--ink);font-size:24px;font-weight:600;line-height:32px}
-body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .close-dialog{
+body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .dialog-header,#first-move-dialog .dialog-header{gap:12px;align-items:end;margin:0;padding:0}
+body:not(.mobile-game) :is(#start-title,#room-seat-title),#first-move-title{margin:0;color:var(--ink);font-size:24px;font-weight:600;line-height:28px;letter-spacing:0}
+#first-move-dialog[open]{display:flex;flex-direction:column;gap:12px}
+#first-move-message{margin:0 0 20px;font-size:15px;line-height:22px;white-space:pre-line}
+body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .close-dialog,#first-move-dialog .icon-button{
   width:32px;height:32px;min-height:32px;padding:0;border:0;border-radius:50%;
   background:var(--tile-default) url("./desktop-icons/close.svg") center no-repeat
 }
 body:not(.mobile-game) #start-dialog .close-dialog svg{display:none}
-body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .close-dialog:is(:hover,:focus-visible){background-color:var(--mint)}
+#first-move-dialog .icon-button{flex-shrink:0}
+body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .close-dialog:is(:hover,:focus-visible),
+#first-move-dialog .icon-button:is(:hover,:focus-visible){background-color:var(--mint)}
 body:not(.mobile-game) #start-dialog .start-settings{padding:0;overflow:visible}
 body:not(.mobile-game) #start-dialog :is(.start-fields,#human-side-field){grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .room-seat-fields{display:grid;gap:16px}
-body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .field-label{margin:0 0 4px;font-size:12px;line-height:16px;font-weight:500}
+body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .field-label{margin:0 0 4px;color:var(--muted);font-size:12px;line-height:16px;font-weight:500}
 body:not(.mobile-game) #room-seat-dialog .game-select{margin-top:0}
 body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) :is(.game-select [data-slot="select-trigger"],select){
   width:100%;min-height:48px;padding:0 8px 0 12px;border:2px solid var(--panel-border);border-radius:12px;
@@ -1128,27 +1132,33 @@ body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .game-select [data-s
 }
 body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .game-select [data-state="open"]::after{transform:rotate(180deg)}
 body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) :is(.game-select [data-slot="select-trigger"],select):not(:disabled):is(:hover,:focus-visible){background-color:var(--tile-default)}
-body:not(.mobile-game) #start-dialog .game-select [data-slot="select-trigger"]:disabled{background-color:var(--bg);opacity:.55;border-color:var(--line)}
-body:not(.mobile-game) #start-dialog div:has(>select:disabled)>.field-label{color:var(--muted);opacity:.7}
+body:not(.mobile-game) #start-dialog div:has(>select:disabled){opacity:.3}
+body:not(.mobile-game) #start-dialog div:has(>select:disabled)>.field-label,
+body:not(.mobile-game) #start-dialog :is(.game-select [data-slot="select-trigger"],select):disabled{color:#817566}
+body:not(.mobile-game) #start-dialog :is(.game-select [data-slot="select-trigger"],select):disabled{background-color:var(--tile-default);opacity:1}
 body:not(.mobile-game) #start-dialog .start-dialog-footer{padding-top:8px}
 body:not(.mobile-game) #start-dialog #start-game,
-body:not(.mobile-game) #room-seat-submit{
+body:not(.mobile-game) #room-seat-submit,#first-move-continue{
   min-height:56px;width:100%;margin:0;border:1px solid #b88132;border-radius:12px;
   color:#ffda86;background:linear-gradient(180deg,#47443f,#292827 48%,#1c1b1b);
-  box-shadow:none;text-shadow:none;font-size:16px;font-weight:600
+  box-shadow:none;text-shadow:none;font-size:16px;font-weight:600;line-height:20px
 }
-body:not(.mobile-game) :is(#start-game,#room-seat-submit):not(:disabled):is(:hover,:focus-visible){background:linear-gradient(180deg,#595348,#34312a 48%,#24211c)}
-body:not(.mobile-game) :is(#start-game,#room-seat-submit):not(:disabled):active{background:#292827}
+body:not(.mobile-game) #room-seat-form>#room-seat-submit{margin-top:8px}
+body:not(.mobile-game) :is(#start-game,#room-seat-submit):not(:disabled):is(:hover,:focus-visible),
+#first-move-continue:is(:hover,:focus-visible){background:linear-gradient(180deg,#595348,#34312a 48%,#24211c)}
+body:not(.mobile-game) :is(#start-game,#room-seat-submit):not(:disabled):active,#first-move-continue:active{background:#292827}
 .room-seat-first{display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;cursor:pointer}
 .room-seat-first input{appearance:none;flex:0 0 26px;width:26px;height:26px;margin:0;border:2px solid var(--panel-border);border-radius:8px;background:var(--surface);cursor:pointer}
 .room-seat-first input:checked{background:#292827 url("./desktop-icons/check.svg") center no-repeat}
 .room-seat-first input:disabled{opacity:.5;cursor:not-allowed}
 #room-seat-error{margin:0}
 
+html:has(body.guide-open:not(.mobile-game)){scrollbar-gutter:stable both-edges}
 body:not(.mobile-game) #rules-dialog.guide-screen{
-  position:relative;padding:45px clamp(20px,4vw,48px) 60px;color:var(--ink)
+  position:relative;padding:45px clamp(20px,4vw,48px) 60px;color:var(--ink);
+  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
 }
-body:not(.mobile-game) .guide-toolbar{max-width:1024px;margin:0 auto 44px}
+body:not(.mobile-game) .guide-toolbar{max-width:1024px;margin:0 auto 40px}
 body:not(.mobile-game) .guide-back{min-height:40px;gap:4px;padding:0 16px 0 8px;border:0;background:var(--tile-default);font-size:15px;line-height:20px;font-weight:500}
 body:not(.mobile-game) .guide-back svg{display:none}
 body:not(.mobile-game) .guide-back::before{content:"";width:24px;height:24px;background:url("./desktop-icons/back.svg") center no-repeat}
@@ -1163,15 +1173,42 @@ body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]{
   min-height:36px;padding:0 8px;border:0;border-radius:999px;font-size:14px;line-height:20px;font-weight:500;color:var(--muted)
 }
 body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]::after{display:none}
+body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]:not([data-state="active"])+[data-slot="tabs-trigger"]:not([data-state="active"])::before{
+  content:"";position:absolute;inset:6px auto 6px 0;width:1px;background:var(--line);pointer-events:none
+}
 body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]:is([data-state="active"],:hover,:focus-visible){background:#e9dfca}
 body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"][data-state="active"]{color:var(--ink)}
-body:not(.mobile-game) .onboarding-principles{margin:0 0 40px;max-width:680px;font-size:14px;line-height:20px}
-body:not(.mobile-game) .guide-basics{margin:0 0 16px;font-size:22px;line-height:28px;font-weight:600}
-body:not(.mobile-game) .guide-theory{max-width:680px;gap:40px;font-size:14px;line-height:22px}
-body:not(.mobile-game) .guide-theory h3{margin:0 0 12px;font-size:22px;line-height:28px}
+body:not(.mobile-game) .onboarding-body{padding:0}
+body:not(.mobile-game) .onboarding-principles{margin:0;max-width:680px;padding:12px 0 12px 22.5px;font-size:15px;line-height:22px;list-style:disc}
+body:not(.mobile-game) .onboarding-principles li{padding:0}
+body:not(.mobile-game) .onboarding-principles li:not(:last-child){margin-bottom:12px}
+body:not(.mobile-game) .onboarding-principles li::marker{content:normal;color:inherit}
+body:not(.mobile-game) .guide-screen :is(.guide-basics,.guide-theory h3,.showcase-scene>h3,#badge-guide-title){
+  max-width:680px;margin:0;padding:32px 0 8px;font-size:22px;font-weight:600;line-height:24px;letter-spacing:0
+}
+body:not(.mobile-game) .guide-theory{max-width:680px;gap:0;font-size:15px;line-height:22px}
+body:not(.mobile-game) .guide-theory p{padding:12px 0}
+body:not(.mobile-game) .guide-screen .lesson-page{gap:0}
+body:not(.mobile-game) .guide-screen .showcase-scene{margin:0}
+body:not(.mobile-game) .guide-screen #showcase-title{margin-bottom:16px}
+body:not(.mobile-game) .guide-screen .training-description{max-width:680px;margin:0;padding:12px 0;color:var(--ink);font-size:15px;line-height:22px}
+body:not(.mobile-game) .guide-screen .badge-guide>.lesson-scene-heading{margin:0}
+body:not(.mobile-game) .guide-screen .badge-guide-copy{max-width:680px;padding:12px 0}
+body:not(.mobile-game) .guide-screen .badge-guide-copy p{margin:0;color:var(--ink);font-size:15px;line-height:22px}
+body:not(.mobile-game) .guide-screen .badge-guide-copy p+p{margin-top:20px}
+body:not(.mobile-game) .guide-screen .badge-guide-copy strong{display:block}
+body:not(.mobile-game) .guide-screen .badge-guide-copy br{display:none}
 body:not(.mobile-game) .guide-screen .lesson-scene{border-radius:24px}
-body:not(.mobile-game) .guide-screen .training-advice{border-radius:12px;padding:12px}
-body:not(.mobile-game) .guide-screen .training-advice p{font-size:14px;line-height:20px;color:var(--ink)}
+body:not(.mobile-game) .guide-screen .training-card{padding:0}
+body:not(.mobile-game) .guide-screen .training-layout{gap:20px;padding:12px}
+body:not(.mobile-game) .guide-screen .training-advice{border-color:#b88132;border-radius:12px;padding:12px}
+body:not(.mobile-game) .guide-screen .training-advice p{font-size:14px;line-height:22px;color:var(--ink)}
+@media(min-width:901px){
+  body:not(.mobile-game) .guide-screen .lesson-scene{min-height:393px}
+  body:not(.mobile-game) .guide-screen .badge-guide>.lesson-scene{display:grid;align-content:center}
+  body:not(.mobile-game) .guide-screen .training-layout{grid-template-columns:minmax(0,1fr) min(420px,44%);padding:23px}
+  body:not(.mobile-game) .guide-screen .showcase-board{height:345px}
+}
 
 body:not(.mobile-game) .selection-panel .inspector-card{
   --inspector-secondary:#a19786;
@@ -1216,6 +1253,7 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
 
 @media(min-width:701px){
   body:not(.mobile-game) #onboarding-progress{position:absolute;inset:45px 22% auto}
+  body:not(.mobile-game) .guide-screen:has(.badge-guide,.guide-theory) #onboarding-progress{top:43px}
   body:not(.mobile-game)>.update-notice{margin-left:360px}
 }
 @media(min-width:701px){

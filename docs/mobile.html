@@ -99,6 +99,7 @@ select{font-size:11px}
 .turn-tag{font-size:8px;letter-spacing:.6px;margin-top:3px;opacity:.8}
 .board-wrap{position:relative;display:grid;place-items:center;min-height:380px;padding:15px 0 8px}
 .board-wrap,.showcase-field{-webkit-user-select:none;user-select:none}
+#board[data-intro="true"] .unit-badges{display:none}
 #board{width:100%;max-height:650px;overflow:visible;display:block;touch-action:manipulation}
 .cell{cursor:pointer;outline:none}
 .cell.draggable{cursor:grab;touch-action:none}
@@ -939,8 +940,6 @@ main{padding:14px}
 .room-first-choice input{appearance:none;display:block;box-sizing:border-box;width:16px;height:16px;flex:0 0 16px;margin:0;border:1px solid var(--muted);border-radius:4px;background:var(--surface) center/12px 12px no-repeat;cursor:pointer}
 .room-first-choice input:checked{border-color:var(--ink);background-color:var(--ink);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fffefb' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 4 4 10-10'/%3E%3C/svg%3E")}
 .room-first-choice input:disabled{opacity:.4;cursor:not-allowed}
-#first-move-dialog{width:440px;max-width:calc(100% - 24px)}
-#first-move-message{font-size:16px;line-height:1.5;margin:0 0 24px}
 .room-note{margin:16px 0 0;color:#83745f;font-size:12px;line-height:1.5}
 #room-error{margin:16px 0 0;line-height:1.5}
 #room-retry{margin-top:8px}
@@ -1123,23 +1122,28 @@ body:not(.mobile-game) :is(#room-seat,#room-copy,#room-leave,#room-finish[data-a
   content:"";flex:0 0 20px;height:20px;background:var(--room-icon) center no-repeat
 }
 
-body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog){
-  width:560px;max-width:calc(100% - 32px);max-height:calc(100dvh - 32px);padding:20px 24px 24px;
-  border:1px solid var(--line);border-radius:32px;background:var(--surface);box-shadow:none;overflow:auto
+body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog),#first-move-dialog{
+  width:560px;max-width:calc(100% - 32px);max-height:calc(100dvh - 32px);padding:20px 20px 24px 24px;
+  border:1px solid var(--line);border-radius:32px;background:var(--surface);box-shadow:none;overflow:auto;
+  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
 }
 body:not(.mobile-game) #start-dialog[open],#room-seat-form{display:flex;flex-direction:column;gap:24px}
-body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .dialog-header{gap:12px;align-items:center;margin:0;padding:0}
-body:not(.mobile-game) :is(#start-title,#room-seat-title){margin:0;color:var(--ink);font-size:24px;font-weight:600;line-height:32px}
-body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .close-dialog{
+body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .dialog-header,#first-move-dialog .dialog-header{gap:12px;align-items:end;margin:0;padding:0}
+body:not(.mobile-game) :is(#start-title,#room-seat-title),#first-move-title{margin:0;color:var(--ink);font-size:24px;font-weight:600;line-height:28px;letter-spacing:0}
+#first-move-dialog[open]{display:flex;flex-direction:column;gap:12px}
+#first-move-message{margin:0 0 20px;font-size:15px;line-height:22px;white-space:pre-line}
+body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .close-dialog,#first-move-dialog .icon-button{
   width:32px;height:32px;min-height:32px;padding:0;border:0;border-radius:50%;
   background:var(--tile-default) url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJGaXhlciI+CjxwYXRoIGlkPSJQYWludE1lIiBkPSJNMTYuOTU3IDguNDU3MDNMMTMuNDE0MSAxMkwxNi45NTcgMTUuNTQzTDE1LjU0MyAxNi45NTdMMTIgMTMuNDE0MUw4LjQ1NzAzIDE2Ljk1N0w3LjA0Mjk3IDE1LjU0M0wxMC41ODU5IDEyTDcuMDQyOTcgOC40NTcwM0w4LjQ1NzAzIDcuMDQyOTdMMTIgMTAuNTg1OUwxNS41NDMgNy4wNDI5N0wxNi45NTcgOC40NTcwM1oiIGZpbGw9IiM0RjQyMkUiLz4KPC9nPgo8L3N2Zz4K") center no-repeat
 }
 body:not(.mobile-game) #start-dialog .close-dialog svg{display:none}
-body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .close-dialog:is(:hover,:focus-visible){background-color:var(--mint)}
+#first-move-dialog .icon-button{flex-shrink:0}
+body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .close-dialog:is(:hover,:focus-visible),
+#first-move-dialog .icon-button:is(:hover,:focus-visible){background-color:var(--mint)}
 body:not(.mobile-game) #start-dialog .start-settings{padding:0;overflow:visible}
 body:not(.mobile-game) #start-dialog :is(.start-fields,#human-side-field){grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .room-seat-fields{display:grid;gap:16px}
-body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .field-label{margin:0 0 4px;font-size:12px;line-height:16px;font-weight:500}
+body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .field-label{margin:0 0 4px;color:var(--muted);font-size:12px;line-height:16px;font-weight:500}
 body:not(.mobile-game) #room-seat-dialog .game-select{margin-top:0}
 body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) :is(.game-select [data-slot="select-trigger"],select){
   width:100%;min-height:48px;padding:0 8px 0 12px;border:2px solid var(--panel-border);border-radius:12px;
@@ -1151,27 +1155,33 @@ body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .game-select [data-s
 }
 body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) .game-select [data-state="open"]::after{transform:rotate(180deg)}
 body:not(.mobile-game) :is(#start-dialog,#room-seat-dialog) :is(.game-select [data-slot="select-trigger"],select):not(:disabled):is(:hover,:focus-visible){background-color:var(--tile-default)}
-body:not(.mobile-game) #start-dialog .game-select [data-slot="select-trigger"]:disabled{background-color:var(--bg);opacity:.55;border-color:var(--line)}
-body:not(.mobile-game) #start-dialog div:has(>select:disabled)>.field-label{color:var(--muted);opacity:.7}
+body:not(.mobile-game) #start-dialog div:has(>select:disabled){opacity:.3}
+body:not(.mobile-game) #start-dialog div:has(>select:disabled)>.field-label,
+body:not(.mobile-game) #start-dialog :is(.game-select [data-slot="select-trigger"],select):disabled{color:#817566}
+body:not(.mobile-game) #start-dialog :is(.game-select [data-slot="select-trigger"],select):disabled{background-color:var(--tile-default);opacity:1}
 body:not(.mobile-game) #start-dialog .start-dialog-footer{padding-top:8px}
 body:not(.mobile-game) #start-dialog #start-game,
-body:not(.mobile-game) #room-seat-submit{
+body:not(.mobile-game) #room-seat-submit,#first-move-continue{
   min-height:56px;width:100%;margin:0;border:1px solid #b88132;border-radius:12px;
   color:#ffda86;background:linear-gradient(180deg,#47443f,#292827 48%,#1c1b1b);
-  box-shadow:none;text-shadow:none;font-size:16px;font-weight:600
+  box-shadow:none;text-shadow:none;font-size:16px;font-weight:600;line-height:20px
 }
-body:not(.mobile-game) :is(#start-game,#room-seat-submit):not(:disabled):is(:hover,:focus-visible){background:linear-gradient(180deg,#595348,#34312a 48%,#24211c)}
-body:not(.mobile-game) :is(#start-game,#room-seat-submit):not(:disabled):active{background:#292827}
+body:not(.mobile-game) #room-seat-form>#room-seat-submit{margin-top:8px}
+body:not(.mobile-game) :is(#start-game,#room-seat-submit):not(:disabled):is(:hover,:focus-visible),
+#first-move-continue:is(:hover,:focus-visible){background:linear-gradient(180deg,#595348,#34312a 48%,#24211c)}
+body:not(.mobile-game) :is(#start-game,#room-seat-submit):not(:disabled):active,#first-move-continue:active{background:#292827}
 .room-seat-first{display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;cursor:pointer}
 .room-seat-first input{appearance:none;flex:0 0 26px;width:26px;height:26px;margin:0;border:2px solid var(--panel-border);border-radius:8px;background:var(--surface);cursor:pointer}
 .room-seat-first input:checked{background:#292827 url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiB2aWV3Qm94PSIwIDAgMjAgMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJGaXhlciI+CjxwYXRoIGlkPSJQYWludE1lIiBkPSJNMTYuNzA5MSA2LjcwODIzTDguNTAyMDUgMTQuOTE1M0wzLjc5NTAyIDEwLjIwODJMNS4yMDkwOSA4Ljc5NDE2TDguNTAyMDUgMTIuMDg3MUwxNS4yOTUgNS4yOTQxNkwxNi43MDkxIDYuNzA4MjNaIiBmaWxsPSIjRkZEQTg2Ii8+CjwvZz4KPC9zdmc+Cg==") center no-repeat}
 .room-seat-first input:disabled{opacity:.5;cursor:not-allowed}
 #room-seat-error{margin:0}
 
+html:has(body.guide-open:not(.mobile-game)){scrollbar-gutter:stable both-edges}
 body:not(.mobile-game) #rules-dialog.guide-screen{
-  position:relative;padding:45px clamp(20px,4vw,48px) 60px;color:var(--ink)
+  position:relative;padding:45px clamp(20px,4vw,48px) 60px;color:var(--ink);
+  font-family:"Board Controls Inter",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
 }
-body:not(.mobile-game) .guide-toolbar{max-width:1024px;margin:0 auto 44px}
+body:not(.mobile-game) .guide-toolbar{max-width:1024px;margin:0 auto 40px}
 body:not(.mobile-game) .guide-back{min-height:40px;gap:4px;padding:0 16px 0 8px;border:0;background:var(--tile-default);font-size:15px;line-height:20px;font-weight:500}
 body:not(.mobile-game) .guide-back svg{display:none}
 body:not(.mobile-game) .guide-back::before{content:"";width:24px;height:24px;background:url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJGaXhlciI+CjxwYXRoIGlkPSJQYWludE1lIiBkPSJNMTYuMjA3IDQuNzA3MDNMOC45MTQwNiAxMkwxNi4yMDcgMTkuMjkzTDE0Ljc5MyAyMC43MDdMNi4wODU5NCAxMkwxNC43OTMgMy4yOTI5N0wxNi4yMDcgNC43MDcwM1oiIGZpbGw9IiM0RjQyMkUiLz4KPC9nPgo8L3N2Zz4K") center no-repeat}
@@ -1186,15 +1196,42 @@ body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]{
   min-height:36px;padding:0 8px;border:0;border-radius:999px;font-size:14px;line-height:20px;font-weight:500;color:var(--muted)
 }
 body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]::after{display:none}
+body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]:not([data-state="active"])+[data-slot="tabs-trigger"]:not([data-state="active"])::before{
+  content:"";position:absolute;inset:6px auto 6px 0;width:1px;background:var(--line);pointer-events:none
+}
 body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]:is([data-state="active"],:hover,:focus-visible){background:#e9dfca}
 body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"][data-state="active"]{color:var(--ink)}
-body:not(.mobile-game) .onboarding-principles{margin:0 0 40px;max-width:680px;font-size:14px;line-height:20px}
-body:not(.mobile-game) .guide-basics{margin:0 0 16px;font-size:22px;line-height:28px;font-weight:600}
-body:not(.mobile-game) .guide-theory{max-width:680px;gap:40px;font-size:14px;line-height:22px}
-body:not(.mobile-game) .guide-theory h3{margin:0 0 12px;font-size:22px;line-height:28px}
+body:not(.mobile-game) .onboarding-body{padding:0}
+body:not(.mobile-game) .onboarding-principles{margin:0;max-width:680px;padding:12px 0 12px 22.5px;font-size:15px;line-height:22px;list-style:disc}
+body:not(.mobile-game) .onboarding-principles li{padding:0}
+body:not(.mobile-game) .onboarding-principles li:not(:last-child){margin-bottom:12px}
+body:not(.mobile-game) .onboarding-principles li::marker{content:normal;color:inherit}
+body:not(.mobile-game) .guide-screen :is(.guide-basics,.guide-theory h3,.showcase-scene>h3,#badge-guide-title){
+  max-width:680px;margin:0;padding:32px 0 8px;font-size:22px;font-weight:600;line-height:24px;letter-spacing:0
+}
+body:not(.mobile-game) .guide-theory{max-width:680px;gap:0;font-size:15px;line-height:22px}
+body:not(.mobile-game) .guide-theory p{padding:12px 0}
+body:not(.mobile-game) .guide-screen .lesson-page{gap:0}
+body:not(.mobile-game) .guide-screen .showcase-scene{margin:0}
+body:not(.mobile-game) .guide-screen #showcase-title{margin-bottom:16px}
+body:not(.mobile-game) .guide-screen .training-description{max-width:680px;margin:0;padding:12px 0;color:var(--ink);font-size:15px;line-height:22px}
+body:not(.mobile-game) .guide-screen .badge-guide>.lesson-scene-heading{margin:0}
+body:not(.mobile-game) .guide-screen .badge-guide-copy{max-width:680px;padding:12px 0}
+body:not(.mobile-game) .guide-screen .badge-guide-copy p{margin:0;color:var(--ink);font-size:15px;line-height:22px}
+body:not(.mobile-game) .guide-screen .badge-guide-copy p+p{margin-top:20px}
+body:not(.mobile-game) .guide-screen .badge-guide-copy strong{display:block}
+body:not(.mobile-game) .guide-screen .badge-guide-copy br{display:none}
 body:not(.mobile-game) .guide-screen .lesson-scene{border-radius:24px}
-body:not(.mobile-game) .guide-screen .training-advice{border-radius:12px;padding:12px}
-body:not(.mobile-game) .guide-screen .training-advice p{font-size:14px;line-height:20px;color:var(--ink)}
+body:not(.mobile-game) .guide-screen .training-card{padding:0}
+body:not(.mobile-game) .guide-screen .training-layout{gap:20px;padding:12px}
+body:not(.mobile-game) .guide-screen .training-advice{border-color:#b88132;border-radius:12px;padding:12px}
+body:not(.mobile-game) .guide-screen .training-advice p{font-size:14px;line-height:22px;color:var(--ink)}
+@media(min-width:901px){
+  body:not(.mobile-game) .guide-screen .lesson-scene{min-height:393px}
+  body:not(.mobile-game) .guide-screen .badge-guide>.lesson-scene{display:grid;align-content:center}
+  body:not(.mobile-game) .guide-screen .training-layout{grid-template-columns:minmax(0,1fr) min(420px,44%);padding:23px}
+  body:not(.mobile-game) .guide-screen .showcase-board{height:345px}
+}
 
 body:not(.mobile-game) .selection-panel .inspector-card{
   --inspector-secondary:#a19786;
@@ -1239,6 +1276,7 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
 
 @media(min-width:701px){
   body:not(.mobile-game) #onboarding-progress{position:absolute;inset:45px 22% auto}
+  body:not(.mobile-game) .guide-screen:has(.badge-guide,.guide-theory) #onboarding-progress{top:43px}
   body:not(.mobile-game)>.update-notice{margin-left:360px}
 }
 @media(min-width:701px){
@@ -1505,8 +1543,8 @@ main .board-footer:has(#pass-turn:not([hidden])){grid-template-columns:repeat(3,
 }
 
 
-body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;position:fixed;inset:0;margin:0;width:100%;height:100dvh;max-width:none;max-height:none;border:0;border-radius:0;overflow:auto}
-.mobile-game dialog::backdrop{background:transparent;backdrop-filter:none}
+body.mobile-game dialog:not(#first-move-dialog)[open]{box-sizing:border-box;position:fixed;inset:0;margin:0;width:100%;height:100dvh;max-width:none;max-height:none;border:0;border-radius:0;overflow:auto}
+.mobile-game dialog:not(#first-move-dialog)::backdrop{background:transparent;backdrop-filter:none}
 .mobile-game #start-dialog[open]{gap:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overflow:hidden;box-shadow:none}
 #start-dialog .start-settings{flex:1;padding:12px 20px 20px;overscroll-behavior:contain}
 #start-dialog .start-fields,#start-dialog #human-side-field{grid-template-columns:1fr;gap:16px}
@@ -1585,7 +1623,7 @@ body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;po
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.135</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-24T09:30:00.986Z">Сборка 24.11.2026, 12:30:00 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.59">v0.1.136</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-24T13:26:10.993Z">Сборка 24.11.2026, 16:26:10 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <p id="room-banner" class="room-banner desktop-only" role="status" aria-live="polite" hidden></p>
@@ -1634,9 +1672,9 @@ body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;po
     </form>
   </dialog>
   <dialog id="first-move-dialog" aria-labelledby="first-move-title" aria-describedby="first-move-message">
-    <div class="dialog-header"><h2 id="first-move-title">Право первого хода</h2></div>
+    <div class="dialog-header"><h2 id="first-move-title">Право первого хода</h2><button type="button" class="icon-button close-dialog" aria-label="Закрыть уведомление"></button></div>
     <p id="first-move-message"></p>
-    <button class="button primary full close-dialog" type="button">Ладно</button>
+    <button id="first-move-continue" class="button primary full close-dialog" type="button" autofocus>Ладно</button>
   </dialog>
   <dialog id="settings-dialog"><form id="settings-form">
     <div class="dialog-header"><div><h2>Параметры боя</h2></div><button type="button" class="icon-button close-dialog" aria-label="Закрыть настройки"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
@@ -6011,8 +6049,7 @@ class MultiplayerSession {
 
 const $ = selector => document.querySelector(selector);
 const gameAudio = new GameAudio();
-// Leave time for both control samples and for the dialog to leave the screen.
-const START_CUE_DELAY = 240;
+const BATTLE_INTRO_DURATION = 1000;
 const soundButton = $('#sound-toggle');
 const soundControl = $('#sound-control'), soundScale = $('#sound-scale'), soundVolume = $('#sound-volume');
 function renderSoundButton() {
@@ -6124,6 +6161,7 @@ let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], lo
 let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, latestRulesVersion = null, versionCheckPending = false;
 let firstMove = DEFAULT_START_CHOICES.firstMove;
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
+let battleIntro = null;
 let botDifficulty = DEFAULT_START_CHOICES.botDifficulty;
 let startPreferences = null;
 let playMode = 'bot', humanTeam = DEFAULT_START_CHOICES.humanTeam, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
@@ -6140,7 +6178,7 @@ const hintVoice = createHintVoice();
 let hint = null, hintThinkingTimer = null;
 function clearHint() { hintRunner.cancel(); clearInterval(hintThinkingTimer); hintThinkingTimer = null; hint = null; }
 function hintPositionKey() { return JSON.stringify({ state, config }); }
-function canRequestHint(position = state) { return playMode !== 'online' && gamePhase === 'playing' && !editor && !reviewingTurn && !isBotTurn(position) && position.winner === null; }
+function canRequestHint(position = state) { return playMode !== 'online' && gamePhase === 'playing' && !battleIntro && !editor && !reviewingTurn && !isBotTurn(position) && position.winner === null; }
 function setFooterDisabled(button, disabled, visiblyDisabled = disabled) {
   button.disabled = disabled;
   button.dataset.visiblyDisabled = String(visiblyDisabled);
@@ -6390,7 +6428,27 @@ function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
 function visibleState() { return movement?.before.state ?? combat?.visiblePosition ?? roomMovePreview?.position ?? reviewTurn?.before.state ?? state; }
 function isBotTurn(position = state) { return gamePhase === 'playing' && playMode === 'bot' && position.turn !== humanTeam && position.winner === null && !editor; }
-function humanCanMove(position = state, ignorePresentation = false) { return gamePhase === 'playing' && (ignorePresentation || (!tableRattle?.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !reviewLoading)) && !reviewingTurn && !isBotTurn(position) && position.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
+function humanCanMove(position = state, ignorePresentation = false) { return gamePhase === 'playing' && !battleIntro && (ignorePresentation || (!tableRattle?.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !reviewLoading)) && !reviewingTurn && !isBotTurn(position) && position.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
+function cancelBattleIntro() {
+  if (battleIntro) clearTimeout(battleIntro.timer);
+  battleIntro = null;
+}
+function startBattleIntro(room = null) {
+  cancelBattleIntro();
+  const intro = { room, timer: null, pendingView: null };
+  battleIntro = intro;
+  intro.timer = setTimeout(() => {
+    if (battleIntro !== intro) return;
+    battleIntro = null;
+    const canPlayCue = () => room
+      ? playMode === 'online' && !roomLeaving && roomView?.selfSeat != null && roomSnapshot?.phase === 'playing'
+        && roomSnapshot.roomId === room.roomId && roomSnapshot.matchId === room.matchId
+      : playMode !== 'online' && gamePhase === 'playing' && !battleIntro && state.ply === 0;
+    render();
+    if (canPlayCue()) gameAudio.playGameStart(canPlayCue);
+    if (intro.pendingView) applyRoomView(intro.pendingView);
+  }, BATTLE_INTRO_DURATION);
+}
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
 function cancelMovement() {
   tableRattle?.cancel(); roomMovePreview = null;
@@ -6398,7 +6456,7 @@ function cancelMovement() {
   movement?.stopRestore?.(); movement?.sound?.cancel(); combat?.stopRemoval?.();
   moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null;
 }
-function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
+function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBattleIntro(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function completeMovementPresentation(completed) {
   if (!completed) return;
   if (completed.startTimer != null) clearTimeout(completed.startTimer);
@@ -6506,7 +6564,7 @@ function recentBotHistory() {
   return recent;
 }
 function queueBot() {
-  if (!ready || !isBotTurn() || movement || combat || currentDeaths.length || reviewingTurn || botIssue || botSuspended || $('#rules-dialog')?.hidden === false || $('dialog[open]') || botRunner.active || botTimer !== null) return;
+  if (!ready || battleIntro || !isBotTurn() || movement || combat || currentDeaths.length || reviewingTurn || botIssue || botSuspended || $('#rules-dialog')?.hidden === false || $('dialog[open]') || botRunner.active || botTimer !== null) return;
   botTimer = setTimeout(() => { botTimer = null; if (isBotTurn() && !movement && !combat && !reviewingTurn && $('#rules-dialog')?.hidden !== false && !$('dialog[open]')) startBot(); }, 420);
 }
 function startBot() {
@@ -6756,7 +6814,7 @@ function matchResult(position) {
   let reason = '';
   if (winner === 'draw') {
     if (loss[0] && loss[0] === loss[1]) {
-      reason = { flag: 'Знамёна обеих сторон уничтожены', combat: 'У обеих сторон уничтожены все лучники и щитоносцы', all: 'Все фигуры обеих сторон уничтожены' }[loss[0]];
+      reason = { flag: 'Знамёна обеих сторон уничтожены', combat: 'У обеих сторон уничтожены все лучники и щитоносцы', all: 'Все войска разбиты' }[loss[0]];
     } else if (loss[0] && loss[1]) {
       reason = loss.map((kind, team) => kind === 'flag' ? `Знамя ${team === 0 ? 'Синих' : 'Красных'} уничтожено` : `У ${team === 0 ? 'Синих' : 'Красных'} уничтожены все лучники и щитоносцы`).join('. ');
     }
@@ -6892,8 +6950,7 @@ function render(deaths = [], restoredIds) {
   tableKnocks?.reset();
   if (typeof browserAnalytics !== 'undefined') queueMicrotask(trackGameTime);
   // Keep the current board behind the start dialog while its draft is edited.
-  if (previousGame && gamePhase === 'setup' && !editor
-      && ($('#start-dialog').open || $('#start-dialog').dataset?.starting)) { renderStartSettings(); save(); return; }
+  if (previousGame && gamePhase === 'setup' && !editor && $('#start-dialog').open) { renderStartSettings(); save(); return; }
   if (hint && (hint.positionKey !== hintPositionKey() || !canRequestHint())) clearHint();
 
   renderHint();
@@ -6913,9 +6970,10 @@ function render(deaths = [], restoredIds) {
   report = combat?.report ?? (movement?.undoSteps || movement?.finishReview ? movement.forecast.report : analyze(state, config));
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
+  $('#board').dataset.intro = String(Boolean(battleIntro));
   boardMarkup(restoredIds); setMobileInspection(state); paintAuras(); highlightSources();
   boardDrag?.refresh();
-  $('#board').setAttribute('aria-busy', String(Boolean(movement || combat && combat.phase !== 'review')));
+  $('#board').setAttribute('aria-busy', String(Boolean(battleIntro || movement || combat && combat.phase !== 'review')));
   $('#board').setAttribute('data-combat-phase', combat?.phase || 'idle');
   const result = renderGameResult(state);
   renderScoreboard(state);
@@ -7060,7 +7118,7 @@ $('#undo').addEventListener('click', () => {
 function openStartSettings() {
   if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
   const dialog = $('#start-dialog');
-  if (!dialog.open && !dialog.dataset?.starting) dialog.showModal();
+  if (!dialog.open) dialog.showModal();
 }
 function cancelStartRefresh() {
   startRefreshController?.abort(); startRefreshController = null; refreshingNewGame = false;
@@ -7097,26 +7155,13 @@ function startGame() {
     startPreferences = currentStartPreferences();
     resetBotContext(); state = next; gamePhase = 'playing'; positionKind = classifyPosition(state, config); gameVersion = CURRENT_GAME_VERSION;
     archiveRecorder.start(archiveGameMetadata());
+    startBattleIntro();
     history = []; log = []; previousGame = null; selected = null; $('#mobile-home').close(); $('#start-dialog').close(); render();
-    gameAudio.playGameStart();
   } catch (error) { toast(error.message); }
 }
 $('#start-setup').addEventListener('click', openStartSettings);
 $('#new-game').addEventListener('click', openNewGame);
-$('#start-game').addEventListener('click', () => {
-  const dialog = $('#start-dialog');
-  if (!dialog.open || dialog.dataset.starting || refreshingNewGame) return;
-  if ($('#play-mode').value === 'online' || hasNewerGameVersion(CURRENT_RULES_VERSION, latestRulesVersion)) {
-    startGame();
-    return;
-  }
-  dialog.dataset.starting = 'true';
-  dialog.close();
-  setTimeout(() => {
-    delete dialog.dataset.starting;
-    startGame();
-  }, START_CUE_DELAY);
-});
+$('#start-game').addEventListener('click', startGame);
 function returnToGame() {
   if (playMode === 'online' || !previousGame || gamePhase !== 'setup') return;
   cancelStartRefresh();
@@ -7293,11 +7338,20 @@ function applyRoomView(view) {
   const previousView = roomView, previous = roomSnapshot, next = view.snapshot;
   if (next && roomTarget && next.roomId !== roomTarget) return;
   if (next && previous && next.revision < previous.revision) return;
+  const openingRoom = battleIntro?.room;
+  const introCancelled = openingRoom && (view.status === 'closed' || next && (
+    next.roomId !== openingRoom.roomId || next.matchId !== openingRoom.matchId || next.phase !== 'playing'));
+  if (introCancelled) cancelBattleIntro();
+  else if (openingRoom && next?.state && (next.state.ply > 0 || next.state.winner !== null)) {
+    // Keep the opening position visible even if a peer has already started their turn.
+    if (!battleIntro.pendingView || next.revision >= battleIntro.pendingView.snapshot.revision) battleIntro.pendingView = view;
+    return;
+  }
   roomView = view;
   if (view.status === 'connected' && view.error === null) roomError = '';
   if (view.status === 'closed' && roomMovePreview) { cancelMovement(); render(); }
   if (!next || previous?.roomId === next.roomId && previous.revision === next.revision) {
-    if (!movement && !combat && !currentDeaths.length && previousView?.canMove !== view.canMove) render();
+    if (!movement && !combat && !currentDeaths.length && (introCancelled || previousView?.canMove !== view.canMove)) render();
     else renderOnlineRoom();
     return;
   }
@@ -7331,18 +7385,17 @@ function applyRoomView(view) {
   if (action && next.state && action.matchId === next.matchId && action.beforeState.ply + 1 === next.state.ply) {
     lastTurn = { before: { ...currentSnapshot(), state: clone(action.beforeState) }, action: clone(action.action) };
   }
+  if (previous?.roomId === next.roomId && previous.phase === 'waiting' && next.phase === 'playing'
+      && next.matchId && next.matchId !== previous.matchId && next.state?.ply === 0 && next.state.winner === null
+      && view.status === 'connected') {
+    startBattleIntro({ roomId: next.roomId, matchId: next.matchId });
+  }
   if (confirmsPreview) {
     preview.confirmed = true;
     if (movement?.preview === preview) { movement.deaths = action.deaths || []; render(); }
     else { roomMovePreview = null; presentKills(preview.before, preview.forecast, action.deaths || []); }
   } else if (animate) { presentMove(before, action.action, action.deaths || []); }
   else render();
-  if (previous?.roomId === next.roomId && previous.phase === 'waiting' && next.phase === 'playing'
-      && next.matchId && next.matchId !== previous.matchId && view.selfSeat != null
-      && view.status === 'connected') {
-    setTimeout(() => gameAudio.playGameStart(() => playMode === 'online' && roomSnapshot?.phase === 'playing'
-      && roomSnapshot.roomId === next.roomId && roomSnapshot.matchId === next.matchId), START_CUE_DELAY);
-  }
 }
 async function connectOnlineRoom() {
   if (playMode !== 'online' || roomConnecting || roomView?.snapshot) return;
@@ -7393,6 +7446,7 @@ async function sendRoomMove(action) {
 async function leaveOnlineRoom() {
   if (playMode !== 'online' || roomLeaving) return;
   roomLeaving = true; $('#room-leave').disabled = true;
+  cancelBattleIntro();
   const session = roomSession;
   roomSession = null;
   // Stop receiving snapshots immediately, including an in-flight create or join.
@@ -7469,7 +7523,9 @@ function renderFirstMoveNotice() {
   const key = `room-first-move:${snapshot.roomId}:${snapshot.matchId}:${snapshot.self.guestId}`;
   if (roomFirstMoveNotices.has(key)) return;
   try { if (sessionStorage.getItem(key)) { roomFirstMoveNotices.add(key); return; } } catch { /* In-memory tracking still prevents repeat polls. */ }
-  $('#first-move-message').textContent = neitherWantsFirst ? `Никто не хотел ходить первым, но удача оказалась на стороне ${choice.team === 0 ? 'Синего' : 'Красного'}.` : `${choice.team === 0 ? 'Синий' : 'Красный'} тоже хотел ходить первым, и удача оказалась на его стороне.`;
+  $('#first-move-message').textContent = neitherWantsFirst
+    ? 'Никто не хотел ходить первым. Но кто-то должен сделать первый шаг, и этот кто-то — вы'
+    : `${choice.team === 0 ? 'Синий' : 'Красный'} тоже хотел ходить первым, и удача оказалась\nна его стороне`;
   if (!dialog.open) dialog.showModal();
   roomFirstMoveNotices.add(key);
   try { sessionStorage.setItem(key, 'shown'); } catch { /* Storage can be unavailable. */ }
@@ -7484,7 +7540,7 @@ function renderOnlineRoom() {
   for (const id of ['show-hint', 'undo']) $('#' + id).hidden = online;
   const board = $('.board-wrap'), roomWaiting = online && (!snapshot || waiting || closed);
   board.hidden = online && (closed || !desktop && roomWaiting);
-  board.inert = roomWaiting;
+  board.inert = roomWaiting || Boolean(battleIntro);
   document.body.classList.toggle('room-waiting', roomWaiting);
   $('.arena-top').hidden = desktop;
   for (const id of ['review-previous', 'review-current']) $('#' + id).hidden = online && (!snapshot || waiting || closed);

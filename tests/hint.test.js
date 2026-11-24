@@ -61,7 +61,7 @@ function declaration(name) {
 }
 function setup() {
   let request, result, error, cancelled = 0, requests = 0;
-  const context = vm.createContext({ playMode: 'local', state: { pieces: [], turn: 0, ply: 0, winner: null }, config: {}, crypto: { getRandomValues(value) { value[0] = 12345; return value; } }, selected: 'chosen', hover: {}, inspection: {}, trackHint() {}, hint: null, hintVoice: createHintVoice(), hintThinkingTimer: null, clearInterval() {},
+  const context = vm.createContext({ playMode: 'local', battleIntro: null, state: { pieces: [], turn: 0, ply: 0, winner: null }, config: {}, crypto: { getRandomValues(value) { value[0] = 12345; return value; } }, selected: 'chosen', hover: {}, inspection: {}, trackHint() {}, hint: null, hintVoice: createHintVoice(), hintThinkingTimer: null, clearInterval() {},
     hintRunner: { cancel() { cancelled++; }, run(input, onResult, onError) { requests++; request = input; result = onResult; error = onError; } },
     BOT_DIFFICULTIES: { hard: { depth: 4 } }, editor: false, gamePhase: 'playing', reviewingTurn: false, isBotTurn: () => false, humanCanMove: () => true,
     recentBotHistory: () => [], render() {}, explainHint: () => ({ title: 'Ход', reasons: ['Причина'] }) });

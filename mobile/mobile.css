@@ -128,8 +128,8 @@ main .board-footer:has(#pass-turn:not([hidden])){grid-template-columns:repeat(3,
 }
 
 
-body.mobile-game :is(#start-dialog,#sheet,dialog)[open]{box-sizing:border-box;position:fixed;inset:0;margin:0;width:100%;height:100dvh;max-width:none;max-height:none;border:0;border-radius:0;overflow:auto}
-.mobile-game dialog::backdrop{background:transparent;backdrop-filter:none}
+body.mobile-game dialog:not(#first-move-dialog)[open]{box-sizing:border-box;position:fixed;inset:0;margin:0;width:100%;height:100dvh;max-width:none;max-height:none;border:0;border-radius:0;overflow:auto}
+.mobile-game dialog:not(#first-move-dialog)::backdrop{background:transparent;backdrop-filter:none}
 .mobile-game #start-dialog[open]{gap:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overflow:hidden;box-shadow:none}
 #start-dialog .start-settings{flex:1;padding:12px 20px 20px;overscroll-behavior:contain}
 #start-dialog .start-fields,#start-dialog #human-side-field{grid-template-columns:1fr;gap:16px}

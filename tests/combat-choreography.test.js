@@ -97,7 +97,7 @@ function presentationHarness(mode='local') {
   const action={id:'mover',from:{q:0,r:0},to:{q:0,r:1}}, result=move(before.state,config,action.id,action.to);
   const forecast=inspectCell(before.state,config,action.to,action.id), time=clock(), snapshots=[];
   let botStarts=0;const sounds=[], movementSounds=[];
-  const context=vm.createContext({tableRattle:null,config,state:result.state,combat:null,roomMovePreview: null, movement:null,currentDeaths:[],reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false,lastTurn:null,gamePhase:'playing',editor:false,playMode:mode,humanTeam:0,
+  const context=vm.createContext({tableRattle:null,battleIntro:null,config,state:result.state,combat:null,roomMovePreview: null, movement:null,currentDeaths:[],reviewTurn: null, reviewLoading: false, reviewRequest: 0, reviewingTurn: false,lastTurn:null,gamePhase:'playing',editor:false,playMode:mode,humanTeam:0,
     ready:true,botIssue:'',botSuspended:false,botTimer:null,botRunner:{active:false},$:()=>null,lethalAttackPresentation,analyze,inspectCell,selected:null,fieldView:null,history:[],
     movementPath,createMovementPlan,matchMedia:()=>({matches:false}),point:({q,r})=>({x:q*50,y:r*50}),
     gameAudio:{

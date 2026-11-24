@@ -150,7 +150,7 @@ test('real-game bot waits while the guide is open, including an already schedule
   const app = fs.readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   let scheduled, starts = 0;
   const guide = { hidden: false };
-  const context = vm.createContext({ ready: true, isBotTurn: () => true, movement: null, combat: null,
+  const context = vm.createContext({ ready: true, battleIntro: null, isBotTurn: () => true, movement: null, combat: null,
     currentDeaths: [], reviewingTurn: false, botIssue: '', botSuspended: false, botRunner: { active: false }, botTimer: null,
     $: selector => selector === '#rules-dialog' ? guide : null,
     setTimeout(fn) { scheduled = fn; return 1; }, startBot() { starts++; } });

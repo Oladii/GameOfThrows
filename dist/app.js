@@ -19,8 +19,7 @@ import { TableRattle } from './table-rattle.js';
 import { BoardDrag } from './board-drag.js';
 const $ = selector => document.querySelector(selector);
 const gameAudio = new GameAudio();
-// Leave time for both control samples and for the dialog to leave the screen.
-const START_CUE_DELAY = 240;
+const BATTLE_INTRO_DURATION = 1000;
 const soundButton = $('#sound-toggle');
 const soundControl = $('#sound-control'), soundScale = $('#sound-scale'), soundVolume = $('#sound-volume');
 function renderSoundButton() {
@@ -132,6 +131,7 @@ let config = clone(DEFAULT_CONFIG), state = createGame(config), history = [], lo
 let gameVersion = CURRENT_GAME_VERSION, latestVersion = null, latestRulesVersion = null, versionCheckPending = false;
 let firstMove = DEFAULT_START_CHOICES.firstMove;
 let gamePhase = 'setup', positionKind = 'default', previousGame = null;
+let battleIntro = null;
 let botDifficulty = DEFAULT_START_CHOICES.botDifficulty;
 let startPreferences = null;
 let playMode = 'bot', humanTeam = DEFAULT_START_CHOICES.humanTeam, lastTurn = null, reviewingTurn = false, botTimer = null, botIssue = '', botSuspended = false;
@@ -148,7 +148,7 @@ const hintVoice = createHintVoice();
 let hint = null, hintThinkingTimer = null;
 function clearHint() { hintRunner.cancel(); clearInterval(hintThinkingTimer); hintThinkingTimer = null; hint = null; }
 function hintPositionKey() { return JSON.stringify({ state, config }); }
-function canRequestHint(position = state) { return playMode !== 'online' && gamePhase === 'playing' && !editor && !reviewingTurn && !isBotTurn(position) && position.winner === null; }
+function canRequestHint(position = state) { return playMode !== 'online' && gamePhase === 'playing' && !battleIntro && !editor && !reviewingTurn && !isBotTurn(position) && position.winner === null; }
 function setFooterDisabled(button, disabled, visiblyDisabled = disabled) {
   button.disabled = disabled;
   button.dataset.visiblyDisabled = String(visiblyDisabled);
@@ -390,7 +390,27 @@ function positionText(p) { return `${p.q}, ${p.r}`; }
 function startingTeam() { return firstMove === 'random' ? Math.floor(Math.random() * 2) : firstMove === 'south' ? 1 : 0; }
 function visibleState() { return movement?.before.state ?? combat?.visiblePosition ?? roomMovePreview?.position ?? reviewTurn?.before.state ?? state; }
 function isBotTurn(position = state) { return gamePhase === 'playing' && playMode === 'bot' && position.turn !== humanTeam && position.winner === null && !editor; }
-function humanCanMove(position = state, ignorePresentation = false) { return gamePhase === 'playing' && (ignorePresentation || (!tableRattle?.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !reviewLoading)) && !reviewingTurn && !isBotTurn(position) && position.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
+function humanCanMove(position = state, ignorePresentation = false) { return gamePhase === 'playing' && !battleIntro && (ignorePresentation || (!tableRattle?.active && !roomMovePreview && !movement && !combat && !currentDeaths.length && !reviewLoading)) && !reviewingTurn && !isBotTurn(position) && position.winner === null && (playMode !== 'online' || roomView?.canMove === true); }
+function cancelBattleIntro() {
+  if (battleIntro) clearTimeout(battleIntro.timer);
+  battleIntro = null;
+}
+function startBattleIntro(room = null) {
+  cancelBattleIntro();
+  const intro = { room, timer: null, pendingView: null };
+  battleIntro = intro;
+  intro.timer = setTimeout(() => {
+    if (battleIntro !== intro) return;
+    battleIntro = null;
+    const canPlayCue = () => room
+      ? playMode === 'online' && !roomLeaving && roomView?.selfSeat != null && roomSnapshot?.phase === 'playing'
+        && roomSnapshot.roomId === room.roomId && roomSnapshot.matchId === room.matchId
+      : playMode !== 'online' && gamePhase === 'playing' && !battleIntro && state.ply === 0;
+    render();
+    if (canPlayCue()) gameAudio.playGameStart(canPlayCue);
+    if (intro.pendingView) applyRoomView(intro.pendingView);
+  }, BATTLE_INTRO_DURATION);
+}
 function cancelBot() { clearTimeout(botTimer); botTimer = null; botRunner.cancel(); }
 function cancelMovement() {
   tableRattle?.cancel(); roomMovePreview = null;
@@ -398,7 +418,7 @@ function cancelMovement() {
   movement?.stopRestore?.(); movement?.sound?.cancel(); combat?.stopRemoval?.();
   moveAnimator.cancel(); movement = null; combatAnimator.cancel(); combat = null;
 }
-function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
+function resetBotContext(clearLastTurn = true) { reviewRequest++; reviewLoading = false; reviewTurn = null; clearHint(); cancelBattleIntro(); cancelBot(); cancelMovement(); gameAudio.stopAll(); if (clearLastTurn) lastTurn = null; reviewingTurn = false; botIssue = ''; botSuspended = false; }
 function completeMovementPresentation(completed) {
   if (!completed) return;
   if (completed.startTimer != null) clearTimeout(completed.startTimer);
@@ -506,7 +526,7 @@ function recentBotHistory() {
   return recent;
 }
 function queueBot() {
-  if (!ready || !isBotTurn() || movement || combat || currentDeaths.length || reviewingTurn || botIssue || botSuspended || $('#rules-dialog')?.hidden === false || $('dialog[open]') || botRunner.active || botTimer !== null) return;
+  if (!ready || battleIntro || !isBotTurn() || movement || combat || currentDeaths.length || reviewingTurn || botIssue || botSuspended || $('#rules-dialog')?.hidden === false || $('dialog[open]') || botRunner.active || botTimer !== null) return;
   botTimer = setTimeout(() => { botTimer = null; if (isBotTurn() && !movement && !combat && !reviewingTurn && $('#rules-dialog')?.hidden !== false && !$('dialog[open]')) startBot(); }, 420);
 }
 function startBot() {
@@ -753,7 +773,7 @@ function matchResult(position) {
   let reason = '';
   if (winner === 'draw') {
     if (loss[0] && loss[0] === loss[1]) {
-      reason = { flag: 'Знамёна обеих сторон уничтожены', combat: 'У обеих сторон уничтожены все лучники и щитоносцы', all: 'Все фигуры обеих сторон уничтожены' }[loss[0]];
+      reason = { flag: 'Знамёна обеих сторон уничтожены', combat: 'У обеих сторон уничтожены все лучники и щитоносцы', all: 'Все войска разбиты' }[loss[0]];
     } else if (loss[0] && loss[1]) {
       reason = loss.map((kind, team) => kind === 'flag' ? `Знамя ${team === 0 ? 'Синих' : 'Красных'} уничтожено` : `У ${team === 0 ? 'Синих' : 'Красных'} уничтожены все лучники и щитоносцы`).join('. ');
     }
@@ -894,8 +914,7 @@ function render(deaths = [], restoredIds) {
   tableKnocks?.reset();
   if (typeof browserAnalytics !== 'undefined') queueMicrotask(trackGameTime);
   // Keep the current board behind the start dialog while its draft is edited.
-  if (previousGame && gamePhase === 'setup' && !editor
-      && ($('#start-dialog').open || $('#start-dialog').dataset?.starting)) { renderStartSettings(); save(); return; }
+  if (previousGame && gamePhase === 'setup' && !editor && $('#start-dialog').open) { renderStartSettings(); save(); return; }
   if (hint && (hint.positionKey !== hintPositionKey() || !canRequestHint())) clearHint();
   if (hint) selected = null;
   renderHint();
@@ -915,9 +934,10 @@ function render(deaths = [], restoredIds) {
   report = combat?.report ?? (movement?.undoSteps || movement?.finishReview ? movement.forecast.report : analyze(state, config));
   const p = state.pieces.find(p => p.id === selected); if (!p) selected = null;
   available = p && !editor && humanCanMove() && p.team === state.turn && state.winner === null ? reachable(p, state, config) : [];
+  $('#board').dataset.intro = String(Boolean(battleIntro));
   boardMarkup(restoredIds); paintAuras(); highlightSources();
   boardDrag?.refresh();
-  $('#board').setAttribute('aria-busy', String(Boolean(movement || combat && combat.phase !== 'review')));
+  $('#board').setAttribute('aria-busy', String(Boolean(battleIntro || movement || combat && combat.phase !== 'review')));
   $('#board').setAttribute('data-combat-phase', combat?.phase || 'idle');
   renderGameResult(state);
   renderScoreboard(state);
@@ -1070,7 +1090,7 @@ $('#undo').addEventListener('click', () => {
 function openStartSettings() {
   if (playMode === 'online' || gamePhase !== 'setup' || editor || refreshingNewGame) return;
   const dialog = $('#start-dialog');
-  if (!dialog.open && !dialog.dataset?.starting) dialog.showModal();
+  if (!dialog.open) dialog.showModal();
 }
 function cancelStartRefresh() {
   startRefreshController?.abort(); startRefreshController = null; refreshingNewGame = false;
@@ -1107,26 +1127,13 @@ function startGame() {
     startPreferences = currentStartPreferences();
     resetBotContext(); state = next; gamePhase = 'playing'; positionKind = classifyPosition(state, config); gameVersion = CURRENT_GAME_VERSION;
     archiveRecorder.start(archiveGameMetadata());
+    startBattleIntro();
     history = []; log = []; previousGame = null; selected = null; $('#start-dialog').close(); render();
-    gameAudio.playGameStart();
   } catch (error) { toast(error.message); }
 }
 $('#start-setup').addEventListener('click', openStartSettings);
 $('#new-game').addEventListener('click', openNewGame);
-$('#start-game').addEventListener('click', () => {
-  const dialog = $('#start-dialog');
-  if (!dialog.open || dialog.dataset.starting || refreshingNewGame) return;
-  if ($('#play-mode').value === 'online' || hasNewerGameVersion(CURRENT_RULES_VERSION, latestRulesVersion)) {
-    startGame();
-    return;
-  }
-  dialog.dataset.starting = 'true';
-  dialog.close();
-  setTimeout(() => {
-    delete dialog.dataset.starting;
-    startGame();
-  }, START_CUE_DELAY);
-});
+$('#start-game').addEventListener('click', startGame);
 function returnToGame() {
   if (playMode === 'online' || !previousGame || gamePhase !== 'setup') return;
   cancelStartRefresh();
@@ -1303,11 +1310,20 @@ function applyRoomView(view) {
   const previousView = roomView, previous = roomSnapshot, next = view.snapshot;
   if (next && roomTarget && next.roomId !== roomTarget) return;
   if (next && previous && next.revision < previous.revision) return;
+  const openingRoom = battleIntro?.room;
+  const introCancelled = openingRoom && (view.status === 'closed' || next && (
+    next.roomId !== openingRoom.roomId || next.matchId !== openingRoom.matchId || next.phase !== 'playing'));
+  if (introCancelled) cancelBattleIntro();
+  else if (openingRoom && next?.state && (next.state.ply > 0 || next.state.winner !== null)) {
+    // Keep the opening position visible even if a peer has already started their turn.
+    if (!battleIntro.pendingView || next.revision >= battleIntro.pendingView.snapshot.revision) battleIntro.pendingView = view;
+    return;
+  }
   roomView = view;
   if (view.status === 'connected' && view.error === null) roomError = '';
   if (view.status === 'closed' && roomMovePreview) { cancelMovement(); render(); }
   if (!next || previous?.roomId === next.roomId && previous.revision === next.revision) {
-    if (!movement && !combat && !currentDeaths.length && previousView?.canMove !== view.canMove) render();
+    if (!movement && !combat && !currentDeaths.length && (introCancelled || previousView?.canMove !== view.canMove)) render();
     else renderOnlineRoom();
     return;
   }
@@ -1341,18 +1357,17 @@ function applyRoomView(view) {
   if (action && next.state && action.matchId === next.matchId && action.beforeState.ply + 1 === next.state.ply) {
     lastTurn = { before: { ...currentSnapshot(), state: clone(action.beforeState) }, action: clone(action.action) };
   }
+  if (previous?.roomId === next.roomId && previous.phase === 'waiting' && next.phase === 'playing'
+      && next.matchId && next.matchId !== previous.matchId && next.state?.ply === 0 && next.state.winner === null
+      && view.status === 'connected') {
+    startBattleIntro({ roomId: next.roomId, matchId: next.matchId });
+  }
   if (confirmsPreview) {
     preview.confirmed = true;
     if (movement?.preview === preview) { movement.deaths = action.deaths || []; render(); }
     else { roomMovePreview = null; presentKills(preview.before, preview.forecast, action.deaths || []); }
   } else if (animate) { presentMove(before, action.action, action.deaths || []); }
   else render();
-  if (previous?.roomId === next.roomId && previous.phase === 'waiting' && next.phase === 'playing'
-      && next.matchId && next.matchId !== previous.matchId && view.selfSeat != null
-      && view.status === 'connected') {
-    setTimeout(() => gameAudio.playGameStart(() => playMode === 'online' && roomSnapshot?.phase === 'playing'
-      && roomSnapshot.roomId === next.roomId && roomSnapshot.matchId === next.matchId), START_CUE_DELAY);
-  }
 }
 async function connectOnlineRoom() {
   if (playMode !== 'online' || roomConnecting || roomView?.snapshot) return;
@@ -1403,6 +1418,7 @@ async function sendRoomMove(action) {
 async function leaveOnlineRoom() {
   if (playMode !== 'online' || roomLeaving) return;
   roomLeaving = true; $('#room-leave').disabled = true;
+  cancelBattleIntro();
   const session = roomSession;
   roomSession = null;
   // Stop receiving snapshots immediately, including an in-flight create or join.
@@ -1479,7 +1495,9 @@ function renderFirstMoveNotice() {
   const key = `room-first-move:${snapshot.roomId}:${snapshot.matchId}:${snapshot.self.guestId}`;
   if (roomFirstMoveNotices.has(key)) return;
   try { if (sessionStorage.getItem(key)) { roomFirstMoveNotices.add(key); return; } } catch { /* In-memory tracking still prevents repeat polls. */ }
-  $('#first-move-message').textContent = neitherWantsFirst ? `Никто не хотел ходить первым, но удача оказалась на стороне ${choice.team === 0 ? 'Синего' : 'Красного'}.` : `${choice.team === 0 ? 'Синий' : 'Красный'} тоже хотел ходить первым, и удача оказалась на его стороне.`;
+  $('#first-move-message').textContent = neitherWantsFirst
+    ? 'Никто не хотел ходить первым. Но кто-то должен сделать первый шаг, и этот кто-то — вы'
+    : `${choice.team === 0 ? 'Синий' : 'Красный'} тоже хотел ходить первым, и удача оказалась\nна его стороне`;
   if (!dialog.open) dialog.showModal();
   roomFirstMoveNotices.add(key);
   try { sessionStorage.setItem(key, 'shown'); } catch { /* Storage can be unavailable. */ }
@@ -1494,7 +1512,7 @@ function renderOnlineRoom() {
   for (const id of ['show-hint', 'undo']) $('#' + id).hidden = online;
   const board = $('.board-wrap'), roomWaiting = online && (!snapshot || waiting || closed);
   board.hidden = online && (closed || !desktop && roomWaiting);
-  board.inert = roomWaiting;
+  board.inert = roomWaiting || Boolean(battleIntro);
   document.body.classList.toggle('room-waiting', roomWaiting);
   $('.arena-top').hidden = desktop;
   for (const id of ['review-previous', 'review-current']) $('#' + id).hidden = online && (!snapshot || waiting || closed);
