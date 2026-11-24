@@ -91,7 +91,11 @@ export function createGuideController({ document: doc = globalThis.document, win
   function redrawShowcase(sceneKey='main') {
     const battle=sceneKey==='main'?onboardingShowcase:onboardingUnitBattles[sceneKey];
     if (onboardingStep !== (sceneKey==='main'?0:1) || !battle) return;
-    if (battle.phase === 'finished' && battle.position.winner !== 0 && !completedLessons.has(sceneKey)) { completedLessons.add(sceneKey); onAnalytics('lesson_complete',{lesson:sceneKey}); }
+    if (battle.phase === 'finished' && battle.position.winner !== 0 && !completedLessons.has(sceneKey)) {
+      completedLessons.add(sceneKey);
+      audio?.play('victory');
+      onAnalytics('lesson_complete', { lesson: sceneKey });
+    }
     const scene=showcaseScene(sceneKey);
     if (!scene) return;
     const focused = doc.activeElement?.closest?.('[data-showcase-cell]');

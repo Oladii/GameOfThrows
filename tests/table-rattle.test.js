@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { planTableRattlePaths, sampleTableRattle, sampleTableShake, tableRattlePhase, TableRattle, TableRattleAnimator,
+import { planTableRattlePaths, sampleTableRattle, tableRattlePhase, TableRattle, TableRattleAnimator,
   TABLE_RATTLE_DURATION, TABLE_RATTLE_REDUCED_DURATION, TABLE_RATTLE_SETTLED_AT,
   TABLE_RATTLE_DISAPPEAR_AT, TABLE_RATTLE_FADE_DURATION, TABLE_RATTLE_RETURN_AT } from '../dist/table-rattle.js';
 
@@ -128,12 +128,8 @@ test('converging throws on a packed board keep each centre visible throughout th
   assert.ok(closest < 47, 'neighbouring rims can still overlap');
 });
 
-test('table shake settles in 250ms and reduced motion has no spatial movement', () => {
-  assert.notEqual(sampleTableShake(35).x, 0);
-  assert.ok(Math.abs(sampleTableShake(230).x) < Math.abs(sampleTableShake(35).x));
-  assert.deepEqual(sampleTableShake(250), { x: 0, y: 0, rotation: 0 });
+test('reduced motion keeps pieces at their origins throughout the effect', () => {
   for (const t of [0, 75, 150, 220, 300, 450]) {
-    assert.deepEqual(sampleTableShake(t, true), { x: 0, y: 0, rotation: 0 });
     const frame = sampleTableRattle(t, piece, true);
     assert.equal(frame.x, 0); assert.equal(frame.y, 0); assert.equal(frame.rotation, 0); assert.equal(frame.scale, 1);
   }
@@ -194,6 +190,8 @@ test('removal sound runs once after the rest, with no extra death markup and a p
       doc: { createElementNS: () => { throw Error('no death or skull layer should be created'); } },
       surface: { style: {} }, board: { dataset: {} },
       onDisappear: () => { sounds++; return () => {}; } };
+    TableRattle.prototype.paint.call(context, 35, reduced);
+    assert.deepEqual(context.surface.style, {}, 'the grid stays still during the impact');
     TableRattle.prototype.paint.call(context, 250, reduced);
     const flightShadow = body.style.filter;
     for (const t of [520, 1000, TABLE_RATTLE_DISAPPEAR_AT - 1]) TableRattle.prototype.paint.call(context, t, reduced);

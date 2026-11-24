@@ -3,12 +3,11 @@ html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
 body.mobile-game{display:flex;flex-direction:column;height:100dvh;--mobile-soft-hover:#f2e9d7;--mobile-primary-border:#b88132;--mobile-disabled-ink:#817566}
 body>main{flex:1;min-height:0;width:100%;max-width:none;margin:0 auto;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 /* The viewport-edge banner supplies the status-bar tint in Safari. */
-.mobile-game .update-notice{position:sticky;top:0;padding:calc(12px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 12px calc(20px + env(safe-area-inset-left));font-size:14px;line-height:18px;white-space:pre-line}
-.mobile-game .update-notice:not([hidden])+main{padding-top:0}
+.mobile-game .update-notice{position:fixed;inset:0 0 auto;z-index:5;pointer-events:none;padding:calc(12px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 12px calc(20px + env(safe-area-inset-left));font-size:14px;line-height:18px;white-space:pre-line}
 main .workspace,main .arena-column{display:flex;flex-direction:column;align-items:stretch;width:100%;height:100%;min-height:0;gap:0;padding:0}
 .workspace>.left-panel,#mode-caption{display:none!important}
 main .arena-column>.arena-top{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) 48px;align-items:start;justify-content:normal;gap:0;min-height:62px;padding:4px 12px 0;border-radius:0;overflow:hidden}
-.mobile-game:not(.room-waiting) .arena-column>.arena-top{min-height:66px;padding-block:8px 4px}
+.mobile-game:not(.room-waiting) .arena-column>.arena-top{height:66px;min-height:66px;padding-block:8px 4px}
 #home-back{position:relative;isolation:isolate;width:48px;height:48px;padding:0;border:0;border-radius:50%;background:none}
 #home-back::before{content:"";position:absolute;inset:4px;z-index:-1;border-radius:inherit;background:var(--button-soft)}
 .mobile-game:not(.room-waiting) #home-back::before{inset:0}
@@ -81,14 +80,14 @@ body.mobile-game #rules-dialog.guide-screen{position:fixed;inset:0;height:100dvh
 .mobile-game .training-advice .unit-demo-controls .outline:is(:hover,:focus-visible){border-color:var(--line);background:var(--mint)}
 .mobile-game .training-advice .unit-demo-controls .outline:active{border-color:var(--line);background:#e6d9c0}
 
-main .arena-column>.arena{position:relative;display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:0;flex:1;min-width:0;min-height:0;width:100%;height:auto;padding:0;border:0;border-radius:0;box-shadow:none;overflow:hidden}
+main .arena-column>.arena{position:relative;display:grid;grid-template-rows:minmax(0,1fr) clamp(64px,16dvh,136px) 80px;gap:0;flex:1;min-width:0;min-height:0;width:100%;height:auto;padding:0;border:0;border-radius:0;box-shadow:none;overflow:hidden}
 #scoreboard{display:none}
-main .board-wrap{display:block;overflow:hidden;touch-action:none;align-self:stretch;min-height:0;min-width:0;width:100%;padding:0;margin:8px 0 0}
-main #board{display:block;width:100%;height:100%;min-height:0;max-height:none;padding:0;touch-action:none;transform-origin:0 0;-webkit-tap-highlight-color:transparent}
+main .board-wrap{display:block;grid-row:1;overflow:hidden;align-self:stretch;min-height:0;min-width:0;width:100%;padding:0;margin:8px 0 0}
+main #board{display:block;width:100%;height:100%;min-height:0;max-height:none;padding:0;-webkit-tap-highlight-color:transparent}
 #board,#board [data-cell],#board .tile{outline:none!important;box-shadow:none}
 body[data-keys] #board [data-cell]:focus .tile{filter:brightness(.86)}
 body.mobile-game,.mobile-game main,.mobile-game .arena-top,.mobile-game .arena,.mobile-game .board-wrap,.mobile-game .mobile-context,.mobile-game .board-footer{background:var(--surface)}
-.mobile-context{min-width:0;min-height:0}
+.mobile-context{grid-row:2;min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .mobile-context .move-hint{margin:0;padding:12px;font-size:14px;font-weight:400;line-height:20px;text-align:center}
 .mobile-context .hint-bubble{display:grid;gap:4px;padding:12px 16px 16px;border:1px solid var(--mobile-primary-border);border-radius:16px;background:var(--tile-default);filter:none}
 .mobile-context .hint-bubble p{margin:0}
@@ -107,7 +106,7 @@ body.mobile-game,.mobile-game main,.mobile-game .arena-top,.mobile-game .arena,.
 #move-actions #commit:active{border-color:#cdc5b5;background:#33543a;color:#e8e8e8}
 #move-actions #cancel-move:is(:active,:focus-visible){background:var(--mint)}
 #move-actions #commit:focus-visible{background:#33543a}
-main .board-footer{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:8px;margin:0;padding:8px 12px;border:0}
+main .board-footer{display:grid;grid-row:3;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;align-content:start;gap:8px;margin:0;padding:8px 12px;border:0}
 main .board-footer:has(#pass-turn:not([hidden])){grid-template-columns:repeat(5,minmax(0,1fr));column-gap:6px;padding-inline:12px}
 main .board-footer:has(#show-hint[hidden],#undo[hidden]){grid-template-columns:repeat(2,minmax(0,1fr))}
 main .board-footer>.turn-actions{display:contents}

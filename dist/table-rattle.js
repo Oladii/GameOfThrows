@@ -58,14 +58,6 @@ export function sampleTableRattle(elapsed, piece, reduced = false) {
     opacity: ease, shadowScale: 1 };
 }
 
-export function sampleTableShake(elapsed, reduced = false) {
-  if (reduced || elapsed < 0 || elapsed >= 250) return { x: 0, y: 0, rotation: 0 };
-  const p = elapsed / 250, weight = (1 - p) ** 2;
-  return { x: Math.sin(p * Math.PI * 6) * 6 * weight,
-    y: -Math.sin(p * Math.PI * 5) * 3 * weight,
-    rotation: Math.sin(p * Math.PI * 4) * .55 * weight };
-}
-
 export function tableRattlePhase(elapsed) {
   return elapsed < TABLE_RATTLE_SETTLED_AT ? 'scatter'
     : elapsed < TABLE_RATTLE_DISAPPEAR_AT ? 'rest'
@@ -210,9 +202,7 @@ export class TableRattle {
       // Reduced motion uses stationary pieces and does not need scatter paths.
       const reduced = this.media.matches;
       if (!reduced) planTableRattlePaths(tokens, bounds);
-      this.scene = { overlay, tokens, busy: this.board.getAttribute('aria-busy'),
-        transform: this.surface.style.getPropertyValue('transform'),
-        priority: this.surface.style.getPropertyPriority('transform') };
+      this.scene = { overlay, tokens, busy: this.board.getAttribute('aria-busy') };
       this.board.insertBefore(overlay, source);
       this.surface.classList.add('table-rattle-active');
       this.board.setAttribute('aria-busy', 'true');
@@ -228,8 +218,6 @@ export class TableRattle {
       this.scene.disappearStarted = true;
       this.scene.stopDisappear = this.onDisappear();
     }
-    const shake = sampleTableShake(elapsed, reduced);
-    this.surface.style.transform = `translate(${shake.x}px,${shake.y}px) rotate(${shake.rotation}deg)`;
     this.board.dataset.tableRattlePhase = (reduced ? 'reduced-' : '') + tableRattlePhase(elapsed);
     const shadowsVisible = elapsed < TABLE_RATTLE_DISAPPEAR_AT + TABLE_RATTLE_FADE_DURATION;
     for (const token of this.scene.tokens) {
@@ -256,8 +244,6 @@ export class TableRattle {
       if (body) body.style.filter = bodyFilter;
     }
     scene.overlay.remove(); this.surface.classList.remove('table-rattle-active');
-    if (scene.transform) this.surface.style.setProperty('transform', scene.transform, scene.priority);
-    else this.surface.style.removeProperty('transform');
     if (scene.busy === null) this.board.removeAttribute('aria-busy');
     else this.board.setAttribute('aria-busy', scene.busy);
     delete this.board.dataset.tableRattlePhase;

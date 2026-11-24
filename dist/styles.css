@@ -967,17 +967,20 @@ main{padding:14px}
 .arena-column{min-width:0;display:flex;flex-direction:column;gap:12px}
 .arena-column>.arena-top{height:auto;min-height:20px;padding:0 10px}
 .arena-top .move-counter{font-size:13px;font-weight:600;line-height:20px;color:#66502c}
-@media(min-width:701px){
-body:not(.mobile-game,.guide-open){min-height:100dvh;display:flex;flex-direction:column}
-body:not(.mobile-game,.guide-open)>main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto}
-body:not(.mobile-game)>main>.workspace{flex:1;min-height:522px;grid-template-rows:minmax(0,1fr);align-items:stretch}
-body:not(.mobile-game) .left-panel{display:flex;flex-direction:column;max-height:none;overflow:visible;padding-bottom:16px}
+body:not(.mobile-game,.guide-open){height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+body:not(.mobile-game,.guide-open)>main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;margin:0 auto}
+body:not(.mobile-game)>main>.workspace{flex:1;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+body:not(.mobile-game) .left-panel{display:flex;flex-direction:column;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;padding-bottom:16px}
 body:not(.mobile-game) .left-panel>*{flex-shrink:0}
 body:not(.mobile-game) .left-panel>.panel-footer{margin-top:auto;padding-top:16px}
-body:not(.mobile-game) .arena-column{contain:size}
+body:not(.mobile-game) .arena-column{position:relative;min-height:0;contain:size}
 body:not(.mobile-game) .arena-column>.arena{height:auto;min-height:0;flex:1}
 body:not(.mobile-game) .board-wrap{display:flex;align-items:flex-start;justify-content:center}
 body:not(.mobile-game) #board{height:100%;width:100%;min-height:0;max-height:none}
+@media(max-width:700px){
+body:not(.mobile-game)>main>.workspace{grid-template-rows:minmax(0,24%) minmax(0,1fr);gap:12px}
+body:not(.mobile-game) .left-panel{grid-row:1;min-width:0;padding:0}
+body:not(.mobile-game) .arena-column{grid-row:2}
 }
 
 /* A stacked roster collapses to a single compact result card. */
@@ -1000,13 +1003,14 @@ body:not(.mobile-game) #board{height:100%;width:100%;min-height:0;max-height:non
 
 #sound-toggle[aria-expanded="false"] [data-sound-icon="close"],#sound-toggle[aria-expanded="true"] [data-sound-icon="on"],#sound-toggle[aria-expanded="true"] [data-sound-icon="off"]{display:none}
 
-/* Temporary presentation layer for the double table knock. */
-.board-wrap.table-rattle-active{transform-origin:50% 55%;will-change:transform;isolation:isolate}
-
 /* Desktop game frame, room controls and guide. */
 .mobile-game .desktop-only{display:none!important}
 body:not(.mobile-game) .arena-column{gap:12px}
 body:not(.mobile-game) .arena{display:flex;flex-direction:column;gap:16px;padding:12px;border-radius:24px;box-shadow:none;container:game-arena / inline-size;-webkit-user-select:none;user-select:none}
+body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden])){display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.scoreboard{grid-row:1;height:72px}
+body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.board-wrap{grid-row:2}
+body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.board-footer{grid-row:3;height:56px}
 body:not(.mobile-game) .arena>.board-wrap{min-height:0;margin:0 12px;padding:8px 0 0;flex:1}
 body:not(.mobile-game) .arena>.board-footer{flex-shrink:0;margin:0 4px;padding:12px 0 3px}
 body:not(.mobile-game).online-room .arena>.board-footer{border-top:0;padding-top:0}
@@ -1080,7 +1084,8 @@ body:not(.mobile-game) .match-result-reason{font-size:13px;font-weight:500;line-
   font-size:13px;line-height:20px;text-align:center
 }
 .room-banner{background:#fbe2e2;color:#853327}
-body:not(.mobile-game)>.update-notice{margin:20px 20px 0}
+body:not(.mobile-game) .arena-column>.room-banner{position:absolute;inset:0 0 auto;z-index:4;pointer-events:none}
+body:not(.mobile-game)>.update-notice{position:fixed;inset:4px 24px auto;z-index:5;pointer-events:none}
 body:not(.mobile-game) #room-connected{display:grid;gap:4px}
 body:not(.mobile-game).online-room .panel-actions{display:none}
 body:not(.mobile-game) .room-panel h2{font-size:14px;line-height:20px}
@@ -1252,7 +1257,7 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
 @media(min-width:701px){
   body:not(.mobile-game) #onboarding-progress{position:absolute;inset:45px 22% auto}
   body:not(.mobile-game) .guide-screen:has(.badge-guide,.guide-theory) #onboarding-progress{top:43px}
-  body:not(.mobile-game)>.update-notice{margin-left:360px}
+  body:not(.mobile-game)>.update-notice{left:max(360px,calc((100vw - 1800px)/2 + 360px))}
 }
 @media(max-width:700px){
   body:not(.mobile-game) .guide-toolbar{margin-bottom:12px}
@@ -1262,11 +1267,14 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
 }
 @container game-arena (width < 550px){
   body:not(.mobile-game) .scoreboard{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.scoreboard{height:128px}
   body:not(.mobile-game) .scoreboard>.team-card:not(.match-result){--team-flag-width:44px}
   body:not(.mobile-game) .scoreboard>.team-card.north:not(.match-result){grid-area:1/2}
   body:not(.mobile-game) .turn-badge{grid-area:2/1/3/3}
 }
 @container game-arena (width < 370px){
+  body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.scoreboard{height:176px}
+  body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.board-footer{height:96px}
   body:not(.mobile-game) .scoreboard>.team-card:is(.south,.north):not(.match-result){padding:48px 0 0}
   body:not(.mobile-game) .scoreboard>.team-card:not(.match-result)::before{height:44px}
 }

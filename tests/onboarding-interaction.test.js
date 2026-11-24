@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createGuideController } from '../dist/guide-controller.js';
-import { UNIT_BATTLE_SCENES } from '../dist/onboarding-showcase.js';
+import { createUnitBattle, UNIT_BATTLE_SCENES } from '../dist/onboarding-showcase.js';
+
+function setupAudio() {
+  const sounds = [];
+  const ui = setup({ stopAll() {}, click() {}, movement() {}, play(sound) { sounds.push(sound); } });
+  return { ui, victories: () => sounds.filter(sound => sound === 'victory').length };
+}
 
 // Small DOM adapter: controllers and renderers are real; only browser plumbing is stubbed.
 function setup(audio) {
@@ -93,7 +99,7 @@ test('clicking the selected tutorial piece or its cell plays the soft click', ()
 });
 
 test('tutorial accepts its guided move, pauses after the enemy and resumes only with Дальше', () => {
-  const ui = setup(); ui.controller.open();
+  const { ui, victories } = setupAudio(); ui.controller.open();
   ui.click('main', { showcasePiece: 's-shield-right' });
   ui.click('main', { showcaseCell: '-1,0' });
   assert.match(ui.html('main'), /data-ply="0"/);
@@ -106,12 +112,38 @@ test('tutorial accepts its guided move, pauses after the enemy and resumes only 
   assert.match(ui.html('main'), /data-phase="awaiting-combat"/);
   ui.click('main', { showcaseAction: 'continue' }); ui.flush();
   assert.match(ui.html('main'), /data-ply="2"/);
+  assert.equal(victories(), 0);
   ui.click('main', { showcasePiece: 's-shield-left' });
   ui.click('main', { showcaseCell: '0,-1' }); ui.flush();
   assert.match(ui.html('main'), /Победа!/);
+  assert.equal(victories(), 1);
   assert.match(ui.html('main'), /Сыграть ещё раз/);
   ui.click('main', { showcaseAction: 'restart' });
   assert.match(ui.html('main'), /data-ply="0"/);
+});
+
+test('each figure exercise plays the victory cue once, including demonstrations without a battle winner', () => {
+  const { ui, victories } = setupAudio();
+  ui.controller.open();
+  ui.controller.goToStep(1);
+  const complete = key => {
+    const before = victories();
+    const { actions } = createUnitBattle(key);
+    for (const [index, { id, to }] of actions.entries()) {
+      ui.click(key, { showcasePiece: id });
+      ui.click(key, { showcaseCell: `${to.q},${to.r}` });
+      ui.flush();
+      assert.equal(victories(), before + Number(index === actions.length - 1), key);
+    }
+  };
+  for (const key of UNIT_BATTLE_SCENES) complete(key);
+  ui.controller.goToStep(0);
+  ui.controller.goToStep(1);
+  assert.equal(victories(), UNIT_BATTLE_SCENES.length);
+  const key = UNIT_BATTLE_SCENES[0];
+  ui.click(key, { showcaseAction: 'restart' });
+  complete(key);
+  assert.equal(victories(), UNIT_BATTLE_SCENES.length + 1);
 });
 
 test('seven demos keep their own positions, restart independently and reset on reopening', () => {

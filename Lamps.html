@@ -981,17 +981,20 @@ main{padding:14px}
 .arena-column{min-width:0;display:flex;flex-direction:column;gap:12px}
 .arena-column>.arena-top{height:auto;min-height:20px;padding:0 10px}
 .arena-top .move-counter{font-size:13px;font-weight:600;line-height:20px;color:#66502c}
-@media(min-width:701px){
-body:not(.mobile-game,.guide-open){min-height:100dvh;display:flex;flex-direction:column}
-body:not(.mobile-game,.guide-open)>main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto}
-body:not(.mobile-game)>main>.workspace{flex:1;min-height:522px;grid-template-rows:minmax(0,1fr);align-items:stretch}
-body:not(.mobile-game) .left-panel{display:flex;flex-direction:column;max-height:none;overflow:visible;padding-bottom:16px}
+body:not(.mobile-game,.guide-open){height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+body:not(.mobile-game,.guide-open)>main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;margin:0 auto}
+body:not(.mobile-game)>main>.workspace{flex:1;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+body:not(.mobile-game) .left-panel{display:flex;flex-direction:column;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;padding-bottom:16px}
 body:not(.mobile-game) .left-panel>*{flex-shrink:0}
 body:not(.mobile-game) .left-panel>.panel-footer{margin-top:auto;padding-top:16px}
-body:not(.mobile-game) .arena-column{contain:size}
+body:not(.mobile-game) .arena-column{position:relative;min-height:0;contain:size}
 body:not(.mobile-game) .arena-column>.arena{height:auto;min-height:0;flex:1}
 body:not(.mobile-game) .board-wrap{display:flex;align-items:flex-start;justify-content:center}
 body:not(.mobile-game) #board{height:100%;width:100%;min-height:0;max-height:none}
+@media(max-width:700px){
+body:not(.mobile-game)>main>.workspace{grid-template-rows:minmax(0,24%) minmax(0,1fr);gap:12px}
+body:not(.mobile-game) .left-panel{grid-row:1;min-width:0;padding:0}
+body:not(.mobile-game) .arena-column{grid-row:2}
 }
 
 /* A stacked roster collapses to a single compact result card. */
@@ -1014,13 +1017,14 @@ body:not(.mobile-game) #board{height:100%;width:100%;min-height:0;max-height:non
 
 #sound-toggle[aria-expanded="false"] [data-sound-icon="close"],#sound-toggle[aria-expanded="true"] [data-sound-icon="on"],#sound-toggle[aria-expanded="true"] [data-sound-icon="off"]{display:none}
 
-/* Temporary presentation layer for the double table knock. */
-.board-wrap.table-rattle-active{transform-origin:50% 55%;will-change:transform;isolation:isolate}
-
 /* Desktop game frame, room controls and guide. */
 .mobile-game .desktop-only{display:none!important}
 body:not(.mobile-game) .arena-column{gap:12px}
 body:not(.mobile-game) .arena{display:flex;flex-direction:column;gap:16px;padding:12px;border-radius:24px;box-shadow:none;container:game-arena / inline-size;-webkit-user-select:none;user-select:none}
+body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden])){display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.scoreboard{grid-row:1;height:72px}
+body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.board-wrap{grid-row:2}
+body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.board-footer{grid-row:3;height:56px}
 body:not(.mobile-game) .arena>.board-wrap{min-height:0;margin:0 12px;padding:8px 0 0;flex:1}
 body:not(.mobile-game) .arena>.board-footer{flex-shrink:0;margin:0 4px;padding:12px 0 3px}
 body:not(.mobile-game).online-room .arena>.board-footer{border-top:0;padding-top:0}
@@ -1094,7 +1098,8 @@ body:not(.mobile-game) .match-result-reason{font-size:13px;font-weight:500;line-
   font-size:13px;line-height:20px;text-align:center
 }
 .room-banner{background:#fbe2e2;color:#853327}
-body:not(.mobile-game)>.update-notice{margin:20px 20px 0}
+body:not(.mobile-game) .arena-column>.room-banner{position:absolute;inset:0 0 auto;z-index:4;pointer-events:none}
+body:not(.mobile-game)>.update-notice{position:fixed;inset:4px 24px auto;z-index:5;pointer-events:none}
 body:not(.mobile-game) #room-connected{display:grid;gap:4px}
 body:not(.mobile-game).online-room .panel-actions{display:none}
 body:not(.mobile-game) .room-panel h2{font-size:14px;line-height:20px}
@@ -1266,7 +1271,7 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
 @media(min-width:701px){
   body:not(.mobile-game) #onboarding-progress{position:absolute;inset:45px 22% auto}
   body:not(.mobile-game) .guide-screen:has(.badge-guide,.guide-theory) #onboarding-progress{top:43px}
-  body:not(.mobile-game)>.update-notice{margin-left:360px}
+  body:not(.mobile-game)>.update-notice{left:max(360px,calc((100vw - 1800px)/2 + 360px))}
 }
 @media(max-width:700px){
   body:not(.mobile-game) .guide-toolbar{margin-bottom:12px}
@@ -1276,11 +1281,14 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
 }
 @container game-arena (width < 550px){
   body:not(.mobile-game) .scoreboard{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.scoreboard{height:128px}
   body:not(.mobile-game) .scoreboard>.team-card:not(.match-result){--team-flag-width:44px}
   body:not(.mobile-game) .scoreboard>.team-card.north:not(.match-result){grid-area:1/2}
   body:not(.mobile-game) .turn-badge{grid-area:2/1/3/3}
 }
 @container game-arena (width < 370px){
+  body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.scoreboard{height:176px}
+  body:not(.mobile-game) .arena:has(>.board-wrap:not([hidden]))>.board-footer{height:96px}
   body:not(.mobile-game) .scoreboard>.team-card:is(.south,.north):not(.match-result){padding:48px 0 0}
   body:not(.mobile-game) .scoreboard>.team-card:not(.match-result)::before{height:44px}
 }
@@ -1499,7 +1507,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.60">v0.1.141</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-24T22:48:03.024Z">Сборка 25.11.2026, 01:48:03 МСК</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.60">v0.1.141</span> · <span id="version-channel">Локально</span></span><span id="version-build" data-built-at="2026-11-24T22:55:41.255Z">Сборка 25.11.2026, 01:55:41 МСК</span></span></div>
       </aside>
       <div class="arena-column">
         <p id="room-banner" class="room-banner desktop-only" role="status" aria-live="polite" hidden></p>
@@ -4421,14 +4429,6 @@ function sampleTableRattle(elapsed, piece, reduced = false) {
     opacity: ease, shadowScale: 1 };
 }
 
-function sampleTableShake(elapsed, reduced = false) {
-  if (reduced || elapsed < 0 || elapsed >= 250) return { x: 0, y: 0, rotation: 0 };
-  const p = elapsed / 250, weight = (1 - p) ** 2;
-  return { x: Math.sin(p * Math.PI * 6) * 6 * weight,
-    y: -Math.sin(p * Math.PI * 5) * 3 * weight,
-    rotation: Math.sin(p * Math.PI * 4) * .55 * weight };
-}
-
 function tableRattlePhase(elapsed) {
   return elapsed < TABLE_RATTLE_SETTLED_AT ? 'scatter'
     : elapsed < TABLE_RATTLE_DISAPPEAR_AT ? 'rest'
@@ -4573,9 +4573,7 @@ class TableRattle {
       // Reduced motion uses stationary pieces and does not need scatter paths.
       const reduced = this.media.matches;
       if (!reduced) planTableRattlePaths(tokens, bounds);
-      this.scene = { overlay, tokens, busy: this.board.getAttribute('aria-busy'),
-        transform: this.surface.style.getPropertyValue('transform'),
-        priority: this.surface.style.getPropertyPriority('transform') };
+      this.scene = { overlay, tokens, busy: this.board.getAttribute('aria-busy') };
       this.board.insertBefore(overlay, source);
       this.surface.classList.add('table-rattle-active');
       this.board.setAttribute('aria-busy', 'true');
@@ -4591,8 +4589,6 @@ class TableRattle {
       this.scene.disappearStarted = true;
       this.scene.stopDisappear = this.onDisappear();
     }
-    const shake = sampleTableShake(elapsed, reduced);
-    this.surface.style.transform = `translate(${shake.x}px,${shake.y}px) rotate(${shake.rotation}deg)`;
     this.board.dataset.tableRattlePhase = (reduced ? 'reduced-' : '') + tableRattlePhase(elapsed);
     const shadowsVisible = elapsed < TABLE_RATTLE_DISAPPEAR_AT + TABLE_RATTLE_FADE_DURATION;
     for (const token of this.scene.tokens) {
@@ -4619,8 +4615,6 @@ class TableRattle {
       if (body) body.style.filter = bodyFilter;
     }
     scene.overlay.remove(); this.surface.classList.remove('table-rattle-active');
-    if (scene.transform) this.surface.style.setProperty('transform', scene.transform, scene.priority);
-    else this.surface.style.removeProperty('transform');
     if (scene.busy === null) this.board.removeAttribute('aria-busy');
     else this.board.setAttribute('aria-busy', scene.busy);
     delete this.board.dataset.tableRattlePhase;
@@ -5439,7 +5433,11 @@ function createGuideController({ document: doc = globalThis.document, window: wi
   function redrawShowcase(sceneKey='main') {
     const battle=sceneKey==='main'?onboardingShowcase:onboardingUnitBattles[sceneKey];
     if (onboardingStep !== (sceneKey==='main'?0:1) || !battle) return;
-    if (battle.phase === 'finished' && battle.position.winner !== 0 && !completedLessons.has(sceneKey)) { completedLessons.add(sceneKey); onAnalytics('lesson_complete',{lesson:sceneKey}); }
+    if (battle.phase === 'finished' && battle.position.winner !== 0 && !completedLessons.has(sceneKey)) {
+      completedLessons.add(sceneKey);
+      audio?.play('victory');
+      onAnalytics('lesson_complete', { lesson: sceneKey });
+    }
     const scene=showcaseScene(sceneKey);
     if (!scene) return;
     const focused = doc.activeElement?.closest?.('[data-showcase-cell]');
