@@ -1175,7 +1175,9 @@ body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]{
   min-height:36px;padding:0 8px;border:0;border-radius:999px;font-size:14px;line-height:20px;font-weight:500;color:var(--muted)
 }
 body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]::after{display:none}
-body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]:not([data-state="active"])+[data-slot="tabs-trigger"]:not([data-state="active"])::before{
+body:not(.mobile-game) #onboarding-progress
+  [data-slot="tabs-trigger"][data-state="inactive"]:not(:hover,:focus-visible)
+  +[data-slot="tabs-trigger"][data-state="inactive"]:not(:hover,:focus-visible)::before{
   content:"";position:absolute;inset:6px auto 6px 0;width:1px;background:var(--line);pointer-events:none
 }
 body:not(.mobile-game) #onboarding-progress [data-slot="tabs-trigger"]:is([data-state="active"],:hover,:focus-visible){background:#e9dfca}
@@ -1255,7 +1257,6 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{conten
 
 @media(min-width:701px){
   body:not(.mobile-game) #onboarding-progress{position:absolute;inset:45px 22% auto}
-  body:not(.mobile-game) .guide-screen:has(.badge-guide,.guide-theory) #onboarding-progress{top:43px}
   body:not(.mobile-game)>.update-notice{left:max(360px,calc((100vw - 1800px)/2 + 360px))}
 }
 @media(max-width:700px){
