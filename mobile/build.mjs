@@ -51,14 +51,17 @@ export async function mobilePage(web, { preview = false } = {}) {
     read('mobile.css', 'utf8'), read('mobile.js', 'utf8'), interFontCss(),
     Promise.all(iconNames.map(name => assetUrl(`icons/${name}.svg`, 'image/svg+xml'))),
     preview ? inlinePreviewFlags() : [],
-    Promise.all(['logo', 'flag-blue', 'flag-red'].map(name => assetUrl(`art/${name}.png`, 'image/png'))),
+    Promise.all(['flag-blue', 'flag-red'].map(name => assetUrl(`art/${name}.png`, 'image/png'))),
   ]);
   const [matchBackUrl, hintUrl, undoUrl, previousUrl, nextUrl, roomBackUrl, selectDown, selectUp, optionCheck] = icons;
   const [hint, undo, previous, next] = [hintUrl, undoUrl, previousUrl, nextUrl].map(url =>
     `<img src="${url}" width="24" height="24" alt="">`);
   const matchBack = `<img class="match-back-icon" src="${matchBackUrl}" width="24" height="24" alt="">`;
   const back = matchBack + `<img class="room-back-icon" src="${roomBackUrl}" width="24" height="24" alt="">`;
-  const [homeLogo, blueFlag, redFlag] = artwork;
+  const [blueFlag, redFlag] = artwork;
+  const startupLogo = web.match(/<img class="startup-logo"[^>]*>/)?.[0];
+  if (!startupLogo) throw new Error('Missing startup logo for mobile home');
+  const homeLogo = startupLogo.replace('class="startup-logo"', 'class="home-logo"');
   const selectIconCss = `:root{--start-select-down:url("${selectDown}");--start-select-up:url("${selectUp}");--start-option-check:url("${optionCheck}")}`;
   const flagCss = `:root{--match-flag-blue:url("${blueFlag}");--match-flag-red:url("${redFlag}");${flags.join(';')}}`;
   let page = preview ? web : routePage(web, true);
@@ -89,7 +92,7 @@ export async function mobilePage(web, { preview = false } = {}) {
   setFooterDisabled(button, !canRequestHint() || hasAdvice, !canRequestHint(position) && !showDuringBotTurn);`);
   change('<div class="hint-bubble">', '<div class="hint-bubble"><p class="mobile-hint-title">Подсказка</p>');
   change("previousGame = null; selected = null; $('#start-dialog').close(); render();", "previousGame = null; selected = null; $('#mobile-home').close(); $('#start-dialog').close(); render();");
-  change('<div id="toast"', `<dialog id="mobile-home" aria-label="Главный экран"><div class="home-actions" tabindex="-1" autofocus><img class="home-logo" src="${homeLogo}" width="200" height="100" alt="Битва знамён"><button id="home-continue" class="button primary" hidden>Продолжить игру</button><button id="home-new" class="button subtle">Новая игра</button><button id="home-learn" class="button subtle">Обучение</button></div></dialog><dialog id="sheet" aria-labelledby="mobile-title"><div class="dialog-header"><h2 id="mobile-title"></h2><button class="button subtle" id="mobile-close">Закрыть</button></div><div id="mobile-body"></div></dialog><div id="toast"`);
+  change('<div id="toast"', `<dialog id="mobile-home" aria-label="Главный экран"><div class="home-actions" tabindex="-1" autofocus>${homeLogo}<button id="home-continue" class="button primary" hidden>Продолжить игру</button><button id="home-new" class="button subtle">Новая игра</button><button id="home-learn" class="button subtle">Обучение</button></div></dialog><dialog id="sheet" aria-labelledby="mobile-title"><div class="dialog-header"><h2 id="mobile-title"></h2><button class="button subtle" id="mobile-close">Закрыть</button></div><div id="mobile-body"></div></dialog><div id="toast"`);
   const startHeader = '<div class="dialog-header"><div><h2 id="start-title">Новая игра</h2></div>';
   page = between(page, startHeader, '    <div id="start-settings"', `<header class="dialog-header"><button type="button" class="icon-button close-dialog" aria-label="Назад">${matchBack}</button><h2 id="start-title">Новая игра</h2></header>\n`);
   const guideStart = '<section id="rules-dialog" class="guide-screen" aria-label="Обучение" hidden>';

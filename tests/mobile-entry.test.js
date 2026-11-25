@@ -47,3 +47,12 @@ test('both published entries contain the same release, room bootstrap and bot wo
   assert.ok(desktop.includes('<option value="local">'));
   assert.doesNotMatch(mobile, /humanTeam = 0; firstMove = 'north'/);
 });
+
+test('the mobile home logo shares the preloaded image at each pixel density', async () => {
+  const html = await readFile(new URL('mobile.html', root), 'utf8');
+  const preload = html.match(/id="startup-logo-preload"[^>]*imagesrcset="([^"]+)"/)?.[1];
+  const homeLogo = html.match(/class="home-logo"[^>]*srcset="([^"]+)"/)?.[1];
+  assert.ok(homeLogo);
+  assert.equal(homeLogo, preload);
+  assert.deepEqual(homeLogo.split(', ').map(candidate => candidate.split(' ')[1]), ['1x', '2x', '3x']);
+});
