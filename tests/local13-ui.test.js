@@ -5,7 +5,8 @@ import vm from 'node:vm';
 import { DEFAULT_CONFIG, PREVIOUS_LOCAL_CONFIG, TYPES, LABELS, updateSavedBalance } from '../dist/rules.js';
 import { analyze, effective, validateConfig, shieldCanRetreat, archerHasEdgeBonus } from '../dist/engine.js';
 import { alliedBonusDetails, unitAppearance, unitStatParts, auraKind, auraCircleMarkup } from '../dist/board-presentation.js';
-import { renderTokenBody, HORN_ICON_PATH, COMMANDER_ICON_PATH } from '../dist/token-presentation.js';
+import { renderTokenBody, COMMANDER_ICON_PATH } from '../dist/token-presentation.js';
+import { TOKEN_GLYPHS } from '../dist/token-glyphs.js';
 import { renderUnitExamples } from '../dist/onboarding-units.js';
 import { createShowcaseBattle, renderShowcaseBattle } from '../dist/onboarding-showcase.js';
 
@@ -15,13 +16,12 @@ const position = pieces => ({ pieces, turn: 0, ply: 0, winner: null });
 
 test('horn has a native white glyph on the established token body without a bitmap', () => {
   const markup = renderTokenBody({ type: 'horn', veteran: false }, 0);
-  assert.ok(markup.includes(HORN_ICON_PATH));
-  assert.match(markup, /<g color="#fff"><svg width="24" height="24" viewBox="0 0 97 96"/);
-  assert.equal((HORN_ICON_PATH.match(/<path /g) || []).length, 6);
-  assert.equal((HORN_ICON_PATH.match(/stroke="currentColor" stroke-width="5.75"/g) || []).length, 6);
+  assert.ok(markup.includes(TOKEN_GLYPHS.horn));
+  assert.match(markup, /data-artwork="type-horn" href="data:image\/svg\+xml;base64,/);
+  assert.match(markup, /class="token-type-color"[^>]*fill="#fff"/);
   assert.match(markup, /class="piece-icon" fill="none" stroke="#fff" stroke-width="1.6"/);
   assert.match(markup, /data-artwork="body"/);
-  assert.doesNotMatch(markup, /undefined|data-artwork="type-horn"/);
+  assert.doesNotMatch(markup, /undefined/);
 });
 
 test('source breakdown attributes the drum movement bonus to every recipient type', () => {
@@ -97,9 +97,9 @@ test('commander reuses the established helmet and keeps the scout mechanics iden
   assert.equal(LABELS.scoutLamp, 'Командир');
   assert.ok(TYPES.includes('scoutLamp'));
   const markup = renderTokenBody({ type: 'scoutLamp', veteran: false }, 1);
-  assert.ok(markup.includes(COMMANDER_ICON_PATH));
+  assert.ok(markup.includes(TOKEN_GLYPHS.scoutLamp));
   assert.match(COMMANDER_ICON_PATH, /M3 9c0-4\.3 4-7 9-7/);
-  assert.doesNotMatch(markup, /data-artwork="type-scoutLamp"/);
+  assert.match(markup, /data-artwork="type-scoutLamp" href="data:image\/svg\+xml;base64,/);
   assert.match(app, /scoutLamp: COMMANDER_ICON_PATH/);
   assert.doesNotMatch(html, /[Рр]азведчик|бинокл/);
 });

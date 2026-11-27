@@ -1,4 +1,5 @@
 import { TOKEN_ART, TOKEN_FONT } from './token-assets.js';
+import { TOKEN_GLYPHS } from './token-glyphs.js';
 
 // Exact icon geometry exported from Figma node 273:5888.
 export const HORN_ICON_PATH = "<svg width=\"24\" height=\"24\" viewBox=\"0 0 97 96\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M55.9121 36.6796C65.1559 32.7528 65.0557 18.2461 70.8605 5.27238M60.5661 47.6352C69.8099 43.7084 77.8541 48.3742 91.2217 53.2034M69.8425 2.87583L92.2397 55.6\" stroke=\"currentColor\" stroke-width=\"5.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M9.45361 54.7986L15.2711 68.4932C20.7489 66.1662 22.8121 62.4607 20.9215 58.01C19.0308 53.5592 14.9314 52.4716 9.45361 54.7986Z\" stroke=\"currentColor\" stroke-width=\"5.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M18.5942 52.532L55.912 36.6794M23.2482 63.4877L60.566 47.6351\" stroke=\"currentColor\" stroke-width=\"5.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M27.0142 61.8882L29.632 68.0507C34.5769 79.6912 44.7268 82.6541 55.3401 78.1456L72.4583 70.8737C83.7563 66.0743 81.1231 49.4105 69.6038 47.0293C66.48 46.3355 63.3048 46.4719 60.5659 47.6354\" stroke=\"currentColor\" stroke-width=\"5.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M37.2852 57.5251L39.4667 62.6606C41.9391 68.4808 45.4992 70.2017 51.3194 67.7293L66.0411 61.4755C72.2036 58.8576 69.2949 52.0103 63.1323 54.6282L60.7358 55.6462\" stroke=\"currentColor\" stroke-width=\"5.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M36.3766 66.8022L25.8698 42.0687L23.8852 37.3968M48.7017 61.5665L38.1949 36.8329L36.2103 32.1611M61.0268 56.3307L50.52 31.5972L48.5354 26.9253M20.1191 38.9966L27.6512 35.797M32.4443 33.7609L39.9763 30.5613M44.7694 28.5251L52.3014 25.3255\" stroke=\"currentColor\" stroke-width=\"5.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>";
@@ -13,6 +14,7 @@ export const TOKEN_TYPOGRAPHY = Object.freeze({statSize:80, damageSize:68, track
 export const TOKEN_BADGE_LAYOUT = Object.freeze({statInkY:47.83984375, incomingInkY:44.4638671875});
 const tokenX = value => (value - 120) * TOKEN_UNIT_SCALE;
 const tokenY = value => (value - 120) * TOKEN_UNIT_SCALE;
+const TOKEN_GLYPH_CENTER_Y = 112;
 const tokenImageUrls = new Map();
 let tokenMaskSequence = 0;
 
@@ -48,7 +50,7 @@ if (Array.isArray(TOKEN_ART.body) && typeof window !== 'undefined' && window.mat
     density = window.devicePixelRatio;
     densityQuery = window.matchMedia(`(resolution: ${density}dppx)`);
     densityQuery.addEventListener('change', refreshTokenDensity);
-    for (const image of document.querySelectorAll('image.token-art[data-artwork]')) {
+    for (const image of document.querySelectorAll('image.token-art[data-artwork]:not(.token-glyph)')) {
       const variants = TOKEN_ART[image.dataset.artwork];
       if (Array.isArray(variants)) image.setAttribute('href', tokenImageUrl(variants));
     }
@@ -57,14 +59,17 @@ if (Array.isArray(TOKEN_ART.body) && typeof window !== 'undefined' && window.mat
   window.addEventListener('resize', refreshTokenDensity);
 }
 
-export function tokenArtwork(kind, x, y, width, height, className = '') {
-  return `<image class="token-art ${className}" data-artwork="${kind}" href="${tokenImageUrl(TOKEN_ART[kind])}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="none" aria-hidden="true"/>`;
+export function tokenArtwork(kind, x, y, width, height, className = '', source = TOKEN_ART[kind]) {
+  return `<image class="token-art ${className}" data-artwork="${kind}" href="${tokenImageUrl(source)}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="none" aria-hidden="true"/>`;
 }
 
-function tokenTypeIcon(type) {
+function tokenTypeIcon(type, glyph) {
   const id = `token-type-${++tokenMaskSequence}`;
-  const x=tokenX(65), y=tokenY(63), size=110*TOKEN_UNIT_SCALE;
-  return `<defs><mask id="${id}" maskUnits="userSpaceOnUse" x="${x}" y="${y}" width="${size}" height="${size}" style="mask-type:alpha">${tokenArtwork('type-'+type,x,y,size,size)}</mask></defs><rect class="token-type-color" x="${x}" y="${y}" width="${size}" height="${size}" fill="#fff" stroke="none" mask="url(#${id})"/>`;
+  const size = (type === 'archer' ? 134 : 110) * TOKEN_UNIT_SCALE;
+  const x = -size / 2;
+  const y = tokenY(TOKEN_GLYPH_CENTER_Y) - size / 2;
+  const artwork = tokenArtwork('type-'+type, x, y, size, size, glyph ? 'token-glyph' : '', glyph);
+  return `<defs><mask id="${id}" maskUnits="userSpaceOnUse" x="${x}" y="${y}" width="${size}" height="${size}" style="mask-type:alpha">${artwork}</mask></defs><rect class="token-type-color" x="${x}" y="${y}" width="${size}" height="${size}" fill="#fff" stroke="none" mask="url(#${id})"/>`;
 }
 
 function veteranWreath() {
@@ -80,12 +85,12 @@ export function renderTokenBody(appearance, displayTeam = 0) {
   const surfaceId = `token-surface-${++tokenMaskSequence}`;
   const colors = displayTeam ? ['#c33f00', '#ab3300', '#802700'] : ['#58b4df', '#4c9fc9', '#387d9f'];
   const tint = `<defs><radialGradient id="${surfaceId}" cx="43%" cy="40%" r="75%"><stop offset="0" stop-color="${colors[0]}"/><stop offset=".6" stop-color="${colors[1]}"/><stop offset="1" stop-color="${colors[2]}"/></radialGradient></defs><circle class="token-team-tint ${side}" cx="0" cy="0" r="${85.5*TOKEN_UNIT_SCALE}" fill="url(#${surfaceId})"/>`;
-  const nativeIcon = appearance.type === 'scoutLamp' ? COMMANDER_ICON_PATH : appearance.type === 'horn' ? `<g color="#fff">${HORN_ICON_PATH}</g>` : null;
-  const icon = !nativeIcon && appearance.type && TOKEN_ART['type-'+appearance.type]
-    ? tokenTypeIcon(appearance.type)
-    : `<g transform="translate(${tokenX(65)},${tokenY(63)}) scale(${110/24*TOKEN_UNIT_SCALE})">${nativeIcon || appearance.icon || ''}</g>`;
-  const direction=appearance.type==='archer'&&(appearance.facingTeam??displayTeam)?` transform="rotate(180 0 ${tokenY(118)})"`:'';
-  return `<g class="token-body-paint">${body}${tint}</g><circle class="piece-circle" r="${88*TOKEN_UNIT_SCALE}"/>${appearance.veteran?veteranWreath():''}<g class="piece-icon" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"${direction}>${icon}</g>`;
+  const teamGlyphs = TOKEN_GLYPHS[appearance.type];
+  const glyph = Array.isArray(teamGlyphs) ? teamGlyphs[displayTeam ? 1 : 0] : teamGlyphs;
+  const icon = glyph || TOKEN_ART['type-'+appearance.type]
+    ? tokenTypeIcon(appearance.type, glyph)
+    : `<g transform="translate(${tokenX(65)},${tokenY(TOKEN_GLYPH_CENTER_Y - 55)}) scale(${110/24*TOKEN_UNIT_SCALE})">${appearance.icon || ''}</g>`;
+  return `<g class="token-body-paint">${body}${tint}</g><circle class="piece-circle" r="${88*TOKEN_UNIT_SCALE}"/>${appearance.veteran?veteranWreath():''}<g class="piece-icon" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icon}</g>`;
 }
 
 // Actual glyph ink bounds from the embedded Belwe font, in its 2048 UPM.

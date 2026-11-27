@@ -256,13 +256,13 @@ test('unchanged inspection avoids rebuilding attack markers',()=>{
   painter.render(inspectCell(state,config,{q:1,r:0},source.id));assert.equal(painter.writes(),writes+1);
   painter.context.selected=null;assert.equal(painter.render({position:state,isPreview:false}),'');
 });
-test('archer tokens face the enemy side during rest, movement and death',()=>{
+test('archer tokens keep their upright glyph during movement and death',()=>{
   const config=structuredClone(DEFAULT_CONFIG),icons={archer:'<path data-arrow="right"/>'};
   for(const team of [0,1]){const archer=piece('a','archer',team,0,0),rotation=`rotate(${team===0?90:-90} 12 12)`;
     assert.ok(unitAppearance(archer,config,icons).icon.includes(rotation));
     for(const html of [renderMovingToken(archer,{x:0,y:0,progress:0},icons,'moving',config),renderDeathEffects([archer],()=>({x:0,y:0}),'',icons,config)]){
       assert.match(html,/data-artwork="type-archer"/);
-      assert.equal(html.includes('rotate(180 0 '),team===1,'the approved down-facing bitmap rotates only for the South');
+      assert.doesNotMatch(html.match(/<g class="piece-icon"[^>]*>/)[0], /transform=/);
     }
   }
 });
@@ -294,7 +294,7 @@ test('veteran ally details use the separate aura while personal stat calculation
 });
 
 
-test('archer facing follows board perspective without changing team colors', () => {
+test('archer token glyphs stay upright for both teams when the board perspective flips', () => {
   for (const team of [0, 1]) {
     const archer = piece('archer', 'archer', team, 0, 0);
     const standard = unitAppearance(archer, DEFAULT_CONFIG, {}, team);
@@ -305,13 +305,26 @@ test('archer facing follows board perspective without changing team colors', () 
       const html = renderTokenBody(appearance, team);
       assert.ok(html.includes(`token-team-tint ${team ? 'south' : 'north'}`));
       const glyph = html.match(/<g class="piece-icon"[^>]*>/)[0];
-      assert.equal(glyph.includes('rotate(180'), Boolean(appearance.facingTeam));
+      assert.doesNotMatch(glyph, /transform=/);
     }
     const moving = renderMovingToken(archer, {x: 1, y: 2, progress: .5}, {}, 'test', DEFAULT_CONFIG, team, null, true);
     const death = renderDeathEffects([archer], hexGridPoint, '', {}, DEFAULT_CONFIG, undefined, true);
     for (const html of [moving, death]) {
-      assert.equal(html.match(/<g class="piece-icon"[^>]*>/)[0].includes('rotate(180'), !Boolean(team));
+      assert.doesNotMatch(html.match(/<g class="piece-icon"[^>]*>/)[0], /transform=/);
       assert.ok(html.includes(`token-team-tint ${team ? 'south' : 'north'}`));
     }
+  }
+});
+
+test('shields and banners keep their team glyph when the board perspective flips', () => {
+  for (const type of ['shield', 'defenseLamp']) {
+    const artwork = (team, facingTeam) => renderTokenBody({ type, facingTeam }, team)
+      .match(/class="token-art token-glyph"[^>]*href="(data:image\/svg\+xml;base64,[^"]+)"/)?.[1];
+    const blue = artwork(0, 0);
+    const red = artwork(1, 1);
+    assert.ok(blue && red);
+    assert.notEqual(blue, red);
+    assert.equal(artwork(0, 1), blue);
+    assert.equal(artwork(1, 0), red);
   }
 });
