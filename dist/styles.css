@@ -1047,18 +1047,12 @@ body:not(.mobile-game) .scoreboard .team-unit[data-unit-type="scoutLamp"]{order:
 body:not(.mobile-game) .scoreboard .team-unit[data-unit-type="attackLamp"]{order:2}
 body:not(.mobile-game) .scoreboard .team-unit[data-unit-type="horn"]{order:3}
 body:not(.mobile-game) .scoreboard .team-unit[data-unit-type="defenseLamp"]{order:4}
-body:not(.mobile-game) .scoreboard .team-unit::before{content:"";width:16px;height:16px;background:var(--count-icon) center no-repeat}
+body:not(.mobile-game) .scoreboard .team-unit::before{content:"";width:16px;height:16px;background:#aa9e86;mask:var(--reference-icon) center/contain no-repeat}
 @container team-content (width < 230px){
   body:not(.mobile-game) .scoreboard .team-title:has(+.team-title-short){display:none}
   body:not(.mobile-game) .scoreboard .team-title-short{display:block}
   body:not(.mobile-game) .scoreboard .team-roster{display:grid;grid-template-columns:repeat(3,max-content);gap:8px}
 }
-[data-unit-type="shield"]{--count-icon:url("./desktop-icons/count-shield.svg")}
-[data-unit-type="archer"]{--count-icon:url("./desktop-icons/count-archer.svg")}
-[data-unit-type="scoutLamp"]{--count-icon:url("./desktop-icons/count-commander.svg")}
-[data-unit-type="attackLamp"]{--count-icon:url("./desktop-icons/count-drum.svg")}
-[data-unit-type="horn"]{--count-icon:url("./desktop-icons/count-horn.svg")}
-[data-unit-type="defenseLamp"]{--count-icon:url("./desktop-icons/count-banner.svg")}
 .turn-badge{grid-area:1/2;justify-self:center;display:grid;align-content:center;min-width:100px;min-height:48px;gap:0;padding:4px 18px;border-radius:999px;background:var(--tile-default);text-align:center;font-size:13px;line-height:16px;color:var(--muted)}
 .turn-badge strong{font-weight:600;color:var(--ink)}
 body:not(.mobile-game) .scoreboard:has(>.match-result)>.team-card:not(.match-result){display:none}
