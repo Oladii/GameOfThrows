@@ -6,14 +6,14 @@ import { freshNewGameUrl, consumeNewGameRefresh, refreshNewGamePage, hasNewerGam
 
 const gameHtml = '<span id="version-number">v0.1.8</span><script id="bot-worker-source" type="application/json"></script>';
 const response = (html = gameHtml, ok = true) => ({ ok, text: async () => html });
-function page(href = 'https://oladii.github.io/GameOfThrows/?theme=light#board') {
+function page(href = 'https://oladii.github.io/standards/?theme=light#board') {
   return { href, replace(url) { this.replaced = url; } };
 }
 
 test('each new-game URL bypasses the previous cache key and preserves the game path and other URL options', () => {
   const one = new URL(freshNewGameUrl(page().href, 'one'));
   const two = new URL(freshNewGameUrl(one.href, 'two'));
-  assert.equal(two.origin, one.origin); assert.equal(two.pathname, '/GameOfThrows/');
+  assert.equal(two.origin, one.origin); assert.equal(two.pathname, '/standards/');
   assert.equal(two.hash, '#board'); assert.equal(two.searchParams.get('theme'), 'light');
   assert.equal(two.searchParams.get('_fresh'), 'two'); assert.equal(two.searchParams.get('_newGame'), '1');
   assert.equal(two.searchParams.getAll('_fresh').length, 1);

@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import { routePage } from '../mobile/build.mjs';
 
 const root = new URL('../docs/', import.meta.url);
-const base = 'https://oladii.github.io/GameOfThrows/';
+const base = 'https://oladii.github.io/standards/';
 test('shared game and room links select a device once and preserve query and hash', () => {
   for (const [navigator, phone] of [
     [{ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148' }, true],

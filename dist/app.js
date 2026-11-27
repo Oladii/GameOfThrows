@@ -64,7 +64,7 @@ const CURRENT_GAME_VERSION = $('#version-number').textContent;
 const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? ' · Локально' : '';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
-const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
+const archiveIsSite = location.origin === 'https://oladii.github.io' && (location.pathname.startsWith('/standards/') || location.pathname.startsWith('/GameOfThrows/'));
 const archiveRecorder = new GameRecorder({
   endpoint: archiveEndpoint, enabled: archiveIsSite && Boolean(archiveEndpoint),
   app: { version: CURRENT_GAME_VERSION, build: $('#version-build').dataset.builtAt, channel: archiveIsSite ? 'site' : 'local' }

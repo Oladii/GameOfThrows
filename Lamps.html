@@ -1498,7 +1498,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <p class="muted tiny">Нажми на фигуру и пустую клетку, чтобы переставить её. Палитра добавляет фигуры, ластик удаляет. «Рассчитать» проверяет бой один раз.</p>
           <button id="editor-done" class="button primary full">Готово</button>
         </div>
-        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.60">0.1.156</span><span id="version-channel"></span></span><span id="version-build" data-built-at="2026-11-27T12:13:28.991Z">27.11.2026, 15:13:28</span></span></div>
+        <div class="panel-footer"><div id="sound-control"><button id="sound-toggle" class="button subtle" type="button" aria-label="Громкость" aria-expanded="false" aria-controls="sound-scale" data-muted="false" title="Громкость: 50%"><span data-sound-icon="on" aria-hidden="true"></span><span data-sound-icon="off" aria-hidden="true"></span><span data-sound-icon="close" aria-hidden="true"></span></button><div id="sound-scale" hidden><input id="sound-volume" type="range" min="0" max="100" step="1" value="50" aria-label="Громкость"><output id="sound-value" for="sound-volume">50%</output></div></div><span class="version" id="app-version"><span><span id="version-number" data-rules-version="0.1.60">0.1.157</span><span id="version-channel"></span></span><span id="version-build" data-built-at="2026-11-27T12:49:28.933Z">27.11.2026, 15:49:28</span></span></div>
       </aside>
       <div class="arena-column">
         <div id="update-notice" class="update-notice" role="status" hidden>Доступно обновление игры. Обнови вкладку, чтобы применить его</div>
@@ -6007,7 +6007,7 @@ const CURRENT_GAME_VERSION = $('#version-number').textContent;
 const CURRENT_RULES_VERSION = $('#version-number').dataset.rulesVersion;
 $('#version-channel').textContent = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname) ? ' · Локально' : '';
 const archiveEndpoint = $('meta[name="game-archive-endpoint"]')?.content || '';
-const archiveIsSite = location.origin === 'https://oladii.github.io' && location.pathname.startsWith('/GameOfThrows/');
+const archiveIsSite = location.origin === 'https://oladii.github.io' && (location.pathname.startsWith('/standards/') || location.pathname.startsWith('/GameOfThrows/'));
 const archiveRecorder = new GameRecorder({
   endpoint: archiveEndpoint, enabled: archiveIsSite && Boolean(archiveEndpoint),
   app: { version: CURRENT_GAME_VERSION, build: $('#version-build').dataset.builtAt, channel: archiveIsSite ? 'site' : 'local' }

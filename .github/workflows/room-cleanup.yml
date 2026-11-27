@@ -25,7 +25,7 @@ jobs:
               'https://game-of-trows-archive.designsystembarkalov.chatgpt.site/api/internal/rooms/cleanup',
               data=b'', method='POST', headers={
                   'Authorization': 'Bearer ' + token,
-                  'User-Agent': 'GameOfTrows-RoomCleanup/1.0 (+https://github.com/Oladii/GameOfThrows)'})
+                  'User-Agent': 'GameOfTrows-RoomCleanup/1.0 (+https://github.com/Oladii/standards)'})
           try:
               with urllib.request.urlopen(request, timeout=45) as response:
                   result = json.load(response)

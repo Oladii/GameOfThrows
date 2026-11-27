@@ -29,10 +29,21 @@ function setup(overrides={}){
   return {context,saved,checkpoints:()=>checkpoints,reset:()=>vm.runInContext(resetDeclaration+'\nresetNewGameDefaults()',context)};
 }
 
-test('release39 selects existing production saves while localhost and standalone keep the local profile',()=>{
+test('production entry points use the existing saves and enable analytics and the archive',()=>{
   const declaration=app.match(/^const archiveIsSite = .*;$/m)[0]+'\n'+app.match(/^const STORAGE = .*;$/m)[0]+'\nSTORAGE';
-  for(const [origin,pathname,expected]of [['https://oladii.github.io','/GameOfThrows/','lamps-prototype-v1'],['http://127.0.0.1:35810','/','lamps-local-playtest13-v1'],['null','/Lamps.html','lamps-local-playtest13-v1']])assert.equal(vm.runInNewContext(declaration,{location:{origin,pathname}}),expected);
-  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.156');
+  const productionOrigin = 'https://oladii.github.io';
+  for (const [origin, pathname, production] of [
+    [productionOrigin, '/standards/', true],
+    [productionOrigin, '/standards/mobile.html', true],
+    [productionOrigin, '/GameOfThrows/', true],
+    [productionOrigin, '/standards-preview/', false],
+    ['http://127.0.0.1:35810', '/standards/', false],
+    ['null', '/Lamps.html', false],
+  ]) {
+    const expected = production ? 'lamps-prototype-v1' : 'lamps-local-playtest13-v1';
+    assert.equal(vm.runInNewContext(declaration,{location:{origin,pathname}}),expected);
+  }
+  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.157');
 });
 
 test('a fully known production revision16 standard pending setup upgrades to current13',()=>{
