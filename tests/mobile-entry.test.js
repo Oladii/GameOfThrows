@@ -33,7 +33,11 @@ test('both published entries contain the same release, room bootstrap and bot wo
   const { version, rulesVersion } = JSON.parse(manifest);
   for (const page of [desktop, mobile]) {
     assert.ok(page.includes(`id="version-number" data-rules-version="${rulesVersion}">${version}</span><span id="version-channel"></span>`));
-    assert.match(page, /id="version-build" data-built-at="[^"]+">\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}:\d{2}<\/span>/);
+    const buildStamp = page.match(/id="version-build" data-built-at="([^"]+)">(\d{2}\.\d{2}\.\d{4})<\/span>/);
+    assert.ok(buildStamp, 'published entries show a date without the time');
+    const [, builtAt, visibleDate] = buildStamp;
+    const formatDate = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', dateStyle: 'short' });
+    assert.equal(visibleDate, formatDate.format(new Date(builtAt)));
     assert.equal([...page.matchAll(/@font-face\{font-family:"Inter";/g)].length, 1);
     assert.match(page, /html\{[^}]*-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale/);
     assert.match(page, /if \(initialRoomId\) openOnlineRoom\(initialRoomId\);/);

@@ -28,7 +28,9 @@ const [sourceHtml, css, rules, engine, defensiveSelection, formationStrategy, bo
 const { version } = JSON.parse(await fs.readFile(root + 'package.json', 'utf8'));
 const [tokenAssets, tokenGlyphs, tokenPresentation] = await Promise.all(['token-assets.js', 'token-glyphs.js', 'token-presentation.js'].map(read));
 const builtAt = new Date();
-const buildLabel = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(builtAt);
+const buildDateOptions = { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric' };
+const buildDate = new Intl.DateTimeFormat('ru-RU', buildDateOptions).format(builtAt);
+const buildLabel = new Intl.DateTimeFormat('ru-RU', { ...buildDateOptions, hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(builtAt);
 const html = sourceHtml.replace(/(<span id="version-number"[^>]*>)[^<]*(<\/span>)/, (_, start, end) => `${start}${version}${end}`).replace(/<span id="version-build"[^>]*>[^<]*<\/span>/, `<span id="version-build" data-built-at="${builtAt.toISOString()}">${buildLabel}</span>`);
 
 const strip = code => code.replace(/^import .*?;\n/gm, '').replace(/^export /gm, '');
@@ -69,7 +71,8 @@ const iconUrls = new Map(await Promise.all([...new Set(css.match(controlIconPath
 const inlinedIconsCss = css.replace(controlIconPath, file => iconUrls.get(file));
 let webCss = inlinedIconsCss;
 for (const [source, url] of Object.entries(graphics.resultFlags)) webCss = webCss.replaceAll(source, url);
-const web = assemble(webPage(publicHtml).replace(faviconSource, graphics.favicon), webCss, graphics.tokenModule);
+const publishedHtml = publicHtml.replace(/(<span id="version-build"[^>]*>)[^<]*(<\/span>)/, (_, start, end) => `${start}${buildDate}${end}`);
+const web = assemble(webPage(publishedHtml).replace(faviconSource, graphics.favicon), webCss, graphics.tokenModule);
 const interfaceFont = await interFontCss();
 const withInterfaceFont = page => page.replace('</head>', () => `<style id="interface-font">${interfaceFont}</style>\n</head>`);
 const offlineLogos = await Promise.all(graphics.logoVariants.map(file => dataUrl(file.slice(2), file.endsWith('.png') ? 'image/png' : 'image/webp')));
