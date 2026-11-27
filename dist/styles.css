@@ -1215,7 +1215,7 @@ body:not(.mobile-game) .selection-panel .inspector-card{
 body:not(.mobile-game) .selection-panel .inspection-label{margin:0;padding:6px 0 0;color:var(--inspector-secondary)}
 body:not(.mobile-game) .selection-panel .piece-heading{gap:4px;margin:0;padding:2px 0 6px}
 body:not(.mobile-game) .selection-panel .piece-heading h2{margin:0;color:var(--muted);font-size:13px;font-weight:600;line-height:20px}
-body:not(.mobile-game) .selection-panel .unit-icon{width:16px;height:16px;background:var(--inspector-secondary);mask:var(--reference-icon) center/contain no-repeat}
+body:not(.mobile-game) .selection-panel .unit-icon{width:16px;height:16px;background:var(--muted);mask:var(--reference-icon) center/contain no-repeat}
 body:not(.mobile-game) .selection-panel .unit-icon svg{display:none}
 body:not(.mobile-game) .selection-panel .unit-description{margin:0;padding-bottom:6px}
 body:not(.mobile-game) .selection-panel .stat-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin:0;padding-top:0}
