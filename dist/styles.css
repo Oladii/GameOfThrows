@@ -400,12 +400,12 @@ body:not(.mobile-game) .reference-stat-hint{top:calc(100% + 6px);bottom:auto}
 .unit-reference-table [data-reference-type]>th{font-weight:600;text-align:left}
 .reference-unit{display:flex;align-items:center;gap:4px}
 .reference-unit::before{content:"";flex:0 0 16px;height:16px;background:var(--reference-icon) center/contain no-repeat}
-[data-reference-type="shield"]{--reference-icon:url("./control-icons/reference-unit-shield.svg")}
-[data-reference-type="archer"]{--reference-icon:url("./control-icons/reference-unit-archer.svg")}
-[data-reference-type="attackLamp"]{--reference-icon:url("./control-icons/reference-unit-drum.svg")}
-[data-reference-type="defenseLamp"]{--reference-icon:url("./control-icons/reference-unit-flag.svg")}
-[data-reference-type="scoutLamp"]{--reference-icon:url("./control-icons/reference-unit-commander.svg")}
-[data-reference-type="horn"]{--reference-icon:url("./control-icons/reference-unit-horn.svg")}
+:is([data-reference-type="shield"],[data-unit-type="shield"]){--reference-icon:url("./control-icons/reference-unit-shield.svg")}
+:is([data-reference-type="archer"],[data-unit-type="archer"]){--reference-icon:url("./control-icons/reference-unit-archer.svg")}
+:is([data-reference-type="attackLamp"],[data-unit-type="attackLamp"]){--reference-icon:url("./control-icons/reference-unit-drum.svg")}
+:is([data-reference-type="defenseLamp"],[data-unit-type="defenseLamp"]){--reference-icon:url("./control-icons/reference-unit-flag.svg")}
+:is([data-reference-type="scoutLamp"],[data-unit-type="scoutLamp"]){--reference-icon:url("./control-icons/reference-unit-commander.svg")}
+:is([data-reference-type="horn"],[data-unit-type="horn"]){--reference-icon:url("./control-icons/reference-unit-horn.svg")}
 .unit-reference-table .reference-aura td{padding:0 0 6px;border-bottom:1px solid var(--line);overflow-wrap:break-word}
 .unit-reference-table .reference-aura:last-child td{padding-bottom:2px;border-bottom:0}
 .shield-description,.archer-description{margin:0 0 6px}
@@ -1221,7 +1221,7 @@ body:not(.mobile-game) .selection-panel .inspector-card{
 body:not(.mobile-game) .selection-panel .inspection-label{margin:0;padding:6px 0 0;color:var(--inspector-secondary)}
 body:not(.mobile-game) .selection-panel .piece-heading{gap:4px;margin:0;padding:2px 0 6px}
 body:not(.mobile-game) .selection-panel .piece-heading h2{margin:0;color:var(--muted);font-size:13px;font-weight:600;line-height:20px}
-body:not(.mobile-game) .selection-panel .unit-icon{width:16px;height:16px;background:var(--count-icon) center no-repeat}
+body:not(.mobile-game) .selection-panel .unit-icon{width:16px;height:16px;background:var(--inspector-secondary);mask:var(--reference-icon) center/contain no-repeat}
 body:not(.mobile-game) .selection-panel .unit-icon svg{display:none}
 body:not(.mobile-game) .selection-panel .unit-description{margin:0;padding-bottom:6px}
 body:not(.mobile-game) .selection-panel .stat-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin:0;padding-top:0}
@@ -1252,7 +1252,7 @@ body:not(.mobile-game) .selection-panel .allied-bonus-list li{gap:6px;padding:8p
 body:not(.mobile-game) .selection-panel .allied-bonus-list li+li{border-top:1px solid var(--line)}
 body:not(.mobile-game) .selection-panel .sources .allied-bonus-list strong{display:flex;align-items:center;gap:4px;color:var(--inspector-secondary);font-size:13px;font-weight:600;line-height:20px}
 body:not(.mobile-game) .selection-panel .allied-bonus-list span{color:var(--muted);font-size:13px;line-height:20px}
-body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{content:"";width:16px;height:16px;flex:0 0 16px;background:var(--count-icon) center no-repeat}
+body:not(.mobile-game) .selection-panel .allied-bonus-list strong::before{content:"";width:16px;height:16px;flex:0 0 16px;background:var(--inspector-secondary);mask:var(--reference-icon) center/contain no-repeat}
 
 @media(min-width:701px){
   body:not(.mobile-game) #onboarding-progress{position:absolute;inset:45px 22% auto}
