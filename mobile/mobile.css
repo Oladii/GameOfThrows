@@ -94,7 +94,7 @@ body.mobile-game,.mobile-game main,.mobile-game .arena-top,.mobile-game .arena,.
 .mobile-context .mobile-hint-title{color:var(--mobile-disabled-ink);font-size:12px;line-height:16px}
 .mobile-context .hint-thinking{color:inherit}
 .mobile-context .hint-thinking span{display:inline;min-width:0}
-.mobile-context .move-hint::before,.mobile-context .hint-bubble::after{content:none}
+.mobile-context .hint-bubble::after{content:none}
 #aura-caption{margin:0;padding:8px 20px;font-size:14px;font-weight:500;line-height:20px;text-align:center;color:var(--ink);overflow-wrap:anywhere}
 #aura-caption:empty{display:none}
 .arena:has(#result-new-game:not([hidden])) .mobile-context{display:none}

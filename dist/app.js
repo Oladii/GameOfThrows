@@ -131,9 +131,21 @@ function setFooterDisabled(button, disabled, visiblyDisabled = disabled) {
   button.disabled = disabled;
   button.dataset.visiblyDisabled = String(visiblyDisabled);
 }
+function loadAdvisorAnimation() {
+  const still = $('#advisor-portrait');
+  const sources = still?.dataset.animation;
+  if (!sources || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  delete still.dataset.animation;
+  const animation = new Image(131, 180);
+  animation.alt = '';
+  animation.className = 'hint-portrait hint-portrait-animation';
+  animation.srcset = sources;
+  animation.decode().then(() => still.before(animation), () => { still.dataset.animation = sources; });
+}
 function requestHint() {
   if (!canRequestHint()) return;
   if (hint) { const retry = hint.failed; clearHint(); if (!retry) { render(); return; } }
+  loadAdvisorAnimation();
   trackHint('hint_requested');
   const positionKey = hintPositionKey(), recent = recentBotHistory(), lastActions = new Map();
   for (const entry of recent) if (entry.action?.id) lastActions.set(entry.action.id, entry.action);
@@ -160,7 +172,7 @@ function renderHint() {
   panel.hidden = !hint;
   panel.setAttribute('aria-busy', String(Boolean(hint?.pending)));
   if (!hint?.pending) { clearInterval(hintThinkingTimer); hintThinkingTimer = null; }
-  panel.innerHTML = !hint ? '' : `<div class="hint-bubble">${hint.pending
+  $('#hint-message').innerHTML = !hint ? '' : `<div class="hint-bubble">${hint.pending
     ? '<p class="hint-thinking">Думовую<span id="hint-thinking-dots">.</span></p>'
     : `${hint.failed ? `<p>${escape(hint.title)}</p>` : ''}${hint.reasons.map(reason => `<p>${escape(reason)}</p>`).join('')}`}</div>`;
   if (hint?.pending && hintThinkingTimer === null) {

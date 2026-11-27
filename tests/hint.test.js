@@ -75,7 +75,7 @@ function setup() {
   const context = vm.createContext({ playMode: 'local', battleIntro: null, state: { pieces: [], turn: 0, ply: 0, winner: null }, config: {}, crypto: { getRandomValues(value) { value[0] = 12345; return value; } }, selected: 'chosen', hover: {}, inspection: {}, trackHint() {}, hint: null, hintVoice: createHintVoice(), hintThinkingTimer: null, clearInterval() {},
     hintRunner: { cancel() { cancelled++; }, run(input, onResult, onError) { requests++; request = input; result = onResult; error = onError; } },
     BOT_DIFFICULTIES: { hard: { depth: 4 } }, editor: false, gamePhase: 'playing', reviewingTurn: false, isBotTurn: () => false, humanCanMove: () => true,
-    recentBotHistory: () => [], render() {}, explainHint: () => ({ title: 'Ход', reasons: ['Причина'] }) });
+    recentBotHistory: () => [], loadAdvisorAnimation() {}, render() {}, explainHint: () => ({ title: 'Ход', reasons: ['Причина'] }) });
   for (const name of ['clearHint', 'hintPositionKey', 'canRequestHint', 'requestHint']) vm.runInContext(declaration(name), context);
   return { context, get request() { return request; }, get requests() { return requests; }, get cancelled() { return cancelled; }, finish(value) { result(value); }, fail() { error(new Error('timeout')); } };
 }
@@ -133,6 +133,33 @@ test('first render reads recommendation state without shadowing the board messag
   assert.throws(() => context.render(), error => error === stopped);
 });
 
+test('the still portrait stays in place until the animation is decoded', async () => {
+  const sources = './art/advisor.webp 1x', inserted = [];
+  const still = { dataset: { animation: sources }, before(image) { inserted.push(image); } };
+  let decode, reject, attempts = 0, reducedMotion = true;
+  const context = vm.createContext({
+    $: () => still, matchMedia: () => ({ matches: reducedMotion }),
+    Image: class { decode() { attempts++; return new Promise((resolve, fail) => { decode = resolve; reject = fail; }); } }
+  });
+  vm.runInContext(declaration('loadAdvisorAnimation'), context);
+  context.loadAdvisorAnimation();
+  assert.equal(attempts, 0);
+  reducedMotion = false;
+  context.loadAdvisorAnimation();
+  context.loadAdvisorAnimation();
+  assert.equal(attempts, 1);
+  assert.equal(inserted.length, 0);
+  reject(new Error('Image unavailable'));
+  await Promise.resolve();
+  assert.equal(inserted.length, 0);
+  assert.equal(still.dataset.animation, sources);
+  context.loadAdvisorAnimation();
+  decode();
+  await Promise.resolve();
+  assert.equal(inserted.length, 1);
+  assert.equal(inserted[0].srcset, sources);
+});
+
 test('pending advice replaces left reference, animates dots and keeps the button disabled', () => {
   const nodes = new Map(); let tick, cleared = false;
   const node = selector => { if (!nodes.has(selector)) nodes.set(selector, { setAttribute() {}, dataset: {}, innerHTML: '', hidden: false }); return nodes.get(selector); };
@@ -142,19 +169,19 @@ test('pending advice replaces left reference, animates dots and keeps the button
   context.renderHint();
   assert.equal(node('#show-hint').disabled, true);
   assert.equal(node('#show-hint').textContent, 'Подсказать ход');
-  assert.match(node('#move-hint').innerHTML, /Думовую/);
-  assert.doesNotMatch(node('#move-hint').innerHTML, /<h2>/);
+  assert.match(node('#hint-message').innerHTML, /Думовую/);
+  assert.doesNotMatch(node('#hint-message').innerHTML, /<h2>/);
   tick(); assert.equal(node('#hint-thinking-dots').textContent, '..');
   tick(); assert.equal(node('#hint-thinking-dots').textContent, '...');
   tick(); assert.equal(node('#hint-thinking-dots').textContent, '.');
   context.hint = { title: 'Спасаем фигуру', reasons: ['Уходим из‑под атаки.'] }; context.renderHint();
-  assert.match(node('#move-hint').innerHTML, /^<div class="hint-bubble"><p>Уходим из‑под атаки/);
-  assert.doesNotMatch(node('#move-hint').innerHTML, /Думовую|<h2>Спасаем/);
+  assert.match(node('#hint-message').innerHTML, /^<div class="hint-bubble"><p>Уходим из‑под атаки/);
+  assert.doesNotMatch(node('#hint-message').innerHTML, /Думовую|<h2>Спасаем/);
   assert.equal(node('#show-hint').disabled, true); assert.equal(cleared, true);
   context.hint = { failed: true, title: 'Советник уснул — попробуй ещё раз', reasons: [] }; context.renderHint();
   assert.equal(node('#show-hint').disabled, false);
   assert.equal(node('#show-hint').textContent, 'Подсказать ход');
-  assert.match(node('#move-hint').innerHTML, /Советник уснул — попробуй ещё раз/);
+  assert.match(node('#hint-message').innerHTML, /Советник уснул — попробуй ещё раз/);
   context.canRequestHint = () => false; context.renderHint();
   assert.equal(node('#show-hint').disabled, true);
   context.canRequestHint = () => true;

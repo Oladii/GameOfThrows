@@ -90,9 +90,13 @@ export async function buildWebArt(root) {
     const file = './desktop-icons/' + name + '.png';
     return [file, await write(name, 'png', await fs.readFile(path.join(root, 'dist', file)))];
   })));
-  const logo = brands.logo.map((url, i) => url + ' ' + (i+1) + 'x').join(', ');
-  const backgrounds = Object.entries(brands).filter(([name]) => name !== 'logo')
-    .map(([name, urls]) => '--' + name + ':image-set(' + urls.map((url,i) => 'url("' + url + '") ' + (i+1) + 'x').join(',') + ')').join(';');
-  const teamFlags = { 'team-red': brands['team-red'][2], 'team-blue': brands['team-blue'][2] };
-  return { logo, logoVariants: brands.logo, logoFallback: brands.logo[0], backgrounds, resultFlags, teamFlags, tokenModule, tokenModuleUrl, favicon: tokens.bullseye };
+  const srcset = urls => urls.map((url, i) => url + ' ' + (i + 1) + 'x').join(', ');
+  const logo = srcset(brands.logo);
+  const teams = ['team-red', 'team-blue'];
+  const backgrounds = teams.map(name => '--' + name + ':image-set(' +
+    brands[name].map((url, i) => 'url("' + url + '") ' + (i + 1) + 'x').join(',') + ');').join('');
+  const teamFlags = Object.fromEntries(teams.map(name => [name, brands[name][2]]));
+  const advisorAnimation = srcset(brands.advisor);
+  const advisorStill = brands['advisor-still'][1];
+  return { logo, logoVariants: brands.logo, logoFallback: brands.logo[0], backgrounds, resultFlags, teamFlags, advisorAnimation, advisorStill, tokenModule, tokenModuleUrl, favicon: tokens.bullseye };
 }

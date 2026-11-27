@@ -44,6 +44,7 @@ if (!publicRoomEndpoint) throw new Error('Missing production room API endpoint')
 const brandTag = /(<img class="(?:brand-logo|startup-logo)") src="[^"]+"(?: srcset="[^"]+")?/g;
 const template = html.replace(/<style id="web-art">[^<]*<\/style>\n?/g, '')
   .replace(/ *<link id="startup-logo-preload"[^>]*>\n/g, '')
+  .replace(/<img id="advisor-portrait"[^>]*>/g, '')
   .replace(/<style id="(?:board-control|interface)-font">[^<]*<\/style>\n?/g, '')
   .replace(/<script type="importmap" id="web-token-art">[^<]*<\/script>\n?/g, '');
 const publicHtml = template.replace('<meta name="game-room-endpoint" content="">', `<meta name="game-room-endpoint" content="${publicRoomEndpoint}">`);
@@ -66,6 +67,11 @@ const faviconSource = './token-art/bullseye.svg';
 async function dataUrl(file, type) {
   return 'data:' + type + ';base64,' + (await fs.readFile(root + 'dist/' + file)).toString('base64');
 }
+const advisorStill = await dataUrl(graphics.advisorStill.slice(2), graphics.advisorStill.endsWith('.png') ? 'image/png' : 'image/webp');
+function withAdvisorPortrait(page, animation) {
+  const portrait = `<img id="advisor-portrait" class="hint-portrait" width="131" height="180" alt="" decoding="sync" src="${advisorStill}" data-animation="${animation}">`;
+  return page.replace('<div id="hint-message"></div>', () => portrait + '<div id="hint-message"></div>');
+}
 const controlIconPath = /\.\/(?:control|desktop)-icons\/[\w-]+\.svg/g;
 const iconUrls = new Map(await Promise.all([...new Set(css.match(controlIconPath))].map(async file => [file, await dataUrl(file.slice(2), 'image/svg+xml')])));
 const inlinedIconsCss = css.replace(controlIconPath, file => iconUrls.get(file));
@@ -85,18 +91,16 @@ for (const [name, file] of Object.entries(graphics.teamFlags)) {
   const asset = await dataUrl(file.slice(2), file.endsWith('.webp') ? 'image/webp' : 'image/png');
   offlineCss = offlineCss.replaceAll('./brand/' + name + '.png', asset);
 }
-for (const file of ['advisor.webp', 'advisor.png']) {
-  offlineCss = offlineCss.replaceAll('./brand/' + file, await dataUrl('brand/' + file, 'image/' + file.split('.')[1]));
-}
 const standalone = assemble(offlineHtml, offlineCss, tokenAssets);
+const offlineAdvisorAnimation = await dataUrl('brand/advisor.webp', 'image/webp');
 const rulesVersion = html.match(/id="version-number"[^>]*data-rules-version="(\d+\.\d+\.\d+)"/)?.[1];
 if (!rulesVersion) throw new Error('Missing rules version');
 const manifest = JSON.stringify({ version, rulesVersion }) + '\n';
 await Promise.all([
-  fs.writeFile(root + 'Lamps.html', withInterfaceFont(standalone)),
-  fs.writeFile(root + 'dist/index.html', withInterfaceFont(development)),
+  fs.writeFile(root + 'Lamps.html', withInterfaceFont(withAdvisorPortrait(standalone, offlineAdvisorAnimation))),
+  fs.writeFile(root + 'dist/index.html', withInterfaceFont(withAdvisorPortrait(development, graphics.advisorAnimation))),
   fs.writeFile(root + 'dist/version.json', manifest),
-  fs.writeFile(root + 'docs/index.html', withInterfaceFont(routePage(web, false))),
+  fs.writeFile(root + 'docs/index.html', withInterfaceFont(routePage(withAdvisorPortrait(web, graphics.advisorAnimation), false))),
   fs.writeFile(root + 'docs/mobile.html', await mobilePage(web)),
   fs.writeFile(root + 'docs/version.json', manifest),
   fs.writeFile(root + 'docs/.nojekyll', '')

@@ -79,7 +79,7 @@ export async function mobilePage(web, { preview = false } = {}) {
   change('<body>', '<body class="mobile-game">');
   const counter = '<span id="move-counter" class="move-counter" role="status" aria-live="polite" aria-atomic="true">Ход 1</span>';
   change(counter, `<button id="home-back" class="button" type="button" aria-label="На главный экран">${back}</button><div class="mobile-turn" role="status" aria-atomic="true"><strong id="team-name"></strong><span id="move-counter" class="move-counter"></span></div><span id="team-flag" aria-hidden="true"></span>`);
-  const hintPanel = '<div id="move-hint" class="move-hint" role="status" aria-label="Совет" aria-live="polite" hidden></div>';
+  const hintPanel = '<div id="move-hint" class="move-hint" role="status" aria-label="Совет" aria-live="polite" hidden><div id="hint-message"></div></div>';
   change('        ' + hintPanel + '\n', '');
   change('<div class="board-footer">', `<div class="mobile-context"><p id="aura-caption" aria-live="polite"></p>${hintPanel}</div><div class="board-footer"><button id="result-new-game" class="button primary" type="button" hidden>Новая игра</button><div id="move-actions" hidden><button id="cancel-move" class="button">Отмена</button><button id="commit" class="button">Сделать ход</button></div>`);
   for (const [id, icon] of Object.entries({'show-hint': hint, undo, 'review-previous': previous, 'review-current': next})) {

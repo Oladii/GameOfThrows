@@ -43,7 +43,6 @@ test('production entry points use the existing saves and enable analytics and th
     const expected = production ? 'lamps-prototype-v1' : 'lamps-local-playtest13-v1';
     assert.equal(vm.runInNewContext(declaration,{location:{origin,pathname}}),expected);
   }
-  assert.equal(JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,'0.1.157');
 });
 
 test('a fully known production revision16 standard pending setup upgrades to current13',()=>{

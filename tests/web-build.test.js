@@ -28,6 +28,24 @@ test('the downloadable game embeds its own graphics and controls', async () => {
   assert.doesNotMatch(html, /\.\/art\/|<script src="\/game-selects.js"|type="importmap"/);
 });
 
+test('desktop builds embed a still portrait independently of the advisor animation', async () => {
+  for (const file of ['dist/index.html', 'docs/index.html', 'Lamps.html']) {
+    const html = await read(file);
+    const [portrait] = html.match(/<img id="advisor-portrait"[^>]*>/g) ?? [];
+    assert.ok(portrait, file);
+    assert.equal(html.match(/<img id="advisor-portrait"/g).length, 1);
+    assert.match(portrait, /src="data:image\/(?:webp|png);base64,[A-Za-z0-9+/=]+"/);
+    const animation = portrait.match(/data-animation="([^"]+)"/)[1];
+    if (file === 'Lamps.html') assert.match(animation, /^data:image\/webp;base64,/);
+    else {
+      const sources = animation.split(', ').map(entry => entry.split(' '));
+      assert.deepEqual(sources.map(([, density]) => density), ['1x', '2x', '3x']);
+      for (const [asset] of sources) await access(new URL(asset, new URL(file, root)));
+    }
+  }
+  assert.doesNotMatch(await read('docs/mobile.html'), /<img id="advisor-portrait"/);
+});
+
 test('standalone match results embed the web-sized winning flags', async () => {
   const html = await read('Lamps.html');
   const web = await read('docs/index.html');
